@@ -1,0 +1,106 @@
+import { linkedListStructure } from '../../data-structures/linkedList';
+import type { Lesson } from '../../types/lesson';
+
+export const linkedList: Lesson = {
+  id: 'linked-list',
+  title: 'Linked List',
+  category: 'data-structures',
+  difficulty: 'beginner',
+  description: 'Nodes chained together by pointers, cheap to grow at the ends.',
+  keywords: ['node', 'pointer', 'head', 'tail', 'singly linked', 'next'],
+  prerequisites: ['array'],
+  overview:
+    'A linked list stores each value in its own node, and every node remembers where the next one is. Nothing has to sit side by side, so adding or removing a node only changes a pointer or two. The trade-off is that you can no longer jump to a position: you have to walk there from the head.',
+  concept: [
+    'Think of a treasure hunt. Each clue holds a prize (the value) and the location of the next clue (the pointer). You only know where the first clue is, the head. To reach the fifth clue you must follow the first four.',
+    'Because the clues can be anywhere, inserting a new one is easy: write its location on the clue before it, and write the old next location on the new clue. No other clue moves. An array would have to shift everything.',
+    'The last node points to null, meaning "nothing follows". Losing the head pointer, or overwriting a next pointer too early, loses the rest of the list.',
+  ],
+  howItWorks: [
+    'Traverse: start at head and follow next pointers one node at a time until you reach null.',
+    'Insert at head: create a node, point it at the current head, then move head to the new node.',
+    'Insert at tail: walk to the last node (the one whose next is null) and point it at the new node.',
+    'Search: walk from the head, comparing each value with the target.',
+    'Delete: find the node before the one to remove, and point it past the removed node.',
+  ],
+  visualization: { kind: 'structure', structure: linkedListStructure },
+  code: linkedListStructure.code,
+  complexity: {
+    rows: [
+      { label: 'Access by position', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
+      { label: 'Search', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
+      { label: 'Insert at head', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
+      { label: 'Insert at tail (no tail pointer)', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
+      { label: 'Delete (after finding the node)', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
+    ],
+    space: 'O(n)',
+    note: 'Changing the list is cheap once you are standing at the right node; getting to that node is the slow part. Each node also stores a pointer, so a linked list uses more memory than an array of the same values.',
+    curves: ['1', 'n'],
+  },
+  compareWith: ['array'],
+  prosCons: {
+    pros: ['O(1) insert and delete at the head', 'Grows and shrinks one node at a time, no copying', 'No shifting of other values'],
+    cons: ['No direct access by index', 'Extra memory for a pointer in every node', 'Slower to loop over than an array because nodes are scattered in memory'],
+    useWhen: ['You add and remove at the ends far more than you read by position', 'You are building a stack or queue', 'You already hold a reference to the node you want to change'],
+    avoidWhen: ['You need the item at position i quickly', 'You need binary search', 'Memory is tight'],
+  },
+  applications: [
+    'Undo history, where each state links to the previous one',
+    'Music playlists with next and previous track',
+    'Chaining entries that land in the same hash table bucket',
+    'Free-memory lists inside memory allocators',
+  ],
+  commonMistakes: [
+    'Changing head or a next pointer before saving what it pointed to, which loses the rest of the list.',
+    'Forgetting the empty-list case, where head is null.',
+    'Forgetting that deleting the head is a special case: there is no previous node to update.',
+    'Reading current.next.value without checking that current.next is not null.',
+  ],
+  quiz: [
+    {
+      id: 'q1',
+      type: 'complexity',
+      prompt: 'What is the time complexity of inserting a new node at the head of a linked list with n nodes?',
+      options: ['O(1)', 'O(log n)', 'O(n)', 'O(n log n)'],
+      answer: 0,
+      explanation: 'Only two pointers change: the new node points at the old head, and head points at the new node.',
+    },
+    {
+      id: 'q2',
+      type: 'predict-next',
+      prompt: 'You search this list for 30. Which nodes are visited, in order?',
+      view: linkedListStructure.view([10, 20, 30, 40]),
+      options: ['10, then 20, then 30', '30 only', '40, then 30', '20, then 30'],
+      answer: 0,
+      explanation: 'A linked list can only be entered at the head, so the search follows the pointers through 10 and 20 before reaching 30.',
+    },
+    {
+      id: 'q3',
+      type: 'code',
+      prompt: 'The list is 1 → 2 → 3 → null and head points at 1. What is the list after this code runs?',
+      code: `head.next = head.next.next;`,
+      options: ['1 → 3 → null', '2 → 3 → null', '1 → 2 → null', '1 → null'],
+      answer: 0,
+      explanation: 'Node 1 now points past node 2 directly to node 3. Nothing points at node 2 any more, so it is removed.',
+    },
+    {
+      id: 'q4',
+      type: 'multiple-choice',
+      prompt: 'Why can you not use binary search on a linked list efficiently?',
+      options: [
+        'Reaching the middle node already takes O(n) steps',
+        'Linked lists cannot hold sorted values',
+        'Nodes cannot be compared',
+        'Linked lists have no end',
+      ],
+      answer: 0,
+      explanation: 'Binary search depends on jumping to the middle in O(1). A linked list has to walk there.',
+    },
+  ],
+  summary: [
+    'A linked list is a chain of nodes; each node holds a value and a pointer to the next node.',
+    'There is no index: reaching a node means walking from the head, which is O(n).',
+    'Once at a node, inserting or deleting next to it is O(1) because only pointers change.',
+    'Always handle the empty list and the head node as special cases.',
+  ],
+};

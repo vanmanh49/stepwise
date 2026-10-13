@@ -1,0 +1,112 @@
+import { heapStructure } from '../../data-structures/heap';
+import type { Lesson } from '../../types/lesson';
+
+export const heap: Lesson = {
+  id: 'heap',
+  title: 'Heap',
+  category: 'data-structures',
+  difficulty: 'intermediate',
+  description: 'A tree packed into an array that always keeps the largest value on top.',
+  keywords: ['binary heap', 'max heap', 'min heap', 'priority queue', 'sift up', 'sift down', 'heapify'],
+  prerequisites: ['array', 'binary-search-tree'],
+  overview:
+    'A heap is a tree with a single, relaxed rule: every parent is at least as large as its children (a max-heap). That is enough to guarantee the largest value is always at the root, ready to be read instantly. The tree is stored in a plain array with no pointers at all.',
+  concept: [
+    'A heap does not keep everything sorted. It only promises that each parent beats its children. Siblings can be in any order. Doing less work than full sorting is exactly why a heap is fast.',
+    'The tree is always complete: every level is full except possibly the last, which fills from the left. A complete tree fits in an array with no gaps. For the item at index i, its children are at 2i + 1 and 2i + 2, and its parent is at (i − 1) / 2 rounded down.',
+    'The visualization shows both views at once. They are the same data: a swap in the tree is a swap of two array slots.',
+    'Flip the rule (every parent is at most as small as its children) and you get a min-heap, with the smallest value on top.',
+  ],
+  howItWorks: [
+    'Insert: put the new value in the next free array slot, the bottom of the tree.',
+    'Sift up: while the new value is larger than its parent, swap them. Stop when the parent is larger or the value reaches the root.',
+    'Extract max: the answer is the root. Move the last item into the root to fill the hole.',
+    'Sift down: while that item is smaller than a child, swap it with its larger child. Stop when it beats both children or becomes a leaf.',
+    'Peek: read index 0. Nothing moves.',
+  ],
+  visualization: { kind: 'structure', structure: heapStructure },
+  code: heapStructure.code,
+  complexity: {
+    rows: [
+      { label: 'Peek at max', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
+      { label: 'Insert', best: 'O(1)', average: 'O(1)', worst: 'O(log n)' },
+      { label: 'Extract max', best: 'O(1)', average: 'O(log n)', worst: 'O(log n)' },
+      { label: 'Build from n values', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
+      { label: 'Search for a value', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
+    ],
+    space: 'O(n)',
+    note: 'Sifting follows one path between root and leaf. A complete tree with n items has about log₂ n levels, so a heap of 1,000,000 items needs at most 20 swaps per operation.',
+    curves: ['1', 'log'],
+  },
+  compareWith: ['binary-search-tree'],
+  prosCons: {
+    pros: ['The largest (or smallest) value is available in O(1)', 'Insert and extract are O(log n), guaranteed', 'Stored in one array: compact and no pointers'],
+    cons: ['Finding an arbitrary value takes O(n)', 'Does not keep the data fully sorted', 'Only one end is fast: a max-heap cannot give the minimum quickly'],
+    useWhen: ['You repeatedly need the largest or smallest item', 'You are implementing a priority queue', 'You need the top k items of a large stream'],
+    avoidWhen: ['You need to search for arbitrary values', 'You need all values in sorted order at any time (use a BST)'],
+  },
+  applications: [
+    'Priority queues in schedulers: always run the most urgent task next',
+    "Dijkstra's shortest path and Prim's minimum spanning tree",
+    'Heap sort',
+    'Finding the top 10 results out of millions without sorting them all',
+  ],
+  commonMistakes: [
+    'Assuming a heap is sorted. Only the parent-child relation is guaranteed.',
+    'Sifting down by swapping with the smaller child in a max-heap. It must be the larger child, or the rule breaks on the other side.',
+    'Index arithmetic errors: children are at 2i + 1 and 2i + 2 with 0-based arrays.',
+    'Confusing the heap data structure with "the heap" memory area. They are unrelated.',
+  ],
+  quiz: [
+    {
+      id: 'q1',
+      type: 'predict-next',
+      prompt: 'You insert 45 into this max-heap. It is first placed at the end of the array (index 5, under 40). What happens next?',
+      view: heapStructure.view([50, 30, 40, 10, 20]),
+      options: [
+        '45 swaps with its parent 40, then stops below 50',
+        '45 stays where it is',
+        '45 swaps with 30',
+        '45 swaps all the way up to the root',
+      ],
+      answer: 0,
+      explanation: '45 > 40, so they swap. Then 45 < 50, so the heap rule holds and sifting up stops.',
+    },
+    {
+      id: 'q2',
+      type: 'code',
+      prompt: 'In a 0-indexed array heap, which expression gives the index of the parent of the item at index i?',
+      code: `const heap = [50, 30, 40, 10, 20];\n// parent of index 4 (value 20) is index 1 (value 30)`,
+      options: ['Math.floor((i - 1) / 2)', 'i / 2', '2 * i + 1', 'i - 1'],
+      answer: 0,
+      explanation: 'Children of index p are at 2p + 1 and 2p + 2, so reversing that gives floor((i − 1) / 2). For i = 4 that is 1.',
+    },
+    {
+      id: 'q3',
+      type: 'complexity',
+      prompt: 'What is the time complexity of reading (not removing) the maximum of a max-heap?',
+      options: ['O(1)', 'O(log n)', 'O(n)', 'O(n log n)'],
+      answer: 0,
+      explanation: 'The maximum is always at the root, index 0.',
+    },
+    {
+      id: 'q4',
+      type: 'multiple-choice',
+      prompt: 'Which statement about a max-heap is true?',
+      options: [
+        'Every parent is at least as large as its children',
+        'The array is sorted in descending order',
+        'The left child is always smaller than the right child',
+        'The smallest value is always the last item',
+      ],
+      answer: 0,
+      explanation: 'The heap rule only relates parents to children. Siblings and different branches are not ordered.',
+    },
+  ],
+  summary: [
+    'A max-heap keeps every parent at least as large as its children, so the maximum is always at the root.',
+    'It is a complete tree stored in an array: children of i are at 2i + 1 and 2i + 2.',
+    'Insert sifts up and extract sifts down, each along one path: O(log n).',
+    'A heap is the standard way to build a priority queue.',
+  ],
+};

@@ -1,0 +1,101 @@
+import { bubbleSortCode, bubbleSortSteps } from '../../algorithms/sorting/bubble';
+import type { Lesson } from '../../types/lesson';
+
+export const bubbleSort: Lesson = {
+  id: 'bubble-sort',
+  title: 'Bubble Sort',
+  category: 'algorithms',
+  difficulty: 'beginner',
+  group: 'Sorting',
+  description: 'Swap neighbours that are out of order until nothing is left to swap.',
+  keywords: ['sorting', 'swap', 'adjacent', 'pass', 'in-place', 'stable'],
+  prerequisites: ['array'],
+  overview:
+    'Bubble sort walks through the list comparing each pair of neighbours and swapping them if they are in the wrong order. After each full pass the largest remaining value has "bubbled" to the end. It is slow on large lists, but it is the clearest first look at how sorting works.',
+  concept: [
+    'The only move bubble sort knows is: look at two neighbours and swap them if the left one is larger. Repeating that simple move enough times sorts the whole list.',
+    'Watch one pass closely. The largest value gets picked up at some point and then wins every comparison after that, so it rides all the way to the last position. The next pass can therefore stop one position earlier.',
+    'If a full pass makes no swaps at all, every neighbouring pair is in order, which means the whole list is sorted and the algorithm can stop early.',
+  ],
+  howItWorks: [
+    'Start at the beginning of the list.',
+    'Compare the current value with the one to its right.',
+    'If the left value is larger, swap them.',
+    'Move one position right and repeat until the end of the unsorted part.',
+    'The last value of that part is now final. Shrink the unsorted part by one.',
+    'Repeat passes until a pass makes no swaps or only one value remains.',
+  ],
+  visualization: { kind: 'sort', initial: [5, 3, 8, 1, 9, 2], generate: bubbleSortSteps },
+  code: bubbleSortCode,
+  complexity: {
+    rows: [{ label: 'Bubble Sort', best: 'O(n)', average: 'O(n²)', worst: 'O(n²)' }],
+    space: 'O(1)',
+    note: 'Each pass makes up to n comparisons and there can be up to n passes, giving n × n. Sorting 10 times more items takes about 100 times longer. The best case, O(n), is an already sorted list: one pass with no swaps and the early exit fires.',
+    curves: ['n', 'n2'],
+  },
+  compareWith: ['selection-sort', 'insertion-sort', 'merge-sort', 'quick-sort'],
+  prosCons: {
+    pros: ['Very easy to understand and implement', 'Sorts in place with no extra memory', 'Stable: equal values keep their original order', 'Detects an already sorted list in one pass'],
+    cons: ['O(n²) comparisons and swaps make it impractical for large lists', 'Makes far more swaps than selection or insertion sort'],
+    useWhen: ['Learning how sorting works', 'The list is tiny or already nearly sorted'],
+    avoidWhen: ['The list has more than a few dozen items', 'Performance matters at all: use the built-in sort'],
+  },
+  applications: [
+    'Teaching the ideas of comparison, swap and pass',
+    'Tiny embedded systems where code size matters more than speed',
+    'Checking whether a list is already sorted (one pass, no swaps)',
+  ],
+  commonMistakes: [
+    'Letting the inner loop run to the last index, so arr[j + 1] reads past the end.',
+    'Forgetting to shrink the inner loop by i, which re-checks values already in their final place.',
+    'Leaving out the swapped flag and losing the O(n) best case.',
+    'Believing it is efficient because it is short. Short code is not fast code.',
+  ],
+  quiz: [
+    {
+      id: 'q1',
+      type: 'predict-next',
+      prompt: 'Bubble sort is comparing the two highlighted values. What happens next?',
+      view: bubbleSortSteps([5, 3, 8, 1])[1]!.view,
+      options: ['They swap, because 5 > 3', 'Nothing, they are already in order', '5 moves to the end immediately', '3 is compared with 8'],
+      answer: 0,
+      explanation: 'The left value (5) is larger than the right (3), so the pair is out of order and bubble sort swaps them.',
+    },
+    {
+      id: 'q2',
+      type: 'complexity',
+      prompt: 'What is the worst-case time complexity of bubble sort?',
+      options: ['O(n²)', 'O(n)', 'O(n log n)', 'O(log n)'],
+      answer: 0,
+      explanation: 'A reverse-sorted list needs about n passes of up to n comparisons each.',
+    },
+    {
+      id: 'q3',
+      type: 'multiple-choice',
+      prompt: 'After the first complete pass of bubble sort, what is guaranteed?',
+      options: [
+        'The largest value is in the last position',
+        'The smallest value is in the first position',
+        'The first half is sorted',
+        'The whole list is sorted',
+      ],
+      answer: 0,
+      explanation: 'The largest value wins every comparison once it is picked up, so it travels to the end.',
+    },
+    {
+      id: 'q4',
+      type: 'code',
+      prompt: 'With the early-exit flag, how many passes does bubble sort make over this array?',
+      code: `bubbleSort([1, 2, 3, 4, 5]);`,
+      options: ['1', '4', '5', '0'],
+      answer: 0,
+      explanation: 'The first pass makes no swaps, so swapped stays false and the loop breaks after a single pass.',
+    },
+  ],
+  summary: [
+    'Bubble sort repeatedly swaps neighbouring values that are out of order.',
+    'Each pass moves the largest remaining value to its final position.',
+    'It is O(n²) on average and in the worst case, and O(n) on sorted input with early exit.',
+    'It is stable and in place, but too slow for real workloads.',
+  ],
+};
