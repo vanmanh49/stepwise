@@ -43,8 +43,15 @@ Then open the URL that Vite prints (normally http://localhost:5173).
 | `npm run preview` | Serve the production build locally |
 | `npm test` | Run the unit tests once |
 | `npm run typecheck` | Type-check without building |
+| `npm run build:pages` | Build for GitHub Pages under `/stepwise/` |
 
 The app uses client-side routing. When deploying the `dist/` folder, configure the host to serve `index.html` for unknown paths.
+
+### Publishing to GitHub Pages
+
+The site is served from the `gh-pages` branch at https://vanmanh49.github.io/stepwise/.
+
+`npm run build:pages` builds with the `/stepwise/` base path and copies `index.html` to `404.html`, which is how GitHub Pages serves deep links such as `/stepwise/algorithms/bfs`. To publish a new version, run it and push the contents of `dist/` to the `gh-pages` branch. If the repository is renamed, change the base path in the `build:pages` script.
 
 ## Architecture
 
