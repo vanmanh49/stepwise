@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { curveForNotation } from '../components/bigo/complexities';
 import type { Lesson } from '../types/lesson';
 import type { Step } from '../types/visualization';
 import { curriculum, roadmap } from './curriculum';
@@ -133,6 +134,18 @@ describe('curriculum', () => {
       const topic = curriculum.find((t) => t.id === lesson.id);
       expect(topic, lesson.id).toBeDefined();
       expect(topic).toMatchObject({ title: lesson.title, category: lesson.category, difficulty: lesson.difficulty });
+    }
+  });
+
+  it('drops the topic that duplicated the Binary Search Tree lesson', () => {
+    expect(curriculum.some((t) => t.id === 'bst-operations')).toBe(false);
+    expect(getLesson('binary-search-tree')!.keywords).toContain('bst operations');
+  });
+
+  it('maps every algorithm to a Big O curve', () => {
+    for (const lesson of lessonsIn('algorithms')) {
+      const average = lesson.complexity.rows[0]!.average;
+      expect(curveForNotation(average), lesson.id + ' ' + average).toBeDefined();
     }
   });
 

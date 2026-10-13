@@ -84,8 +84,11 @@ const NOTATION: Record<string, string> = {
   'O(V + E)': 'n',
   'O(n log n)': 'nlogn',
   'O((V + E) log V)': 'nlogn',
+  'O(E log E)': 'nlogn',
+  'O(E log V)': 'nlogn',
   'O(n²)': 'n2',
   'O(V²)': 'n2',
+  'O(V × E)': 'n2',
   'O(2ⁿ)': '2n',
 };
 

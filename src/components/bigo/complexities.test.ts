@@ -30,6 +30,9 @@ describe('curveForNotation', () => {
     expect(curveForNotation('O(n²)')?.id).toBe('n2');
     expect(curveForNotation('O(V + E)')?.id).toBe('n');
     expect(curveForNotation('O(V²)')?.id).toBe('n2');
+    expect(curveForNotation('O(E log E)')?.id).toBe('nlogn');
+    expect(curveForNotation('O(E log V)')?.id).toBe('nlogn');
+    expect(curveForNotation('O(V × E)')?.id).toBe('n2');
     expect(curveForNotation('O(something else)')).toBeUndefined();
   });
 });
