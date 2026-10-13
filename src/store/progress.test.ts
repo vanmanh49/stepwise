@@ -23,6 +23,15 @@ describe('sanitizeProgress', () => {
   });
 });
 
+describe('quiz score validation', () => {
+  it('drops scores that cannot be compared', () => {
+    const result = sanitizeProgress({
+      quizScores: { a: { correct: 0, total: 0 }, b: { correct: 5, total: 4 }, c: { correct: -1, total: 4 }, d: { correct: 0, total: 4 } },
+    });
+    expect(result.quizScores).toEqual({ d: { correct: 0, total: 4 } });
+  });
+});
+
 describe('computeStreak', () => {
   it('is 0 with no activity', () => {
     expect(computeStreak([], '2026-10-13')).toBe(0);

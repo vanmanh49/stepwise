@@ -232,3 +232,36 @@ describe('adjacencySteps', () => {
     expect(steps.every((s) => s.codeLine! >= 1 && s.codeLine! <= lines)).toBe(true);
   });
 });
+
+describe('step explanations match what happens', () => {
+  it('does not talk about three values when a heap node has one child', () => {
+    const steps = run(heapStructure, 'extractMax', [9, 8, 7, 6, 5]).steps;
+    const oneChild = steps.filter((s) => s.title.includes('its child '));
+    expect(oneChild.length).toBeGreaterThan(0);
+    expect(oneChild.every((s) => !s.why.includes('three'))).toBe(true);
+  });
+
+  it('does not claim values move when deleting the last array item', () => {
+    const steps = run(arrayStructure, 'delete', [10, 20, 30], 2).steps;
+    expect(steps[0]!.why).not.toMatch(/must move/);
+  });
+
+  it('keeps head on null until the new node is linked into an empty list', () => {
+    const steps = run(linkedListStructure, 'insertHead', [], 5).steps;
+    const linking = steps[1]!.view;
+    if (linking.kind !== 'linked-list') throw new Error('expected a list view');
+    expect(linking.pointers).toEqual({ head: 1 });
+  });
+
+  it('reports a duplicate, not a full tree, when the value already exists', () => {
+    const full = [50, 25, 12, 6, 18, 37, 31, 43, 75, 62, 56, 87];
+    const result = run(bstStructure, 'insert', full, 43);
+    expect(result.steps.at(-1)!.title).toBe('43 is already in the tree');
+    expect(result.state).toEqual(full);
+  });
+
+  it('explains that a directed edge skips the reverse entry', () => {
+    const directed = { ...simpleGraph, directed: true };
+    expect(adjacencySteps(directed, 'A')[1]!.why).toMatch(/undirected/);
+  });
+});

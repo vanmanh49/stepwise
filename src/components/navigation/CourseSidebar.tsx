@@ -53,7 +53,7 @@ export function CourseSidebar({ category, activeId }: { category: Category; acti
                     <Link
                       to={lessonPath(lesson)}
                       aria-current={isActive ? 'page' : undefined}
-                      className={`flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm transition-colors ${
+                      className={`flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm transition-colors ${
                         isActive ? 'bg-accent-soft font-semibold text-accent' : 'hover:bg-surface-2'
                       }`}
                     >

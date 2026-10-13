@@ -137,15 +137,6 @@ export const bstStructure: StructureDef = {
       label: 'Insert',
       args: [{ name: 'value', label: 'Value', sample: 5 }],
       run(state, [value = 0]) {
-        if (state.length >= MAX_NODES) {
-          return refuse(
-            state,
-            view(state),
-            'The tree is full',
-            `This visualization holds at most ${MAX_NODES} nodes so the tree stays readable. Delete a node first.`,
-            1,
-          );
-        }
         const root = build(state);
         const steps: Step[] = [];
         const { found, path, last } = descend(root, value, { left: 3, right: 4 }, steps);
@@ -158,6 +149,15 @@ export const bstStructure: StructureDef = {
             view: treeView(root, { ...path, [value]: 'found' }),
           });
           return { steps, state };
+        }
+        if (state.length >= MAX_NODES) {
+          return refuse(
+            state,
+            view(state),
+            'The tree is full',
+            `This visualization holds at most ${MAX_NODES} nodes so the tree stays readable. Delete a node first.`,
+            1,
+          );
         }
         const next = insertNode(root, value);
         steps.push({

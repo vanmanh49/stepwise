@@ -87,7 +87,7 @@ function ContextPanel({ lesson, live }: { lesson: Lesson; live?: Live }) {
         <ul className="mt-2 space-y-0.5">
           {SECTIONS.map(([id, title]) => (
             <li key={id}>
-              <a href={`#${id}`} className="block rounded-md px-2 py-1 text-muted hover:bg-surface-2 hover:text-text">
+              <a href={`#${id}`} className="flex min-h-11 items-center rounded-md px-2 text-muted hover:bg-surface-2 hover:text-text">
                 {title}
               </a>
             </li>

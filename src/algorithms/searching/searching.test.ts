@@ -90,3 +90,10 @@ describe('prepareSearchInput', () => {
     expect(prepareSearchInput([5, 1, 3], false)).toEqual({ values: [5, 1, 3], wasSorted: false });
   });
 });
+
+describe('binary search explanation', () => {
+  it('states the real number of comparisons', () => {
+    expect(binarySearchSteps([7], 7).at(-1)!.why).toMatch(/^It took 1 comparison to search 1 value,/);
+    expect(binarySearchSteps([1, 3, 5, 7, 9, 11, 13], 13).at(-1)!.why).toMatch(/^It took 3 comparisons to search 7 values,/);
+  });
+});

@@ -44,6 +44,7 @@ export function binarySearchSteps(sorted: number[], target: number): Step[] {
 
   let low = 0;
   let high = n - 1;
+  let comparisons = 0;
   const steps: Step[] = [
     {
       title: `Look for ${target} in a sorted array`,
@@ -58,6 +59,7 @@ export function binarySearchSteps(sorted: number[], target: number): Step[] {
   while (low <= high) {
     const mid = Math.floor((low + high) / 2);
     const value = sorted[mid]!;
+    comparisons++;
     const variables = { target, low, mid, high, 'arr[mid]': value };
     steps.push({
       title: `Check the middle: is ${value} equal to ${target}?`,
@@ -81,7 +83,7 @@ export function binarySearchSteps(sorted: number[], target: number): Step[] {
     if (value === target) {
       steps.push({
         title: `Found ${target} at index ${mid}`,
-        why: `Each comparison halved the range, so ${n} values needed far fewer than ${n} checks.`,
+        why: `It took ${comparisons} comparison${comparisons === 1 ? '' : 's'} to search ${n} value${n === 1 ? '' : 's'}, because each one halved the range that was left.`,
         codeLine: 6,
         variables: { ...variables, result: mid },
         view: arrayView(cells, outside(low, high, { [mid]: 'found' }), [], { mid }),

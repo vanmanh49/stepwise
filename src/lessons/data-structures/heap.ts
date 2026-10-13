@@ -15,7 +15,7 @@ export const heap: Lesson = {
     'A heap does not keep everything sorted. It only promises that each parent beats its children. Siblings can be in any order. Doing less work than full sorting is exactly why a heap is fast.',
     'The tree is always complete: every level is full except possibly the last, which fills from the left. A complete tree fits in an array with no gaps. For the item at index i, its children are at 2i + 1 and 2i + 2, and its parent is at (i − 1) / 2 rounded down.',
     'The visualization shows both views at once. They are the same data: a swap in the tree is a swap of two array slots.',
-    'Flip the rule (every parent is at most as small as its children) and you get a min-heap, with the smallest value on top.',
+    'Flip the rule (every parent is no larger than its children) and you get a min-heap, with the smallest value on top.',
   ],
   howItWorks: [
     'Insert: put the new value in the next free array slot, the bottom of the tree.',

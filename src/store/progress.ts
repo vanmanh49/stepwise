@@ -31,8 +31,10 @@ export function sanitizeProgress(raw: unknown): ProgressData {
   const quizScores: ProgressData['quizScores'] = {};
   if (isRecord(raw.quizScores)) {
     for (const [id, score] of Object.entries(raw.quizScores)) {
-      if (isRecord(score) && typeof score.correct === 'number' && typeof score.total === 'number') {
-        quizScores[id] = { correct: score.correct, total: score.total };
+      const { correct, total } = isRecord(score) ? score : {};
+      // A zero total would make the best-score comparison divide by zero.
+      if (typeof correct === 'number' && typeof total === 'number' && total > 0 && correct >= 0 && correct <= total) {
+        quizScores[id] = { correct, total };
       }
     }
   }

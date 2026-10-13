@@ -80,7 +80,8 @@ export const linkedListStructure: StructureDef = {
           next: 'Move head to the new node.',
           codeLine: 6,
           variables: { value },
-          view: listView(cells, { 0: 'found' }, { head: state.length > 0 ? 1 : 0 }),
+          // head still points at the old first node, or at null for an empty list
+          view: listView(cells, { 0: 'found' }, { head: 1 }),
         });
         steps.push({
           title: `Move head to ${value}`,

@@ -170,7 +170,9 @@ export const heapStructure: StructureDef = {
             why:
               largest === i
                 ? `${current} is at least as large as ${kids.length === 1 ? 'its child' : 'both children'}, so the heap rule holds here.`
-                : `${val(cells, largest)} is the largest of the three, so it must become the parent.`,
+                : kids.length === 1
+                  ? `${val(cells, largest)} is larger than ${current}, so it must become the parent.`
+                  : `${val(cells, largest)} is the largest of the three, so it must become the parent.`,
             next: largest === i ? 'Stop here.' : `Swap ${current} with ${val(cells, largest)}.`,
             codeLine: largest === right ? 26 : 25,
             variables: { max, i, largest },

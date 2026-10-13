@@ -19,7 +19,7 @@ export function MiniPlayer({ steps, label }: { steps: Step[]; label: string }) {
           <span className="eyebrow">{label}</span>
           <button
             type="button"
-            className="btn btn-icon -my-1 min-h-9 w-9 border-transparent"
+            className="btn btn-icon -my-1.5 border-transparent"
             onClick={player.toggle}
             aria-label={player.playing ? 'Pause preview' : 'Play preview'}
           >
@@ -28,7 +28,7 @@ export function MiniPlayer({ steps, label }: { steps: Step[]; label: string }) {
         </div>
         <div className="overflow-x-auto bg-surface-2/40">
           <div className="mx-auto flex min-h-[11rem] w-max max-w-full items-center px-6 py-8">
-            <StepView view={step.view} />
+            <StepView key={player.runId} view={step.view} />
           </div>
         </div>
         <div className="min-h-[7.5rem] border-t border-border p-4">

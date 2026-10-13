@@ -27,6 +27,9 @@ interface VisualizerProps {
 /**
  * Plays any Step[]: stage, legend, transport controls, timeline, explanation
  * and synced code. It knows nothing about specific algorithms.
+ *
+ * The stage is keyed by run: element ids are only stable within one Step[], so
+ * a new run must not animate from the previous run's elements.
  */
 export function Visualizer({ steps, code, toolbar, notice, autoPlay, loop, onStep }: VisualizerProps) {
   const player = usePlayer(steps, { autoPlay, loop });
@@ -60,7 +63,7 @@ export function Visualizer({ steps, code, toolbar, notice, autoPlay, loop, onSte
 
         <div className="overflow-x-auto bg-surface-2/40">
           <div className="mx-auto flex min-h-[17rem] w-max max-w-full items-center px-6 py-10 sm:px-10">
-            {step ? <StepView view={step.view} /> : <p className="text-sm text-muted">Nothing to show yet.</p>}
+            {step ? <StepView key={player.runId} view={step.view} /> : <p className="text-sm text-muted">Nothing to show yet.</p>}
           </div>
         </div>
 

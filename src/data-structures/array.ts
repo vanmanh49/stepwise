@@ -150,7 +150,10 @@ export const arrayStructure: StructureDef = {
         const steps: Step[] = [
           {
             title: `Delete ${state[index]} at index ${index}`,
-            why: 'An array cannot have a hole in the middle, so every value after this one must move left.',
+            why:
+              moving > 0
+                ? 'An array cannot have a hole in the middle, so every value after this one must move left.'
+                : 'It is the last value, so nothing sits after it and nothing has to shift.',
             codeLine: 20,
             variables: { index },
             view: arrayView(cells, { [index]: 'swap' }, [], { index }),

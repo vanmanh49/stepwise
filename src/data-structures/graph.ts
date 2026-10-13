@@ -56,7 +56,7 @@ export function adjacencySteps(g: Graph, start: string): Step[] {
     steps.push({
       title: `Add edge ${name(edge.from)} ${g.directed ? '→' : '—'} ${name(edge.to)}${weight}`,
       why: g.directed
-        ? `This edge only goes one way, so ${name(edge.to)} is added to the list of ${name(edge.from)} but not the other way round.`
+        ? `This edge only goes one way, so only the highlighted line runs: ${name(edge.to)} joins the list of ${name(edge.from)}. The line after it is for undirected graphs.`
         : `The edge works in both directions, so each node is added to the other's list.`,
       codeLine: g.directed ? 9 : 10,
       variables: { from: name(edge.from), to: name(edge.to) },

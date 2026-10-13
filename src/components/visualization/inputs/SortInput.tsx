@@ -60,7 +60,7 @@ export function SortInput({ config, code, onStep }: { config: SortConfig; code: 
             <button type="button" className="btn" onClick={() => load(randomArray(8), true)}>
               <Shuffle size={16} aria-hidden /> Random
             </button>
-            <button type="button" className="btn" onClick={() => load(config.initial, false)}>
+            <button type="button" className="btn" onClick={() => load([...config.initial], false)}>
               <RotateCcw size={16} aria-hidden /> Reset
             </button>
           </div>

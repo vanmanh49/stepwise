@@ -36,7 +36,7 @@ export const bubbleSort: Lesson = {
   compareWith: ['selection-sort', 'insertion-sort', 'merge-sort', 'quick-sort'],
   prosCons: {
     pros: ['Very easy to understand and implement', 'Sorts in place with no extra memory', 'Stable: equal values keep their original order', 'Detects an already sorted list in one pass'],
-    cons: ['O(n²) comparisons and swaps make it impractical for large lists', 'Makes far more swaps than selection or insertion sort'],
+    cons: ['O(n²) comparisons and swaps make it impractical for large lists', 'Makes far more swaps than selection sort'],
     useWhen: ['Learning how sorting works', 'The list is tiny or already nearly sorted'],
     avoidWhen: ['The list has more than a few dozen items', 'Performance matters at all: use the built-in sort'],
   },

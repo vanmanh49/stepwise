@@ -41,7 +41,7 @@ export function Roadmap() {
                             {lesson ? (
                               <Link
                                 to={lessonPath(lesson)}
-                                className={`inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 text-sm transition-colors hover:border-accent hover:text-accent ${
+                                className={`inline-flex min-h-11 items-center gap-1 rounded-lg border px-3 text-sm transition-colors hover:border-accent hover:text-accent ${
                                   completed.includes(id) ? 'border-success/50' : 'border-border'
                                 } bg-surface`}
                               >

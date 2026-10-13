@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import type { Step } from '../types/visualization';
 import { initialPlayer, playerReducer, type PlayerState } from './player';
 
@@ -12,17 +12,30 @@ export interface Player extends PlayerState {
   restart(): void;
   seek(index: number): void;
   setSpeed(speed: number): void;
+  /** Changes whenever a new Step[] is loaded; use it to key per-run rendering. */
+  runId: number;
 }
 
 export function usePlayer(steps: Step[], options: { autoPlay?: boolean; loop?: boolean } = {}): Player {
   const { autoPlay = false, loop = false } = options;
   const [state, dispatch] = useReducer(playerReducer, steps.length, initialPlayer);
 
-  // New steps (new input or operation) always start from the beginning.
-  useEffect(() => {
+  // New steps (new input or operation) always start from the beginning. Resetting
+  // during render means no frame ever shows the new run at the old position.
+  const [loaded, setLoaded] = useState(steps);
+  const [runId, setRunId] = useState(0);
+  if (loaded !== steps) {
+    setLoaded(steps);
+    setRunId(runId + 1);
     dispatch({ type: 'load', total: steps.length });
     if (autoPlay) dispatch({ type: 'play' });
-  }, [steps, autoPlay]);
+  }
+
+  // Later runs are started by the reset above; this covers the first mount only.
+  const [autoPlayOnMount] = useState(autoPlay);
+  useEffect(() => {
+    if (autoPlayOnMount) dispatch({ type: 'play' });
+  }, [autoPlayOnMount]);
 
   useEffect(() => {
     if (!state.playing) return;
@@ -50,14 +63,11 @@ export function usePlayer(steps: Step[], options: { autoPlay?: boolean; loop?: b
     [],
   );
 
-  // Guard against the render between new steps arriving and the load effect running.
-  const index = Math.min(state.index, Math.max(0, steps.length - 1));
   return {
     ...state,
     ...actions,
-    index,
-    total: steps.length,
-    step: steps[index],
+    runId,
+    step: steps[state.index],
     toggle: state.playing ? actions.pause : actions.play,
   };
 }
