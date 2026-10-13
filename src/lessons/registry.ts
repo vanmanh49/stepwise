@@ -7,9 +7,11 @@ import { dfs } from './algorithms/dfs';
 import { dijkstra } from './algorithms/dijkstra';
 import { heapSort } from './algorithms/heap-sort';
 import { insertionSort } from './algorithms/insertion-sort';
+import { kruskal } from './algorithms/kruskal';
 import { linearSearch } from './algorithms/linear-search';
 import { mergeSort } from './algorithms/merge-sort';
 import { prefixSum } from './algorithms/prefix-sum';
+import { prim } from './algorithms/prim';
 import { quickSort } from './algorithms/quick-sort';
 import { selectionSort } from './algorithms/selection-sort';
 import { slidingWindow } from './algorithms/sliding-window';
@@ -56,6 +58,8 @@ export const lessons: Lesson[] = [
   treeTraversal,
   dijkstra,
   bellmanFord,
+  kruskal,
+  prim,
 ];
 
 const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));

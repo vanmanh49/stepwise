@@ -32,6 +32,8 @@ const EXPECTED_IDS = [
   'tree-traversal',
   'dijkstra',
   'bellman-ford',
+  'kruskal',
+  'prim',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -58,7 +60,7 @@ describe('lesson registry', () => {
   it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
-    expect(lessonsIn('algorithms')).toHaveLength(17);
+    expect(lessonsIn('algorithms')).toHaveLength(19);
   });
 
   it('links previous and next lessons within a category', () => {
@@ -66,7 +68,7 @@ describe('lesson registry', () => {
     expect(adjacentLessons('array').next?.id).toBe('string');
     expect(adjacentLessons('graph').next).toBeUndefined();
     expect(adjacentLessons('linear-search').prev).toBeUndefined();
-    expect(adjacentLessons('bellman-ford').next).toBeUndefined();
+    expect(adjacentLessons('prim').next).toBeUndefined();
     expect(adjacentLessons('unknown')).toEqual({});
   });
 
