@@ -1,0 +1,106 @@
+import { insertionSortCode, insertionSortSteps } from '../../algorithms/sorting/insertion';
+import type { Lesson } from '../../types/lesson';
+
+export const insertionSort: Lesson = {
+  id: 'insertion-sort',
+  title: 'Insertion Sort',
+  category: 'algorithms',
+  difficulty: 'beginner',
+  group: 'Sorting',
+  description: 'Take one value at a time and slide it into place among the values already sorted.',
+  keywords: ['sorting', 'key', 'shift', 'in-place', 'stable', 'adaptive', 'nearly sorted'],
+  prerequisites: ['array', 'bubble-sort'],
+  overview:
+    'Insertion sort builds the sorted list one value at a time. It takes the next unsorted value, called the key, and shifts larger sorted values to the right until the key drops into its correct position. On data that is already nearly sorted it is very fast.',
+  concept: [
+    'This is how most people sort playing cards. You hold a sorted hand, pick up one new card, and slide it left past every card that is larger until it fits.',
+    'The left part of the array is always sorted, but not final: later keys may still be inserted between its values. That is different from bubble and selection sort, where finished values never move again.',
+    'The amount of work depends on how far each key has to travel. If the list is nearly sorted, each key moves only a step or two and the whole sort is close to O(n).',
+  ],
+  howItWorks: [
+    'Treat the first value as a sorted section of length one.',
+    'Take the next value as the key.',
+    'Compare the key with the value on its left.',
+    'If that value is larger, shift it one position right and compare with the next one left.',
+    'When a value that is not larger is found, or the start is reached, drop the key into the gap.',
+    'Repeat for every remaining value.',
+  ],
+  visualization: { kind: 'sort', initial: [12, 31, 25, 8, 32, 17], generate: insertionSortSteps },
+  code: insertionSortCode,
+  complexity: {
+    rows: [{ label: 'Insertion Sort', best: 'O(n)', average: 'O(n²)', worst: 'O(n²)' }],
+    space: 'O(1)',
+    note: 'Sorted input is the best case: each key is compared once and stays put, so n − 1 comparisons in total. Reverse-sorted input is the worst case: every key travels all the way to the front, about n²/2 shifts.',
+    curves: ['n', 'n2'],
+  },
+  compareWith: ['bubble-sort', 'selection-sort', 'merge-sort', 'quick-sort'],
+  prosCons: {
+    pros: ['Very fast on small or nearly sorted lists', 'Stable and in place', 'Can sort data as it arrives, one value at a time', 'Fewer writes than bubble sort'],
+    cons: ['O(n²) on large, randomly ordered lists', 'Each insert may shift many values'],
+    useWhen: ['The list is small (roughly under 20–50 items)', 'The list is nearly sorted', 'Values arrive one at a time and must be kept sorted'],
+    avoidWhen: ['The list is large and in random or reverse order'],
+  },
+  applications: [
+    'The small-list step inside production sorts such as Timsort and introsort',
+    'Keeping a short list sorted as new items arrive',
+    'Finishing off data that is already almost in order',
+  ],
+  commonMistakes: [
+    'Overwriting the key while shifting, because it was not saved in a variable first.',
+    'Using >= instead of > in the comparison, which makes the sort unstable.',
+    'Checking arr[j] > key before j >= 0, which reads index −1.',
+    'Writing the key to arr[j] instead of arr[j + 1] after the loop.',
+  ],
+  quiz: [
+    {
+      id: 'q1',
+      type: 'predict-next',
+      prompt: 'The key is 25 and it is being compared with 31 on its left. What happens next?',
+      view: insertionSortSteps([12, 31, 25, 8])[5]!.view,
+      options: [
+        '31 shifts one position right, making room for the key',
+        'The key stays where it is',
+        '12 shifts one position right',
+        'The key jumps to the front',
+      ],
+      answer: 0,
+      explanation: '31 > 25, so 31 must end up to the right of the key. It shifts right and the key then compares with 12.',
+    },
+    {
+      id: 'q2',
+      type: 'complexity',
+      prompt: 'What is the time complexity of insertion sort on an already sorted list?',
+      options: ['O(n)', 'O(n²)', 'O(n log n)', 'O(1)'],
+      answer: 0,
+      explanation: 'Each key is compared once with its left neighbour, found to be in place, and nothing shifts.',
+    },
+    {
+      id: 'q3',
+      type: 'multiple-choice',
+      prompt: 'Why do production sorting libraries switch to insertion sort for very small sublists?',
+      options: [
+        'It has very little overhead and is fast when few items are involved',
+        'It has the best worst-case complexity',
+        'It uses the most memory',
+        'It is the only stable sort',
+      ],
+      answer: 0,
+      explanation: 'For a handful of items, simple loops with no recursion or extra memory beat the asymptotically faster algorithms.',
+    },
+    {
+      id: 'q4',
+      type: 'code',
+      prompt: 'What is the array after the key 2 (index 2) has been inserted?',
+      code: `insertionSort([5, 8, 2, 9]);`,
+      options: ['[2, 5, 8, 9]', '[5, 2, 8, 9]', '[2, 8, 5, 9]', '[5, 8, 2, 9]'],
+      answer: 0,
+      explanation: '8 and 5 are both larger than 2, so both shift right and 2 lands at index 0.',
+    },
+  ],
+  summary: [
+    'Insertion sort inserts each value into its place within a sorted section on the left.',
+    'It is O(n) on sorted or nearly sorted input and O(n²) on random or reversed input.',
+    'It is stable, in place and can sort values as they arrive.',
+    'Real-world sorts use it for small sublists.',
+  ],
+};

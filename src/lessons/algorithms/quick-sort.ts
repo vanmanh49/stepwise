@@ -1,0 +1,107 @@
+import { quickSortCode, quickSortSteps } from '../../algorithms/sorting/quick';
+import type { Lesson } from '../../types/lesson';
+
+export const quickSort: Lesson = {
+  id: 'quick-sort',
+  title: 'Quick Sort',
+  category: 'algorithms',
+  difficulty: 'intermediate',
+  group: 'Sorting',
+  description: 'Pick a pivot, put smaller values on its left and larger on its right, then repeat on each side.',
+  keywords: ['sorting', 'pivot', 'partition', 'divide and conquer', 'recursion', 'in-place', 'lomuto'],
+  prerequisites: ['insertion-sort', 'merge-sort'],
+  overview:
+    'Quick sort chooses one value as the pivot and rearranges the list so that everything smaller is on its left and everything larger is on its right. The pivot is then in its final position, and the same process is applied to each side. It is usually the fastest general-purpose sort in practice.',
+  concept: [
+    'The key step is called partitioning. After one partition the pivot sits exactly where it belongs in the sorted list, even though neither side is sorted yet.',
+    'Merge sort does its work while combining. Quick sort does its work while splitting: once both sides have been partitioned down to single values, there is nothing left to combine.',
+    'How well it performs depends on the pivot. A pivot near the middle value splits the list evenly, giving O(n log n). A pivot that is always the smallest or largest value splits off only one item at a time, giving O(n²).',
+    'This lesson uses the last value as the pivot (the Lomuto scheme) because it is the easiest to follow. Real implementations pick a random or median-of-three pivot to avoid the bad case.',
+  ],
+  howItWorks: [
+    'Choose the last value of the section as the pivot.',
+    'Keep a boundary index i at the start of the section: everything left of i is smaller than the pivot.',
+    'Scan the section with j. When the value at j is smaller than the pivot, swap it to position i and move i one step right.',
+    'After the scan, swap the pivot into position i. It is now in its final place.',
+    'Repeat the whole process on the section left of the pivot and the section right of it.',
+    'A section with zero or one value needs no work.',
+  ],
+  visualization: { kind: 'sort', initial: [7, 2, 9, 4, 1, 8, 5], generate: quickSortSteps },
+  code: quickSortCode,
+  complexity: {
+    rows: [{ label: 'Quick Sort', best: 'O(n log n)', average: 'O(n log n)', worst: 'O(n²)' }],
+    space: 'O(log n)',
+    note: 'Even splits give log n levels of n work each. The worst case appears when every pivot is the smallest or largest value, for example last-value pivots on already sorted input. The O(log n) space is the recursion stack; it grows to O(n) in that worst case.',
+    curves: ['nlogn', 'n2'],
+  },
+  compareWith: ['merge-sort', 'insertion-sort', 'bubble-sort'],
+  prosCons: {
+    pros: ['Very fast in practice on arrays', 'Sorts in place: no buffer needed', 'Good use of CPU cache because it works on neighbouring values'],
+    cons: ['O(n²) worst case with poor pivot choices', 'Not stable', 'Recursive, so deep recursion is possible on bad input'],
+    useWhen: ['You are sorting arrays in memory and average speed matters most', 'Extra memory is limited'],
+    avoidWhen: ['You need a guaranteed worst case (use merge sort or heap sort)', 'Equal values must keep their order'],
+  },
+  applications: [
+    'The default sort for primitive values in many standard libraries (often as introsort or dual-pivot quick sort)',
+    'Quickselect: finding the k-th smallest value without fully sorting',
+    'General in-memory sorting where stability is not needed',
+  ],
+  commonMistakes: [
+    'Always picking the first or last value as pivot in production code, which is O(n²) on sorted input.',
+    'Including the pivot position in a recursive call, which never shrinks the problem and recurses forever.',
+    'Forgetting the base case lo < hi.',
+    'Assuming it is stable.',
+  ],
+  quiz: [
+    {
+      id: 'q1',
+      type: 'predict-next',
+      prompt: 'The pivot is 5. The scan is comparing 7 with the pivot. What happens next?',
+      view: quickSortSteps([7, 2, 9, 4, 1, 8, 5])[2]!.view,
+      options: [
+        'Nothing moves: 7 is not smaller than the pivot, so the scan moves on',
+        '7 swaps with the pivot',
+        '7 moves to the boundary i and i advances',
+        'The pivot changes to 7',
+      ],
+      answer: 0,
+      explanation: 'Only values smaller than the pivot are swapped to the boundary. 7 ≥ 5, so it stays on the right side.',
+    },
+    {
+      id: 'q2',
+      type: 'complexity',
+      prompt: 'What is the worst-case time complexity of quick sort?',
+      options: ['O(n²)', 'O(n log n)', 'O(n)', 'O(log n)'],
+      answer: 0,
+      explanation: 'If each pivot is the smallest or largest value, each partition removes only one item, giving n levels of up to n work.',
+    },
+    {
+      id: 'q3',
+      type: 'multiple-choice',
+      prompt: 'After a single partition step, what is guaranteed?',
+      options: [
+        'The pivot is in its final sorted position',
+        'The left side is sorted',
+        'The whole array is sorted',
+        'The smallest value is first',
+      ],
+      answer: 0,
+      explanation: 'Everything left of the pivot is smaller and everything right is greater or equal, but the two sides are not yet sorted.',
+    },
+    {
+      id: 'q4',
+      type: 'code',
+      prompt: 'With the last value as pivot, what index does partition return for this call?',
+      code: `partition([3, 8, 1, 6, 4], 0, 4); // pivot = 4`,
+      options: ['2', '4', '1', '3'],
+      answer: 0,
+      explanation: 'Two values (3 and 1) are smaller than 4, so the pivot lands at index 2: [3, 1, 4, 6, 8].',
+    },
+  ],
+  summary: [
+    'Quick sort partitions around a pivot: smaller values left, larger values right.',
+    'After each partition the pivot is in its final position.',
+    'It averages O(n log n) and sorts in place, but poor pivots cause O(n²).',
+    'It is not stable; random or median-of-three pivots avoid the worst case.',
+  ],
+};

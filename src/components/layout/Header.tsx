@@ -61,7 +61,7 @@ export function Header({ onSearch }: { onSearch(): void }) {
           </button>
         </div>
       </div>
-      <nav aria-label="Sections" className="flex gap-1 overflow-x-auto border-t border-border px-3 md:hidden">
+      <nav aria-label="Sections" className="flex gap-1 overflow-x-auto border-t border-border px-3 [scrollbar-width:none] md:hidden">
         {links.map((l) => (
           <NavLink
             key={l.to}
