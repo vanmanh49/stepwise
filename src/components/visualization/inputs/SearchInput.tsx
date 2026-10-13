@@ -16,7 +16,7 @@ export function SearchInput({ config, code, onStep }: { config: SearchConfig; co
   const [run, setRun] = useState({ values: config.initial, target: config.target, wasSorted: false });
   const [text, setText] = useState(config.initial.join(', '));
   const [targetText, setTargetText] = useState(String(config.target));
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<{ field: 'data' | 'target'; message: string }>();
   const [ran, setRan] = useState(false);
   const steps = useMemo(() => config.generate(run.values, run.target), [config, run]);
 
@@ -32,10 +32,12 @@ export function SearchInput({ config, code, onStep }: { config: SearchConfig; co
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const list = parseNumberList(text, LIMITS);
-    if (!list.ok) return setError(list.error);
-    const target = parseNumberList(targetText, { min: 1, max: 1 });
-    if (!target.ok) return setError(`Enter one whole number for ${targetLabel.toLowerCase()}.`);
-    load(list.values, target.values[0]!, true);
+    if (!list.ok) return setError({ field: 'data', message: list.error });
+    // The second value may exceed the per-item range: a target sum of two items can reach 1998.
+    if (!/^-?\d{1,4}$/.test(targetText.trim())) {
+      return setError({ field: 'target', message: `Enter one whole number for ${targetLabel.toLowerCase()}.` });
+    }
+    load(list.values, Number(targetText), true);
   };
 
   const random = () => {
@@ -70,7 +72,8 @@ export function SearchInput({ config, code, onStep }: { config: SearchConfig; co
                 onChange={(e) => setText(e.target.value)}
                 inputMode="numeric"
                 autoComplete="off"
-                aria-invalid={error !== undefined}
+                aria-invalid={error?.field === 'data'}
+                aria-describedby={`${id}-help`}
               />
             </div>
             <div className="flex w-28 flex-col gap-2">
@@ -84,6 +87,8 @@ export function SearchInput({ config, code, onStep }: { config: SearchConfig; co
                 onChange={(e) => setTargetText(e.target.value)}
                 inputMode="numeric"
                 autoComplete="off"
+                aria-invalid={error?.field === 'target'}
+                aria-describedby={`${id}-help`}
               />
             </div>
             <button type="submit" className="btn btn-primary">
@@ -97,11 +102,11 @@ export function SearchInput({ config, code, onStep }: { config: SearchConfig; co
             </button>
           </div>
           {error ? (
-            <p role="alert" className="text-sm font-medium text-danger">
-              {error}
+            <p id={`${id}-help`} role="alert" className="text-sm font-medium text-danger">
+              {error.message}
             </p>
           ) : (
-            <p className="text-sm text-muted">
+            <p id={`${id}-help`} className="text-sm text-muted">
               {config.targetHelp ?? `${LIMITS.min}–${LIMITS.max} whole numbers, separated by commas, and one target to look for.`}
             </p>
           )}

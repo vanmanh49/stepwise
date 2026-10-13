@@ -2,6 +2,7 @@ import type { Role, Step } from '../../types/visualization';
 import { arrayView, toCells } from '../sorting/cells';
 
 export const slidingWindowCode = `function maxWindowSum(arr: number[], k: number): number {
+  if (k < 1 || k > arr.length) return NaN; // no window of that size fits
   let sum = 0;
   for (let i = 0; i < k; i++) sum += arr[i]; // first window
   let best = sum;
@@ -13,6 +14,8 @@ export const slidingWindowCode = `function maxWindowSum(arr: number[], k: number
 }`;
 
 const validSize = (n: number, k: number) => Number.isInteger(k) && k >= 1 && k <= n;
+// Negative values are bracketed so the arithmetic in an explanation stays readable.
+const fmt = (value: number) => (value < 0 ? `(${value})` : String(value));
 
 /** Largest sum of k neighbouring values and where that window starts; null when k is not in 1..n. */
 export function maxWindowSum(arr: number[], k: number): { sum: number; start: number } | null {
@@ -38,7 +41,7 @@ export function slidingWindowSteps(arr: number[], k: number): Step[] {
           n === 0
             ? 'The list is empty, so there is nothing to slide over.'
             : `The window size must be a whole number from 1 to ${n}, the length of the list.`,
-        codeLine: 1,
+        codeLine: 2,
         view: arrayView(cells),
       },
     ];
@@ -52,10 +55,13 @@ export function slidingWindowSteps(arr: number[], k: number): Step[] {
 
   const steps: Step[] = [
     {
-      title: `Find the ${k} neighbouring values with the largest sum`,
-      why: `Adding up every possible window from scratch repeats work: neighbouring windows share ${k - 1} of their ${k} values. A sliding window reuses the previous sum.`,
+      title: k === 1 ? 'Find the largest window of one value' : `Find the ${k} neighbouring values with the largest sum`,
+      why:
+        k === 1
+          ? 'A window of one value shares nothing with its neighbour, so this is simply a scan for the largest value. Wider windows are where the technique saves work.'
+          : `Adding up every possible window from scratch repeats work: neighbouring windows share ${k - 1} of their ${k} values. A sliding window reuses the previous sum.`,
       next: 'Add up the first window.',
-      codeLine: 2,
+      codeLine: 3,
       variables: { k, sum: 0 },
       view: arrayView(cells),
     },
@@ -67,9 +73,9 @@ export function slidingWindowSteps(arr: number[], k: number): Step[] {
     const roles: Record<number, Role> = {};
     for (let j = 0; j < i; j++) roles[j] = 'active';
     steps.push({
-      title: `Add ${arr[i]} to the first window`,
+      title: `Add ${fmt(arr[i]!)} to the first window`,
       why: 'The first window has no previous sum to reuse, so it is the only one added up value by value.',
-      codeLine: 3,
+      codeLine: 4,
       variables: { k, sum },
       view: arrayView(cells, { ...roles, [i]: 'compare' }, [], { i }),
     });
@@ -84,11 +90,11 @@ export function slidingWindowSteps(arr: number[], k: number): Step[] {
     const improved = sum > best.sum;
     if (improved) best = { sum, start: i - k + 1 };
     steps.push({
-      title: `Slide right: add ${entering}, drop ${leaving}`,
-      why: `${before} + ${entering} − ${leaving} = ${sum}. Two operations update the sum, however wide the window is. ${
-        improved ? `${sum} beats the best so far, so remember this window.` : `${sum} does not beat the best so far (${best.sum}).`
+      title: `Slide right: add ${fmt(entering)}, drop ${fmt(leaving)}`,
+      why: `${fmt(before)} + ${fmt(entering)} − ${fmt(leaving)} = ${fmt(sum)}. Two operations update the sum, however wide the window is. ${
+        improved ? `${fmt(sum)} beats the best so far, so remember this window.` : `${fmt(sum)} does not beat the best so far (${fmt(best.sum)}).`
       }`,
-      codeLine: improved ? 7 : 6,
+      codeLine: improved ? 8 : 7,
       variables: { k, sum, best: best.sum },
       view: arrayView(cells, window(i - k + 1, { [i]: 'compare', [i - k]: 'discarded' }), [], { i }),
     });
@@ -99,7 +105,7 @@ export function slidingWindowSteps(arr: number[], k: number): Step[] {
   steps.push({
     title: `The largest window sum is ${best.sum}`,
     why: `The window starting at index ${best.start} wins. Each value entered the window once and left once, so the whole search is O(n).`,
-    codeLine: 9,
+    codeLine: 10,
     variables: { k, best: best.sum, start: best.start },
     view: arrayView(cells, found),
   });

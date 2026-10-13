@@ -56,7 +56,7 @@ export function twoPointersSteps(sorted: number[], target: number): Step[] {
     if (sum === target) {
       steps.push({
         title: `${a} + ${b} = ${sum}: found the pair`,
-        why: `The sum equals the target after only ${steps.length} check${steps.length === 1 ? '' : 's'}. Checking every possible pair would have needed far more.`,
+        why: `The sum equals the target after ${steps.length} check${steps.length === 1 ? '' : 's'}.${n > 3 ? ' Checking every possible pair would have needed far more.' : ''}`,
         codeLine: 6,
         variables,
         view: arrayView(cells, outside(left, right, { [left]: 'found', [right]: 'found' }), [], { left, right }),

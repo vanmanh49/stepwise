@@ -92,3 +92,11 @@ describe('primSteps', () => {
     expect(primSteps(weightedGraph, 'nope')).toHaveLength(1);
   });
 });
+
+describe('primSteps wording', () => {
+  it('uses the singular when one edge leaves the tree', () => {
+    const titles = primSteps(islandGraph, 'D').map((s) => s.title);
+    expect(titles.some((t) => t.startsWith('1 edge leaves the tree'))).toBe(true);
+    expect(titles.some((t) => /^1 edge leave /.test(t))).toBe(false);
+  });
+});

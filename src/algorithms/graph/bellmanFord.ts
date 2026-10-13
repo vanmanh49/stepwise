@@ -93,7 +93,9 @@ export function bellmanFordSteps(g: Graph, start: string): Step[] {
     {
       title: `Set the distance to ${name(start)} to 0`,
       why: 'Every other node starts at ∞, meaning "no path found yet". Bellman-Ford then improves these estimates by checking every edge, over and over.',
-      next: `Run up to ${maxPasses} pass${maxPasses === 1 ? '' : 'es'} over all ${edges.length} edges.`,
+      next: g.directed
+        ? `Run up to ${maxPasses} pass${maxPasses === 1 ? '' : 'es'} over all ${edges.length} edges.`
+        : `Run up to ${maxPasses} pass${maxPasses === 1 ? '' : 'es'} over the ${g.edges.length} edges, each in both directions.`,
       codeLine: 4,
       view: view(),
     },
@@ -159,7 +161,7 @@ export function bellmanFordSteps(g: Graph, start: string): Step[] {
     title: 'All shortest distances are known',
     why:
       (settled
-        ? 'No edge can improve anything, so there is no need for the extra check.'
+        ? 'A whole pass changed nothing, so the final check over every edge also finds nothing to improve: there is no negative cycle.'
         : 'One more check over every edge found nothing to improve, so there is no negative cycle.') +
       (unreached.length > 0 ? ` ${unreached.join(', ')} cannot be reached from ${name(start)}.` : ''),
     codeLine: 20,

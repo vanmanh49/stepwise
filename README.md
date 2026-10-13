@@ -117,7 +117,7 @@ A lesson needs a generator and a data file.
    | `sort` | algorithms over a number list | data field, Random, Reset |
    | `search` | list plus target | data and target fields; sorts the input when `needsSorted` is true |
    | `structure` | data structures | one button per operation; contents persist between operations |
-| `text` | structures holding text | a text field plus one button per operation |
+   | `text` | structures holding text | a text field plus one button per operation |
    | `graph` | graph algorithms | example-graph and start-node pickers |
 
 3. Register it in `src/lessons/registry.ts` by adding it to the `lessons` array, in learning order.

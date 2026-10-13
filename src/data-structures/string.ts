@@ -96,7 +96,7 @@ export const stringStructure: TextDef = {
       arg: { label: 'Text to add', sample: 'S' },
       run(text, arg) {
         const parsed = parseText(arg);
-        if (!parsed.ok) return refuse(text, 'Nothing to add', parsed.error, 9);
+        if (!parsed.ok) return refuse(text, arg.length === 0 ? 'Nothing to add' : 'Cannot add that text', parsed.error, 9);
         if (text.length + arg.length > MAX_TEXT_LENGTH) {
           return refuse(
             text,
@@ -182,7 +182,9 @@ export const stringStructure: TextDef = {
         steps.push({
           title: `The reversed string is "${result}"`,
           why:
-            text.length % 2 === 1 && text.length > 1
+            text.length === 1
+              ? 'A single character is its own reverse. Both pointers start on the same position, so nothing is swapped.'
+              : text.length % 2 === 1
               ? 'The pointers met on the middle character, which stays where it is. Only half as many swaps as characters were needed.'
               : 'The pointers crossed, so every character has been moved. Only half as many swaps as characters were needed.',
           codeLine: 22,

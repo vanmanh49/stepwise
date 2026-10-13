@@ -151,3 +151,14 @@ describe('bellmanFordSteps', () => {
     expect(bellmanFordSteps(negativeGraph, 'nope')).toHaveLength(1);
   });
 });
+
+describe('bellmanFordSteps wording', () => {
+  it('does not claim the final check is skipped after an early exit', () => {
+    expect(bellmanFordSteps(weightedGraph, 'A').at(-1)!.why).not.toMatch(/no need for the extra check/);
+  });
+
+  it('counts edges the way the graph shows them', () => {
+    expect(bellmanFordSteps(weightedGraph, 'A')[0]!.next).toMatch(/9 edges, each in both directions/);
+    expect(bellmanFordSteps(negativeGraph, 'A')[0]!.next).toMatch(/all 6 edges/);
+  });
+});

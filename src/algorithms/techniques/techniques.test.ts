@@ -117,3 +117,29 @@ describe('prefix sums', () => {
     expectExplained(steps, prefixSumCode);
   });
 });
+
+describe('wording for edge cases', () => {
+  it('does not overstate the saving when only one pair exists', () => {
+    expect(twoPointersSteps([3, 3], 6).at(-1)!.why).not.toMatch(/far more/);
+    expect(twoPointersSteps([1, 3, 4, 6, 8, 11], 14).at(-1)!.why).toMatch(/far more/);
+  });
+
+  it('describes a window of one value without nonsense', () => {
+    const first = slidingWindowSteps([4, 2, 9], 1)[0]!;
+    expect(first.title).not.toMatch(/1 neighbouring values/);
+    expect(first.why).not.toMatch(/share 0/);
+  });
+
+  it('writes negative values in brackets inside the arithmetic', () => {
+    const slide = slidingWindowSteps([-5, -7, -3], 2).find((s) => s.title.startsWith('Slide'))!;
+    expect(slide.title).toBe('Slide right: add (-3), drop (-5)');
+    expect(slide.why).toContain('(-12) + (-3) − (-5) = (-10)');
+  });
+
+  it('shows the guard for a window that does not fit in the displayed code', () => {
+    const lines = slidingWindowCode.split('\n');
+    const guard = lines.findIndex((line) => line.includes('k > arr.length')) + 1;
+    expect(guard).toBeGreaterThan(0);
+    expect(slidingWindowSteps([1, 2, 3], 9)[0]!.codeLine).toBe(guard);
+  });
+});

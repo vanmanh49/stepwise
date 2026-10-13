@@ -85,7 +85,7 @@ export function primSteps(g: Graph, start: string): Step[] {
     const candidateRoles = Object.fromEntries(candidates.map((e) => [edgeKey(e.from, e.to), 'compare' as Role]));
 
     steps.push({
-      title: `${candidates.length} edge${candidates.length === 1 ? '' : 's'} leave the tree; the cheapest is ${describe(best)} (${best.weight})`,
+      title: `${candidates.length} edge${candidates.length === 1 ? ' leaves' : 's leave'} the tree; the cheapest is ${describe(best)} (${best.weight})`,
       why: 'Only edges with one end inside the tree and one end outside can extend it. An edge between two tree nodes would close a loop.',
       next: `Add ${describe(best)}, bringing ${name(newNode)} into the tree.`,
       codeLine: 8,

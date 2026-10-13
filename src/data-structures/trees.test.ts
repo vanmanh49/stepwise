@@ -129,3 +129,11 @@ describe.each([
     }
   });
 });
+
+describe('wording for edge cases', () => {
+  it('uses the singular for a node with one child in the level-order walk', () => {
+    const steps = run(binaryTreeStructure, 'levelOrder', [1, 2, 3, 4]).steps;
+    const oneChild = steps.find((s) => s.title === 'Visit 2')!;
+    expect(oneChild.why).toMatch(/Its child \(4\) joins the back, so it waits/);
+  });
+});

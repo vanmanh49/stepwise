@@ -209,7 +209,11 @@ export const binaryTreeStructure: StructureDef = {
             title: `Visit ${state[i]}`,
             why:
               children.length > 0
-                ? `It is at the front of the queue. Its ${children.length === 1 ? 'child' : 'children'} (${children.map((c) => state[c]).join(', ')}) join the back, so they wait until this level is finished.`
+                ? `It is at the front of the queue. Its ${
+                    children.length === 1
+                      ? `child (${state[children[0]!]}) joins the back, so it waits`
+                      : `children (${children.map((c) => state[c]).join(', ')}) join the back, so they wait`
+                  } until this level is finished.`
                 : 'It is at the front of the queue and has no children to add.',
             codeLine: 26,
             variables: { queue: state.slice(i + 1, queueEnd).join(', ') || 'empty', output: output.join(', ') },

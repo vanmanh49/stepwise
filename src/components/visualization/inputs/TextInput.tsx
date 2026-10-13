@@ -75,7 +75,14 @@ export function TextInput({ config, code, onStep }: { config: TextConfig; code: 
   };
 
   const run = (op: TextOp, arg: string) => {
-    const result = op.run(text, arg);
+    // Use what is in the field even if "Set text" was not pressed first.
+    let base = text;
+    if (draft !== text) {
+      const typed = parseText(draft);
+      if (!typed.ok) return setError(typed.error);
+      base = typed.value;
+    }
+    const result = op.run(base, arg);
     setText(result.text);
     setDraft(result.text);
     setSteps(result.steps);

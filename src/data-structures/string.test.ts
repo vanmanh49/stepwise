@@ -87,3 +87,14 @@ describe('every operation', () => {
     }
   });
 });
+
+describe('wording for edge cases', () => {
+  it('does not claim characters moved when reversing one character', () => {
+    expect(run('reverse', 'A').steps.at(-1)!.why).not.toMatch(/crossed|half as many/);
+  });
+
+  it('names the real problem when the text to add is invalid', () => {
+    expect(run('concat', 'AB', '').steps[0]!.title).toBe('Nothing to add');
+    expect(run('concat', 'AB', 'a😀').steps[0]!.title).toBe('Cannot add that text');
+  });
+});
