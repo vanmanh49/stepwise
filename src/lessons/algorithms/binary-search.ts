@@ -28,7 +28,7 @@ export const binarySearch: Lesson = {
   visualization: {
     kind: 'search',
     initial: [2, 5, 8, 12, 16, 23, 38, 45, 56, 72, 91],
-    target: 23,
+    target: 38,
     needsSorted: true,
     generate: binarySearchSteps,
   },

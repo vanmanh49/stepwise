@@ -216,3 +216,11 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Code must show the characters as typed, e.g. "<=" rather than a ligature. */
+.font-mono,
+pre,
+code,
+kbd {
+  font-variant-ligatures: none;
+}
