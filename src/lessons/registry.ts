@@ -16,10 +16,12 @@ import { heap } from './data-structures/heap';
 import { linkedList } from './data-structures/linked-list';
 import { queue } from './data-structures/queue';
 import { stack } from './data-structures/stack';
+import { string } from './data-structures/string';
 
 /** Every live lesson, in recommended learning order. Register new lessons here. */
 export const lessons: Lesson[] = [
   array,
+  string,
   linkedList,
   stack,
   queue,

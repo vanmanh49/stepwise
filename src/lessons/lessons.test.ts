@@ -6,6 +6,7 @@ import { adjacentLessons, getLesson, lessonPath, lessons, lessonsIn } from './re
 
 const EXPECTED_IDS = [
   'array',
+  'string',
   'linked-list',
   'stack',
   'queue',
@@ -35,21 +36,25 @@ function defaultSteps(lesson: Lesson): Step[] {
       const op = config.structure.ops[0]!;
       return op.run(config.structure.initial, op.args.map((a) => a.sample)).steps;
     }
+    case 'text': {
+      const op = config.text.ops[0]!;
+      return op.run(config.text.initial, op.arg?.sample ?? '').steps;
+    }
     case 'graph':
       return config.generate(config.graphs[0]!, config.graphs[0]!.nodes[0]!.id);
   }
 }
 
 describe('lesson registry', () => {
-  it('contains the 17 MVP lessons in learning order', () => {
+  it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
-    expect(lessonsIn('data-structures')).toHaveLength(7);
+    expect(lessonsIn('data-structures')).toHaveLength(8);
     expect(lessonsIn('algorithms')).toHaveLength(10);
   });
 
   it('links previous and next lessons within a category', () => {
     expect(adjacentLessons('array').prev).toBeUndefined();
-    expect(adjacentLessons('array').next?.id).toBe('linked-list');
+    expect(adjacentLessons('array').next?.id).toBe('string');
     expect(adjacentLessons('graph').next).toBeUndefined();
     expect(adjacentLessons('linear-search').prev).toBeUndefined();
     expect(adjacentLessons('dijkstra').next).toBeUndefined();
@@ -98,7 +103,7 @@ describe.each(lessons.map((l) => [l.id, l] as const))('lesson %s', (_id, lesson)
   it('runs its default visualization with code lines inside its code', () => {
     const steps = defaultSteps(lesson);
     const lines = lesson.code.split('\n').length;
-    expect(steps.length).toBeGreaterThanOrEqual(lesson.visualization.kind === 'structure' ? 2 : 3);
+    expect(steps.length).toBeGreaterThanOrEqual(lesson.visualization.kind === 'structure' || lesson.visualization.kind === 'text' ? 2 : 3);
     for (const step of steps) {
       expect(step.codeLine).toBeGreaterThanOrEqual(1);
       expect(step.codeLine).toBeLessThanOrEqual(lines);
