@@ -28,8 +28,10 @@ const EXPECTED_IDS = [
   'heap-sort',
   'bfs',
   'dfs',
+  'topological-sort',
   'tree-traversal',
   'dijkstra',
+  'bellman-ford',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -56,7 +58,7 @@ describe('lesson registry', () => {
   it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
-    expect(lessonsIn('algorithms')).toHaveLength(15);
+    expect(lessonsIn('algorithms')).toHaveLength(17);
   });
 
   it('links previous and next lessons within a category', () => {
@@ -64,7 +66,7 @@ describe('lesson registry', () => {
     expect(adjacentLessons('array').next?.id).toBe('string');
     expect(adjacentLessons('graph').next).toBeUndefined();
     expect(adjacentLessons('linear-search').prev).toBeUndefined();
-    expect(adjacentLessons('dijkstra').next).toBeUndefined();
+    expect(adjacentLessons('bellman-ford').next).toBeUndefined();
     expect(adjacentLessons('unknown')).toEqual({});
   });
 

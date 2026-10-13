@@ -1,4 +1,5 @@
 import type { Category, Lesson } from '../types/lesson';
+import { bellmanFord } from './algorithms/bellman-ford';
 import { bfs } from './algorithms/bfs';
 import { binarySearch } from './algorithms/binary-search';
 import { bubbleSort } from './algorithms/bubble-sort';
@@ -12,6 +13,7 @@ import { prefixSum } from './algorithms/prefix-sum';
 import { quickSort } from './algorithms/quick-sort';
 import { selectionSort } from './algorithms/selection-sort';
 import { slidingWindow } from './algorithms/sliding-window';
+import { topologicalSort } from './algorithms/topological-sort';
 import { treeTraversal } from './algorithms/tree-traversal';
 import { twoPointers } from './algorithms/two-pointers';
 import { array } from './data-structures/array';
@@ -50,8 +52,10 @@ export const lessons: Lesson[] = [
   heapSort,
   bfs,
   dfs,
+  topologicalSort,
   treeTraversal,
   dijkstra,
+  bellmanFord,
 ];
 
 const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));
