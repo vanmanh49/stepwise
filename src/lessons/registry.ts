@@ -4,6 +4,7 @@ import { binarySearch } from './algorithms/binary-search';
 import { bubbleSort } from './algorithms/bubble-sort';
 import { dfs } from './algorithms/dfs';
 import { dijkstra } from './algorithms/dijkstra';
+import { heapSort } from './algorithms/heap-sort';
 import { insertionSort } from './algorithms/insertion-sort';
 import { linearSearch } from './algorithms/linear-search';
 import { mergeSort } from './algorithms/merge-sort';
@@ -45,6 +46,7 @@ export const lessons: Lesson[] = [
   prefixSum,
   mergeSort,
   quickSort,
+  heapSort,
   bfs,
   dfs,
   dijkstra,

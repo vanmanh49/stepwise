@@ -25,6 +25,7 @@ const EXPECTED_IDS = [
   'prefix-sum',
   'merge-sort',
   'quick-sort',
+  'heap-sort',
   'bfs',
   'dfs',
   'dijkstra',
@@ -54,7 +55,7 @@ describe('lesson registry', () => {
   it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
-    expect(lessonsIn('algorithms')).toHaveLength(13);
+    expect(lessonsIn('algorithms')).toHaveLength(14);
   });
 
   it('links previous and next lessons within a category', () => {
