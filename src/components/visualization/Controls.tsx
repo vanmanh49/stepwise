@@ -45,7 +45,7 @@ export function Controls({ player }: { player: Player }) {
               type="button"
               onClick={() => player.setSpeed(s)}
               aria-pressed={speed === s}
-              className={`min-h-10 rounded-lg px-2.5 font-mono text-xs font-semibold transition-colors ${
+              className={`min-h-11 min-w-11 rounded-lg px-2 font-mono text-xs font-semibold transition-colors ${
                 speed === s ? 'bg-accent text-accent-fg' : 'text-muted hover:bg-surface-2'
               }`}
             >
