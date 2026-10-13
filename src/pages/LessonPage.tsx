@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, CircleCheck, Menu } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
+import { BigOChart } from '../components/bigo/BigOChart';
 import { CodePanel } from '../components/code/CodePanel';
 import { ComplexityTable } from '../components/lesson/ComplexityTable';
 import { DifficultyBadge } from '../components/lesson/DifficultyBadge';
@@ -180,6 +181,15 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
               </p>
             )}
             <p className="max-w-[68ch] leading-relaxed">{lesson.complexity.note}</p>
+            <figure className="card max-w-2xl p-4">
+              <BigOChart compact highlight={lesson.complexity.curves} />
+              <figcaption className="mt-2 text-sm text-muted">
+                How this lesson's complexity grows with input size.{' '}
+                <Link to="/big-o" className="font-medium text-accent underline-offset-4 hover:underline">
+                  Open the Big O explorer
+                </Link>
+              </figcaption>
+            </figure>
           </div>
         </Section>
 

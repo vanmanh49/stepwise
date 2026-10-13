@@ -59,7 +59,7 @@ export function Visualizer({ steps, code, toolbar, notice, autoPlay, loop, onSte
         )}
 
         <div className="overflow-x-auto bg-surface-2/40">
-          <div className="mx-auto flex min-h-[17rem] w-max items-center px-6 py-10 sm:px-10">
+          <div className="mx-auto flex min-h-[17rem] w-max max-w-full items-center px-6 py-10 sm:px-10">
             {step ? <StepView view={step.view} /> : <p className="text-sm text-muted">Nothing to show yet.</p>}
           </div>
         </div>

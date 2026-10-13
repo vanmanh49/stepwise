@@ -106,7 +106,7 @@ export function Quiz({ lessonId, questions }: { lessonId: string; questions: Qui
 
       {question.view && (
         <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-surface-2/40">
-          <div className="mx-auto w-max px-6 py-8">
+          <div className="mx-auto w-max max-w-full px-6 py-8">
             <StepView view={question.view} />
           </div>
         </div>

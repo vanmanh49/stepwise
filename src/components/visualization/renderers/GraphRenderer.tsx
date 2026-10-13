@@ -28,7 +28,7 @@ export function GraphRenderer({ view }: { view: GraphView }) {
   const at = new Map(view.nodes.map((n) => [n.id, { x: px(n.x), y: py(n.y) }]));
 
   return (
-    <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-start">
+    <div className="flex flex-wrap items-start justify-center gap-6">
       <svg
         width={WIDTH}
         height={HEIGHT}
@@ -82,7 +82,7 @@ export function GraphRenderer({ view }: { view: GraphView }) {
       </svg>
 
       {(view.frontier || view.table) && (
-        <div className="flex w-full flex-col gap-4 lg:w-52">
+        <div className="flex w-52 flex-col gap-4">
           {view.frontier && (
             <div>
               <div className="eyebrow">{view.frontier.label}</div>

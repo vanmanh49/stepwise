@@ -1,0 +1,48 @@
+import { describe, expect, it } from 'vitest';
+import { searchIndex, searchTopics } from './search';
+
+const titles = (query: string) => searchTopics(query, searchIndex).map((item) => item.title);
+
+describe('searchTopics', () => {
+  it('returns nothing for an empty query', () => {
+    expect(titles('')).toEqual([]);
+    expect(titles('   ')).toEqual([]);
+  });
+
+  it('puts titles that start with the query first', () => {
+    const result = titles('binary');
+    expect(result.slice(0, 4).every((t) => t.startsWith('Binary'))).toBe(true);
+    expect(result).toEqual(expect.arrayContaining(['Binary Search', 'Binary Search Tree', 'Binary Tree']));
+  });
+
+  it('ranks live lessons ahead of planned topics within the same match quality', () => {
+    const result = searchTopics('binary', searchIndex);
+    const firstPlanned = result.findIndex((item) => item.path === undefined);
+    const lastLive = result.map((item) => item.path !== undefined && item.title.startsWith('Binary')).lastIndexOf(true);
+    expect(firstPlanned).toBeGreaterThan(lastLive);
+  });
+
+  it('is case-insensitive and matches inside titles', () => {
+    expect(titles('BFS')).toContain('Breadth-First Search (BFS)');
+    expect(titles('bfs')).toContain('Breadth-First Search (BFS)');
+    expect(titles('sort')).toEqual(expect.arrayContaining(['Bubble Sort', 'Merge Sort']));
+  });
+
+  it('matches keywords when the title does not match', () => {
+    expect(titles('fifo')).toContain('Queue');
+    expect(titles('lifo')).toContain('Stack');
+    expect(titles('pivot')).toContain('Quick Sort');
+  });
+
+  it('returns at most 8 results', () => {
+    expect(titles('s').length).toBeLessThanOrEqual(8);
+    expect(titles('zzzz')).toEqual([]);
+  });
+
+  it('gives live lessons a path and planned topics none', () => {
+    const queue = searchIndex.find((item) => item.id === 'queue');
+    const trie = searchIndex.find((item) => item.id === 'trie');
+    expect(queue?.path).toBe('/data-structures/queue');
+    expect(trie?.path).toBeUndefined();
+  });
+});
