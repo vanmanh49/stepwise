@@ -12,6 +12,7 @@ const LIMITS = { min: 1, max: 12 };
 
 export function SearchInput({ config, code, onStep }: { config: SearchConfig; code: string; onStep?: StepListener }) {
   const id = useId();
+  const targetLabel = config.targetLabel ?? 'Target';
   const [run, setRun] = useState({ values: config.initial, target: config.target, wasSorted: false });
   const [text, setText] = useState(config.initial.join(', '));
   const [targetText, setTargetText] = useState(String(config.target));
@@ -33,14 +34,18 @@ export function SearchInput({ config, code, onStep }: { config: SearchConfig; co
     const list = parseNumberList(text, LIMITS);
     if (!list.ok) return setError(list.error);
     const target = parseNumberList(targetText, { min: 1, max: 1 });
-    if (!target.ok) return setError('Enter one whole number as the target.');
+    if (!target.ok) return setError(`Enter one whole number for ${targetLabel.toLowerCase()}.`);
     load(list.values, target.values[0]!, true);
   };
 
   const random = () => {
     const values = randomArray(10);
     // Usually pick a value that exists, so both outcomes show up.
-    const target = Math.random() < 0.8 ? values[Math.floor(Math.random() * values.length)]! : 100;
+    const target = config.randomTarget
+      ? config.randomTarget(values)
+      : Math.random() < 0.8
+        ? values[Math.floor(Math.random() * values.length)]!
+        : 100;
     load(values, target, true);
   };
 
@@ -50,7 +55,7 @@ export function SearchInput({ config, code, onStep }: { config: SearchConfig; co
       code={code}
       autoPlay={ran}
       onStep={onStep}
-      notice={run.wasSorted ? 'Sorted your input first: binary search only works on sorted data.' : undefined}
+      notice={run.wasSorted ? 'Sorted your input first: this algorithm needs sorted data.' : undefined}
       toolbar={
         <form onSubmit={submit} className="flex flex-col gap-2">
           <div className="flex flex-wrap items-end gap-2">
@@ -68,9 +73,9 @@ export function SearchInput({ config, code, onStep }: { config: SearchConfig; co
                 aria-invalid={error !== undefined}
               />
             </div>
-            <div className="flex w-24 flex-col gap-2">
-              <label htmlFor={`${id}-target`} className="eyebrow">
-                Target
+            <div className="flex w-28 flex-col gap-2">
+              <label htmlFor={`${id}-target`} className="eyebrow whitespace-nowrap">
+                {targetLabel}
               </label>
               <input
                 id={`${id}-target`}
@@ -97,7 +102,7 @@ export function SearchInput({ config, code, onStep }: { config: SearchConfig; co
             </p>
           ) : (
             <p className="text-sm text-muted">
-              {LIMITS.min}–{LIMITS.max} whole numbers, separated by commas, and one target to look for.
+              {config.targetHelp ?? `${LIMITS.min}–${LIMITS.max} whole numbers, separated by commas, and one target to look for.`}
             </p>
           )}
         </form>

@@ -53,6 +53,11 @@ export type VisualizationConfig =
       initial: number[];
       target: number;
       needsSorted: boolean;
+      /** Label of the second field; defaults to "Target". */
+      targetLabel?: string;
+      targetHelp?: string;
+      /** Picks a sensible second value for random data; defaults to a value from the list. */
+      randomTarget?(values: number[]): number;
       generate(values: number[], target: number): Step[];
     }
   | { kind: 'structure'; structure: StructureDef }

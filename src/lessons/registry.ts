@@ -7,8 +7,11 @@ import { dijkstra } from './algorithms/dijkstra';
 import { insertionSort } from './algorithms/insertion-sort';
 import { linearSearch } from './algorithms/linear-search';
 import { mergeSort } from './algorithms/merge-sort';
+import { prefixSum } from './algorithms/prefix-sum';
 import { quickSort } from './algorithms/quick-sort';
 import { selectionSort } from './algorithms/selection-sort';
+import { slidingWindow } from './algorithms/sliding-window';
+import { twoPointers } from './algorithms/two-pointers';
 import { array } from './data-structures/array';
 import { binarySearchTree } from './data-structures/binary-search-tree';
 import { binaryTree } from './data-structures/binary-tree';
@@ -37,6 +40,9 @@ export const lessons: Lesson[] = [
   bubbleSort,
   selectionSort,
   insertionSort,
+  twoPointers,
+  slidingWindow,
+  prefixSum,
   mergeSort,
   quickSort,
   bfs,
