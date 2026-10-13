@@ -11,9 +11,11 @@ import { quickSort } from './algorithms/quick-sort';
 import { selectionSort } from './algorithms/selection-sort';
 import { array } from './data-structures/array';
 import { binarySearchTree } from './data-structures/binary-search-tree';
+import { binaryTree } from './data-structures/binary-tree';
 import { graph } from './data-structures/graph';
 import { heap } from './data-structures/heap';
 import { linkedList } from './data-structures/linked-list';
+import { priorityQueue } from './data-structures/priority-queue';
 import { queue } from './data-structures/queue';
 import { stack } from './data-structures/stack';
 import { string } from './data-structures/string';
@@ -25,8 +27,10 @@ export const lessons: Lesson[] = [
   linkedList,
   stack,
   queue,
+  binaryTree,
   binarySearchTree,
   heap,
+  priorityQueue,
   graph,
   linearSearch,
   binarySearch,

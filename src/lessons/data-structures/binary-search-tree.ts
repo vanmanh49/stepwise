@@ -8,7 +8,7 @@ export const binarySearchTree: Lesson = {
   difficulty: 'intermediate',
   description: 'A tree that keeps values ordered so each comparison skips a whole branch.',
   keywords: ['bst', 'tree', 'node', 'root', 'leaf', 'inorder', 'subtree'],
-  prerequisites: ['linked-list', 'binary-search'],
+  prerequisites: ['binary-tree', 'binary-search'],
   overview:
     'A binary search tree (BST) stores values in nodes that each have up to two children. One rule holds everywhere: smaller values go left, larger values go right. That rule lets every comparison throw away an entire branch, so finding, adding and removing values stays fast as the tree grows.',
   concept: [
