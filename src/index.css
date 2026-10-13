@@ -141,6 +141,11 @@ body {
   border-radius: 6px;
 }
 
+/* For a field whose container already shows focus, such as the search dialog. */
+.no-focus-ring:focus-visible {
+  outline: none;
+}
+
 @layer components {
   .card {
     background: var(--surface);
