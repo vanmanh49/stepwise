@@ -12,6 +12,7 @@ import { prefixSum } from './algorithms/prefix-sum';
 import { quickSort } from './algorithms/quick-sort';
 import { selectionSort } from './algorithms/selection-sort';
 import { slidingWindow } from './algorithms/sliding-window';
+import { treeTraversal } from './algorithms/tree-traversal';
 import { twoPointers } from './algorithms/two-pointers';
 import { array } from './data-structures/array';
 import { binarySearchTree } from './data-structures/binary-search-tree';
@@ -49,6 +50,7 @@ export const lessons: Lesson[] = [
   heapSort,
   bfs,
   dfs,
+  treeTraversal,
   dijkstra,
 ];
 
