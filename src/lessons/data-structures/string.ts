@@ -1,0 +1,108 @@
+import { stringStructure } from '../../data-structures/string';
+import type { Lesson } from '../../types/lesson';
+
+export const string: Lesson = {
+  id: 'string',
+  title: 'String',
+  category: 'data-structures',
+  difficulty: 'beginner',
+  description: 'Text stored as a row of characters, usually one that cannot be changed in place.',
+  keywords: ['text', 'character', 'char', 'immutable', 'concatenate', 'substring', 'palindrome', 'reverse'],
+  prerequisites: ['array'],
+  overview:
+    'A string is a sequence of characters stored in order, much like an array whose slots hold letters. Reading a character by position is instant. In most languages a string cannot be modified once it exists, so every change produces a new string.',
+  concept: [
+    'Under the surface a string is an array of characters, so everything you know about arrays applies: positions start at 0, access by index is direct, and searching means scanning.',
+    'The important difference is immutability. In JavaScript, Python, Java and many other languages, you cannot overwrite one character of a string. Operations such as adding text, replacing a letter or reversing all build a brand-new string and leave the original untouched.',
+    'That makes strings safe to share between parts of a program, but it hides a cost. Joining two strings copies every character of both. Doing it repeatedly in a loop copies the growing result again and again.',
+    'Many string problems are solved with two pointers, one at each end moving inward. Reversing and checking for a palindrome are the classic examples, and both are in the visualization.',
+  ],
+  howItWorks: [
+    'Access: jump straight to the index and read the character there.',
+    'Concatenate: create a new string, copy every character of the first string into it, then every character of the second.',
+    'Reverse: copy the characters into an array, swap the first with the last, the second with the second-to-last, and stop when the two pointers meet.',
+    'Palindrome check: compare the first character with the last, then move both pointers inward. Stop at the first pair that differs.',
+    'Compare two strings: check character by character until one differs or both end.',
+  ],
+  visualization: { kind: 'text', text: stringStructure },
+  code: stringStructure.code,
+  complexity: {
+    rows: [
+      { label: 'Access by index', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
+      { label: 'Concatenate', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
+      { label: 'Reverse', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
+      { label: 'Compare / palindrome check', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
+      { label: 'Search for a character', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
+    ],
+    space: 'O(n)',
+    note: 'Reading is instant, but anything that produces a new string copies characters, so its cost grows with the length. Building a long string by adding one piece at a time in a loop is O(n²) overall; collecting the pieces in an array and joining once is O(n).',
+    curves: ['1', 'n'],
+  },
+  compareWith: ['array'],
+  prosCons: {
+    pros: ['Instant access to any character', 'Immutable strings are safe to share and to use as keys', 'Rich built-in operations in every language'],
+    cons: ['Every modification copies the string', 'Repeated concatenation in a loop is quietly O(n²)', 'A "character" is not always one slot: emoji and accented letters can take several'],
+    useWhen: ['You are storing or reading text', 'The text rarely changes after it is created'],
+    avoidWhen: ['You are building text piece by piece in a loop (use an array and join, or a string builder)', 'You need to edit characters in place many times (use a character array)'],
+  },
+  applications: [
+    'Names, messages, file paths, URLs and almost all user input',
+    'Keys in hash tables and objects',
+    'DNA sequences in bioinformatics',
+    'Source code itself, as read by a compiler',
+  ],
+  commonMistakes: [
+    'Trying to change one character in place (text[0] = "X") and being surprised that nothing happens.',
+    'Building a long string with += inside a loop, which copies the whole string on every pass.',
+    'Off-by-one errors: the last character is at index length − 1.',
+    'Assuming one visible character is always one index. Emoji and some accented letters take two or more.',
+    'Comparing strings without thinking about upper and lower case or surrounding spaces.',
+  ],
+  quiz: [
+    {
+      id: 'q1',
+      type: 'predict-next',
+      prompt: 'You check whether this string is a palindrome. Which two characters are compared first?',
+      view: stringStructure.view('LEVEL'),
+      options: ['The first L and the last L', 'L and E, the first two characters', 'The middle V with itself', 'E and E'],
+      answer: 0,
+      explanation: 'The check starts with one pointer at each end and moves inward, so index 0 is compared with index 4.',
+    },
+    {
+      id: 'q2',
+      type: 'complexity',
+      prompt: 'What is the time complexity of joining two strings whose combined length is n?',
+      options: ['O(n)', 'O(1)', 'O(log n)', 'O(n²)'],
+      answer: 0,
+      explanation: 'Strings are immutable, so a new string is created and every character of both parts is copied into it.',
+    },
+    {
+      id: 'q3',
+      type: 'code',
+      prompt: 'What does this print?',
+      code: `let s = 'cat';\ns[0] = 'b';\nconsole.log(s);`,
+      options: ['cat', 'bat', 'b', 'An empty string'],
+      answer: 0,
+      explanation: 'JavaScript strings are immutable. The assignment is ignored (or throws in strict mode), so s is still "cat".',
+    },
+    {
+      id: 'q4',
+      type: 'multiple-choice',
+      prompt: 'Why is building a long string with += inside a loop slow?',
+      options: [
+        'Each += copies the whole string built so far',
+        'The loop runs more times than expected',
+        'Strings are stored as linked lists',
+        'The += operator sorts the characters',
+      ],
+      answer: 0,
+      explanation: 'Copy 1 character, then 2, then 3, and so on: about n²/2 copies in total. Joining an array of pieces copies each character once.',
+    },
+  ],
+  summary: [
+    'A string is an ordered row of characters with O(1) access by index.',
+    'Strings are usually immutable: every change builds a new string in O(n).',
+    'Avoid repeated concatenation in loops; collect pieces and join once.',
+    'Two pointers moving inward solve reversing and palindrome checks in one pass.',
+  ],
+};

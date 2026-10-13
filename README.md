@@ -6,9 +6,9 @@ Every lesson has a visualization you control: play, pause, step forward and back
 
 ## Features
 
-- **17 interactive lessons**
-  - Data structures: Array, Linked List, Stack, Queue, Binary Search Tree, Heap, Graph
-  - Algorithms: Linear Search, Binary Search, Bubble Sort, Selection Sort, Insertion Sort, Merge Sort, Quick Sort, BFS, DFS, Dijkstra
+- **29 interactive lessons**
+  - Data structures: Array, String, Linked List, Stack, Queue, Binary Tree, Binary Search Tree, Heap, Priority Queue, Graph
+  - Algorithms: Linear Search, Binary Search, Bubble Sort, Selection Sort, Insertion Sort, Two Pointers, Sliding Window, Prefix Sum, Merge Sort, Quick Sort, Heap Sort, BFS, DFS, Topological Sort, Tree Traversal, Dijkstra, Bellman-Ford, Kruskal, Prim
 - **One visualization engine** for all of them: play, pause, next, previous, restart, 0.5x–2x speed, timeline scrubber, keyboard control (Space, ←, →)
 - **Code and visualization in sync**: the running line is highlighted on every step
 - **Your own data**: custom arrays, random data, operations on structures you build up, a choice of example graphs and start nodes
@@ -117,6 +117,7 @@ A lesson needs a generator and a data file.
    | `sort` | algorithms over a number list | data field, Random, Reset |
    | `search` | list plus target | data and target fields; sorts the input when `needsSorted` is true |
    | `structure` | data structures | one button per operation; contents persist between operations |
+   | `text` | structures holding text | a text field plus one button per operation |
    | `graph` | graph algorithms | example-graph and start-node pickers |
 
 3. Register it in `src/lessons/registry.ts` by adding it to the `lessons` array, in learning order.
@@ -173,7 +174,7 @@ npm test
 
 Unit tests cover:
 
-- all ten algorithms: empty, single element, normal, duplicates, negatives, sorted, reversed and large inputs
+- every algorithm: empty, single element, normal, duplicates, negatives, sorted, reversed and large inputs
 - step generation: final state is correct, element identity is preserved, code lines are valid, step counts stay bounded
 - data structure operations, including invalid ones (empty, full, out of range, missing value)
 - the player reducer, input parsing, tree layout, search ranking, Big O maths and the progress store

@@ -3,7 +3,7 @@ import type { Graph } from '../../types/lesson';
 type NodeSpec = [id: string, x: number, y: number];
 type EdgeSpec = [from: string, to: string, weight?: number];
 
-function makeGraph(id: string, name: string, directed: boolean, nodes: NodeSpec[], edges: EdgeSpec[]): Graph {
+export function makeGraph(id: string, name: string, directed: boolean, nodes: NodeSpec[], edges: EdgeSpec[]): Graph {
   return {
     id,
     name,
@@ -102,5 +102,93 @@ export const directedGraph = makeGraph(
     ['C', 'D', 1],
     ['D', 'E', 4],
     ['E', 'B', 1],
+  ],
+);
+
+/** A prerequisite chart: an arrow means "must come before". */
+export const courseGraph = makeGraph(
+  'courses',
+  'Course prerequisites',
+  true,
+  [
+    ['A', 8, 50],
+    ['B', 36, 14],
+    ['C', 36, 86],
+    ['D', 64, 40],
+    ['E', 92, 14],
+    ['F', 92, 86],
+  ],
+  [
+    ['A', 'B'],
+    ['A', 'C'],
+    ['B', 'D'],
+    ['C', 'D'],
+    ['D', 'E'],
+    ['C', 'F'],
+  ],
+);
+
+export const buildGraph = makeGraph(
+  'build',
+  'Build steps with two starting points',
+  true,
+  [
+    ['A', 8, 20],
+    ['B', 8, 80],
+    ['C', 36, 20],
+    ['D', 36, 80],
+    ['E', 64, 20],
+    ['F', 64, 80],
+    ['G', 92, 50],
+  ],
+  [
+    ['A', 'C'],
+    ['B', 'C'],
+    ['B', 'D'],
+    ['C', 'E'],
+    ['D', 'E'],
+    ['D', 'F'],
+    ['E', 'G'],
+    ['F', 'G'],
+  ],
+);
+
+export const negativeGraph = makeGraph(
+  'negative',
+  'One negative edge',
+  true,
+  [
+    ['A', 8, 50],
+    ['B', 42, 14],
+    ['C', 42, 86],
+    ['D', 76, 14],
+    ['E', 92, 72],
+  ],
+  [
+    ['A', 'B', 4],
+    ['A', 'C', 5],
+    ['C', 'B', -3],
+    ['B', 'D', 2],
+    ['C', 'E', 6],
+    ['D', 'E', 1],
+  ],
+);
+
+/** B → C → D → B adds up to −1, so going round it again always gets cheaper. */
+export const negativeCycleGraph = makeGraph(
+  'negative-cycle',
+  'Negative cycle',
+  true,
+  [
+    ['A', 8, 50],
+    ['B', 40, 18],
+    ['C', 80, 18],
+    ['D', 60, 84],
+  ],
+  [
+    ['A', 'B', 1],
+    ['B', 'C', 2],
+    ['C', 'D', -4],
+    ['D', 'B', 1],
   ],
 );

@@ -8,7 +8,7 @@ export const heap: Lesson = {
   difficulty: 'intermediate',
   description: 'A tree packed into an array that always keeps the largest value on top.',
   keywords: ['binary heap', 'max heap', 'min heap', 'priority queue', 'sift up', 'sift down', 'heapify'],
-  prerequisites: ['array', 'binary-search-tree'],
+  prerequisites: ['array', 'binary-tree'],
   overview:
     'A heap is a tree with a single, relaxed rule: every parent is at least as large as its children (a max-heap). That is enough to guarantee the largest value is always at the root, ready to be read instantly. The tree is stored in a plain array with no pointers at all.',
   concept: [

@@ -58,7 +58,6 @@ export const curriculum: Topic[] = [
     ['dfs', 'Depth-First Search (DFS)', 'Graph Algorithms'],
     ['topological-sort', 'Topological Sort', 'Graph Algorithms'],
     ['tree-traversal', 'Tree Traversal', 'Tree Algorithms'],
-    ['bst-operations', 'Binary Search Tree Operations', 'Tree Algorithms'],
     ['lowest-common-ancestor', 'Lowest Common Ancestor', 'Tree Algorithms'],
   ]),
   ...topics('algorithms', 'advanced', [

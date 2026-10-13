@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { curveForNotation } from '../components/bigo/complexities';
 import type { Lesson } from '../types/lesson';
 import type { Step } from '../types/visualization';
 import { curriculum, roadmap } from './curriculum';
@@ -6,22 +7,34 @@ import { adjacentLessons, getLesson, lessonPath, lessons, lessonsIn } from './re
 
 const EXPECTED_IDS = [
   'array',
+  'string',
   'linked-list',
   'stack',
   'queue',
+  'binary-tree',
   'binary-search-tree',
   'heap',
+  'priority-queue',
   'graph',
   'linear-search',
   'binary-search',
   'bubble-sort',
   'selection-sort',
   'insertion-sort',
+  'two-pointers',
+  'sliding-window',
+  'prefix-sum',
   'merge-sort',
   'quick-sort',
+  'heap-sort',
   'bfs',
   'dfs',
+  'topological-sort',
+  'tree-traversal',
   'dijkstra',
+  'bellman-ford',
+  'kruskal',
+  'prim',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -35,24 +48,28 @@ function defaultSteps(lesson: Lesson): Step[] {
       const op = config.structure.ops[0]!;
       return op.run(config.structure.initial, op.args.map((a) => a.sample)).steps;
     }
+    case 'text': {
+      const op = config.text.ops[0]!;
+      return op.run(config.text.initial, op.arg?.sample ?? '').steps;
+    }
     case 'graph':
       return config.generate(config.graphs[0]!, config.graphs[0]!.nodes[0]!.id);
   }
 }
 
 describe('lesson registry', () => {
-  it('contains the 17 MVP lessons in learning order', () => {
+  it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
-    expect(lessonsIn('data-structures')).toHaveLength(7);
-    expect(lessonsIn('algorithms')).toHaveLength(10);
+    expect(lessonsIn('data-structures')).toHaveLength(10);
+    expect(lessonsIn('algorithms')).toHaveLength(19);
   });
 
   it('links previous and next lessons within a category', () => {
     expect(adjacentLessons('array').prev).toBeUndefined();
-    expect(adjacentLessons('array').next?.id).toBe('linked-list');
+    expect(adjacentLessons('array').next?.id).toBe('string');
     expect(adjacentLessons('graph').next).toBeUndefined();
     expect(adjacentLessons('linear-search').prev).toBeUndefined();
-    expect(adjacentLessons('dijkstra').next).toBeUndefined();
+    expect(adjacentLessons('prim').next).toBeUndefined();
     expect(adjacentLessons('unknown')).toEqual({});
   });
 
@@ -98,7 +115,7 @@ describe.each(lessons.map((l) => [l.id, l] as const))('lesson %s', (_id, lesson)
   it('runs its default visualization with code lines inside its code', () => {
     const steps = defaultSteps(lesson);
     const lines = lesson.code.split('\n').length;
-    expect(steps.length).toBeGreaterThanOrEqual(lesson.visualization.kind === 'structure' ? 2 : 3);
+    expect(steps.length).toBeGreaterThanOrEqual(lesson.visualization.kind === 'structure' || lesson.visualization.kind === 'text' ? 2 : 3);
     for (const step of steps) {
       expect(step.codeLine).toBeGreaterThanOrEqual(1);
       expect(step.codeLine).toBeLessThanOrEqual(lines);
@@ -117,6 +134,18 @@ describe('curriculum', () => {
       const topic = curriculum.find((t) => t.id === lesson.id);
       expect(topic, lesson.id).toBeDefined();
       expect(topic).toMatchObject({ title: lesson.title, category: lesson.category, difficulty: lesson.difficulty });
+    }
+  });
+
+  it('drops the topic that duplicated the Binary Search Tree lesson', () => {
+    expect(curriculum.some((t) => t.id === 'bst-operations')).toBe(false);
+    expect(getLesson('binary-search-tree')!.keywords).toContain('bst operations');
+  });
+
+  it('maps every algorithm to a Big O curve', () => {
+    for (const lesson of lessonsIn('algorithms')) {
+      const average = lesson.complexity.rows[0]!.average;
+      expect(curveForNotation(average), lesson.id + ' ' + average).toBeDefined();
     }
   });
 

@@ -23,6 +23,18 @@ export function parseNumberList(text: string, limits: { min: number; max: number
   return { ok: true, values };
 }
 
+export const MAX_TEXT_LENGTH = 12;
+
+export function parseText(text: string): { ok: true; value: string } | { ok: false; error: string } {
+  if (text.length === 0) return { ok: false, error: 'Type at least one character.' };
+  // Characters such as emoji take two slots in a JavaScript string, which would break "one cell per character".
+  if (/[\uD800-\uDFFF]/.test(text)) return { ok: false, error: 'Use plain letters, digits and punctuation (no emoji).' };
+  if (text.length > MAX_TEXT_LENGTH) {
+    return { ok: false, error: `Use at most ${MAX_TEXT_LENGTH} characters so every step stays readable.` };
+  }
+  return { ok: true, value: text };
+}
+
 export function randomArray(length: number, max = 99): number[] {
   return Array.from({ length }, () => 1 + Math.floor(Math.random() * max));
 }

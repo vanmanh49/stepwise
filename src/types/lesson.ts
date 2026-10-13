@@ -25,6 +25,23 @@ export interface StructureDef {
   code: string;
 }
 
+export interface TextOp {
+  id: string;
+  label: string;
+  /** Optional single input shown beside the button. */
+  arg?: { label: string; sample: string; numeric?: boolean };
+  /** Invalid operations return one explanatory step and the same text. */
+  run(text: string, arg: string): { steps: Step[]; text: string };
+}
+
+/** Like StructureDef, for structures whose contents are text rather than numbers. */
+export interface TextDef {
+  initial: string;
+  view(text: string): View;
+  ops: TextOp[];
+  code: string;
+}
+
 export type Category = 'data-structures' | 'algorithms';
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
 
@@ -36,9 +53,15 @@ export type VisualizationConfig =
       initial: number[];
       target: number;
       needsSorted: boolean;
+      /** Label of the second field; defaults to "Target". */
+      targetLabel?: string;
+      targetHelp?: string;
+      /** Picks a sensible second value for random data; defaults to a value from the list. */
+      randomTarget?(values: number[]): number;
       generate(values: number[], target: number): Step[];
     }
   | { kind: 'structure'; structure: StructureDef }
+  | { kind: 'text'; text: TextDef }
   | { kind: 'graph'; graphs: Graph[]; needsStart: boolean; generate(g: Graph, start: string): Step[] };
 
 export interface QuizQuestion {

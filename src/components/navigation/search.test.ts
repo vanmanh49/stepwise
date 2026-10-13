@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { searchIndex, searchTopics } from './search';
+import { searchIndex, searchTopics, type SearchItem } from './search';
 
 const titles = (query: string) => searchTopics(query, searchIndex).map((item) => item.title);
 
@@ -11,15 +11,18 @@ describe('searchTopics', () => {
 
   it('puts titles that start with the query first', () => {
     const result = titles('binary');
-    expect(result.slice(0, 4).every((t) => t.startsWith('Binary'))).toBe(true);
+    expect(result.slice(0, 3).every((t) => t.startsWith('Binary'))).toBe(true);
     expect(result).toEqual(expect.arrayContaining(['Binary Search', 'Binary Search Tree', 'Binary Tree']));
   });
 
   it('ranks live lessons ahead of planned topics within the same match quality', () => {
-    const result = searchTopics('binary', searchIndex);
-    const firstPlanned = result.findIndex((item) => item.path === undefined);
-    const lastLive = result.map((item) => item.path !== undefined && item.title.startsWith('Binary')).lastIndexOf(true);
-    expect(firstPlanned).toBeGreaterThan(lastLive);
+    const planned: SearchItem = { id: 'p', title: 'Graph Colouring', category: 'algorithms', keywords: [] };
+    const live: SearchItem = { id: 'l', title: 'Graph Search', category: 'algorithms', keywords: [], path: '/algorithms/l' };
+    expect(searchTopics('graph', [planned, live]).map((item) => item.id)).toEqual(['l', 'p']);
+  });
+
+  it('finds the Binary Search Tree lesson by its old topic name', () => {
+    expect(titles('bst operations')).toContain('Binary Search Tree');
   });
 
   it('is case-insensitive and matches inside titles', () => {

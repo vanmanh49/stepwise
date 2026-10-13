@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseNumberList, randomArray } from './parseInput';
+import { parseNumberList, parseText, randomArray } from './parseInput';
 
 const limits = { min: 2, max: 12 };
 
@@ -21,6 +21,23 @@ describe('parseNumberList', () => {
     ['out-of-range values', '1000, 2'],
   ])('rejects %s with a message', (_label, text) => {
     const result = parseNumberList(text, limits);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.length).toBeGreaterThan(0);
+  });
+});
+
+describe('parseText', () => {
+  it('accepts short text, including spaces', () => {
+    expect(parseText('LEVEL')).toEqual({ ok: true, value: 'LEVEL' });
+    expect(parseText('a b')).toEqual({ ok: true, value: 'a b' });
+  });
+
+  it.each([
+    ['empty text', ''],
+    ['text longer than 12 characters', 'ABCDEFGHIJKLM'],
+    ['emoji', 'hi😀'],
+  ])('rejects %s with a message', (_label, text) => {
+    const result = parseText(text);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.length).toBeGreaterThan(0);
   });

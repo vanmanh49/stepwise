@@ -5,6 +5,7 @@ import { GraphInput } from './GraphInput';
 import { SearchInput } from './SearchInput';
 import { SortInput } from './SortInput';
 import { StructureInput } from './StructureInput';
+import { TextInput } from './TextInput';
 
 export type StepListener = (step: Step, index: number, total: number) => void;
 
@@ -16,6 +17,8 @@ function Inputs({ config, code, onStep }: { config: VisualizationConfig; code: s
       return <SearchInput config={config} code={code} onStep={onStep} />;
     case 'structure':
       return <StructureInput config={config} code={code} onStep={onStep} />;
+    case 'text':
+      return <TextInput config={config} code={code} onStep={onStep} />;
     case 'graph':
       return <GraphInput config={config} code={code} onStep={onStep} />;
   }

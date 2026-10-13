@@ -1,0 +1,106 @@
+import { prefixSumCode, prefixSumSteps } from '../../algorithms/techniques/prefixSum';
+import type { Lesson } from '../../types/lesson';
+
+export const prefixSum: Lesson = {
+  id: 'prefix-sum',
+  title: 'Prefix Sum',
+  category: 'algorithms',
+  difficulty: 'beginner',
+  group: 'Basic Techniques',
+  description: 'Store running totals once, then answer any range-sum question with one subtraction.',
+  keywords: ['running total', 'cumulative sum', 'range sum', 'range query', 'precompute', 'technique', 'pattern'],
+  prerequisites: ['array'],
+  overview:
+    'A prefix sum array stores, at each position, the total of everything before it. Building it takes one pass. After that, the sum of any stretch of the original list is the difference between two stored totals, no matter how long the stretch is.',
+  concept: [
+    'Think of the odometer in a car. It does not record each trip; it records the total distance so far. To know how far you drove between Monday and Friday, you subtract Monday\'s reading from Friday\'s. You never add up the individual days.',
+    'A prefix sum array is an odometer for a list. prefix[i] holds the sum of the first i values. The sum from index left to index right is then prefix[right + 1] − prefix[left]: everything up to the end of the range, minus everything before it starts.',
+    'The extra 0 at the front (the sum of zero values) is what makes the formula work for ranges that start at index 0 without a special case.',
+    'This is a trade: spend O(n) time and memory once, up front, so that every later question is answered instantly. It only pays off when there are many questions and the list does not change.',
+  ],
+  howItWorks: [
+    'Create a prefix array that starts with a single 0.',
+    'For each value in the list, append the previous running total plus that value.',
+    'The prefix array now has one more entry than the list.',
+    'To get the sum from index left to index right, compute prefix[right + 1] − prefix[left].',
+    'If a value in the list changes, every running total after it must be rebuilt.',
+  ],
+  visualization: { kind: 'sort', initial: [3, 1, 4, 1, 5, 9, 2], generate: prefixSumSteps },
+  code: prefixSumCode,
+  complexity: {
+    rows: [
+      { label: 'Build the prefix array', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
+      { label: 'Range-sum query', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
+      { label: 'Update one value', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
+    ],
+    space: 'O(n)',
+    note: 'Without a prefix array each range sum costs O(n), so q questions cost O(n × q). With it, the total is O(n + q). The weakness is updates: changing one value invalidates every total after it. Fenwick trees and segment trees exist to make both queries and updates O(log n).',
+    curves: ['1', 'n'],
+  },
+  compareWith: ['sliding-window'],
+  prosCons: {
+    pros: ['Any range sum in O(1) after one O(n) pass', 'Very simple to implement', 'Extends to two dimensions for sums over rectangles'],
+    cons: ['Uses O(n) extra memory', 'An update to the list forces a rebuild', 'Works for operations that can be undone by subtraction, such as sum, but not for min or max'],
+    useWhen: ['The list does not change and you need many range sums', 'You are counting how many items fall in a range'],
+    avoidWhen: ['The list is updated often between queries (use a Fenwick or segment tree)', 'You only need one range sum (just add it up)'],
+  },
+  applications: [
+    'Total sales between any two dates from a list of daily sales',
+    'Image processing: summed-area tables give the sum of any rectangle of pixels instantly',
+    'Counting how many values in a range satisfy a condition',
+    'Finding a stretch of a list that adds up to a given total',
+  ],
+  commonMistakes: [
+    'Forgetting the leading 0, then needing a special case for ranges that start at index 0.',
+    'Off-by-one errors in the formula. With the leading 0 it is prefix[right + 1] − prefix[left].',
+    'Changing the original list and forgetting that the prefix array is now out of date.',
+    'Building a prefix array to answer a single question, which costs more than adding the range directly.',
+  ],
+  quiz: [
+    {
+      id: 'q1',
+      type: 'predict-next',
+      prompt: 'The prefix row has been built for this list. Using it, what is the sum of the values from index 1 to index 3?',
+      view: prefixSumSteps([3, 1, 4, 1, 5])[5]!.view,
+      options: ['6', '9', '8', '5'],
+      answer: 0,
+      explanation: 'prefix[4] − prefix[1] = 9 − 3 = 6. Checking directly: 1 + 4 + 1 = 6.',
+    },
+    {
+      id: 'q2',
+      type: 'complexity',
+      prompt: 'After the prefix array is built, what is the cost of one range-sum query on a list of n values?',
+      options: ['O(1)', 'O(n)', 'O(log n)', 'O(n²)'],
+      answer: 0,
+      explanation: 'A query reads two stored totals and subtracts them, however long the range is.',
+    },
+    {
+      id: 'q3',
+      type: 'code',
+      prompt: 'What does this return?',
+      code: `prefixSums([2, 5, 1]);`,
+      options: ['[0, 2, 7, 8]', '[2, 7, 8]', '[2, 5, 1, 8]', '[0, 2, 5, 1]'],
+      answer: 0,
+      explanation: 'Start with 0, then keep a running total: 0 + 2 = 2, 2 + 5 = 7, 7 + 1 = 8.',
+    },
+    {
+      id: 'q4',
+      type: 'multiple-choice',
+      prompt: 'When is a prefix sum array a poor choice?',
+      options: [
+        'When values in the list change frequently between queries',
+        'When the list is very long',
+        'When the list contains negative numbers',
+        'When there are thousands of queries',
+      ],
+      answer: 0,
+      explanation: 'Each update forces every later running total to be recomputed, O(n). Negative numbers and long lists are no problem.',
+    },
+  ],
+  summary: [
+    'prefix[i] is the sum of the first i values; the array starts with 0.',
+    'Sum of left..right = prefix[right + 1] − prefix[left].',
+    'One O(n) build makes every range-sum query O(1).',
+    'Updates are expensive, so it suits data that does not change.',
+  ],
+};

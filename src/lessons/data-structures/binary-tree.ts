@@ -1,0 +1,101 @@
+import { binaryTreeStructure } from '../../data-structures/binaryTree';
+import type { Lesson } from '../../types/lesson';
+
+export const binaryTree: Lesson = {
+  id: 'binary-tree',
+  title: 'Binary Tree',
+  category: 'data-structures',
+  difficulty: 'intermediate',
+  description: 'Nodes arranged in levels, each with at most two children.',
+  keywords: ['tree', 'node', 'root', 'leaf', 'child', 'parent', 'height', 'depth', 'level order', 'hierarchy'],
+  prerequisites: ['linked-list'],
+  overview:
+    'A binary tree is a set of nodes where each node points to at most two others, called its left and right children. It starts from a single root and branches downward. Trees are how programs represent anything hierarchical, and they are the foundation for search trees and heaps.',
+  concept: [
+    'A linked list node points to one next node, so a list is a straight line. Give each node two pointers instead of one and the line becomes a branching shape: a tree.',
+    'A few words describe every tree. The root is the top node. A leaf is a node with no children. The depth of a node is how many steps it is below the root, and the height of the tree is the number of levels it has.',
+    'The shape matters because of how fast it grows. Each level can hold twice as many nodes as the one above it, so a tree with only 20 levels has room for over a million nodes. Algorithms that walk from the root to a leaf therefore touch very few nodes.',
+    'A plain binary tree has no rule about which values go where. Add the rule "smaller on the left, larger on the right" and you get a binary search tree. Add "every parent is larger than its children" and you get a heap.',
+  ],
+  howItWorks: [
+    'Each node stores a value, a pointer to its left child and a pointer to its right child. A missing child is null.',
+    'Insert (level order): look at the nodes level by level and attach the new node to the first free child slot.',
+    'Height: the height of a node is 1 plus the height of its taller subtree; an empty tree has height 0.',
+    'Level-order walk: put the root in a queue; repeatedly take a node from the front, visit it, and add its children to the back.',
+    'Searching a plain binary tree means visiting nodes until the value turns up, because nothing says which side it is on.',
+  ],
+  visualization: { kind: 'structure', structure: binaryTreeStructure },
+  code: binaryTreeStructure.code,
+  complexity: {
+    rows: [
+      { label: 'Insert (level order)', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
+      { label: 'Search (no ordering)', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
+      { label: 'Height', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
+      { label: 'Visit every node', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
+    ],
+    space: 'O(n)',
+    note: 'Without an ordering rule every operation may need to look at all n nodes. The tree shape pays off once a rule is added: a balanced tree has about log₂ n levels, so anything that follows a single root-to-leaf path takes O(log n).',
+    curves: ['log', 'n'],
+  },
+  compareWith: ['linked-list'],
+  prosCons: {
+    pros: ['Represents hierarchies naturally', 'A balanced tree is very shallow: about log₂ n levels', 'The base for search trees, heaps, tries and expression trees'],
+    cons: ['No fast search without an ordering rule', 'More memory than an array: two pointers per node', 'Can become lopsided and lose its advantage'],
+    useWhen: ['The data is hierarchical, such as folders or an organisation chart', 'You are building a structure on top of it, like a BST or heap'],
+    avoidWhen: ['The data is a simple sequence', 'You need fast lookup by value and have no ordering rule (use a BST or hash table)'],
+  },
+  applications: [
+    'File systems: folders contain folders and files',
+    'The HTML document tree (DOM) that browsers build from a page',
+    'Expression trees in compilers: (2 + 3) × 4 is a × node above a + node',
+    'Decision trees in games and machine learning',
+  ],
+  commonMistakes: [
+    'Confusing a binary tree with a binary search tree. Only the BST guarantees smaller-left, larger-right.',
+    'Mixing up height and depth. Depth is measured down from the root; height is the number of levels.',
+    'Forgetting the base case (an empty subtree) in recursive tree functions.',
+    'Assuming every tree is balanced. A tree where each node has only a right child is just a linked list.',
+  ],
+  quiz: [
+    {
+      id: 'q1',
+      type: 'predict-next',
+      prompt: 'You insert 6 into this tree using level order. Where does it go?',
+      view: binaryTreeStructure.view([1, 2, 3, 4, 5]),
+      options: ['As the left child of 3', 'As the left child of 4', 'As the right child of 2', 'As a new root above 1'],
+      answer: 0,
+      explanation: 'Levels fill left to right. Node 2 already has two children, so the first free slot is the left child of 3.',
+    },
+    {
+      id: 'q2',
+      type: 'multiple-choice',
+      prompt: 'What is a leaf?',
+      options: ['A node with no children', 'The node at the top of the tree', 'A node with exactly one child', 'Any node on the left side'],
+      answer: 0,
+      explanation: 'Leaves are the nodes at the ends of the branches. The node at the top is the root.',
+    },
+    {
+      id: 'q3',
+      type: 'complexity',
+      prompt: 'A plain binary tree (no ordering rule) holds n values. What is the worst-case cost of finding a value?',
+      options: ['O(n)', 'O(log n)', 'O(1)', 'O(n²)'],
+      answer: 0,
+      explanation: 'Nothing tells the search which side to choose, so it may have to visit every node.',
+    },
+    {
+      id: 'q4',
+      type: 'code',
+      prompt: 'The tree has root 1 with children 2 and 3, and node 2 has one child 4. What does height(root) return?',
+      code: `function height(node: TreeNode | null): number {\n  if (!node) return 0;\n  return 1 + Math.max(height(node.left), height(node.right));\n}`,
+      options: ['3', '2', '4', '1'],
+      answer: 0,
+      explanation: 'The longest path is 1 → 2 → 4, which spans three levels. height(4) = 1, height(2) = 2, height(1) = 3.',
+    },
+  ],
+  summary: [
+    'A binary tree is made of nodes with at most two children, starting from one root.',
+    'Root, leaf, depth and height are the vocabulary for describing it.',
+    'Each level can hold twice as many nodes as the last, so balanced trees are very shallow.',
+    'Without an ordering rule, operations are O(n); BSTs and heaps add rules to do better.',
+  ],
+};

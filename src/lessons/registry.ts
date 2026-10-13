@@ -1,41 +1,65 @@
 import type { Category, Lesson } from '../types/lesson';
+import { bellmanFord } from './algorithms/bellman-ford';
 import { bfs } from './algorithms/bfs';
 import { binarySearch } from './algorithms/binary-search';
 import { bubbleSort } from './algorithms/bubble-sort';
 import { dfs } from './algorithms/dfs';
 import { dijkstra } from './algorithms/dijkstra';
+import { heapSort } from './algorithms/heap-sort';
 import { insertionSort } from './algorithms/insertion-sort';
+import { kruskal } from './algorithms/kruskal';
 import { linearSearch } from './algorithms/linear-search';
 import { mergeSort } from './algorithms/merge-sort';
+import { prefixSum } from './algorithms/prefix-sum';
+import { prim } from './algorithms/prim';
 import { quickSort } from './algorithms/quick-sort';
 import { selectionSort } from './algorithms/selection-sort';
+import { slidingWindow } from './algorithms/sliding-window';
+import { topologicalSort } from './algorithms/topological-sort';
+import { treeTraversal } from './algorithms/tree-traversal';
+import { twoPointers } from './algorithms/two-pointers';
 import { array } from './data-structures/array';
 import { binarySearchTree } from './data-structures/binary-search-tree';
+import { binaryTree } from './data-structures/binary-tree';
 import { graph } from './data-structures/graph';
 import { heap } from './data-structures/heap';
 import { linkedList } from './data-structures/linked-list';
+import { priorityQueue } from './data-structures/priority-queue';
 import { queue } from './data-structures/queue';
 import { stack } from './data-structures/stack';
+import { string } from './data-structures/string';
 
 /** Every live lesson, in recommended learning order. Register new lessons here. */
 export const lessons: Lesson[] = [
   array,
+  string,
   linkedList,
   stack,
   queue,
+  binaryTree,
   binarySearchTree,
   heap,
+  priorityQueue,
   graph,
   linearSearch,
   binarySearch,
   bubbleSort,
   selectionSort,
   insertionSort,
+  twoPointers,
+  slidingWindow,
+  prefixSum,
   mergeSort,
   quickSort,
+  heapSort,
   bfs,
   dfs,
+  topologicalSort,
+  treeTraversal,
   dijkstra,
+  bellmanFord,
+  kruskal,
+  prim,
 ];
 
 const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));
