@@ -1,0 +1,28 @@
+import type { View } from '../../../types/visualization';
+import { ArrayRenderer } from './ArrayRenderer';
+import { GraphRenderer } from './GraphRenderer';
+import { HeapRenderer } from './HeapRenderer';
+import { ListRenderer } from './ListRenderer';
+import { QueueRenderer } from './QueueRenderer';
+import { StackRenderer } from './StackRenderer';
+import { TreeRenderer } from './TreeRenderer';
+
+/** Picks the renderer for a view. Adding a view kind means adding one case here. */
+export function StepView({ view }: { view: View }) {
+  switch (view.kind) {
+    case 'array':
+      return <ArrayRenderer view={view} />;
+    case 'linked-list':
+      return <ListRenderer view={view} />;
+    case 'stack':
+      return <StackRenderer view={view} />;
+    case 'queue':
+      return <QueueRenderer view={view} />;
+    case 'tree':
+      return <TreeRenderer view={view} />;
+    case 'heap':
+      return <HeapRenderer view={view} />;
+    case 'graph':
+      return <GraphRenderer view={view} />;
+  }
+}

@@ -14,6 +14,10 @@
   --accent-soft: #eceefb;
   --danger: #c22f45;
   --success: #17803d;
+  --syn-keyword: #7a34c4;
+  --syn-string: #1a7a45;
+  --syn-number: #b4530c;
+  --syn-comment: #7d7c76;
 
   --role-default: #f3f3f0;
   --role-default-fg: #1b1b19;
@@ -49,6 +53,10 @@
   --accent-soft: #1f2340;
   --danger: #ff7389;
   --success: #4ccf7c;
+  --syn-keyword: #c49bff;
+  --syn-string: #7fd6a0;
+  --syn-number: #ffab70;
+  --syn-comment: #8b8d93;
 
   --role-default: #23262b;
   --role-default-fg: #ededeb;
