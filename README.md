@@ -4,6 +4,8 @@ An interactive platform for learning data structures and algorithms by watching 
 
 Every lesson has a visualization you control: play, pause, step forward and back, change the speed, and run it on your own data. Each step explains what happened and why, and highlights the line of code responsible.
 
+![Bubble Sort lesson mid-run: 8 and 1 swapping, with playback controls, the step explanation and the highlighted line of code](docs/screenshot.png)
+
 ## Features
 
 - **29 interactive lessons**
