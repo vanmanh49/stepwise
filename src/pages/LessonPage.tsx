@@ -39,6 +39,13 @@ const SECTIONS = [
   ['summary', 'Summary'],
 ] as const;
 
+/** The page sections a lesson shows: SQL lessons have no complexity and call their code an example query. */
+function sectionsFor(lesson: Lesson): (readonly [string, string])[] {
+  return SECTIONS.filter(([id]) => id !== 'complexity' || lesson.complexity).map(([id, title]) =>
+    id === 'code' && lesson.category === 'sql' ? ([id, 'Example query'] as const) : ([id, title] as const),
+  );
+}
+
 interface Live {
   step: Step;
   index: number;
@@ -46,7 +53,6 @@ interface Live {
 }
 
 function ContextPanel({ lesson, live }: { lesson: Lesson; live?: Live }) {
-  const main = lesson.complexity.rows[0]!;
   return (
     <div className="flex flex-col gap-6 text-sm">
       <div>
@@ -64,28 +70,30 @@ function ContextPanel({ lesson, live }: { lesson: Lesson; live?: Live }) {
         )}
       </div>
 
-      <div>
-        <p className="eyebrow">Complexity</p>
-        <dl className="mt-2 space-y-1.5">
-          {(
-            [
-              [lesson.category === 'algorithms' ? 'Average time' : main.label, main.average],
-              ['Worst case', main.worst],
-              ['Space', lesson.complexity.space],
-            ] as const
-          ).map(([label, value]) => (
-            <div key={label} className="flex items-baseline justify-between gap-3">
-              <dt className="text-muted">{label}</dt>
-              <dd className="font-mono font-semibold">{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+      {lesson.complexity && (
+        <div>
+          <p className="eyebrow">Complexity</p>
+          <dl className="mt-2 space-y-1.5">
+            {(
+              [
+                [lesson.category === 'algorithms' ? 'Average time' : lesson.complexity.rows[0]!.label, lesson.complexity.rows[0]!.average],
+                ['Worst case', lesson.complexity.rows[0]!.worst],
+                ['Space', lesson.complexity.space],
+              ] as const
+            ).map(([label, value]) => (
+              <div key={label} className="flex items-baseline justify-between gap-3">
+                <dt className="text-muted">{label}</dt>
+                <dd className="font-mono font-semibold">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
 
       <nav aria-label="On this page">
         <p className="eyebrow">On this page</p>
         <ul className="mt-2 space-y-0.5">
-          {SECTIONS.map(([id, title]) => (
+          {sectionsFor(lesson).map(([id, title]) => (
             <li key={id}>
               <a href={`#${id}`} className="flex min-h-11 items-center rounded-md px-2 text-muted hover:bg-surface-2 hover:text-text">
                 {title}
@@ -163,35 +171,38 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
           <HowItWorks lesson={lesson} />
         </Section>
 
-        <Section id="code" title="Code">
+        <Section id="code" title={lesson.category === 'sql' ? 'Example query' : 'Code'}>
           <p className="mb-4 max-w-[68ch] text-muted">
-            The full TypeScript implementation. In the visualization above, the highlighted line follows this code as
-            each step runs.
+            {lesson.category === 'sql'
+              ? 'The query this lesson starts with. In the visualization above, the highlighted line follows the clause that is running.'
+              : 'The full TypeScript implementation. In the visualization above, the highlighted line follows this code as each step runs.'}
           </p>
           <CodePanel code={lesson.code} />
         </Section>
 
-        <Section id="complexity" title="Complexity">
-          <div className="space-y-4">
-            <ComplexityTable lesson={lesson} />
-            {lesson.category === 'data-structures' && (
-              <p className="text-sm">
-                <span className="text-muted">Space:</span>{' '}
-                <span className="font-mono font-semibold">{lesson.complexity.space}</span>
-              </p>
-            )}
-            <p className="max-w-[68ch] leading-relaxed">{lesson.complexity.note}</p>
-            <figure className="card max-w-2xl p-4">
-              <BigOChart compact highlight={lesson.complexity.curves} />
-              <figcaption className="mt-2 text-sm text-muted">
-                How this lesson's complexity grows with input size.{' '}
-                <Link to="/big-o" className="font-medium text-accent underline-offset-4 hover:underline">
-                  Open the Big O explorer
-                </Link>
-              </figcaption>
-            </figure>
-          </div>
-        </Section>
+        {lesson.complexity && (
+          <Section id="complexity" title="Complexity">
+            <div className="space-y-4">
+              <ComplexityTable lesson={lesson} />
+              {lesson.category === 'data-structures' && (
+                <p className="text-sm">
+                  <span className="text-muted">Space:</span>{' '}
+                  <span className="font-mono font-semibold">{lesson.complexity.space}</span>
+                </p>
+              )}
+              <p className="max-w-[68ch] leading-relaxed">{lesson.complexity.note}</p>
+              <figure className="card max-w-2xl p-4">
+                <BigOChart compact highlight={lesson.complexity.curves} />
+                <figcaption className="mt-2 text-sm text-muted">
+                  How this lesson's complexity grows with input size.{' '}
+                  <Link to="/big-o" className="font-medium text-accent underline-offset-4 hover:underline">
+                    Open the Big O explorer
+                  </Link>
+                </figcaption>
+              </figure>
+            </div>
+          </Section>
+        )}
 
         <Section id="trade-offs" title="Strengths and trade-offs">
           <TradeOffs lesson={lesson} />

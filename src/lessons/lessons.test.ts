@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { curveForNotation } from '../components/bigo/complexities';
 import type { Lesson } from '../types/lesson';
 import type { Step } from '../types/visualization';
-import { curriculum, roadmap } from './curriculum';
+import { curriculum, roadmap, topicsIn } from './curriculum';
 import { adjacentLessons, getLesson, lessonPath, lessons, lessonsIn } from './registry';
 
 const EXPECTED_IDS = [
@@ -93,8 +93,10 @@ describe.each(lessons.map((l) => [l.id, l] as const))('lesson %s', (_id, lesson)
     expect(lesson.applications.length).toBeGreaterThanOrEqual(3);
     expect(lesson.commonMistakes.length).toBeGreaterThanOrEqual(3);
     expect(lesson.summary.length).toBeGreaterThanOrEqual(3);
-    expect(lesson.complexity.rows.length).toBeGreaterThanOrEqual(1);
-    expect(lesson.complexity.curves.length).toBeGreaterThanOrEqual(1);
+    if (lesson.category !== 'sql') {
+      expect(lesson.complexity!.rows.length).toBeGreaterThanOrEqual(1);
+      expect(lesson.complexity!.curves.length).toBeGreaterThanOrEqual(1);
+    }
     for (const list of Object.values(lesson.prosCons)) expect(list.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -137,6 +139,39 @@ describe('curriculum', () => {
     }
   });
 
+  it('lists the SQL course in order', () => {
+    expect(topicsIn('sql').map((t) => t.id)).toEqual([
+      'select-from',
+      'where',
+      'null-values',
+      'order-by-limit',
+      'distinct',
+      'aggregates',
+      'insert',
+      'update',
+      'delete',
+      'group-by-having',
+      'inner-join',
+      'left-join',
+      'subqueries',
+      'self-join',
+      'many-to-many',
+      'create-table',
+      'constraints',
+      'case-expressions',
+      'set-operations',
+      'ctes',
+      'recursive-ctes',
+      'window-functions',
+      'views',
+      'indexes',
+      'query-plans',
+      'transactions',
+      'isolation-levels',
+      'normalization',
+    ]);
+  });
+
   it('drops the topic that duplicated the Binary Search Tree lesson', () => {
     expect(curriculum.some((t) => t.id === 'bst-operations')).toBe(false);
     expect(getLesson('binary-search-tree')!.keywords).toContain('bst operations');
@@ -144,7 +179,7 @@ describe('curriculum', () => {
 
   it('maps every algorithm to a Big O curve', () => {
     for (const lesson of lessonsIn('algorithms')) {
-      const average = lesson.complexity.rows[0]!.average;
+      const average = lesson.complexity!.rows[0]!.average;
       expect(curveForNotation(average), lesson.id + ' ' + average).toBeDefined();
     }
   });

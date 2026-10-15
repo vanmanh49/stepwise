@@ -42,7 +42,7 @@ export interface TextDef {
   code: string;
 }
 
-export type Category = 'data-structures' | 'algorithms';
+export type Category = 'data-structures' | 'algorithms' | 'sql';
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
 
 /** Describes the inputs a lesson's visualization accepts and how steps are generated. */
@@ -99,9 +99,10 @@ export interface Lesson {
   concept: string[];
   howItWorks: string[];
   visualization: VisualizationConfig;
-  /** TypeScript source; Step.codeLine refers to its lines. */
+  /** TypeScript source, or the example query for SQL lessons; Step.codeLine refers to its lines. */
   code: string;
-  complexity: {
+  /** Absent for SQL lessons, where Big O does not apply. */
+  complexity?: {
     /** One row for an algorithm, one row per operation for a data structure. */
     rows: ComplexityRow[];
     space: string;

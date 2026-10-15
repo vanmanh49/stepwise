@@ -76,7 +76,7 @@ export default function BigO() {
             </thead>
             <tbody>
               {lessonsIn('algorithms').map((lesson) => {
-                const row = lesson.complexity.rows[0]!;
+                const row = lesson.complexity!.rows[0]!;
                 const curve = curveForNotation(row.average);
                 return (
                   <tr key={lesson.id} className="border-b border-border last:border-0">
