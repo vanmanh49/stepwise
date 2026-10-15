@@ -5,6 +5,7 @@ import { HeapRenderer } from './HeapRenderer';
 import { ListRenderer } from './ListRenderer';
 import { QueueRenderer } from './QueueRenderer';
 import { StackRenderer } from './StackRenderer';
+import { TableRenderer } from './TableRenderer';
 import { TreeRenderer } from './TreeRenderer';
 
 /** Picks the renderer for a view. Adding a view kind means adding one case here. */
@@ -24,5 +25,7 @@ export function StepView({ view }: { view: View }) {
       return <HeapRenderer view={view} />;
     case 'graph':
       return <GraphRenderer view={view} />;
+    case 'table':
+      return <TableRenderer view={view} />;
   }
 }
