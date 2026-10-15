@@ -1,6 +1,6 @@
 # Stepwise
 
-An interactive platform for learning data structures and algorithms by watching them run.
+An interactive platform for learning data structures, algorithms and SQL by watching them run.
 
 Every lesson has a visualization you control: play, pause, step forward and back, change the speed, and run it on your own data. Each step explains what happened and why, and highlights the line of code responsible.
 
@@ -8,16 +8,19 @@ Every lesson has a visualization you control: play, pause, step forward and back
 
 ## Features
 
-- **29 interactive lessons**
+- **39 interactive lessons**
   - Data structures: Array, String, Linked List, Stack, Queue, Binary Tree, Binary Search Tree, Heap, Priority Queue, Graph
   - Algorithms: Linear Search, Binary Search, Bubble Sort, Selection Sort, Insertion Sort, Two Pointers, Sliding Window, Prefix Sum, Merge Sort, Quick Sort, Heap Sort, BFS, DFS, Topological Sort, Tree Traversal, Dijkstra, Bellman-Ford, Kruskal, Prim
+  - SQL: SELECT and FROM, WHERE, NULL and three-valued logic, ORDER BY and LIMIT, DISTINCT, aggregates, GROUP BY and HAVING, INNER JOIN, LEFT JOIN, subqueries
+- **SQL you can step through**: write any query against a sample shop or school database and watch it run clause by clause (FROM → JOIN → WHERE → GROUP BY → HAVING → SELECT → DISTINCT → ORDER BY → LIMIT), with each row the clause keeps, joins, groups or removes highlighted
+- **SQL exercises** checked by comparing your result with the expected one, with hints and friendly errors that point at the line and suggest misspelled names
 - **One visualization engine** for all of them: play, pause, next, previous, restart, 0.5x–2x speed, timeline scrubber, keyboard control (Space, ←, →)
 - **Code and visualization in sync**: the running line is highlighted on every step
 - **Your own data**: custom arrays, random data, operations on structures you build up, a choice of example graphs and start nodes
 - **Quizzes** in four styles (multiple choice, complexity, code, predict the next step) with explanations and retry
 - **Big O explorer**: toggle curves, change the input size, read exact operation counts, compare the course's algorithms
-- **Progress tracking**: completed lessons, quiz scores, current lesson and a daily streak, saved in LocalStorage
-- **Roadmap and full curriculum**: about 60 planned topics, shown as "Coming soon" until their lesson is written
+- **Progress tracking**: completed lessons, quiz scores, solved exercises, current lesson and a daily streak, saved in LocalStorage
+- **Roadmap and full curriculum**: about 90 planned topics, shown as "Coming soon" until their lesson is written
 - **Global search** with Ctrl+K (Cmd+K on macOS)
 - **Light and dark themes**, responsive layout, reduced-motion support, and state cues that do not rely on colour
 
@@ -64,19 +67,22 @@ src/
   algorithms/        pure algorithms and their step generators
     sorting/  searching/  graph/
   data-structures/   step generators for structure operations
+  sql/               SQL interpreter: tokenizer, parser, executor, step generator, exercise checker
+    datasets/        the read-only sample databases
   lessons/           one data file per lesson, the registry and the curriculum
   store/             progress and theme state
   utils/             input parsing
   components/
     visualization/   Visualizer, controls, explanation, legend, renderers, inputs
     code/            CodePanel
+    sql/             schema panel and exercises
     lesson/  quiz/  navigation/  progress/  bigo/  layout/
   pages/             Home, Catalog, LessonPage, Dashboard, BigO, NotFound
 ```
 
 Rules the code follows:
 
-- `algorithms/` and `data-structures/` contain no React. They only produce data.
+- `algorithms/`, `data-structures/` and `sql/` contain no React. They only produce data.
 - Lesson text lives in `lessons/`, never in components.
 - Components read colours from CSS variables in `src/index.css`, so both themes work everywhere.
 
@@ -100,7 +106,7 @@ generator(input)  →  Step[]  →  usePlayer(steps)  →  <Visualizer>  →  re
    }
    ```
 
-3. **View.** A discriminated union: `array`, `linked-list`, `stack`, `queue`, `tree`, `heap`, `graph`. Every element has a `role` such as `compare`, `swap`, `sorted` or `visited`.
+3. **View.** A discriminated union: `array`, `linked-list`, `stack`, `queue`, `tree`, `heap`, `graph`, `table`. Every element has a `role` such as `compare`, `swap`, `sorted` or `visited`.
 4. **Player.** `usePlayer` wraps a pure reducer that owns the current index, play state and speed.
 5. **Visualizer.** One shell for every lesson: stage, legend, controls, timeline, explanation and code panel.
 6. **Renderers.** `StepView` picks one renderer per view kind. Role colours, border cues and marks are defined once in `components/visualization/roles.ts`.
@@ -121,11 +127,29 @@ A lesson needs a generator and a data file.
    | `structure` | data structures | one button per operation; contents persist between operations |
    | `text` | structures holding text | a text field plus one button per operation |
    | `graph` | graph algorithms | example-graph and start-node pickers |
+   | `sql` | SQL lessons | a query editor, "Try" examples, a schema panel and exercises (see below) |
 
 3. Register it in `src/lessons/registry.ts` by adding it to the `lessons` array, in learning order.
 4. Make sure a topic with the same `id` exists in `src/lessons/curriculum.ts`. Planned topics are already listed there; registering a lesson turns "Coming soon" into a link.
 
 Run `npm test`. `lessons.test.ts` checks every registered lesson: references resolve, the quiz is valid, the default visualization runs, and every `codeLine` points inside the lesson's code.
+
+## How to add a SQL lesson
+
+SQL lessons need no generator: the interpreter in `src/sql/` turns any supported query into steps.
+
+1. Create `src/lessons/sql/<id>.ts`. Leave out `complexity`; SQL lessons have no Big O section. Set `code` to the same string as `visualization.initialQuery`.
+2. Fill in the `sql` config:
+   - `dataset`: `'shop'` or `'school'` (see `src/sql/datasets/`)
+   - `initialQuery`: shown and run when the lesson opens
+   - `examples`: 3–4 `{ label, query }` buttons
+   - `exercises`: 2–3 `{ id, prompt, solution, orderMatters, hint? }`. Set `orderMatters` only when the task asks for an order, and break ties in its `ORDER BY` so the order is unique.
+3. For a quiz question that shows a table, use `viewAt(datasets.shop, query, index)` from `src/sql/steps.ts`; a negative index counts from the end.
+4. Register the lesson and check the curriculum entry, as for any lesson.
+
+`lessons.test.ts` runs every example, checks that each exercise's solution passes its own check, and requires a quiz question with a table view.
+
+The interpreter supports `SELECT [DISTINCT]`, `FROM`, `[INNER | LEFT] JOIN … ON`, `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY`, `LIMIT`/`OFFSET`, the aggregates `COUNT`, `SUM`, `AVG`, `MIN` and `MAX`, and `IN`, scalar and correlated subqueries. It follows SQLite's rules (NULL logic, integer division, column affinity, NULLs sorting first), with one deliberate exception: a column that is neither grouped nor aggregated is rejected, as most databases do. Anything else gets a clear "isn't supported here yet" error. Sample tables hold at most 20 rows, queries at most 2,000 characters, and a run at most 400 steps; longer runs summarise repeated row checks.
 
 ## How to add an algorithm
 
@@ -161,10 +185,11 @@ TypeScript reports every place that must handle the new kind. The engine, contro
 - `quizScores`: best score per lesson
 - `currentLesson`: the last lesson opened
 - `activeDays`: dates on which a lesson was opened, used to compute the streak
+- `exercises`: solved SQL exercises, as `lessonId/exerciseId`
 
-A lesson is completed with the "Mark as complete" button or by a perfect quiz score. Stored data is validated when loaded, so corrupted or outdated data falls back to empty progress.
+A lesson is completed with the "Mark as complete" button, by a perfect quiz score, or, for SQL lessons, by solving every exercise. Stored data is validated when loaded, so corrupted or outdated data falls back to empty progress.
 
-Components only use the store's selectors and actions (`markComplete`, `recordQuiz`, `visit`, `reset`). To move progress to a backend, replace the persistence inside this one file.
+Components only use the store's selectors and actions (`markComplete`, `recordQuiz`, `solveExercise`, `visit`, `reset`). To move progress to a backend, replace the persistence inside this one file.
 
 The theme is stored separately under `dsa-theme`.
 
@@ -181,5 +206,7 @@ Unit tests cover:
 - data structure operations, including invalid ones (empty, full, out of range, missing value)
 - the player reducer, input parsing, tree layout, search ranking, Big O maths and the progress store
 - every registered lesson's content
+- the SQL interpreter: tokenizer, parser, executor, grouping, subqueries, error messages, the step generator and the exercise checker
+- **differential tests**: over 120 queries run through both the interpreter and real SQLite ([sql.js](https://github.com/sql-js/sql.js)), whose results must match. sql.js is a dev dependency used only by tests; it is never bundled into the app.
 
 Tests run in Node without a browser. Component behaviour is checked manually in the browser.
