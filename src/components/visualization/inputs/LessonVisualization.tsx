@@ -4,6 +4,7 @@ import { VisualizationBoundary } from '../ErrorBoundary';
 import { GraphInput } from './GraphInput';
 import { SearchInput } from './SearchInput';
 import { SortInput } from './SortInput';
+import { SqlInput } from './SqlInput';
 import { StructureInput } from './StructureInput';
 import { TextInput } from './TextInput';
 
@@ -21,6 +22,8 @@ function Inputs({ config, code, onStep }: { config: VisualizationConfig; code: s
       return <TextInput config={config} code={code} onStep={onStep} />;
     case 'graph':
       return <GraphInput config={config} code={code} onStep={onStep} />;
+    case 'sql':
+      return <SqlInput config={config} code={code} onStep={onStep} />;
   }
 }
 

@@ -18,6 +18,7 @@ import { PrerequisiteNotice } from '../components/lesson/PrerequisiteNotice';
 import { CATEGORY_TITLE, CourseSidebar } from '../components/navigation/CourseSidebar';
 import { Drawer } from '../components/navigation/Drawer';
 import { Quiz } from '../components/quiz/Quiz';
+import { Exercises } from '../components/sql/Exercises';
 import { Variables } from '../components/visualization/Explanation';
 import { LessonVisualization } from '../components/visualization/inputs/LessonVisualization';
 import { adjacentLessons, getLesson, lessonPath } from '../lessons/registry';
@@ -217,6 +218,12 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
         </Section>
 
         <Section id="practice" title="Practice">
+          {lesson.visualization.kind === 'sql' && (
+            <div className="mb-10">
+              <h3 className="mb-4 text-lg font-semibold">Write the query</h3>
+              <Exercises lessonId={lesson.id} dataset={lesson.visualization.dataset} exercises={lesson.visualization.exercises} />
+            </div>
+          )}
           <Quiz lessonId={lesson.id} questions={lesson.quiz} />
         </Section>
 

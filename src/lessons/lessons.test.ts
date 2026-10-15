@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { curveForNotation } from '../components/bigo/complexities';
+import { datasets } from '../sql/datasets';
+import { querySteps } from '../sql/steps';
 import type { Lesson } from '../types/lesson';
 import type { Step } from '../types/visualization';
 import { curriculum, roadmap, topicsIn } from './curriculum';
@@ -54,6 +56,11 @@ function defaultSteps(lesson: Lesson): Step[] {
     }
     case 'graph':
       return config.generate(config.graphs[0]!, config.graphs[0]!.nodes[0]!.id);
+    case 'sql': {
+      const result = querySteps(datasets[config.dataset], config.initialQuery);
+      if (!result.ok) throw new Error(result.error.message);
+      return result.steps;
+    }
   }
 }
 
