@@ -7,6 +7,8 @@ export interface ProgressData {
   currentLesson?: string;
   /** Local dates (YYYY-MM-DD) on which a lesson was opened. */
   activeDays: string[];
+  /** Solved SQL exercises, as "lessonId/exerciseId". */
+  exercises: string[];
 }
 
 interface ProgressActions {
@@ -15,12 +17,15 @@ interface ProgressActions {
   /** Keeps the best score; a perfect score also completes the lesson. */
   recordQuiz(id: string, correct: number, total: number): void;
   visit(id: string): void;
+  /** Records a solved exercise; solving every exercise of a lesson also completes it. */
+  solveExercise(lessonId: string, exerciseId: string, allExerciseIds: string[]): void;
   reset(): void;
 }
 
-export const emptyProgress: ProgressData = { completed: [], quizScores: {}, activeDays: [] };
+export const emptyProgress: ProgressData = { completed: [], quizScores: {}, activeDays: [], exercises: [] };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const EXERCISE = /^[^/]+\/[^/]+$/;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -42,6 +47,7 @@ export function sanitizeProgress(raw: unknown): ProgressData {
     completed: [...new Set(strings(raw.completed))],
     quizScores,
     activeDays: strings(raw.activeDays).filter((d) => DAY.test(d)),
+    exercises: [...new Set(strings(raw.exercises).filter((e) => EXERCISE.test(e)))],
     ...(typeof raw.currentLesson === 'string' && { currentLesson: raw.currentLesson }),
   };
 }
@@ -88,6 +94,16 @@ const creator: StateCreator<ProgressData & ProgressActions> = (set) => ({
       return {
         currentLesson: id,
         activeDays: s.activeDays.includes(today) ? s.activeDays : [...s.activeDays, today],
+      };
+    }),
+  solveExercise: (lessonId, exerciseId, allExerciseIds) =>
+    set((s) => {
+      const key = `${lessonId}/${exerciseId}`;
+      const exercises = s.exercises.includes(key) ? s.exercises : [...s.exercises, key];
+      const allSolved = allExerciseIds.every((id) => exercises.includes(`${lessonId}/${id}`));
+      return {
+        exercises,
+        completed: allSolved && !s.completed.includes(lessonId) ? [...s.completed, lessonId] : s.completed,
       };
     }),
   reset: () => set({ ...emptyProgress, currentLesson: undefined }),

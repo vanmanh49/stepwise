@@ -19,7 +19,15 @@ describe('sanitizeProgress', () => {
       quizScores: { array: { correct: 3, total: 4 } },
       currentLesson: 'stack',
       activeDays: ['2026-10-13'],
+      exercises: [],
     });
+  });
+
+  it('keeps well-formed solved exercises once', () => {
+    expect(sanitizeProgress({ completed: [] }).exercises).toEqual([]);
+    expect(sanitizeProgress({ exercises: ['where/books', 'where/books', 3, 'nolesson', 'a/b/c', '/x', 'where/'] }).exercises).toEqual([
+      'where/books',
+    ]);
   });
 });
 
@@ -107,7 +115,33 @@ describe('useProgress', () => {
     useProgress.getState().visit('stack');
     useProgress.getState().markComplete('stack');
     useProgress.getState().reset();
-    const { completed, quizScores, currentLesson, activeDays } = useProgress.getState();
-    expect({ completed, quizScores, currentLesson, activeDays }).toEqual({ ...emptyProgress, currentLesson: undefined });
+    const { completed, quizScores, currentLesson, activeDays, exercises } = useProgress.getState();
+    expect({ completed, quizScores, currentLesson, activeDays, exercises }).toEqual({ ...emptyProgress, currentLesson: undefined });
+  });
+});
+
+describe('solveExercise', () => {
+  beforeEach(() => useProgress.getState().reset());
+
+  it('completes the lesson once every exercise is solved', () => {
+    const { solveExercise } = useProgress.getState();
+    solveExercise('where', 'a', ['a', 'b']);
+    expect(useProgress.getState().exercises).toEqual(['where/a']);
+    expect(useProgress.getState().completed).not.toContain('where');
+    solveExercise('where', 'b', ['a', 'b']);
+    expect(useProgress.getState().completed).toContain('where');
+  });
+
+  it('records an exercise once', () => {
+    const { solveExercise } = useProgress.getState();
+    solveExercise('where', 'a', ['a', 'b']);
+    solveExercise('where', 'a', ['a', 'b']);
+    expect(useProgress.getState().exercises).toEqual(['where/a']);
+  });
+
+  it('is cleared by reset', () => {
+    useProgress.getState().solveExercise('where', 'a', ['a']);
+    useProgress.getState().reset();
+    expect(useProgress.getState().exercises).toEqual([]);
   });
 });
