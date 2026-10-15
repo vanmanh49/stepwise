@@ -54,9 +54,9 @@ The app uses client-side routing. When deploying the `dist/` folder, configure t
 
 ### Publishing to GitHub Pages
 
-The site is served from the `gh-pages` branch at https://vanmanh49.github.io/stepwise/.
+The site is served at https://vanmanh49.github.io/stepwise/ and publishes itself: every push to `main` runs `.github/workflows/deploy.yml`, which installs, tests, builds and deploys. You can also start it by hand from the Actions tab ("Run workflow"). If the tests fail, nothing is published. In the repository settings, Pages → Source must be set to "GitHub Actions".
 
-`npm run build:pages` builds with the `/stepwise/` base path and copies `index.html` to `404.html`, which is how GitHub Pages serves deep links such as `/stepwise/algorithms/bfs`. To publish a new version, run it and push the contents of `dist/` to the `gh-pages` branch. If the repository is renamed, change the base path in the `build:pages` script.
+`npm run build:pages` builds with the `/stepwise/` base path and copies `index.html` to `404.html`, which is how GitHub Pages serves deep links such as `/stepwise/algorithms/bfs`. If the repository is renamed, change the base path in the `build:pages` script.
 
 ## Architecture
 
