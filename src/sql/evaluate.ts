@@ -6,13 +6,16 @@ import {
   and,
   arithmetic,
   compare,
+  compareValues,
   formatValue,
   like,
   negate,
   not,
   or,
   Real,
+  toNumber,
   truth,
+  valueKey,
   type SqlValue,
   type Truth,
 } from './values';
@@ -180,7 +183,43 @@ export function evaluate(expr: Expr, scope: Scope): SqlValue {
     case 'subquery':
       return runSubquery(expr, scope, 'used as a value')[0] ?? null;
     case 'aggregate':
-      throw new SqlError('Aggregates are not supported yet.', 'unsupported', expr.line, expr.column);
+      return aggregate(expr, scope);
+  }
+}
+
+/** Computes an aggregate over the members of the current group. */
+function aggregate(expr: Extract<Expr, { type: 'aggregate' }>, scope: Scope): SqlValue {
+  const members = scope.row.members;
+  if (!members) {
+    throw new SqlError(`Aggregates like ${expr.fn} can only be used in SELECT, HAVING or ORDER BY.`, 'syntax', expr.line, expr.column);
+  }
+  const arg = expr.arg;
+  if (arg === '*') return members.length;
+  let values = members
+    .map((row) => evaluate(arg, { columns: scope.columns, row, outer: scope.outer, db: scope.db }))
+    .filter((v): v is Exclude<SqlValue, null> => v !== null);
+  if (expr.distinct) {
+    const byKey = new Map<string, Exclude<SqlValue, null>>();
+    for (const v of values) if (!byKey.has(valueKey(v))) byKey.set(valueKey(v), v);
+    values = [...byKey.values()];
+  }
+  switch (expr.fn) {
+    case 'COUNT':
+      return values.length;
+    case 'MIN':
+    case 'MAX': {
+      if (values.length === 0) return null;
+      const sign = expr.fn === 'MIN' ? 1 : -1;
+      return values.reduce((best, v) => (sign * compareValues(v, best) < 0 ? v : best));
+    }
+    case 'SUM':
+    case 'AVG': {
+      if (values.length === 0) return null;
+      const real = values.some((v) => typeof v !== 'number');
+      const sum = values.reduce<number>((total, v) => total + toNumber(v)!, 0);
+      if (expr.fn === 'AVG') return new Real(sum / values.length);
+      return real ? new Real(sum) : sum;
+    }
   }
 }
 
@@ -215,6 +254,9 @@ export function referencedColumns(expr: Expr, scope: Scope): Record<string, stri
         return e.items.forEach(visit);
       case 'inSubquery':
         return visit(e.operand);
+      case 'aggregate':
+        values[e.text] = formatValue(evaluate(e, scope));
+        return;
       default:
         return;
     }
