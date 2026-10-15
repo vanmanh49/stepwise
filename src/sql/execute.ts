@@ -1,6 +1,6 @@
 import type { Expr, JoinClause, SelectStatement, TableRef } from './ast';
 import { findTable, type ColumnType, type Dataset } from './datasets';
-import { SqlError, suggest } from './errors';
+import { asSqlError, SqlError, suggest } from './errors';
 import { evaluate, evaluateTruth, referencedColumns, resolveColumn, type Scope } from './evaluate';
 import { parseQuery } from './parse';
 import { compareValues, Real, valueKey, type SqlValue, type Truth } from './values';
@@ -54,6 +54,25 @@ export type RunResult = { ok: true; result: QueryResult; statement: SelectStatem
 
 type Trace = (event: TraceEvent) => void;
 
+/** Largest relation a JOIN may build; the sample tables are tiny, so more means a missing condition. */
+export const MAX_ROWS = 2000;
+/** Row checks allowed per query, including subqueries, so a query can never freeze the page. */
+export const MAX_WORK = 200_000;
+
+/** Everything a scope needs except its columns and row. */
+type Env = Omit<Scope, 'columns' | 'row'>;
+
+function tick(env: Env) {
+  if (++env.ctx.work > MAX_WORK) {
+    throw new SqlError(
+      'This query does too much work for the practice database (over 200,000 row checks). Check your JOIN conditions and subqueries.',
+      'limit',
+      1,
+      1,
+    );
+  }
+}
+
 function scan(db: Dataset, ref: TableRef): Relation {
   const table = findTable(db, ref.table);
   if (!table) {
@@ -81,30 +100,42 @@ const nullRow = (columns: ColumnRef[]): Row => ({ id: 'probe', values: columns.m
  * Evaluates `expr` once against a row of NULLs. Used when a relation is empty, so that
  * misspelled columns are still reported, as SQLite reports them before running.
  */
-function probe(expr: Expr, relation: Relation, outer: Scope | undefined, db: Dataset) {
-  evaluate(expr, { columns: relation.columns, row: nullRow(relation.columns), outer, db });
+function probe(expr: Expr, relation: Relation, env: Env) {
+  evaluate(expr, { columns: relation.columns, row: nullRow(relation.columns), ...env });
 }
 
-function join(db: Dataset, left: Relation, clause: JoinClause, outer: Scope | undefined, trace?: Trace): Relation {
-  const right = scan(db, clause);
-  trace?.({ kind: 'scan', table: findTable(db, clause.table)!.name, relation: right });
+function join(left: Relation, clause: JoinClause, env: Env, trace?: Trace): Relation {
+  const right = scan(env.db, clause);
+  trace?.({ kind: 'scan', table: findTable(env.db, clause.table)!.name, relation: right });
   const columns = [...left.columns, ...right.columns];
-  if (left.rows.length === 0 || right.rows.length === 0) probe(clause.on, { columns, rows: [] }, outer, db);
+  if (left.rows.length === 0 || right.rows.length === 0) probe(clause.on, { columns, rows: [] }, env);
   const rows: Row[] = [];
+  const add = (row: Row) => {
+    rows.push(row);
+    if (rows.length > MAX_ROWS) {
+      throw new SqlError(
+        'This JOIN builds more than 2,000 rows. Check its ON condition: it should match related rows, such as o.customer_id = c.id.',
+        'limit',
+        clause.line,
+        clause.column,
+      );
+    }
+  };
   for (const l of left.rows) {
     let matched = false;
     for (const r of right.rows) {
+      tick(env);
       const row = { id: `${l.id}+${r.id}`, values: [...l.values, ...r.values] };
-      const outcome = evaluateTruth(clause.on, { columns, row, outer, db });
+      const outcome = evaluateTruth(clause.on, { columns, row, ...env });
       trace?.({ kind: 'join-test', join: clause, left, right, leftRow: l.id, rightRow: r.id, outcome });
       if (outcome) {
         matched = true;
-        rows.push(row);
+        add(row);
       }
     }
     if (!matched && clause.kind === 'left') {
       trace?.({ kind: 'join-unmatched', join: clause, leftRow: l.id });
-      rows.push({ id: `${l.id}+null`, values: [...l.values, ...right.columns.map(() => null)] });
+      add({ id: `${l.id}+null`, values: [...l.values, ...right.columns.map(() => null)] });
     }
   }
   const relation = { columns, rows };
@@ -124,6 +155,7 @@ function filter(
   if (input.rows.length === 0) evaluate(condition, empty);
   const rows = input.rows.filter((row) => {
     const scope = scopeOf(row);
+    tick(scope);
     const outcome = evaluateTruth(condition, scope);
     trace?.({ kind: 'filter-test', clause, input, row: row.id, outcome, values: referencedColumns(condition, scope) });
     return outcome === true;
@@ -133,9 +165,9 @@ function filter(
   return relation;
 }
 
-/** Calls `visit` on every node of `expr`, without entering subqueries. */
-function walk(expr: Expr, visit: (e: Expr, insideAggregate: boolean) => void, insideAggregate = false) {
-  visit(expr, insideAggregate);
+/** Calls `visit` on every node of `expr`, without entering subqueries. Returning false skips a node's children. */
+function walk(expr: Expr, visit: (e: Expr, insideAggregate: boolean) => void | false, insideAggregate = false) {
+  if (visit(expr, insideAggregate) === false) return;
   const children: Expr[] = [];
   switch (expr.type) {
     case 'unary':
@@ -187,15 +219,18 @@ function rejectNested(expr: Expr) {
   });
 }
 
+const sameText = (a: Expr, b: Expr) => a.text.replace(/\s+/g, ' ').toLowerCase() === b.text.replace(/\s+/g, ' ').toLowerCase();
+
 /**
- * In a grouped query every column outside an aggregate must be grouped. SQLite would pick
- * an arbitrary row instead; rejecting it teaches the rule other databases enforce.
+ * In a grouped query every column outside an aggregate must be grouped, or sit inside an
+ * expression that is grouped. SQLite would pick an arbitrary row instead; rejecting it
+ * teaches the rule other databases enforce.
  */
-function checkGrouping(stmt: SelectStatement, cols: Output[], base: Scope) {
+function checkGrouping(stmt: SelectStatement, groupBy: Expr[], having: Expr | undefined, cols: Output[], base: Scope) {
   const ungrouped = (name: string, line: number, column: number) =>
     new SqlError(`\`${name}\` must appear in GROUP BY or be used in an aggregate such as COUNT or MAX.`, 'name', line, column);
   const groupedIndexes = new Set(
-    stmt.groupBy.flatMap((g) => {
+    groupBy.flatMap((g) => {
       if (g.type !== 'column') return [];
       const resolved = resolveColumn(g, base);
       return resolved.scope === base ? [resolved.index] : [];
@@ -203,8 +238,9 @@ function checkGrouping(stmt: SelectStatement, cols: Output[], base: Scope) {
   );
   const check = (expr: Expr) =>
     walk(expr, (e, insideAggregate) => {
-      if (e.type !== 'column' || insideAggregate) return;
-      if (stmt.groupBy.some((g) => g.text.toLowerCase() === e.text.toLowerCase())) return;
+      if (insideAggregate) return;
+      if (groupBy.some((g) => sameText(g, e))) return false;
+      if (e.type !== 'column') return;
       const resolved = resolveColumn(e, base);
       if (resolved.scope !== base || groupedIndexes.has(resolved.index)) return;
       throw ungrouped(e.text, e.line, e.column);
@@ -213,12 +249,44 @@ function checkGrouping(stmt: SelectStatement, cols: Output[], base: Scope) {
     if (c.expr) check(c.expr);
     else if (!groupedIndexes.has(c.source!)) throw ungrouped(c.name, stmt.lines.SELECT ?? 1, 1);
   }
-  if (stmt.having) check(stmt.having);
+  if (having) check(having);
   for (const { expr } of stmt.orderBy) {
     const byPosition = expr.type === 'literal';
     const byAlias = expr.type === 'column' && expr.table === undefined && cols.some((c) => c.expr && c.name.toLowerCase() === expr.name.toLowerCase());
     if (!byPosition && !byAlias) check(expr);
   }
+}
+
+/** Rebuilds `expr` with `f` applied to each direct child, without entering subqueries. */
+function mapChildren(expr: Expr, f: (e: Expr) => Expr): Expr {
+  switch (expr.type) {
+    case 'unary':
+    case 'isNull':
+    case 'inSubquery':
+      return { ...expr, operand: f(expr.operand) };
+    case 'binary':
+      return { ...expr, left: f(expr.left), right: f(expr.right) };
+    case 'between':
+      return { ...expr, operand: f(expr.operand), low: f(expr.low), high: f(expr.high) };
+    case 'like':
+      return { ...expr, operand: f(expr.operand), pattern: f(expr.pattern) };
+    case 'inList':
+      return { ...expr, operand: f(expr.operand), items: expr.items.map(f) };
+    case 'aggregate':
+      return expr.arg === '*' ? expr : { ...expr, arg: f(expr.arg) };
+    default:
+      return expr;
+  }
+}
+
+/** As in SQLite, GROUP BY and HAVING may name a SELECT alias when no table column has that name. */
+function substituteAliases(expr: Expr, aliases: Map<string, Expr>, columns: ColumnRef[]): Expr {
+  if (expr.type === 'column') {
+    if (expr.table !== undefined) return expr;
+    const name = expr.name.toLowerCase();
+    return columns.some((c) => c.name.toLowerCase() === name) ? expr : (aliases.get(name) ?? expr);
+  }
+  return mapChildren(expr, (e) => substituteAliases(e, aliases, columns));
 }
 
 interface Output {
@@ -248,16 +316,23 @@ function outputs(stmt: SelectStatement, source: Relation): Output[] {
 }
 
 /** Runs a SELECT. Reports trace events for the top-level statement only; subqueries pass no trace. */
-export function executeSelect(db: Dataset, stmt: SelectStatement, trace?: Trace, outer?: Scope): QueryResult {
+export function executeSelect(
+  db: Dataset,
+  stmt: SelectStatement,
+  trace?: Trace,
+  outer?: Scope,
+  correlation?: { used: boolean },
+): QueryResult {
+  const env: Env = { outer, db, ctx: outer?.ctx ?? { cache: new Map(), work: 0 }, ...(correlation && { correlation }) };
   let relation = scan(db, stmt.from);
   trace?.({ kind: 'scan', table: findTable(db, stmt.from.table)!.name, relation });
   for (const clause of stmt.joins) {
     rejectAggregate(clause.on, (fn) => `Aggregates like ${fn} can't be used in JOIN … ON.`);
-    relation = join(db, relation, clause, outer, trace);
+    relation = join(relation, clause, env, trace);
   }
 
   const source = relation;
-  const sourceScope = (row: Row): Scope => ({ columns: source.columns, row, outer, db });
+  const sourceScope = (row: Row): Scope => ({ columns: source.columns, row, ...env });
   const nulls = nullRow(source.columns);
   if (stmt.where) {
     rejectAggregate(
@@ -281,14 +356,34 @@ export function executeSelect(db: Dataset, stmt: SelectStatement, trace?: Trace,
     scopeOf = sourceScope;
     empty = sourceScope(nulls);
   } else {
-    for (const g of stmt.groupBy) rejectAggregate(g, (fn) => `Aggregates like ${fn} can't be used in GROUP BY.`);
-    checkGrouping(stmt, cols, sourceScope(nulls));
-    if (filtered.rows.length === 0) for (const g of stmt.groupBy) evaluate(g, sourceScope(nulls));
+    const aliases = new Map(cols.flatMap((c) => (c.expr ? [[c.name.toLowerCase(), c.expr] as const] : [])));
+    const groupBy = stmt.groupBy.map((g) => {
+      if (g.type === 'literal' && typeof g.value === 'number') {
+        const position = g.value;
+        if (!Number.isInteger(position) || position < 1 || position > cols.length) {
+          throw new SqlError(
+            `GROUP BY position ${position} is out of range: the query returns ${cols.length} ${cols.length === 1 ? 'column' : 'columns'}.`,
+            'syntax',
+            g.line,
+            g.column,
+          );
+        }
+        const target = cols[position - 1]!;
+        if (target.expr) return target.expr;
+        const ref = source.columns[target.source!]!;
+        return { type: 'column', table: ref.table, name: ref.name, text: ref.name, line: g.line, column: g.column } as Expr;
+      }
+      return substituteAliases(g, aliases, source.columns);
+    });
+    const having = stmt.having && substituteAliases(stmt.having, aliases, source.columns);
+    for (const g of groupBy) rejectAggregate(g, (fn) => `Aggregates like ${fn} can't be used in GROUP BY.`);
+    checkGrouping(stmt, groupBy, having, cols, sourceScope(nulls));
+    if (filtered.rows.length === 0) for (const g of groupBy) evaluate(g, sourceScope(nulls));
 
     const groups = new Map<string, { key: SqlValue[]; members: Row[] }>();
-    if (stmt.groupBy.length === 0) groups.set('', { key: [], members: filtered.rows });
-    for (const row of stmt.groupBy.length > 0 ? filtered.rows : []) {
-      const key = stmt.groupBy.map((g) => evaluate(g, sourceScope(row)));
+    if (groupBy.length === 0) groups.set('', { key: [], members: filtered.rows });
+    for (const row of groupBy.length > 0 ? filtered.rows : []) {
+      const key = groupBy.map((g) => evaluate(g, sourceScope(row)));
       const k = key.map(valueKey).join('|');
       const group = groups.get(k);
       if (group) group.members.push(row);
@@ -306,8 +401,8 @@ export function executeSelect(db: Dataset, stmt: SelectStatement, trace?: Trace,
     scopeOf = (row) => scopes.get(row.id)!;
     empty = groupScope([], 'probe');
 
-    const groupedRelation: Relation = { columns: stmt.groupBy.map((g) => ({ name: g.text })), rows };
-    if (stmt.groupBy.length > 0) {
+    const groupedRelation: Relation = { columns: groupBy.map((g) => ({ name: g.text })), rows };
+    if (groupBy.length > 0) {
       trace?.({
         kind: 'grouped',
         input: filtered,
@@ -315,7 +410,7 @@ export function executeSelect(db: Dataset, stmt: SelectStatement, trace?: Trace,
         relation: groupedRelation,
       });
     }
-    if (stmt.having) rows = filter('HAVING', stmt.having, groupedRelation, scopeOf, empty, trace).rows;
+    if (having) rows = filter('HAVING', having, groupedRelation, scopeOf, empty, trace).rows;
   }
 
   if (rows.length === 0) for (const c of cols) if (c.expr) evaluate(c.expr, empty);
@@ -397,7 +492,6 @@ export function runQuery(db: Dataset, sql: string): RunResult {
   try {
     return { ok: true, result: executeSelect(db, parsed.statement), statement: parsed.statement };
   } catch (error) {
-    if (error instanceof SqlError) return { ok: false, error };
-    throw error;
+    return { ok: false, error: asSqlError(error) };
   }
 }

@@ -1,9 +1,11 @@
 import type { AggregateFn, Expr, JoinClause, SelectItem, SelectStatement, TableRef } from './ast';
-import { SqlError } from './errors';
+import { asSqlError, SqlError } from './errors';
 import { tokenize, type Token } from './tokenize';
 import { Real } from './values';
 
 export const MAX_QUERY_LENGTH = 2000;
+/** Deeper nesting is never needed and could overflow the call stack. */
+const MAX_DEPTH = 100;
 
 export type ParseResult = { ok: true; statement: SelectStatement } | { ok: false; error: SqlError };
 
@@ -36,6 +38,7 @@ function unsupported(feature: string, token: Token, topic?: string): SqlError {
 
 class Parser {
   private pos = 0;
+  private depth = 0;
 
   constructor(
     private readonly sql: string,
@@ -257,7 +260,19 @@ class Parser {
   }
 
   expr(): Expr {
-    return this.or();
+    return this.nested(() => this.or());
+  }
+
+  /** Runs `parse` one nesting level deeper, refusing absurd depths before the stack overflows. */
+  private nested<T>(parse: () => T): T {
+    if (++this.depth > MAX_DEPTH) {
+      throw new SqlError('This query nests too deeply (more than 100 levels).', 'limit', this.token.line, this.token.column);
+    }
+    try {
+      return parse();
+    } finally {
+      this.depth--;
+    }
   }
 
   private or(): Expr {
@@ -276,7 +291,7 @@ class Parser {
 
   private not(): Expr {
     const start = this.token;
-    if (this.acceptKeyword('NOT')) return this.node(start, { type: 'unary', op: 'NOT', operand: this.not() });
+    if (this.acceptKeyword('NOT')) return this.node(start, { type: 'unary', op: 'NOT', operand: this.nested(() => this.not()) });
     return this.comparison();
   }
 
@@ -355,7 +370,7 @@ class Parser {
     const start = this.token;
     if (start.kind === 'operator' && (start.value === '-' || start.value === '+')) {
       this.next();
-      const operand = this.unary();
+      const operand = this.nested(() => this.unary());
       return start.value === '-' ? this.node(start, { type: 'unary', op: '-', operand }) : operand;
     }
     return this.primary();
@@ -438,7 +453,6 @@ export function parseQuery(sql: string): ParseResult {
     if (meaningful.length === 0) throw new SqlError('Write a query to run.', 'syntax', 1, 1);
     return { ok: true, statement: new Parser(sql, tokens).statement() };
   } catch (error) {
-    if (error instanceof SqlError) return { ok: false, error };
-    throw error;
+    return { ok: false, error: asSqlError(error) };
   }
 }

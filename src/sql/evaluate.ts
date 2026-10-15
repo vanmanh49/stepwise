@@ -1,4 +1,4 @@
-import type { Expr } from './ast';
+import type { Expr, SelectStatement } from './ast';
 import type { ColumnType, Dataset } from './datasets';
 import { SqlError, suggest } from './errors';
 import { executeSelect, type ColumnRef, type Row } from './execute';
@@ -20,11 +20,22 @@ import {
   type Truth,
 } from './values';
 
+/** Shared by one top-level query and all of its subqueries. */
+export interface ExecContext {
+  /** Results of subqueries that never read the outer row, so each runs once. */
+  cache: Map<SelectStatement, SqlValue[]>;
+  /** Row checks so far, limited to keep the page responsive. */
+  work: number;
+}
+
 export interface Scope {
   columns: ColumnRef[];
   row: Row;
   outer?: Scope;
   db: Dataset;
+  ctx: ExecContext;
+  /** Set on the scopes of a subquery; marked when a name is looked up outside it. */
+  correlation?: { used: boolean };
 }
 
 type Comparison = '=' | '<>' | '<' | '<=' | '>' | '>=';
@@ -58,6 +69,8 @@ export function resolveColumn(expr: Extract<Expr, { type: 'column' }>, scope: Sc
         expr.column,
       );
     }
+    // Looking further out than a subquery's own tables makes it correlated.
+    if (s.correlation) s.correlation.used = true;
   }
   const candidates: string[] = [];
   for (let s: Scope | undefined = scope; s; s = s.outer) {
@@ -125,12 +138,18 @@ function membership(value: SqlValue, candidates: SqlValue[]): Truth {
   return unknown ? null : false;
 }
 
-function runSubquery(expr: Extract<Expr, { type: 'subquery' | 'inSubquery' }>, scope: Scope, purpose: string) {
-  const result = executeSelect(scope.db, expr.query, undefined, scope);
+function runSubquery(expr: Extract<Expr, { type: 'subquery' | 'inSubquery' }>, scope: Scope, purpose: string): SqlValue[] {
+  const cached = scope.ctx.cache.get(expr.query);
+  if (cached) return cached;
+  const correlation = { used: false };
+  const result = executeSelect(scope.db, expr.query, undefined, scope, correlation);
   if (result.columns.length !== 1) {
     throw new SqlError(`A subquery ${purpose} must return one column.`, 'syntax', expr.line, expr.column);
   }
-  return result.rows.map((row) => row[0]!);
+  const values = result.rows.map((row) => row[0]!);
+  // A subquery that never read the outer row gives the same answer for every row.
+  if (!correlation.used) scope.ctx.cache.set(expr.query, values);
+  return values;
 }
 
 export function evaluate(expr: Expr, scope: Scope): SqlValue {
@@ -196,7 +215,7 @@ function aggregate(expr: Extract<Expr, { type: 'aggregate' }>, scope: Scope): Sq
   const arg = expr.arg;
   if (arg === '*') return members.length;
   let values = members
-    .map((row) => evaluate(arg, { columns: scope.columns, row, outer: scope.outer, db: scope.db }))
+    .map((row) => evaluate(arg, { ...scope, row }))
     .filter((v): v is Exclude<SqlValue, null> => v !== null);
   if (expr.distinct) {
     const byKey = new Map<string, Exclude<SqlValue, null>>();

@@ -15,6 +15,16 @@ export class SqlError extends Error {
   }
 }
 
+/**
+ * Learner input must never crash the page, so an unexpected failure becomes an ordinary
+ * query error. It is still logged, because it means a bug in the interpreter.
+ */
+export function asSqlError(error: unknown): SqlError {
+  if (error instanceof SqlError) return error;
+  console.error(error);
+  return new SqlError('Something went wrong running this query. Try simplifying it.', 'limit', 1, 1);
+}
+
 function distance(a: string, b: string): number {
   let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {

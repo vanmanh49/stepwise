@@ -1,7 +1,7 @@
 import type { SqlRow, SqlTable, Step, TableView } from '../types/visualization';
 import { LOGICAL_ORDER, type Clause, type SelectStatement } from './ast';
 import type { Dataset } from './datasets';
-import { SqlError } from './errors';
+import { asSqlError, type SqlError } from './errors';
 import { executeSelect, type QueryResult, type Relation, type TraceEvent } from './execute';
 import { parseQuery } from './parse';
 import { toPlain, type Truth } from './values';
@@ -37,7 +37,9 @@ function focusOf(relation: Relation, values: Record<string, string>): number[] {
 }
 
 interface Draft {
-  step: Step;
+  step: Omit<Step, 'view'>;
+  /** Built only for steps that survive summarising: a long run must not copy the table thousands of times. */
+  view: () => TableView;
   /** Row checks of one clause share a group, so long runs can be summarised. */
   group?: string;
   kept?: boolean;
@@ -53,15 +55,21 @@ function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
     tables,
   });
   const drafts: Draft[] = [];
-  const push = (clause: Clause | undefined, step: Omit<Step, 'view' | 'codeLine'>, tables: SqlTable[], extra: Partial<Draft> = {}, line?: number) =>
-    drafts.push({ step: { ...step, codeLine: line ?? lineOf(clause ?? 'SELECT'), view: view(clause, tables) }, ...extra });
+  const push = (
+    clause: Clause | undefined,
+    step: Omit<Step, 'view' | 'codeLine'>,
+    tables: () => SqlTable[],
+    extra: Partial<Draft> = {},
+    line?: number,
+  ) => drafts.push({ step: { ...step, codeLine: line ?? lineOf(clause ?? 'SELECT') }, view: () => view(clause, tables()), ...extra });
 
   let fromLabel = '';
   let workingLabel = '';
   let lastScan = '';
   let joinIndex = -1;
   let joinLeft: Relation | undefined;
-  let outcomes = new Map<string, Truth>();
+  // Checks of the current clause in order; each step's view reads the checks made so far.
+  let tested: [id: string, outcome: Truth][] = [];
   let lastRelation: Relation | undefined;
 
   for (const event of events) {
@@ -75,11 +83,11 @@ function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
           title: 'Run the query',
           why: `SQL runs the clauses in this order: ${clauses.join(' → ')}.`,
           next: 'FROM picks the table to read.',
-        }, [toTable(event.table, event.relation)]);
+        }, () => [toTable(event.table, event.relation)]);
         push('FROM', {
           title: `FROM ${event.table}: start with all ${rows(event.relation.rows.length)}`,
           why: 'FROM picks the table the query reads. Every later clause works on these rows.',
-        }, [toTable(event.table, event.relation)]);
+        }, () => [toTable(event.table, event.relation)]);
         break;
 
       case 'join-test': {
@@ -99,7 +107,7 @@ function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
               : kept
                 ? 'The ON condition is true, so this pair becomes a row of the result.'
                 : 'The ON condition is false, so this pair is skipped.',
-        }, [
+        }, () => [
           toTable(leftLabel, event.left, (id) => (id === event.leftRow ? { role: 'active' } : {})),
           toTable(lastScan, event.right, (id) => (id === event.rightRow ? { role: kept ? 'found' : 'discarded' } : {})),
         ], { group: `JOIN${joinIndex}`, kept }, event.join.line);
@@ -113,7 +121,7 @@ function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
         push('JOIN', {
           title: `No match for row ${i + 1}, so LEFT JOIN keeps it with NULLs`,
           why: "LEFT JOIN keeps every row of the left table. Where nothing matched, the right table's columns are NULL.",
-        }, [toTable(leftLabel, left, (id) => (id === event.leftRow ? { role: 'found', note: 'no match' } : {}))], {
+        }, () => [toTable(leftLabel, left, (id) => (id === event.leftRow ? { role: 'found', note: 'no match' } : {}))], {
           group: `JOIN${joinIndex}`,
           kept: true,
         }, event.join.line);
@@ -127,11 +135,13 @@ function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
         push('JOIN', {
           title: `JOIN result: ${rows(event.relation.rows.length)}`,
           why: 'Each matching pair became one row holding the columns of both tables.',
-        }, [toTable('after JOIN', event.relation)], {}, event.join.line);
+        }, () => [toTable('after JOIN', event.relation)], {}, event.join.line);
         break;
 
       case 'filter-test': {
-        outcomes.set(event.row, event.outcome);
+        tested.push([event.row, event.outcome]);
+        const checked = tested;
+        const count = tested.length;
         const i = event.input.rows.findIndex((r) => r.id === event.row);
         const kept = event.outcome === true;
         const label = event.clause === 'WHERE' ? workingLabel : 'groups';
@@ -145,25 +155,28 @@ function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
                 ? `The condition is true, so ${event.clause} keeps this row.`
                 : `The condition is false, so ${event.clause} removes this row.`,
           variables: event.values,
-        }, [
-          toTable(label, event.input, (id) => {
-            if (!outcomes.has(id)) return {};
-            const ok = outcomes.get(id) === true;
-            return { role: ok ? 'found' : 'discarded', note: ok ? 'kept' : 'removed', ...(id === event.row && focus.length > 0 && { focus }) };
-          }),
-        ], { group: event.clause, kept });
+        }, () => {
+          const outcomes = new Map(checked.slice(0, count));
+          return [
+            toTable(label, event.input, (id) => {
+              if (!outcomes.has(id)) return {};
+              const ok = outcomes.get(id) === true;
+              return { role: ok ? 'found' : 'discarded', note: ok ? 'kept' : 'removed', ...(id === event.row && focus.length > 0 && { focus }) };
+            }),
+          ];
+        }, { group: event.clause, kept });
         break;
       }
 
       case 'filtered': {
-        const before = outcomes.size;
-        outcomes = new Map();
+        const before = tested.length;
+        tested = [];
         lastRelation = event.relation;
         if (event.clause === 'WHERE') workingLabel = 'after WHERE';
         push(event.clause, {
           title: `${event.clause} kept ${event.relation.rows.length} of ${rows(before)}`,
           why: 'Only the rows where the condition was true move on to the next clause.',
-        }, [toTable(`after ${event.clause}`, event.relation)]);
+        }, () => [toTable(`after ${event.clause}`, event.relation)]);
         break;
       }
 
@@ -176,12 +189,12 @@ function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
         const groupOf = new Map(event.groups.flatMap((g, n) => g.rowIds.map((id) => [id, n + 1] as const)));
         push('GROUP BY', {
           title: `GROUP BY sorted rows into ${event.groups.length} ${event.groups.length === 1 ? 'group' : 'groups'}`,
-          why: `Rows with the same ${stmt.groupBy.map((g) => g.text).join(', ')} go into the same group.`,
-        }, [toTable(workingLabel, ordered, (id) => ({ group: groupOf.get(id)! }))]);
+          why: `Rows with the same ${event.relation.columns.map((c) => c.name).join(', ')} go into the same group.`,
+        }, () => [toTable(workingLabel, ordered, (id) => ({ group: groupOf.get(id)! }))]);
         push('GROUP BY', {
           title: 'Each group becomes one row',
           why: 'From here on each group is one row. Columns outside GROUP BY can only be read through an aggregate such as COUNT or MAX.',
-        }, [toTable('groups', event.relation)]);
+        }, () => [toTable('groups', event.relation)]);
         lastRelation = event.relation;
         break;
       }
@@ -191,7 +204,7 @@ function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
         push('SELECT', {
           title: `SELECT picks the columns ${event.relation.columns.map((c) => c.name).join(', ')}`,
           why: 'SELECT computes each output column for every remaining row.',
-        }, [toTable('after SELECT', event.relation)]);
+        }, () => [toTable('after SELECT', event.relation)]);
         break;
 
       case 'distinct': {
@@ -200,7 +213,7 @@ function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
         push('DISTINCT', {
           title: `DISTINCT removed ${event.removed.length} duplicate ${event.removed.length === 1 ? 'row' : 'rows'}`,
           why: 'DISTINCT keeps the first copy of each identical row.',
-        }, [toTable('after SELECT', event.input, (id) => (removed.has(id) ? { role: 'discarded', note: 'duplicate' } : {}))]);
+        }, () => [toTable('after SELECT', event.input, (id) => (removed.has(id) ? { role: 'discarded', note: 'duplicate' } : {}))]);
         break;
       }
 
@@ -212,7 +225,7 @@ function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
             stmt.orderBy.length > 1
               ? 'Rows are compared by the first key; ties are broken by the next key.'
               : 'Rows are arranged by the key. In SQLite, NULL comes first when sorting ascending.',
-        }, [toTable('after ORDER BY', event.relation, () => ({ role: 'sorted' }))]);
+        }, () => [toTable('after ORDER BY', event.relation, () => ({ role: 'sorted' }))]);
         break;
 
       case 'limited': {
@@ -222,7 +235,7 @@ function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
         push('LIMIT', {
           title: `LIMIT kept ${event.relation.rows.length} of ${rows(event.input.rows.length)}`,
           why: `LIMIT ${count}${offset ? ` OFFSET ${offset}` : ''} keeps up to ${rows(count)}${offset ? ` after skipping ${offset}` : ''}.`,
-        }, [toTable('before LIMIT', event.input, (id) => (kept.has(id) ? {} : { role: 'discarded', note: 'cut' }))]);
+        }, () => [toTable('before LIMIT', event.input, (id) => (kept.has(id) ? {} : { role: 'discarded', note: 'cut' }))]);
         break;
       }
     }
@@ -232,22 +245,24 @@ function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
   push(undefined, {
     title: `Result: ${rows(result.rows.length)}`,
     why: 'This is what the query returns.',
-  }, [toTable('result', result, () => ({ role: 'found' }))]);
+  }, () => [toTable('result', result, () => ({ role: 'found' }))]);
   return drafts;
 }
 
-/** Keeps the first `limit` checks of each clause and replaces the rest with one summary step. */
-function summarise(drafts: Draft[], limit: number): Step[] {
-  const out: Step[] = [];
+/** Keeps the first `limit` checks of each clause and replaces the rest with one summary draft. */
+function summarise(drafts: Draft[], limit: number): Draft[] {
+  const out: Draft[] = [];
   let seen = 0;
   let skipped: Draft[] = [];
   const flush = () => {
     if (skipped.length === 0) return;
-    const last = skipped.at(-1)!.step;
+    const last = skipped.at(-1)!;
     out.push({
-      title: `…${skipped.length} more rows checked, ${skipped.filter((d) => d.kept).length} kept`,
-      why: 'These checks follow the same rule, so they are combined to keep the run short.',
-      codeLine: last.codeLine,
+      step: {
+        title: `…${skipped.length} more rows checked, ${skipped.filter((d) => d.kept).length} kept`,
+        why: 'These checks follow the same rule, so they are combined to keep the run short.',
+        codeLine: last.step.codeLine,
+      },
       view: last.view,
     });
     skipped = [];
@@ -259,18 +274,20 @@ function summarise(drafts: Draft[], limit: number): Step[] {
       seen = 0;
     }
     if (draft.group !== undefined && seen++ >= limit) skipped.push(draft);
-    else out.push(draft.step);
+    else out.push(draft);
   });
   flush();
   return out;
 }
 
+/** Chooses the drafts to show within MAX_STEPS, then builds only their views. */
 function fit(drafts: Draft[]): Step[] {
-  if (drafts.length <= MAX_STEPS) return drafts.map((d) => d.step);
+  const build = (kept: Draft[]) => kept.map((d) => ({ ...d.step, view: d.view() }));
+  if (drafts.length <= MAX_STEPS) return build(drafts);
   for (let limit = FIRST_CHECKS; ; limit = Math.max(1, Math.floor(limit / 2))) {
-    const steps = summarise(drafts, limit);
-    if (steps.length <= MAX_STEPS) return steps;
-    if (limit === 1) return [...steps.slice(0, MAX_STEPS - 1), steps.at(-1)!];
+    const kept = summarise(drafts, limit);
+    if (kept.length <= MAX_STEPS) return build(kept);
+    if (limit === 1) return build([...kept.slice(0, MAX_STEPS - 1), kept.at(-1)!]);
   }
 }
 
@@ -283,8 +300,7 @@ export function querySteps(db: Dataset, sql: string): StepsResult {
     const result = executeSelect(db, parsed.statement, (e) => events.push(e));
     return { ok: true, steps: fit(buildDrafts(parsed.statement, events)), result };
   } catch (error) {
-    if (error instanceof SqlError) return { ok: false, error };
-    throw error;
+    return { ok: false, error: asSqlError(error) };
   }
 }
 

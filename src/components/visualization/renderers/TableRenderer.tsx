@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import type { CSSProperties } from 'react';
 import type { SqlRow, SqlTable, TableView } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
+import { visibleRows } from './tableRows';
 import { spring } from './ValueBox';
 
 // Literal class names so Tailwind can see them.
@@ -55,6 +56,7 @@ function Value({ value }: { value: number | string | null }) {
 }
 
 function Table({ table }: { table: SqlTable }) {
+  const { shown, hidden } = visibleRows(table.rows);
   const hasNotes = table.rows.some((r) => r.note);
   const hasGroups = table.rows.some((r) => r.group !== undefined);
   return (
@@ -87,7 +89,7 @@ function Table({ table }: { table: SqlTable }) {
                 </td>
               </tr>
             )}
-            {table.rows.map((row) => {
+            {shown.map((row) => {
               const meta = ROLE_META[row.role];
               return (
                 <motion.tr key={row.id} layout="position" transition={spring} style={rowStyle(row)} className="transition-colors duration-200">
@@ -115,6 +117,13 @@ function Table({ table }: { table: SqlTable }) {
                 </motion.tr>
               );
             })}
+            {hidden > 0 && (
+              <tr>
+                <td colSpan={table.columns.length + 2} className="px-2 py-2 text-center font-sans text-xs text-muted">
+                  …and {hidden} more {hidden === 1 ? 'row' : 'rows'}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

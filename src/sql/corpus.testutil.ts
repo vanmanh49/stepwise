@@ -124,6 +124,11 @@ export const corpus: CorpusQuery[] = [
   school('SELECT grade, COUNT(*) FROM enrollments WHERE grade IS NULL GROUP BY grade'),
   shop('SELECT o.customer_id, SUM(oi.quantity) FROM orders o JOIN order_items oi ON oi.order_id = o.id GROUP BY o.customer_id'),
   shop('SELECT category, COUNT(*) FROM products WHERE price > 100 GROUP BY category'),
+  school('SELECT year + 1, COUNT(*) FROM students GROUP BY year + 1'),
+  shop('SELECT price > 10, COUNT(*) FROM products GROUP BY price > 10'),
+  shop('SELECT city, COUNT(*) FROM customers GROUP BY 1'),
+  shop('SELECT customer_id, COUNT(*) AS n FROM orders GROUP BY customer_id HAVING n > 1'),
+  shop('SELECT category AS c, COUNT(*) FROM products GROUP BY c'),
 
   // joins
   shop('SELECT o.id, c.name FROM orders o JOIN customers c ON o.customer_id = c.id'),

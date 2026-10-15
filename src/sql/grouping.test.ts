@@ -101,6 +101,30 @@ describe('GROUP BY and HAVING', () => {
     expect(run('SELECT p.id, p.name, SUM(oi.quantity) FROM products p LEFT JOIN order_items oi ON oi.product_id = p.id GROUP BY p.id, p.name').rows).toHaveLength(products.length);
   });
 
+  it('accepts expressions that match a GROUP BY expression', () => {
+    expect(plain(run('SELECT year + 1, COUNT(*) FROM students GROUP BY year + 1', school))).toEqual([
+      [2, 3],
+      [3, 3],
+      [4, 2],
+      [5, 2],
+    ]);
+    expect(run('SELECT price > 10, COUNT(*) FROM products GROUP BY price > 10').rows).toHaveLength(2);
+  });
+
+  it('groups by select-list position', () => {
+    expect(run('SELECT city, COUNT(*) FROM customers GROUP BY 1')).toEqual(run('SELECT city, COUNT(*) FROM customers GROUP BY city'));
+    expect(fail('SELECT city FROM customers GROUP BY 2')).toBe('GROUP BY position 2 is out of range: the query returns 1 column.');
+  });
+
+  it('resolves SELECT aliases in GROUP BY and HAVING', () => {
+    expect(plain(run('SELECT customer_id, COUNT(*) AS n FROM orders GROUP BY customer_id HAVING n > 1'))).toEqual([
+      [1, 3],
+      [2, 2],
+      [3, 2],
+    ]);
+    expect(run('SELECT category AS c, COUNT(*) FROM products GROUP BY c').rows).toHaveLength(3);
+  });
+
   it('rejects columns that are neither grouped nor aggregated', () => {
     const message = '`name` must appear in GROUP BY or be used in an aggregate such as COUNT or MAX.';
     expect(fail('SELECT name, COUNT(*) FROM customers')).toBe(message);
