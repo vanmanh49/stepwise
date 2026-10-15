@@ -16,6 +16,8 @@ interface VisualizerProps {
   steps: Step[];
   /** Source shown beside the explanation; Step.codeLine highlights a line in it. */
   code?: string;
+  /** Language label of the code panel; defaults to TypeScript. */
+  codeLabel?: string;
   /** Input controls rendered above the stage. */
   toolbar?: ReactNode;
   notice?: string;
@@ -31,7 +33,7 @@ interface VisualizerProps {
  * The stage is keyed by run: element ids are only stable within one Step[], so
  * a new run must not animate from the previous run's elements.
  */
-export function Visualizer({ steps, code, toolbar, notice, autoPlay, loop, onStep }: VisualizerProps) {
+export function Visualizer({ steps, code, codeLabel, toolbar, notice, autoPlay, loop, onStep }: VisualizerProps) {
   const player = usePlayer(steps, { autoPlay, loop });
   const { step, index, total } = player;
   const legend = useMemo(() => rolesInRun(steps.map((s) => s.view)), [steps]);
@@ -75,7 +77,7 @@ export function Visualizer({ steps, code, toolbar, notice, autoPlay, loop, onSte
         {step && (
           <div className={`grid gap-5 border-t border-border p-4 sm:p-5 ${code ? 'lg:grid-cols-2' : ''}`}>
             <Explanation step={step} index={index} total={total} />
-            {code && <CodePanel code={code} activeLine={step.codeLine} />}
+            {code && <CodePanel code={code} activeLine={step.codeLine} label={codeLabel} />}
           </div>
         )}
       </section>

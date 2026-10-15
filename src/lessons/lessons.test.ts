@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { curveForNotation } from '../components/bigo/complexities';
+import { checkExercise } from '../sql/check';
 import { datasets } from '../sql/datasets';
 import { querySteps } from '../sql/steps';
 import type { Lesson } from '../types/lesson';
@@ -37,6 +38,11 @@ const EXPECTED_IDS = [
   'bellman-ford',
   'kruskal',
   'prim',
+  'select-from',
+  'where',
+  'null-values',
+  'order-by-limit',
+  'distinct',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -69,6 +75,7 @@ describe('lesson registry', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
     expect(lessonsIn('algorithms')).toHaveLength(19);
+    expect(lessonsIn('sql')).toHaveLength(5);
   });
 
   it('links previous and next lessons within a category', () => {
@@ -129,6 +136,39 @@ describe.each(lessons.map((l) => [l.id, l] as const))('lesson %s', (_id, lesson)
       expect(step.codeLine).toBeGreaterThanOrEqual(1);
       expect(step.codeLine).toBeLessThanOrEqual(lines);
     }
+  });
+});
+
+describe.each(lessonsIn('sql').map((l) => [l.id, l] as const))('SQL lesson %s', (_id, lesson) => {
+  const config = lesson.visualization;
+  if (config.kind !== 'sql') throw new Error(`${lesson.id} must use the sql visualization`);
+  const db = datasets[config.dataset];
+
+  it('starts from its example query and has no Big O section', () => {
+    expect(lesson.complexity).toBeUndefined();
+    expect(lesson.code).toBe(config.initialQuery);
+  });
+
+  it('offers examples that run', () => {
+    expect(config.examples.length).toBeGreaterThanOrEqual(3);
+    expect(config.examples.length).toBeLessThanOrEqual(4);
+    for (const example of config.examples) {
+      const result = querySteps(db, example.query);
+      expect(result.ok, `${example.label}: ${result.ok ? '' : result.error.message}`).toBe(true);
+    }
+  });
+
+  it('has exercises whose solutions pass their own check', () => {
+    expect(config.exercises.length).toBeGreaterThanOrEqual(2);
+    expect(config.exercises.length).toBeLessThanOrEqual(3);
+    expect(new Set(config.exercises.map((e) => e.id)).size).toBe(config.exercises.length);
+    for (const exercise of config.exercises) {
+      expect(checkExercise(db, exercise.solution, exercise), exercise.id).toEqual({ status: 'correct' });
+    }
+  });
+
+  it('asks a quiz question about a table', () => {
+    expect(lesson.quiz.some((q) => q.view?.kind === 'table')).toBe(true);
   });
 });
 

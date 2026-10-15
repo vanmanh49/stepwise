@@ -178,7 +178,7 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
               ? 'The query this lesson starts with. In the visualization above, the highlighted line follows the clause that is running.'
               : 'The full TypeScript implementation. In the visualization above, the highlighted line follows this code as each step runs.'}
           </p>
-          <CodePanel code={lesson.code} />
+          <CodePanel code={lesson.code} label={lesson.category === 'sql' ? 'SQL' : undefined} />
         </Section>
 
         {lesson.complexity && (
@@ -224,7 +224,7 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
               <Exercises lessonId={lesson.id} dataset={lesson.visualization.dataset} exercises={lesson.visualization.exercises} />
             </div>
           )}
-          <Quiz lessonId={lesson.id} questions={lesson.quiz} />
+          <Quiz lessonId={lesson.id} questions={lesson.quiz} codeLabel={lesson.category === 'sql' ? 'SQL' : undefined} />
         </Section>
 
         <Section id="summary" title="Summary">

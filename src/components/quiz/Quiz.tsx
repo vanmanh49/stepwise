@@ -24,7 +24,7 @@ function shuffledOrders(questions: QuizQuestion[]): number[][] {
   });
 }
 
-export function Quiz({ lessonId, questions }: { lessonId: string; questions: QuizQuestion[] }) {
+export function Quiz({ lessonId, questions, codeLabel }: { lessonId: string; questions: QuizQuestion[]; codeLabel?: string }) {
   const recordQuiz = useProgress((s) => s.recordQuiz);
   const best = useProgress((s) => s.quizScores[lessonId]);
   const [orders, setOrders] = useState(() => shuffledOrders(questions));
@@ -113,7 +113,7 @@ export function Quiz({ lessonId, questions }: { lessonId: string; questions: Qui
       )}
       {question.code && (
         <div className="mt-4">
-          <CodePanel code={question.code} />
+          <CodePanel code={question.code} label={codeLabel} />
         </div>
       )}
 

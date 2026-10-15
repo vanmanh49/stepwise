@@ -48,6 +48,7 @@ export function SqlInput({ config, onStep }: { config: SqlConfig; code: string; 
     <Visualizer
       steps={ran.steps}
       code={ran.query}
+      codeLabel="SQL"
       autoPlay={autoPlay}
       onStep={onStep}
       toolbar={
