@@ -28,6 +28,9 @@ export type SelectItem = { kind: 'star'; table?: string } | { kind: 'expr'; expr
 export interface TableRef {
   table: string;
   alias?: string;
+  /** Where the table name appears, for error messages. */
+  line: number;
+  column: number;
 }
 
 export interface JoinClause extends TableRef {

@@ -31,7 +31,7 @@ describe('parseQuery', () => {
     expect(s.distinct).toBe(true);
     expect(s.columns[0]).toMatchObject({ kind: 'expr', alias: 'n', expr: { type: 'column', table: 'c', name: 'name' } });
     expect(s.columns[1]).toMatchObject({ kind: 'expr', expr: { type: 'binary', op: '*', text: 'price * 2' } });
-    expect(s.from).toEqual({ table: 'customers', alias: 'c' });
+    expect(s.from).toEqual({ table: 'customers', alias: 'c', line: 1, column: 45 });
     expect(s.joins[0]).toMatchObject({ kind: 'left', table: 'orders', alias: 'o', on: { type: 'binary', op: '=' } });
     expect(s.where).toMatchObject({ type: 'binary', op: 'AND', left: { type: 'isNull', negated: true } });
     expect(s.groupBy[0]).toMatchObject({ type: 'column', table: 'c', name: 'name' });

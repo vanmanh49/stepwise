@@ -1,4 +1,4 @@
-import type { AggregateFn, Expr, JoinClause, SelectItem, SelectStatement } from './ast';
+import type { AggregateFn, Expr, JoinClause, SelectItem, SelectStatement, TableRef } from './ast';
 import { SqlError } from './errors';
 import { tokenize, type Token } from './tokenize';
 import { Real } from './values';
@@ -232,12 +232,12 @@ class Parser {
     return Number(t.value);
   }
 
-  private tableRef(): { table: string; alias?: string } {
-    const table = this.identifier('a table name').value;
-    let alias: string | undefined;
-    if (this.acceptKeyword('AS')) alias = this.identifier('an alias').value;
-    else if (this.token.kind === 'identifier') alias = this.next().value;
-    return alias === undefined ? { table } : { table, alias };
+  private tableRef(): TableRef {
+    const name = this.identifier('a table name');
+    const ref: TableRef = { table: name.value, line: name.line, column: name.column };
+    if (this.acceptKeyword('AS')) ref.alias = this.identifier('an alias').value;
+    else if (this.token.kind === 'identifier') ref.alias = this.next().value;
+    return ref;
   }
 
   private selectItem(): SelectItem {
