@@ -28,6 +28,16 @@ import { priorityQueue } from './data-structures/priority-queue';
 import { queue } from './data-structures/queue';
 import { stack } from './data-structures/stack';
 import { string } from './data-structures/string';
+import { aggregates } from './sql/aggregates';
+import { distinct } from './sql/distinct';
+import { groupByHaving } from './sql/group-by-having';
+import { innerJoin } from './sql/inner-join';
+import { leftJoin } from './sql/left-join';
+import { nullValues } from './sql/null-values';
+import { orderByLimit } from './sql/order-by-limit';
+import { selectFrom } from './sql/select-from';
+import { subqueries } from './sql/subqueries';
+import { where } from './sql/where';
 
 /** Every live lesson, in recommended learning order. Register new lessons here. */
 export const lessons: Lesson[] = [
@@ -60,6 +70,16 @@ export const lessons: Lesson[] = [
   bellmanFord,
   kruskal,
   prim,
+  selectFrom,
+  where,
+  nullValues,
+  orderByLimit,
+  distinct,
+  aggregates,
+  groupByHaving,
+  innerJoin,
+  leftJoin,
+  subqueries,
 ];
 
 const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));

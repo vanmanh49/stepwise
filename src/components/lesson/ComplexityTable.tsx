@@ -4,9 +4,11 @@ import type { Lesson } from '../../types/lesson';
 
 /** The lesson's own complexity rows, followed by related lessons for comparison. */
 export function ComplexityTable({ lesson }: { lesson: Lesson }) {
+  const complexity = lesson.complexity;
+  if (!complexity) return null;
   const compared = (lesson.compareWith ?? [])
     .map(getLesson)
-    .filter((other): other is Lesson => other !== undefined && other.category === lesson.category);
+    .filter((other): other is Lesson => other?.complexity !== undefined && other.category === lesson.category);
   const isAlgorithm = lesson.category === 'algorithms';
 
   return (
@@ -35,7 +37,7 @@ export function ComplexityTable({ lesson }: { lesson: Lesson }) {
           </tr>
         </thead>
         <tbody>
-          {lesson.complexity.rows.map((row) => (
+          {complexity.rows.map((row) => (
             <tr key={row.label} className="border-b border-border bg-accent-soft/50 last:border-0">
               <th scope="row" className="px-4 py-3 font-semibold">
                 {row.label}
@@ -43,12 +45,12 @@ export function ComplexityTable({ lesson }: { lesson: Lesson }) {
               <td className="px-4 py-3 font-mono">{row.best}</td>
               <td className="px-4 py-3 font-mono">{row.average}</td>
               <td className="px-4 py-3 font-mono">{row.worst}</td>
-              {isAlgorithm && <td className="px-4 py-3 font-mono">{lesson.complexity.space}</td>}
+              {isAlgorithm && <td className="px-4 py-3 font-mono">{complexity.space}</td>}
             </tr>
           ))}
           {isAlgorithm &&
             compared.map((other) => {
-              const row = other.complexity.rows[0]!;
+              const row = other.complexity!.rows[0]!;
               return (
                 <tr key={other.id} className="border-b border-border last:border-0">
                   <th scope="row" className="px-4 py-3 font-medium">
@@ -59,7 +61,7 @@ export function ComplexityTable({ lesson }: { lesson: Lesson }) {
                   <td className="px-4 py-3 font-mono text-muted">{row.best}</td>
                   <td className="px-4 py-3 font-mono text-muted">{row.average}</td>
                   <td className="px-4 py-3 font-mono text-muted">{row.worst}</td>
-                  <td className="px-4 py-3 font-mono text-muted">{other.complexity.space}</td>
+                  <td className="px-4 py-3 font-mono text-muted">{other.complexity!.space}</td>
                 </tr>
               );
             })}

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { curveForNotation } from '../components/bigo/complexities';
+import { checkExercise } from '../sql/check';
+import { datasets } from '../sql/datasets';
+import { querySteps } from '../sql/steps';
 import type { Lesson } from '../types/lesson';
 import type { Step } from '../types/visualization';
-import { curriculum, roadmap } from './curriculum';
+import { curriculum, roadmap, topicsIn } from './curriculum';
 import { adjacentLessons, getLesson, lessonPath, lessons, lessonsIn } from './registry';
 
 const EXPECTED_IDS = [
@@ -35,6 +38,16 @@ const EXPECTED_IDS = [
   'bellman-ford',
   'kruskal',
   'prim',
+  'select-from',
+  'where',
+  'null-values',
+  'order-by-limit',
+  'distinct',
+  'aggregates',
+  'group-by-having',
+  'inner-join',
+  'left-join',
+  'subqueries',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -54,6 +67,11 @@ function defaultSteps(lesson: Lesson): Step[] {
     }
     case 'graph':
       return config.generate(config.graphs[0]!, config.graphs[0]!.nodes[0]!.id);
+    case 'sql': {
+      const result = querySteps(datasets[config.dataset], config.initialQuery);
+      if (!result.ok) throw new Error(result.error.message);
+      return result.steps;
+    }
   }
 }
 
@@ -62,6 +80,7 @@ describe('lesson registry', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
     expect(lessonsIn('algorithms')).toHaveLength(19);
+    expect(lessonsIn('sql')).toHaveLength(10);
   });
 
   it('links previous and next lessons within a category', () => {
@@ -93,8 +112,10 @@ describe.each(lessons.map((l) => [l.id, l] as const))('lesson %s', (_id, lesson)
     expect(lesson.applications.length).toBeGreaterThanOrEqual(3);
     expect(lesson.commonMistakes.length).toBeGreaterThanOrEqual(3);
     expect(lesson.summary.length).toBeGreaterThanOrEqual(3);
-    expect(lesson.complexity.rows.length).toBeGreaterThanOrEqual(1);
-    expect(lesson.complexity.curves.length).toBeGreaterThanOrEqual(1);
+    if (lesson.category !== 'sql') {
+      expect(lesson.complexity!.rows.length).toBeGreaterThanOrEqual(1);
+      expect(lesson.complexity!.curves.length).toBeGreaterThanOrEqual(1);
+    }
     for (const list of Object.values(lesson.prosCons)) expect(list.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -123,6 +144,39 @@ describe.each(lessons.map((l) => [l.id, l] as const))('lesson %s', (_id, lesson)
   });
 });
 
+describe.each(lessonsIn('sql').map((l) => [l.id, l] as const))('SQL lesson %s', (_id, lesson) => {
+  const config = lesson.visualization;
+  if (config.kind !== 'sql') throw new Error(`${lesson.id} must use the sql visualization`);
+  const db = datasets[config.dataset];
+
+  it('starts from its example query and has no Big O section', () => {
+    expect(lesson.complexity).toBeUndefined();
+    expect(lesson.code).toBe(config.initialQuery);
+  });
+
+  it('offers examples that run', () => {
+    expect(config.examples.length).toBeGreaterThanOrEqual(3);
+    expect(config.examples.length).toBeLessThanOrEqual(4);
+    for (const example of config.examples) {
+      const result = querySteps(db, example.query);
+      expect(result.ok, `${example.label}: ${result.ok ? '' : result.error.message}`).toBe(true);
+    }
+  });
+
+  it('has exercises whose solutions pass their own check', () => {
+    expect(config.exercises.length).toBeGreaterThanOrEqual(2);
+    expect(config.exercises.length).toBeLessThanOrEqual(3);
+    expect(new Set(config.exercises.map((e) => e.id)).size).toBe(config.exercises.length);
+    for (const exercise of config.exercises) {
+      expect(checkExercise(db, exercise.solution, exercise), exercise.id).toEqual({ status: 'correct' });
+    }
+  });
+
+  it('asks a quiz question about a table', () => {
+    expect(lesson.quiz.some((q) => q.view?.kind === 'table')).toBe(true);
+  });
+});
+
 describe('curriculum', () => {
   it('lists every planned topic once', () => {
     expect(curriculum.length).toBeGreaterThanOrEqual(55);
@@ -137,6 +191,39 @@ describe('curriculum', () => {
     }
   });
 
+  it('lists the SQL course in order', () => {
+    expect(topicsIn('sql').map((t) => t.id)).toEqual([
+      'select-from',
+      'where',
+      'null-values',
+      'order-by-limit',
+      'distinct',
+      'aggregates',
+      'insert',
+      'update',
+      'delete',
+      'group-by-having',
+      'inner-join',
+      'left-join',
+      'subqueries',
+      'self-join',
+      'many-to-many',
+      'create-table',
+      'constraints',
+      'case-expressions',
+      'set-operations',
+      'ctes',
+      'recursive-ctes',
+      'window-functions',
+      'views',
+      'indexes',
+      'query-plans',
+      'transactions',
+      'isolation-levels',
+      'normalization',
+    ]);
+  });
+
   it('drops the topic that duplicated the Binary Search Tree lesson', () => {
     expect(curriculum.some((t) => t.id === 'bst-operations')).toBe(false);
     expect(getLesson('binary-search-tree')!.keywords).toContain('bst operations');
@@ -144,7 +231,7 @@ describe('curriculum', () => {
 
   it('maps every algorithm to a Big O curve', () => {
     for (const lesson of lessonsIn('algorithms')) {
-      const average = lesson.complexity.rows[0]!.average;
+      const average = lesson.complexity!.rows[0]!.average;
       expect(curveForNotation(average), lesson.id + ' ' + average).toBeDefined();
     }
   });

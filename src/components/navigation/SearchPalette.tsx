@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Boxes, CornerDownLeft, Search, Workflow, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Boxes, CornerDownLeft, Database, Search, Workflow, X } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { CATEGORY_TITLE } from './CourseSidebar';
@@ -112,7 +112,7 @@ export function SearchPalette({ open, onClose }: { open: boolean; onClose(): voi
             {results.map((item) => {
               const live = item.path !== undefined;
               const isActive = live && selectable[active]?.id === item.id;
-              const Icon = item.category === 'data-structures' ? Boxes : Workflow;
+              const Icon = item.category === 'data-structures' ? Boxes : item.category === 'sql' ? Database : Workflow;
               return (
                 <li
                   key={item.id}

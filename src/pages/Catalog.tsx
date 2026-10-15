@@ -13,6 +13,7 @@ const INTRO: Record<Category, string> = {
     'Ways of organising data so that the operations you need are fast. Each lesson lets you run the operations yourself and watch what moves.',
   algorithms:
     'Step-by-step procedures for searching, sorting and exploring data. Each lesson plays the algorithm on your own input, one decision at a time.',
+  sql: 'Ask questions of a database. Each lesson runs your query one clause at a time, so you can see which rows every clause keeps, joins, groups or removes.',
 };
 
 const LEVEL_NOTE = {

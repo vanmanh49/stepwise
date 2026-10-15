@@ -90,7 +90,38 @@ export interface GraphView {
   table?: { columns: string[]; rows: Record<string, string[]> };
 }
 
-export type View = ArrayView | ListView | StackView | QueueView | TreeView | HeapView | GraphView;
+export interface SqlRow {
+  /** Stable across steps so the renderer can follow a row. */
+  id: string;
+  cells: (number | string | null)[];
+  role: Role;
+  /** Column indexes to highlight in this row. */
+  focus?: number[];
+  /** Group number while GROUP BY is shown. */
+  group?: number;
+  /** Short mark shown at the end of the row, e.g. "kept", "removed", "no match". */
+  note?: string;
+}
+
+export interface SqlTable {
+  /** "orders", "after WHERE", "result". */
+  label: string;
+  columns: string[];
+  rows: SqlRow[];
+}
+
+/** SQL tables at one point of a query, with the clauses the query uses. */
+export interface TableView {
+  kind: 'table';
+  /** Clauses this query uses, in logical order. */
+  clauses: string[];
+  /** The clause being run. */
+  current?: string;
+  /** 1–3 tables: inputs, then the working or result table. */
+  tables: SqlTable[];
+}
+
+export type View = ArrayView | ListView | StackView | QueueView | TreeView | HeapView | GraphView | TableView;
 
 export interface Step {
   /** What happened. */

@@ -45,7 +45,7 @@ export function LessonCard({ topic, showDifficulty = false }: { topic: Topic; sh
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
         {showDifficulty && <DifficultyBadge difficulty={lesson.difficulty} />}
         {lesson.group && <span className="text-xs text-muted">{lesson.group}</span>}
-        <span className="ml-auto font-mono text-xs text-muted">{lesson.complexity.rows[0]!.average}</span>
+        {lesson.complexity && <span className="ml-auto font-mono text-xs text-muted">{lesson.complexity.rows[0]!.average}</span>}
       </div>
     </Link>
   );

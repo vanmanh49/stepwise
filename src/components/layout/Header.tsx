@@ -5,6 +5,7 @@ import { useTheme } from '../../store/theme';
 const links = [
   { to: '/data-structures', label: 'Data Structures' },
   { to: '/algorithms', label: 'Algorithms' },
+  { to: '/sql', label: 'SQL' },
   { to: '/big-o', label: 'Big O' },
   { to: '/dashboard', label: 'Progress' },
 ];

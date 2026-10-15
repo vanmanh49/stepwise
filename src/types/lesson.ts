@@ -1,3 +1,4 @@
+import type { DatasetId } from '../sql/datasets';
 import type { Step, View } from './visualization';
 
 export interface Graph {
@@ -42,7 +43,7 @@ export interface TextDef {
   code: string;
 }
 
-export type Category = 'data-structures' | 'algorithms';
+export type Category = 'data-structures' | 'algorithms' | 'sql';
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
 
 /** Describes the inputs a lesson's visualization accepts and how steps are generated. */
@@ -62,7 +63,27 @@ export type VisualizationConfig =
     }
   | { kind: 'structure'; structure: StructureDef }
   | { kind: 'text'; text: TextDef }
-  | { kind: 'graph'; graphs: Graph[]; needsStart: boolean; generate(g: Graph, start: string): Step[] };
+  | { kind: 'graph'; graphs: Graph[]; needsStart: boolean; generate(g: Graph, start: string): Step[] }
+  | {
+      kind: 'sql';
+      dataset: DatasetId;
+      /** Shown and run when the lesson opens. */
+      initialQuery: string;
+      /** "Try" chips that load and run a query. */
+      examples: { label: string; query: string }[];
+      exercises: SqlExercise[];
+    };
+
+export interface SqlExercise {
+  /** Unique within the lesson. */
+  id: string;
+  prompt: string;
+  /** Reference query; the learner's result is compared with its result. */
+  solution: string;
+  /** True only when the task asks for an order. */
+  orderMatters: boolean;
+  hint?: string;
+}
 
 export interface QuizQuestion {
   id: string;
@@ -99,9 +120,10 @@ export interface Lesson {
   concept: string[];
   howItWorks: string[];
   visualization: VisualizationConfig;
-  /** TypeScript source; Step.codeLine refers to its lines. */
+  /** TypeScript source, or the example query for SQL lessons; Step.codeLine refers to its lines. */
   code: string;
-  complexity: {
+  /** Absent for SQL lessons, where Big O does not apply. */
+  complexity?: {
     /** One row for an algorithm, one row per operation for a data structure. */
     rows: ComplexityRow[];
     space: string;

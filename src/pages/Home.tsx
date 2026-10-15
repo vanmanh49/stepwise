@@ -9,6 +9,7 @@ import { MiniPlayer } from '../components/visualization/MiniPlayer';
 import { curriculum } from '../lessons/curriculum';
 import { getLesson, lessonPath, lessons, lessonsIn } from '../lessons/registry';
 import { computeStreak, percent, useProgress } from '../store/progress';
+import type { Category } from '../types/lesson';
 
 const previewSteps = bubbleSortSteps([5, 3, 8, 1, 6]);
 const FEATURED = ['array', 'binary-search', 'bubble-sort', 'binary-search-tree', 'bfs', 'dijkstra'];
@@ -37,7 +38,7 @@ function ProgressSummary() {
   const current = useProgress((s) => s.currentLesson);
   if (completed.length === 0) return null;
 
-  const done = (category: 'data-structures' | 'algorithms') =>
+  const done = (category: Category) =>
     lessonsIn(category).filter((l) => completed.includes(l.id)).length;
   const live = lessons.filter((l) => completed.includes(l.id)).length;
   const streak = computeStreak(activeDays);
@@ -73,6 +74,7 @@ function ProgressSummary() {
           <ProgressBar label="Overall" value={percent(live, lessons.length)} />
           <ProgressBar label="Data Structures" value={percent(done('data-structures'), lessonsIn('data-structures').length)} />
           <ProgressBar label="Algorithms" value={percent(done('algorithms'), lessonsIn('algorithms').length)} />
+          <ProgressBar label="SQL" value={percent(done('sql'), lessonsIn('sql').length)} />
         </div>
       </div>
     </section>

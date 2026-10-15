@@ -10,6 +10,7 @@ import { ProgressBar } from '../progress/ProgressBar';
 export const CATEGORY_TITLE: Record<Category, string> = {
   'data-structures': 'Data Structures',
   algorithms: 'Algorithms',
+  sql: 'SQL',
 };
 
 export function CourseSidebar({ category, activeId }: { category: Category; activeId?: string }) {
