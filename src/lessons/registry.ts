@@ -23,6 +23,7 @@ import { slidingWindow } from './algorithms/sliding-window';
 import { topologicalSort } from './algorithms/topological-sort';
 import { treeTraversal } from './algorithms/tree-traversal';
 import { twoPointers } from './algorithms/two-pointers';
+import { unionFind } from './algorithms/union-find';
 import { array } from './data-structures/array';
 import { binarySearchTree } from './data-structures/binary-search-tree';
 import { binaryTree } from './data-structures/binary-tree';
@@ -80,6 +81,7 @@ export const lessons: Lesson[] = [
   kruskal,
   prim,
   greedy,
+  unionFind,
   selectFrom,
   where,
   nullValues,

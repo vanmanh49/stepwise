@@ -233,3 +233,25 @@ export const allPairsNegativeGraph = makeGraph(
     ['D', 'B', 1],
   ],
 );
+
+/** A triangle with a tail, plus a separate pair: two components and one cycle. */
+export const cycleGraph = makeGraph(
+  'cycle',
+  'Graph with a cycle',
+  false,
+  [
+    ['A', 12, 20],
+    ['B', 44, 12],
+    ['C', 30, 62],
+    ['D', 56, 92],
+    ['E', 76, 30],
+    ['F', 94, 72],
+  ],
+  [
+    ['A', 'B'],
+    ['B', 'C'],
+    ['C', 'A'],
+    ['C', 'D'],
+    ['E', 'F'],
+  ],
+);
