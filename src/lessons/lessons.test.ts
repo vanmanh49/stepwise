@@ -67,6 +67,8 @@ function defaultSteps(lesson: Lesson): Step[] {
     }
     case 'graph':
       return config.generate(config.graphs[0]!, config.graphs[0]!.nodes[0]!.id);
+    case 'form':
+      return config.generate(config.presets[0]!.values);
     case 'sql': {
       const result = querySteps(datasets[config.dataset], config.initialQuery);
       if (!result.ok) throw new Error(result.error.message);
@@ -131,6 +133,13 @@ describe.each(lessons.map((l) => [l.id, l] as const))('lesson %s', (_id, lesson)
       expect(new Set(question.options).size).toBe(question.options.length);
       expect(question.explanation.length).toBeGreaterThan(20);
     }
+  });
+
+  it('runs every form preset', () => {
+    const config = lesson.visualization;
+    if (config.kind !== 'form') return;
+    expect(config.presets.length).toBeGreaterThanOrEqual(1);
+    for (const preset of config.presets) expect(config.generate(preset.values).length, preset.label).toBeGreaterThanOrEqual(3);
   });
 
   it('runs its default visualization with code lines inside its code', () => {

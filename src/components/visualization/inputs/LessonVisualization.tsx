@@ -1,6 +1,7 @@
 import type { VisualizationConfig } from '../../../types/lesson';
 import type { Step } from '../../../types/visualization';
 import { VisualizationBoundary } from '../ErrorBoundary';
+import { FormInput } from './FormInput';
 import { GraphInput } from './GraphInput';
 import { SearchInput } from './SearchInput';
 import { SortInput } from './SortInput';
@@ -22,6 +23,8 @@ function Inputs({ config, code, onStep }: { config: VisualizationConfig; code: s
       return <TextInput config={config} code={code} onStep={onStep} />;
     case 'graph':
       return <GraphInput config={config} code={code} onStep={onStep} />;
+    case 'form':
+      return <FormInput config={config} code={code} onStep={onStep} />;
     case 'sql':
       return <SqlInput config={config} code={code} onStep={onStep} />;
   }

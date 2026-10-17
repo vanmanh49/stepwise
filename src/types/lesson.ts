@@ -78,6 +78,14 @@ export type VisualizationConfig =
       generate(g: Graph, start: string, goal?: string): Step[];
     }
   | {
+      kind: 'form';
+      fields: FormField[];
+      /** Quick-fill chips; the first is loaded when the lesson opens. */
+      presets: { label: string; values: Record<string, string> }[];
+      /** Parses its own fields; unusable input yields one explanatory step. */
+      generate(values: Record<string, string>): Step[];
+    }
+  | {
       kind: 'sql';
       dataset: DatasetId;
       /** Shown and run when the lesson opens. */
@@ -86,6 +94,16 @@ export type VisualizationConfig =
       examples: { label: string; query: string }[];
       exercises: SqlExercise[];
     };
+
+export interface FormField {
+  name: string;
+  label: string;
+  /** "numbers" is a comma-separated list; "choice" is a select over options. */
+  type: 'number' | 'numbers' | 'text' | 'choice';
+  sample: string;
+  options?: string[];
+  help?: string;
+}
 
 export interface SqlExercise {
   /** Unique within the lesson. */
