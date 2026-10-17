@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GridView, Step } from '../../types/visualization';
+import { greedyCoins } from '../greedy/coins';
+import { coinChange, coinChangeCode, coinChangeSteps } from './coinChange';
 import { fibonacciDp, fibonacciDpCode, fibonacciDpSteps } from './fibonacci';
 import { knapsack, knapsackCode, knapsackSteps } from './knapsack';
 
@@ -141,6 +143,64 @@ describe('0/1 knapsack', () => {
     'refuses %o with one step',
     (values) => {
       expect(knapsackSteps(values)).toHaveLength(1);
+    },
+  );
+});
+
+function bruteCoins(coins: number[], amount: number): number | null {
+  let best: number | null = null;
+  const search = (left: number, used: number, from: number) => {
+    if (left === 0) {
+      if (best === null || used < best) best = used;
+      return;
+    }
+    for (let i = from; i < coins.length; i++) if (coins[i]! <= left) search(left - coins[i]!, used + 1, i);
+  };
+  search(amount, 0, 0);
+  return best;
+}
+
+describe('coin change', () => {
+  it('beats greedy where greedy is wrong', () => {
+    expect(coinChange([1, 3, 4], 6)).toBe(2);
+    expect(greedyCoins([1, 3, 4], 6)!.length).toBe(3);
+  });
+
+  it('reports an impossible amount as null', () => {
+    expect(coinChange([5], 3)).toBeNull();
+  });
+
+  it.each(Array.from({ length: 20 }, (_, i) => i + 1))('matches brute force on seeded case %i', (seed) => {
+    const coins = [...new Set(seededList(1 + (seed % 4), 9, seed))];
+    const amount = seed % 21;
+    expect(coinChange(coins, amount)).toBe(bruteCoins(coins, amount));
+  });
+
+  it('fills one cell per amount and shows the coins used', () => {
+    const steps = coinChangeSteps({ coins: '1, 3, 4', amount: '6' });
+    expectExplained(steps, coinChangeCode);
+    expectCleanCells(steps);
+    const grid = gridOf(steps[steps.length - 1]!);
+    expect(rowValues(grid)).toEqual([0, 1, 2, 1, 1, 2, 2]);
+    expect(steps[steps.length - 1]!.title).toContain('2 coins');
+  });
+
+  it('shows ∞ and says so when the amount is impossible', () => {
+    const steps = coinChangeSteps({ coins: '5', amount: '3' });
+    expectExplained(steps, coinChangeCode);
+    expectCleanCells(steps);
+    expect(rowValues(gridOf(steps[steps.length - 1]!)).at(-1)).toBe('∞');
+    expect(steps[steps.length - 1]!.title.toLowerCase()).toContain('impossible');
+  });
+
+  it('stays readable for the largest input', () => {
+    expectExplained(coinChangeSteps({ coins: '1, 2, 5, 10, 25', amount: '20' }), coinChangeCode);
+  });
+
+  it.each([{ coins: '1, 2', amount: '21' }, { coins: '', amount: '5' }, { coins: '1, 2, 3, 4, 5, 6', amount: '5' }, { coins: '26', amount: '5' }])(
+    'refuses %o with one step',
+    (values) => {
+      expect(coinChangeSteps(values)).toHaveLength(1);
     },
   );
 });

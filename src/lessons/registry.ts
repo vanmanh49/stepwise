@@ -6,6 +6,7 @@ import { bellmanFord } from './algorithms/bellman-ford';
 import { bfs } from './algorithms/bfs';
 import { binarySearch } from './algorithms/binary-search';
 import { bubbleSort } from './algorithms/bubble-sort';
+import { coinChange } from './algorithms/coin-change';
 import { countingSort } from './algorithms/counting-sort';
 import { dfs } from './algorithms/dfs';
 import { dijkstra } from './algorithms/dijkstra';
@@ -93,6 +94,7 @@ export const lessons: Lesson[] = [
   prim,
   fibonacciDp,
   knapsack,
+  coinChange,
   greedy,
   unionFind,
   aStar,

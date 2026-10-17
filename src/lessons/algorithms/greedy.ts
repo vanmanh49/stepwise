@@ -45,6 +45,7 @@ export const greedy: Lesson = {
     note: 'n is the number of different coins. Sorting them dominates; the walk through the coins then takes one step per coin, plus one per coin taken.',
     curves: ['nlogn'],
   },
+  compareWith: ['coin-change'],
   prosCons: {
     pros: ['Very simple to write and explain', 'Fast: usually a sort plus one pass', 'Optimal for many important problems, such as minimum spanning trees'],
     cons: ['Can give a worse answer than the best possible', 'Can get stuck even when a solution exists', 'Proving that greedy is correct for a problem can be hard'],

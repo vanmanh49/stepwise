@@ -47,6 +47,7 @@ const EXPECTED_IDS = [
   'prim',
   'fibonacci-dp',
   'knapsack',
+  'coin-change',
   'greedy',
   'union-find',
   'a-star',
@@ -95,7 +96,7 @@ describe('lesson registry', () => {
   it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
-    expect(lessonsIn('algorithms')).toHaveLength(33);
+    expect(lessonsIn('algorithms')).toHaveLength(34);
     expect(lessonsIn('sql')).toHaveLength(10);
   });
 
