@@ -88,8 +88,11 @@ function scan(db: Dataset, ref: TableRef): Relation {
   return {
     columns: table.columns.map((c) => ({ table: label, name: c.name, type: c.type })),
     rows: table.rows.map((values, i) => ({
-      id: `${table.name}#${i}`,
-      values: values.map((v, c) => (table.columns[c]!.type === 'REAL' && typeof v === 'number' ? new Real(v) : v)),
+      id: table.rowIds?.[i] ?? `${table.name}#${i}`,
+      // A stored number is REAL in a REAL column, and also when it is not a whole number (SQLite keeps 2.5 as REAL even in an INTEGER column).
+      values: values.map((v, c) =>
+        typeof v === 'number' && (table.columns[c]!.type === 'REAL' || !Number.isInteger(v)) ? new Real(v) : v,
+      ),
     })),
   };
 }
