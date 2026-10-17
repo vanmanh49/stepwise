@@ -2,6 +2,7 @@ import { Play } from 'lucide-react';
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import type { VisualizationConfig } from '../../../types/lesson';
 import { Visualizer } from '../Visualizer';
+import { inputModeFor } from './formField';
 import type { StepListener } from './LessonVisualization';
 
 type FormConfig = Extract<VisualizationConfig, { kind: 'form' }>;
@@ -58,7 +59,7 @@ export function FormInput({ config, code, onStep }: { config: FormConfig; code: 
                       className={`field font-mono ${field.type === 'number' ? 'w-24' : ''}`}
                       value={value}
                       onChange={(e) => set(e.target.value)}
-                      inputMode={field.type === 'text' ? 'text' : 'numeric'}
+                      inputMode={inputModeFor(field.type)}
                       autoComplete="off"
                       aria-describedby={field.help ? `${fieldId}-help` : undefined}
                     />
