@@ -121,7 +121,17 @@ export interface TableView {
   tables: SqlTable[];
 }
 
-export type View = ArrayView | ListView | StackView | QueueView | TreeView | HeapView | GraphView | TableView;
+/** A labelled 2-D table: DP tables, boards, and text rows aligned with null gaps. */
+export interface GridView {
+  kind: 'grid';
+  /** Column headers, e.g. capacities 0..C or the characters of a string. */
+  colLabels?: string[];
+  rows: { label?: string; cells: (Cell | null)[] }[];
+  /** Dependency arrows between cells, as [row, col] pairs. */
+  arrows?: { from: [number, number]; to: [number, number] }[];
+}
+
+export type View = ArrayView | ListView | StackView | QueueView | TreeView | HeapView | GraphView | TableView | GridView;
 
 export interface Step {
   /** What happened. */

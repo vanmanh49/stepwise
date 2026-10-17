@@ -1,6 +1,7 @@
 import type { View } from '../../../types/visualization';
 import { ArrayRenderer } from './ArrayRenderer';
 import { GraphRenderer } from './GraphRenderer';
+import { GridRenderer } from './GridRenderer';
 import { HeapRenderer } from './HeapRenderer';
 import { ListRenderer } from './ListRenderer';
 import { QueueRenderer } from './QueueRenderer';
@@ -27,5 +28,7 @@ export function StepView({ view }: { view: View }) {
       return <GraphRenderer view={view} />;
     case 'table':
       return <TableRenderer view={view} />;
+    case 'grid':
+      return <GridRenderer view={view} />;
   }
 }

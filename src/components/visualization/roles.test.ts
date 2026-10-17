@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { GridView } from '../../types/visualization';
 import { rolesInRun, rolesInView } from './roles';
 
 describe('rolesInView', () => {
@@ -19,5 +20,13 @@ describe('rolesInView', () => {
     };
     expect(rolesInView(view)).toEqual(['found', 'discarded']);
     expect(rolesInRun([view])).toEqual(['found', 'discarded']);
+  });
+
+  it('collects roles from grid cells and skips gaps', () => {
+    const view: GridView = {
+      kind: 'grid',
+      rows: [{ cells: [{ id: 'a', value: 1, role: 'active' }, null, { id: 'b', value: 2, role: 'sorted' }] }],
+    };
+    expect(rolesInView(view)).toEqual(['active', 'sorted']);
   });
 });
