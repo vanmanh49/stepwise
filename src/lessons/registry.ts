@@ -21,6 +21,7 @@ import { prefixSum } from './algorithms/prefix-sum';
 import { prim } from './algorithms/prim';
 import { quickSort } from './algorithms/quick-sort';
 import { radixSort } from './algorithms/radix-sort';
+import { recursionFundamentals } from './algorithms/recursion-fundamentals';
 import { selectionSort } from './algorithms/selection-sort';
 import { slidingWindow } from './algorithms/sliding-window';
 import { topologicalSort } from './algorithms/topological-sort';
@@ -73,6 +74,7 @@ export const lessons: Lesson[] = [
   heapSort,
   countingSort,
   radixSort,
+  recursionFundamentals,
   bfs,
   dfs,
   topologicalSort,
