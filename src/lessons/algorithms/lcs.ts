@@ -47,6 +47,7 @@ export const lcs: Lesson = {
     note: 'm and n are the two string lengths; every cell is filled once in constant time. If only the length is needed, two rows of the table are enough.',
     curves: ['n2'],
   },
+  compareWith: ['lis'],
   prosCons: {
     pros: ['Exact answer, far faster than trying all subsequences', 'The same table recovers the subsequence itself', 'The basis of diff tools and edit distance'],
     cons: ['Quadratic time and memory in the string lengths', 'Too slow for comparing very long texts character by character'],

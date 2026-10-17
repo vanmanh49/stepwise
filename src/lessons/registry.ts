@@ -20,6 +20,7 @@ import { knapsack } from './algorithms/knapsack';
 import { kruskal } from './algorithms/kruskal';
 import { lcs } from './algorithms/lcs';
 import { linearSearch } from './algorithms/linear-search';
+import { lis } from './algorithms/lis';
 import { lowestCommonAncestor } from './algorithms/lowest-common-ancestor';
 import { mergeSort } from './algorithms/merge-sort';
 import { networkFlow } from './algorithms/network-flow';
@@ -97,6 +98,7 @@ export const lessons: Lesson[] = [
   knapsack,
   coinChange,
   lcs,
+  lis,
   greedy,
   unionFind,
   aStar,

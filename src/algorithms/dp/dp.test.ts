@@ -4,6 +4,7 @@ import { greedyCoins } from '../greedy/coins';
 import { coinChange, coinChangeCode, coinChangeSteps } from './coinChange';
 import { fibonacciDp, fibonacciDpCode, fibonacciDpSteps } from './fibonacci';
 import { lcs, lcsCode, lcsSteps } from './lcs';
+import { lis, lisCode, lisSteps } from './lis';
 import { knapsack, knapsackCode, knapsackSteps } from './knapsack';
 
 function expectExplained(steps: Step[], code: string) {
@@ -270,3 +271,55 @@ describe('longest common subsequence', () => {
     expect(lcsSteps(values)).toHaveLength(1);
   });
 });
+
+function bruteLisLength(values: number[]): number {
+  let best = 0;
+  for (let mask = 1; mask < 1 << values.length; mask++) {
+    const picked = values.filter((_, i) => mask & (1 << i));
+    if (picked.every((v, i) => i === 0 || picked[i - 1]! < v)) best = Math.max(best, picked.length);
+  }
+  return best;
+}
+
+const strictlyIncreasing = (values: number[]) => values.every((v, i) => i === 0 || values[i - 1]! < v);
+
+describe('longest increasing subsequence', () => {
+  it('finds a run of length 4 in the lesson example', () => {
+    const result = lis([10, 9, 2, 5, 3, 7, 101, 18]);
+    expect(result).toHaveLength(4);
+    expect(strictlyIncreasing(result)).toBe(true);
+  });
+
+  it.each(Array.from({ length: 20 }, (_, i) => i + 1))('matches brute force on seeded array %i', (seed) => {
+    const values = seededList(2 + (seed % 11), 30, seed);
+    const result = lis(values);
+    expect(result.length).toBe(bruteLisLength(values));
+    expect(strictlyIncreasing(result)).toBe(true);
+    expect(isSubsequenceOf(result, values)).toBe(true);
+  });
+
+  it('gives length 1 for a strictly decreasing list', () => {
+    expect(lis([5, 4, 3, 2, 1])).toHaveLength(1);
+  });
+
+  it('shows value, length and predecessor rows, ending on the sequence', () => {
+    const steps = lisSteps([10, 9, 2, 5, 3, 7, 101, 18]);
+    expectExplained(steps, lisCode);
+    expectCleanCells(steps);
+    const grid = gridOf(steps[steps.length - 1]!);
+    expect(grid.rows.map((r) => r.label)).toEqual(['value', 'length', 'from']);
+    expect(rowValues(grid, 1)).toEqual([1, 1, 1, 2, 2, 3, 4, 4]);
+    const found = grid.rows[0]!.cells.flatMap((c) => (c?.role === 'found' ? [c.value] : []));
+    expect(found).toEqual(lis([10, 9, 2, 5, 3, 7, 101, 18]));
+  });
+
+  it('stays readable for the largest input', () => {
+    expectExplained(lisSteps(seededList(12, 30, 4)), lisCode);
+  });
+});
+
+function isSubsequenceOf(sub: number[], of: number[]): boolean {
+  let i = 0;
+  for (const v of of) if (v === sub[i]) i++;
+  return i === sub.length;
+}
