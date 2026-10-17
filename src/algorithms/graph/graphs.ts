@@ -286,3 +286,29 @@ export const wallGraph = gridGraph('wall', 'Grid with a wall', [
 ]);
 
 export const openGraph = gridGraph('open', 'Open grid', []);
+
+/** A flow network from source S to sink T; edge weights are capacities. Its maximum flow is 19. */
+export const flowNetwork = makeGraph(
+  'flow',
+  'Flow network',
+  true,
+  [
+    ['S', 6, 50],
+    ['A', 36, 14],
+    ['C', 36, 86],
+    ['B', 68, 14],
+    ['D', 68, 86],
+    ['T', 94, 50],
+  ],
+  [
+    ['S', 'A', 10],
+    ['S', 'C', 10],
+    ['A', 'B', 4],
+    ['A', 'C', 2],
+    ['A', 'D', 8],
+    ['C', 'D', 9],
+    ['D', 'B', 6],
+    ['B', 'T', 10],
+    ['D', 'T', 10],
+  ],
+);

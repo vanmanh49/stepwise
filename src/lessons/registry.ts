@@ -15,6 +15,7 @@ import { kruskal } from './algorithms/kruskal';
 import { linearSearch } from './algorithms/linear-search';
 import { lowestCommonAncestor } from './algorithms/lowest-common-ancestor';
 import { mergeSort } from './algorithms/merge-sort';
+import { networkFlow } from './algorithms/network-flow';
 import { prefixSum } from './algorithms/prefix-sum';
 import { prim } from './algorithms/prim';
 import { quickSort } from './algorithms/quick-sort';
@@ -84,6 +85,7 @@ export const lessons: Lesson[] = [
   greedy,
   unionFind,
   aStar,
+  networkFlow,
   selectFrom,
   where,
   nullValues,
