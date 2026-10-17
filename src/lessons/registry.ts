@@ -1,5 +1,6 @@
 import type { Category, Lesson } from '../types/lesson';
 import { aStar } from './algorithms/a-star';
+import { advancedGraphAlgorithms } from './algorithms/advanced-graph-algorithms';
 import { bellmanFord } from './algorithms/bellman-ford';
 import { bfs } from './algorithms/bfs';
 import { binarySearch } from './algorithms/binary-search';
@@ -86,6 +87,7 @@ export const lessons: Lesson[] = [
   unionFind,
   aStar,
   networkFlow,
+  advancedGraphAlgorithms,
   selectFrom,
   where,
   nullValues,

@@ -312,3 +312,32 @@ export const flowNetwork = makeGraph(
     ['D', 'T', 10],
   ],
 );
+
+/** Directed, with three strongly connected components: {A, B, C}, {D, E, F, G} and {H}. */
+export const sccGraph = makeGraph(
+  'scc',
+  'Three strongly connected parts',
+  true,
+  [
+    ['A', 6, 30],
+    ['B', 28, 6],
+    ['C', 28, 56],
+    ['D', 54, 30],
+    ['E', 76, 6],
+    ['F', 96, 38],
+    ['G', 72, 62],
+    ['H', 92, 94],
+  ],
+  [
+    ['A', 'B'],
+    ['B', 'C'],
+    ['C', 'A'],
+    ['C', 'D'],
+    ['B', 'E'],
+    ['D', 'E'],
+    ['E', 'F'],
+    ['F', 'G'],
+    ['G', 'D'],
+    ['G', 'H'],
+  ],
+);
