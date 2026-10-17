@@ -72,6 +72,12 @@ describe('radix sort', () => {
     );
   });
 
+  it('keeps the values still waiting in the input row of each step', () => {
+    const steps = radixSortSteps([170, 45, 75, 90, 802, 24, 2, 66]);
+    const step = steps.find((s) => s.title === '24 goes into bucket 4')!;
+    expect(step.view.kind === 'buckets' && step.view.input?.cells.map((c) => c.value)).toEqual([2, 66]);
+  });
+
   it('makes one pass per digit of the largest value', () => {
     const labels = new Set(radixSortSteps([170, 45, 2]).flatMap((s) => (s.view.kind === 'buckets' && s.view.input ? [s.view.input.label] : [])));
     expect([...labels].filter((l) => l.startsWith('Pass'))).toHaveLength(3);

@@ -75,7 +75,8 @@ export function radixSortSteps(values: number[]): Step[] {
         why: `Its ${name} digit is ${d}. Values join the end of their bucket, so values with the same digit keep the order they arrived in.`,
         codeLine: 6,
         variables: { place, digit: d },
-        view: view(label, waiting, buckets),
+        // A copy: waiting keeps shrinking after this step is recorded.
+        view: view(label, [...waiting], buckets),
       });
     }
     arr = buckets.flat().map((c) => ({ ...c, role: 'default' as Role }));
