@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Step } from '../../types/visualization';
 import { failureTable, kmpCode, kmpSearch, kmpSteps } from './kmp';
+import { rabinKarpCode, rabinKarpSearch, rabinKarpSteps } from './rabinKarp';
 
 function expectExplained(steps: Step[], code: string) {
   const lines = code.split('\n').length;
@@ -84,4 +85,49 @@ describe('KMP', () => {
       expect(kmpSteps(values)).toHaveLength(1);
     },
   );
+});
+
+describe('Rabin-Karp', () => {
+  it('finds the lesson example', () => {
+    expect(rabinKarpSearch('GEEKS FOR GEEKS', 'GEEK').matches).toEqual([0, 10]);
+  });
+
+  it('finds overlapping matches', () => {
+    expect(rabinKarpSearch('AAAA', 'AA').matches).toEqual([0, 1, 2]);
+  });
+
+  it.each(seededPairs)('matches indexOf on %s / %s', (text, pattern) => {
+    expect(rabinKarpSearch(text, pattern).matches).toEqual(indexOfAll(text, pattern));
+  });
+
+  it('checks the characters when hashes collide', () => {
+    // "JU" and "AB" share hash 41 with base 256 and modulus 101.
+    expect(rabinKarpSearch('JUMP AB', 'AB')).toEqual({ matches: [5], spuriousHits: [0] });
+    const steps = rabinKarpSteps({ text: 'JUMP AB', pattern: 'AB' });
+    expectExplained(steps, rabinKarpCode);
+    expect(steps.some((s) => s.title === 'Hashes match, characters differ')).toBe(true);
+  });
+
+  it('shows both hashes at every window', () => {
+    const steps = rabinKarpSteps({ text: 'GEEKS FOR GEEKS', pattern: 'GEEK' });
+    expectExplained(steps, rabinKarpCode);
+    const windows = steps.filter((s) => s.variables?.['window hash'] !== undefined);
+    expect(windows.length).toBeGreaterThanOrEqual(12);
+    expect(windows.every((s) => s.variables!['pattern hash'] !== undefined)).toBe(true);
+    expect(steps[steps.length - 1]!.title).toContain('0, 10');
+  });
+
+  it('says when the pattern is longer than the text', () => {
+    const steps = rabinKarpSteps({ text: 'AB', pattern: 'ABC' });
+    expectExplained(steps, rabinKarpCode);
+    expect(steps.some((s) => s.title.includes('longer'))).toBe(true);
+  });
+
+  it('stays readable for the largest input', () => {
+    expectExplained(rabinKarpSteps({ text: 'ABABABABABABABABABAB', pattern: 'ABABABABAB' }), rabinKarpCode);
+  });
+
+  it.each([{ text: '', pattern: 'A' }, { text: 'A'.repeat(21), pattern: 'A' }, { text: 'ABC', pattern: 'A'.repeat(11) }])('refuses %o with one step', (values) => {
+    expect(rabinKarpSteps(values)).toHaveLength(1);
+  });
 });

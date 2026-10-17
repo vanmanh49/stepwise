@@ -47,6 +47,7 @@ export const kmp: Lesson = {
     note: 'n is the text length and m the pattern length. The table costs O(m) to build, and the scan never moves back in the text, so it costs O(n).',
     curves: ['n'],
   },
+  compareWith: ['rabin-karp'],
   prosCons: {
     pros: ['Guaranteed linear time, even on worst-case inputs', 'Reads the text strictly left to right, so it works on streams', 'Finds overlapping matches naturally'],
     cons: ['The failure table is tricky to get right', 'For ordinary text, simpler methods are often just as fast in practice'],

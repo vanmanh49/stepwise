@@ -29,6 +29,7 @@ import { networkFlow } from './algorithms/network-flow';
 import { prefixSum } from './algorithms/prefix-sum';
 import { prim } from './algorithms/prim';
 import { quickSort } from './algorithms/quick-sort';
+import { rabinKarp } from './algorithms/rabin-karp';
 import { radixSort } from './algorithms/radix-sort';
 import { recursionFundamentals } from './algorithms/recursion-fundamentals';
 import { selectionSort } from './algorithms/selection-sort';
@@ -105,6 +106,7 @@ export const lessons: Lesson[] = [
   greedy,
   unionFind,
   kmp,
+  rabinKarp,
   aStar,
   networkFlow,
   advancedGraphAlgorithms,
