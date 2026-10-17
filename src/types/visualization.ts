@@ -77,6 +77,8 @@ export interface GraphEdgeView {
   from: string;
   to: string;
   weight?: number;
+  /** Shown instead of the weight when set, e.g. "3/5" for flow over capacity. */
+  label?: string;
   role: Role;
 }
 

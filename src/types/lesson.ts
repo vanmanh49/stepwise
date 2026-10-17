@@ -48,7 +48,13 @@ export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
 
 /** Describes the inputs a lesson's visualization accepts and how steps are generated. */
 export type VisualizationConfig =
-  | { kind: 'sort'; initial: number[]; generate(values: number[]): Step[] }
+  | {
+      kind: 'sort';
+      initial: number[];
+      /** Largest value the Random button produces; defaults to 99. */
+      randomMax?: number;
+      generate(values: number[]): Step[];
+    }
   | {
       kind: 'search';
       initial: number[];
@@ -63,7 +69,14 @@ export type VisualizationConfig =
     }
   | { kind: 'structure'; structure: StructureDef }
   | { kind: 'text'; text: TextDef }
-  | { kind: 'graph'; graphs: Graph[]; needsStart: boolean; generate(g: Graph, start: string): Step[] }
+  | {
+      kind: 'graph';
+      graphs: Graph[];
+      needsStart: boolean;
+      /** Shows a goal node select; the goal defaults to the graph's last node. */
+      needsGoal?: boolean;
+      generate(g: Graph, start: string, goal?: string): Step[];
+    }
   | {
       kind: 'sql';
       dataset: DatasetId;

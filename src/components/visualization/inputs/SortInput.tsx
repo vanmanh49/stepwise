@@ -57,7 +57,7 @@ export function SortInput({ config, code, onStep }: { config: SortConfig; code: 
             <button type="submit" className="btn btn-primary">
               <Play size={16} aria-hidden /> Run
             </button>
-            <button type="button" className="btn" onClick={() => load(randomArray(8), true)}>
+            <button type="button" className="btn" onClick={() => load(randomArray(8, config.randomMax ?? 99), true)}>
               <Shuffle size={16} aria-hidden /> Random
             </button>
             <button type="button" className="btn" onClick={() => load([...config.initial], false)}>
