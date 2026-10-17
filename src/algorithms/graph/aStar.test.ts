@@ -95,4 +95,14 @@ describe('aStarSteps', () => {
       for (const row of Object.values(step.view.table.rows)) for (const cell of row) expect(cell).not.toMatch(/Infinity|NaN/);
     }
   });
+
+  it('lists the open set in the order A* will expand it', () => {
+    const steps = aStarSteps(wallGraph, 'A', 'L');
+    steps.forEach((step, k) => {
+      const next = steps[k + 1];
+      if (!next || step.view.kind !== 'graph' || !step.view.frontier || !next.title.startsWith('Expand ')) return;
+      const listedFirst = step.view.frontier.items[0]!.split(' ')[0];
+      expect(next.title.startsWith(`Expand ${listedFirst} `), `${step.title} → ${next.title}`).toBe(true);
+    });
+  });
 });

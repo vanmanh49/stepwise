@@ -40,10 +40,14 @@ interface Search {
   parent: Record<string, string>;
 }
 
-function lowestF(g: Graph, search: Search, goal: string): string {
+/** Open nodes in expansion order: lowest f, then nearer the goal, then smaller id, so runs are repeatable. */
+function byF(g: Graph, search: Search, goal: string): string[] {
   const f = (id: string) => search.cost[id]! + heuristic(g, id, goal);
-  // Ties go to the node nearer the goal, then to the smaller id, so runs are repeatable.
-  return [...search.open].sort((a, b) => f(a) - f(b) || heuristic(g, a, goal) - heuristic(g, b, goal) || a.localeCompare(b))[0]!;
+  return [...search.open].sort((a, b) => f(a) - f(b) || heuristic(g, a, goal) - heuristic(g, b, goal) || a.localeCompare(b));
+}
+
+function lowestF(g: Graph, search: Search, goal: string): string {
+  return byF(g, search, goal)[0]!;
 }
 
 function pathTo(parent: Record<string, string>, goal: string): string[] {
@@ -88,10 +92,9 @@ export function aStarSteps(g: Graph, start: string, goal: string = g.nodes[g.nod
     for (const id of search.closed) roles[id] = 'visited';
     for (const id of search.open) roles[id] = 'frontier';
     const known = g.nodes.filter((n) => search.cost[n.id] !== undefined);
-    const byF = [...search.open].sort((a, b) => search.cost[a]! + h(a) - (search.cost[b]! + h(b)));
     return graphView(g, { ...roles, ...extraNodes }, { ...treeEdges(), ...extraEdges }, {
       badges: Object.fromEntries(known.map((n) => [n.id, round(search.cost[n.id]! + h(n.id))])),
-      frontier: { label: 'Open, lowest f first', items: byF.map((id) => `${name(id)} (f ${round(search.cost[id]! + h(id))})`) },
+      frontier: { label: 'Open, lowest f first', items: byF(g, search, goal).map((id) => `${name(id)} (f ${round(search.cost[id]! + h(id))})`) },
       table: {
         columns: ['g', 'h', 'f'],
         rows: Object.fromEntries(
