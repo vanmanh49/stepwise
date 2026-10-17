@@ -17,6 +17,7 @@ import { greedy } from './algorithms/greedy';
 import { gridDp } from './algorithms/grid-dp';
 import { heapSort } from './algorithms/heap-sort';
 import { insertionSort } from './algorithms/insertion-sort';
+import { kmp } from './algorithms/kmp';
 import { knapsack } from './algorithms/knapsack';
 import { kruskal } from './algorithms/kruskal';
 import { lcs } from './algorithms/lcs';
@@ -103,6 +104,7 @@ export const lessons: Lesson[] = [
   gridDp,
   greedy,
   unionFind,
+  kmp,
   aStar,
   networkFlow,
   advancedGraphAlgorithms,
