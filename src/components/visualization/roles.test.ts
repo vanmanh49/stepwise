@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CallsView, GridView } from '../../types/visualization';
+import type { BucketsView, CallsView, GridView, PanelsView } from '../../types/visualization';
 import { rolesInRun, rolesInView } from './roles';
 
 describe('rolesInView', () => {
@@ -39,5 +39,26 @@ describe('rolesInView', () => {
       ],
     };
     expect(rolesInView(view)).toEqual(['active', 'sorted']);
+  });
+
+  it('collects roles from the input row, then the buckets', () => {
+    const view: BucketsView = {
+      kind: 'buckets',
+      input: { label: 'in', cells: [{ id: 'a', value: 1, role: 'active' }] },
+      buckets: [{ label: '0', cells: [{ id: 'b', value: 10, role: 'found' }] }, { label: '1', cells: [] }],
+    };
+    expect(rolesInView(view)).toEqual(['active', 'found']);
+  });
+
+  it('collects roles from every panel', () => {
+    const view: PanelsView = {
+      kind: 'panels',
+      panels: [
+        { label: 'board', view: { kind: 'grid', rows: [{ cells: [{ id: 'q', value: 'Q', role: 'found' }] }] } },
+        { view: { kind: 'calls', frames: [{ id: 'f', label: 'place(0)', role: 'discarded' }, { id: 'g', label: 'x', role: 'default' }] } },
+      ],
+    };
+    expect(rolesInView(view)).toEqual(['found', 'discarded', 'default']);
+    expect(rolesInRun([view])).toEqual(['found', 'discarded']);
   });
 });

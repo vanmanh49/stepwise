@@ -147,6 +147,20 @@ export interface CallsView {
   frames: CallFrame[];
 }
 
+/** Values distributed into labelled buckets, e.g. radix sort's digit buckets. */
+export interface BucketsView {
+  kind: 'buckets';
+  /** The array being distributed or collected. */
+  input?: { label: string; cells: Cell[] };
+  buckets: { label: string; cells: Cell[] }[];
+}
+
+/** Several views shown together in one step. Panels do not nest. */
+export interface PanelsView {
+  kind: 'panels';
+  panels: { label?: string; view: Exclude<View, PanelsView> }[];
+}
+
 export type View =
   | ArrayView
   | ListView
@@ -157,7 +171,9 @@ export type View =
   | GraphView
   | TableView
   | GridView
-  | CallsView;
+  | CallsView
+  | BucketsView
+  | PanelsView;
 
 export interface Step {
   /** What happened. */
