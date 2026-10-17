@@ -45,6 +45,7 @@ const EXPECTED_IDS = [
   'floyd-warshall',
   'kruskal',
   'prim',
+  'fibonacci-dp',
   'greedy',
   'union-find',
   'a-star',
@@ -93,7 +94,7 @@ describe('lesson registry', () => {
   it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
-    expect(lessonsIn('algorithms')).toHaveLength(31);
+    expect(lessonsIn('algorithms')).toHaveLength(32);
     expect(lessonsIn('sql')).toHaveLength(10);
   });
 
@@ -102,7 +103,7 @@ describe('lesson registry', () => {
     expect(adjacentLessons('array').next?.id).toBe('string');
     expect(adjacentLessons('graph').next).toBeUndefined();
     expect(adjacentLessons('linear-search').prev).toBeUndefined();
-    expect(adjacentLessons('prim').next?.id).toBe('greedy');
+    expect(adjacentLessons('prim').next?.id).toBe('fibonacci-dp');
     expect(adjacentLessons('unknown')).toEqual({});
   });
 

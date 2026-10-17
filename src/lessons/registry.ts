@@ -10,6 +10,7 @@ import { countingSort } from './algorithms/counting-sort';
 import { dfs } from './algorithms/dfs';
 import { dijkstra } from './algorithms/dijkstra';
 import { divideAndConquer } from './algorithms/divide-and-conquer';
+import { fibonacciDp } from './algorithms/fibonacci-dp';
 import { floydWarshall } from './algorithms/floyd-warshall';
 import { greedy } from './algorithms/greedy';
 import { heapSort } from './algorithms/heap-sort';
@@ -89,6 +90,7 @@ export const lessons: Lesson[] = [
   floydWarshall,
   kruskal,
   prim,
+  fibonacciDp,
   greedy,
   unionFind,
   aStar,
