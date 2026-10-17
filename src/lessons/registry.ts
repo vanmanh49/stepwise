@@ -10,6 +10,7 @@ import { heapSort } from './algorithms/heap-sort';
 import { insertionSort } from './algorithms/insertion-sort';
 import { kruskal } from './algorithms/kruskal';
 import { linearSearch } from './algorithms/linear-search';
+import { lowestCommonAncestor } from './algorithms/lowest-common-ancestor';
 import { mergeSort } from './algorithms/merge-sort';
 import { prefixSum } from './algorithms/prefix-sum';
 import { prim } from './algorithms/prim';
@@ -70,6 +71,7 @@ export const lessons: Lesson[] = [
   dfs,
   topologicalSort,
   treeTraversal,
+  lowestCommonAncestor,
   dijkstra,
   bellmanFord,
   kruskal,

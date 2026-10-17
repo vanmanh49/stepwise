@@ -2,7 +2,7 @@ import type { StructureDef } from '../types/lesson';
 import type { Role, Step, TreeView } from '../types/visualization';
 import { refuse } from './shared';
 
-const MAX_NODES = 12;
+export const MAX_NODES = 12;
 
 const code = `function insert(node: TreeNode | null, value: number): TreeNode {
   if (!node) return new TreeNode(value);
@@ -39,7 +39,7 @@ function inorder(node: TreeNode | null, visit: (v: number) => void): void {
   inorder(node.right, visit);
 }`;
 
-interface Node {
+export interface Node {
   value: number;
   left?: Node;
   right?: Node;
@@ -67,7 +67,7 @@ function removeNode(node: Node | undefined, value: number): Node | undefined {
 }
 
 /** Inserting a preorder traversal in order rebuilds exactly the same tree. */
-const build = (preorder: number[]) => preorder.reduce<Node | undefined>(insertNode, undefined);
+export const build = (preorder: number[]) => preorder.reduce<Node | undefined>(insertNode, undefined);
 
 function toPreorder(node: Node | undefined): number[] {
   return node ? [node.value, ...toPreorder(node.left), ...toPreorder(node.right)] : [];
@@ -75,7 +75,7 @@ function toPreorder(node: Node | undefined): number[] {
 
 const idOf = (value: number) => `n${value}`;
 
-function treeView(root: Node | undefined, roles: Record<number, Role> = {}): TreeView {
+export function treeView(root: Node | undefined, roles: Record<number, Role> = {}): TreeView {
   const nodes: TreeView['nodes'] = [];
   const walk = (node: Node | undefined): void => {
     if (!node) return;
