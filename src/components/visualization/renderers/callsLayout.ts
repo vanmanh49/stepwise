@@ -32,3 +32,14 @@ export function layoutCalls(frames: CallFrame[]): { id: string; x: number; y: nu
 
   return frames.map((f) => ({ id: f.id, ...placed.get(f.id)! }));
 }
+
+const MIN_BOX = 72;
+/** Width of one character of the 12px monospace frame label. */
+const CHAR = 7.2;
+const PADDING = 10;
+
+/** One width for every frame box, wide enough for the longest label. */
+export function callBoxWidth(frames: CallFrame[]): number {
+  const longest = Math.max(0, ...frames.map((f) => f.label.length));
+  return Math.max(MIN_BOX, Math.ceil(longest * CHAR + PADDING));
+}

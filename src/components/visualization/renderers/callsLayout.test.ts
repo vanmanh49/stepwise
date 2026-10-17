@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CallFrame } from '../../../types/visualization';
-import { layoutCalls } from './callsLayout';
+import { callBoxWidth, layoutCalls } from './callsLayout';
 
 const frame = (id: string, parent?: string): CallFrame => ({ id, label: id, role: 'default', ...(parent && { parent }) });
 
@@ -37,5 +37,16 @@ describe('layoutCalls', () => {
   it('lays out frames with a missing parent as extra roots', () => {
     const layout = layoutCalls([frame('a'), frame('b', 'zzz')]);
     expect(layout.map((p) => p.y)).toEqual([0, 0]);
+  });
+});
+
+describe('callBoxWidth', () => {
+  it('keeps short labels at the minimum width', () => {
+    expect(callBoxWidth([frame('fib(3)')])).toBe(72);
+  });
+
+  it('widens every box to fit the longest label', () => {
+    // 12 characters of 12px monospace text measure about 86.4px.
+    expect(callBoxWidth([frame('best(0..1)'), frame('best(10..10)')])).toBeGreaterThanOrEqual(86.4 + 8);
   });
 });
