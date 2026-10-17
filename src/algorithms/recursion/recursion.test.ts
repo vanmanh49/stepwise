@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CallsView, Step } from '../../types/visualization';
 import { factorial, fibonacciNaive, recursionCode, recursionSteps } from './basics';
+import { maxSubarray, maxSubarrayCode, maxSubarraySteps } from './maxSubarray';
 import { nQueensCode, nQueensSteps, solveNQueens } from './nQueens';
 
 function expectExplained(steps: Step[], code: string) {
@@ -104,5 +105,58 @@ describe('N-Queens backtracking', () => {
 
   it.each(['3', '7', 'x'])('refuses n = %s with one step', (n) => {
     expect(nQueensSteps({ n })).toHaveLength(1);
+  });
+});
+
+/** Best sum; ties go to the smallest start, then the smallest end. */
+function bruteForceMax(values: number[]): { sum: number; start: number; end: number } {
+  let best = { sum: -Infinity, start: 0, end: 0 };
+  for (let i = 0; i < values.length; i++) {
+    let sum = 0;
+    for (let j = i; j < values.length; j++) {
+      sum += values[j]!;
+      if (sum > best.sum) best = { sum, start: i, end: j };
+    }
+  }
+  return best;
+}
+
+function seededSigned(count: number, seed: number): number[] {
+  return Array.from({ length: count }, () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return (seed % 21) - 10;
+  });
+}
+
+describe('maximum subarray by divide and conquer', () => {
+  it('finds the best run in the lesson example', () => {
+    expect(maxSubarray([-2, 1, -3, 4, -1, 2, 1, -5, 4])).toEqual({ sum: 6, start: 3, end: 6 });
+  });
+
+  it.each(Array.from({ length: 30 }, (_, i) => [i + 1, seededSigned(2 + (i % 11), i + 1)] as const))(
+    'matches brute force on seeded array %i',
+    (_seed, values) => {
+      expect(maxSubarray(values)).toEqual(bruteForceMax(values));
+    },
+  );
+
+  it('returns the single largest value when all are negative', () => {
+    expect(maxSubarray([-5, -2, -8])).toEqual({ sum: -2, start: 1, end: 1 });
+  });
+
+  it('shows the array and the calls, ending on the best run', () => {
+    const steps = maxSubarraySteps([-2, 1, -3, 4, -1, 2, 1, -5, 4]);
+    expectExplained(steps, maxSubarrayCode);
+    const last = steps[steps.length - 1]!.view;
+    if (last.kind !== 'panels') throw new Error('expected panels');
+    const array = last.panels[0]!.view;
+    const found = array.kind === 'array' ? array.cells.flatMap((c, i) => (c.role === 'found' ? [i] : [])) : [];
+    expect(found).toEqual([3, 4, 5, 6]);
+    const calls = last.panels[1]!.view;
+    expect(calls.kind === 'calls' && calls.frames[0]!.result).toBe('6');
+  });
+
+  it('stays readable for the largest input', () => {
+    expectExplained(maxSubarraySteps(seededSigned(12, 9)), maxSubarrayCode);
   });
 });

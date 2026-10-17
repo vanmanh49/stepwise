@@ -34,6 +34,7 @@ const EXPECTED_IDS = [
   'radix-sort',
   'recursion-fundamentals',
   'backtracking',
+  'divide-and-conquer',
   'bfs',
   'dfs',
   'topological-sort',
@@ -92,7 +93,7 @@ describe('lesson registry', () => {
   it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
-    expect(lessonsIn('algorithms')).toHaveLength(30);
+    expect(lessonsIn('algorithms')).toHaveLength(31);
     expect(lessonsIn('sql')).toHaveLength(10);
   });
 
