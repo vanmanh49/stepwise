@@ -15,6 +15,7 @@ import { floydWarshall } from './algorithms/floyd-warshall';
 import { greedy } from './algorithms/greedy';
 import { heapSort } from './algorithms/heap-sort';
 import { insertionSort } from './algorithms/insertion-sort';
+import { knapsack } from './algorithms/knapsack';
 import { kruskal } from './algorithms/kruskal';
 import { linearSearch } from './algorithms/linear-search';
 import { lowestCommonAncestor } from './algorithms/lowest-common-ancestor';
@@ -91,6 +92,7 @@ export const lessons: Lesson[] = [
   kruskal,
   prim,
   fibonacciDp,
+  knapsack,
   greedy,
   unionFind,
   aStar,

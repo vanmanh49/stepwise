@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GridView, Step } from '../../types/visualization';
 import { fibonacciDp, fibonacciDpCode, fibonacciDpSteps } from './fibonacci';
+import { knapsack, knapsackCode, knapsackSteps } from './knapsack';
 
 function expectExplained(steps: Step[], code: string) {
   const lines = code.split('\n').length;
@@ -70,4 +71,76 @@ describe('Fibonacci DP', () => {
   it.each([{ n: '13', method: 'memo' }, { n: 'x', method: 'table' }, { n: '5', method: 'other' }])('refuses %o with one step', (values) => {
     expect(fibonacciDpSteps(values)).toHaveLength(1);
   });
+});
+
+function seededList(count: number, max: number, seed: number): number[] {
+  return Array.from({ length: count }, () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return 1 + (seed % max);
+  });
+}
+
+function bruteKnapsack(weights: number[], values: number[], capacity: number): number {
+  let best = 0;
+  for (let mask = 0; mask < 1 << weights.length; mask++) {
+    let w = 0;
+    let v = 0;
+    weights.forEach((wi, i) => {
+      if (mask & (1 << i)) (w += wi), (v += values[i]!);
+    });
+    if (w <= capacity) best = Math.max(best, v);
+  }
+  return best;
+}
+
+const knapsackValues = (w: number[], v: number[], c: number) => ({ weights: w.join(', '), values: v.join(', '), capacity: String(c) });
+
+describe('0/1 knapsack', () => {
+  it('finds the best value and the items for the lesson example', () => {
+    expect(knapsack([1, 3, 4, 5], [1, 4, 5, 7], 7)).toEqual({ best: 9, items: [1, 2] });
+  });
+
+  it.each(Array.from({ length: 20 }, (_, i) => i + 1))('matches brute force on seeded case %i', (seed) => {
+    const count = 1 + (seed % 5);
+    const weights = seededList(count, 8, seed);
+    const values = seededList(count, 20, seed + 100);
+    const capacity = seed % 11;
+    const result = knapsack(weights, values, capacity);
+    expect(result.best).toBe(bruteKnapsack(weights, values, capacity));
+    expect(result.items.reduce((sum, i) => sum + weights[i]!, 0)).toBeLessThanOrEqual(capacity);
+    expect(result.items.reduce((sum, i) => sum + values[i]!, 0)).toBe(result.best);
+  });
+
+  it('takes nothing with capacity 0', () => {
+    expect(knapsack([1, 2], [3, 4], 0)).toEqual({ best: 0, items: [] });
+  });
+
+  it('fills the item × capacity table and traces back the chosen items', () => {
+    const steps = knapsackSteps(knapsackValues([1, 3, 4, 5], [1, 4, 5, 7], 7));
+    expectExplained(steps, knapsackCode);
+    expectCleanCells(steps);
+    const grid = gridOf(steps[steps.length - 1]!);
+    expect(grid.rows).toHaveLength(5);
+    expect(grid.colLabels).toEqual(['0', '1', '2', '3', '4', '5', '6', '7']);
+    expect(grid.rows[4]!.cells[7]!.value).toBe(9);
+    expect(steps.some((s) => (gridOf(s).arrows ?? []).length > 0)).toBe(true);
+  });
+
+  it('stays readable for the largest input', () => {
+    expectExplained(knapsackSteps(knapsackValues([1, 2, 3, 4, 5], [5, 4, 3, 2, 1], 10)), knapsackCode);
+  });
+
+  it('refuses lists of different lengths, naming both', () => {
+    const steps = knapsackSteps(knapsackValues([1, 2], [3], 5));
+    expect(steps).toHaveLength(1);
+    expect(steps[0]!.why).toContain('Weights');
+    expect(steps[0]!.why).toContain('Values');
+  });
+
+  it.each([knapsackValues([1], [1], 11), knapsackValues([1, 2, 3, 4, 5, 6], [1, 1, 1, 1, 1, 1], 5), { weights: 'x', values: '1', capacity: '3' }])(
+    'refuses %o with one step',
+    (values) => {
+      expect(knapsackSteps(values)).toHaveLength(1);
+    },
+  );
 });
