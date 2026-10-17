@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CallsView, Step } from '../../types/visualization';
 import { factorial, fibonacciNaive, recursionCode, recursionSteps } from './basics';
+import { nQueensCode, nQueensSteps, solveNQueens } from './nQueens';
 
 function expectExplained(steps: Step[], code: string) {
   const lines = code.split('\n').length;
@@ -59,5 +60,49 @@ describe('recursion basics', () => {
     { fn: 'other', n: '3' },
   ])('refuses %o with one step', (values) => {
     expect(recursionSteps(values)).toHaveLength(1);
+  });
+});
+
+function validQueens(cols: number[]): boolean {
+  return cols.every((c, r) => cols.every((c2, r2) => r === r2 || (c !== c2 && Math.abs(c - c2) !== Math.abs(r - r2))));
+}
+
+describe('N-Queens backtracking', () => {
+  it('finds the first solution in search order', () => {
+    expect(solveNQueens(4)).toEqual([1, 3, 0, 2]);
+  });
+
+  it.each([5, 6])('finds a valid solution for %i queens', (n) => {
+    const cols = solveNQueens(n)!;
+    expect(cols).toHaveLength(n);
+    expect(validQueens(cols)).toBe(true);
+  });
+
+  it('returns null when no solution exists', () => {
+    expect(solveNQueens(3)).toBeNull();
+  });
+
+  it.each([4, 5, 6])('ends with the solution on the board for %i queens', (n) => {
+    const steps = nQueensSteps({ n: String(n) });
+    expectExplained(steps, nQueensCode);
+    const last = steps[steps.length - 1]!.view;
+    if (last.kind !== 'panels') throw new Error('expected panels');
+    const board = last.panels[0]!.view;
+    if (board.kind !== 'grid') throw new Error('expected a board');
+    const queens = board.rows.map((row) => row.cells.findIndex((c) => c?.value === '♛'));
+    expect(queens).toEqual(solveNQueens(n));
+    expect(last.panels[1]!.view.kind).toBe('calls');
+  });
+
+  it('shows dead ends being undone', () => {
+    const steps = nQueensSteps({ n: '4' });
+    expect(steps.some((s) => /remove/i.test(s.title))).toBe(true);
+    const last = steps[steps.length - 1]!.view;
+    const calls = last.kind === 'panels' ? last.panels[1]!.view : last;
+    expect(calls.kind === 'calls' && calls.frames.some((f) => f.role === 'discarded')).toBe(true);
+  });
+
+  it.each(['3', '7', 'x'])('refuses n = %s with one step', (n) => {
+    expect(nQueensSteps({ n })).toHaveLength(1);
   });
 });

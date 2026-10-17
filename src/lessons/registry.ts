@@ -1,6 +1,7 @@
 import type { Category, Lesson } from '../types/lesson';
 import { aStar } from './algorithms/a-star';
 import { advancedGraphAlgorithms } from './algorithms/advanced-graph-algorithms';
+import { backtracking } from './algorithms/backtracking';
 import { bellmanFord } from './algorithms/bellman-ford';
 import { bfs } from './algorithms/bfs';
 import { binarySearch } from './algorithms/binary-search';
@@ -75,6 +76,7 @@ export const lessons: Lesson[] = [
   countingSort,
   radixSort,
   recursionFundamentals,
+  backtracking,
   bfs,
   dfs,
   topologicalSort,
