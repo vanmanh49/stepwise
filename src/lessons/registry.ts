@@ -6,6 +6,7 @@ import { bubbleSort } from './algorithms/bubble-sort';
 import { countingSort } from './algorithms/counting-sort';
 import { dfs } from './algorithms/dfs';
 import { dijkstra } from './algorithms/dijkstra';
+import { floydWarshall } from './algorithms/floyd-warshall';
 import { heapSort } from './algorithms/heap-sort';
 import { insertionSort } from './algorithms/insertion-sort';
 import { kruskal } from './algorithms/kruskal';
@@ -74,6 +75,7 @@ export const lessons: Lesson[] = [
   lowestCommonAncestor,
   dijkstra,
   bellmanFord,
+  floydWarshall,
   kruskal,
   prim,
   selectFrom,

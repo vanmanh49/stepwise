@@ -192,3 +192,44 @@ export const negativeCycleGraph = makeGraph(
     ['D', 'B', 1],
   ],
 );
+
+/** Directed and weighted, for all-pairs shortest paths. No pair of nodes has edges both ways, so arrows never overlap. */
+export const allPairsGraph = makeGraph(
+  'all-pairs',
+  'Directed weighted graph',
+  true,
+  [
+    ['A', 10, 50],
+    ['B', 50, 10],
+    ['C', 90, 50],
+    ['D', 50, 90],
+  ],
+  [
+    ['A', 'B', 3],
+    ['A', 'D', 7],
+    ['B', 'C', 2],
+    ['C', 'A', 5],
+    ['C', 'D', 1],
+    ['D', 'B', 4],
+  ],
+);
+
+/** A negative edge but no negative cycle: B → C → D → B weighs 1. */
+export const allPairsNegativeGraph = makeGraph(
+  'all-pairs-negative',
+  'With a negative edge',
+  true,
+  [
+    ['A', 10, 50],
+    ['B', 50, 12],
+    ['C', 50, 88],
+    ['D', 90, 50],
+  ],
+  [
+    ['A', 'B', 4],
+    ['A', 'C', 3],
+    ['B', 'C', -2],
+    ['C', 'D', 2],
+    ['D', 'B', 1],
+  ],
+);
