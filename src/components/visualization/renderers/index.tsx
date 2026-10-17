@@ -1,8 +1,12 @@
 import type { View } from '../../../types/visualization';
 import { ArrayRenderer } from './ArrayRenderer';
+import { BucketsRenderer } from './BucketsRenderer';
+import { CallsRenderer } from './CallsRenderer';
 import { GraphRenderer } from './GraphRenderer';
+import { GridRenderer } from './GridRenderer';
 import { HeapRenderer } from './HeapRenderer';
 import { ListRenderer } from './ListRenderer';
+import { PanelsRenderer } from './PanelsRenderer';
 import { QueueRenderer } from './QueueRenderer';
 import { StackRenderer } from './StackRenderer';
 import { TableRenderer } from './TableRenderer';
@@ -27,5 +31,13 @@ export function StepView({ view }: { view: View }) {
       return <GraphRenderer view={view} />;
     case 'table':
       return <TableRenderer view={view} />;
+    case 'grid':
+      return <GridRenderer view={view} />;
+    case 'calls':
+      return <CallsRenderer view={view} />;
+    case 'buckets':
+      return <BucketsRenderer view={view} />;
+    case 'panels':
+      return <PanelsRenderer view={view} renderView={(panel) => <StepView view={panel} />} />;
   }
 }

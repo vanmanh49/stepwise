@@ -35,6 +35,6 @@ export function parseText(text: string): { ok: true; value: string } | { ok: fal
   return { ok: true, value: text };
 }
 
-export function randomArray(length: number, max = 99): number[] {
-  return Array.from({ length }, () => 1 + Math.floor(Math.random() * max));
+export function randomArray(length: number, max = 99, min = 1): number[] {
+  return Array.from({ length }, () => min + Math.floor(Math.random() * (max - min + 1)));
 }

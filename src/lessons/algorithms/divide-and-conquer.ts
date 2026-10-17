@@ -1,0 +1,97 @@
+import { maxSubarrayCode, maxSubarraySteps } from '../../algorithms/recursion/maxSubarray';
+import type { Lesson } from '../../types/lesson';
+
+export const divideAndConquer: Lesson = {
+  id: 'divide-and-conquer',
+  title: 'Divide and Conquer',
+  category: 'algorithms',
+  difficulty: 'intermediate',
+  group: 'Recursion',
+  description: 'Split a problem in half, solve each half the same way, and combine the answers. Shown on the maximum subarray problem.',
+  keywords: ['split', 'combine', 'maximum subarray', 'recursion', 'merge sort', 'master theorem', 'crossing sum'],
+  prerequisites: ['recursion-fundamentals', 'merge-sort'],
+  overview:
+    'Divide and conquer breaks a problem into smaller pieces of the same kind, solves each piece recursively, and combines the piece answers into the full answer. This lesson applies it to the maximum subarray problem: find the run of consecutive numbers with the largest sum.',
+  concept: [
+    'Imagine counting the votes of a whole country. Rather than one person counting everything, the work is split into regions, each region splits into towns, and the town counts are added back up. Each piece is the same task, only smaller, and combining the results is easy.',
+    'Divide and conquer has three parts. Divide: split the input, usually in half. Conquer: solve each half recursively, down to a base case small enough to answer directly. Combine: build the answer for the whole from the answers for the halves.',
+    'For the largest-sum run, the halves are easy to solve recursively. The interesting part is the combine step. The best run of the whole array lies entirely in the left half, entirely in the right half, or crosses the middle. A crossing run must contain the two middle positions, so the best one is found by extending left from the middle and right from the middle as far as it helps.',
+    'Each level of splitting does O(n) work for the crossing runs, and there are about log n levels, so the whole algorithm is O(n log n), the same shape as merge sort.',
+  ],
+  howItWorks: [
+    'If the range holds one value, that value is its best run.',
+    'Otherwise split the range at the middle.',
+    'Recursively find the best run of the left half and of the right half.',
+    'Find the best run crossing the middle: best sum ending at mid plus best sum starting at mid + 1.',
+    'Return the largest of the three.',
+  ],
+  visualization: { kind: 'sort', initial: [-2, 1, -3, 4, -1, 2, 1, -5, 4], randomMin: -20, randomMax: 20, generate: maxSubarraySteps },
+  code: maxSubarrayCode,
+  complexity: {
+    rows: [{ label: 'Maximum subarray (divide and conquer)', best: 'O(n log n)', average: 'O(n log n)', worst: 'O(n log n)' }],
+    space: 'O(log n)',
+    note: 'Each level of the call tree scans every value once for the crossing runs, and halving gives about log n levels. The space is the recursion depth.',
+    curves: ['nlogn'],
+  },
+  compareWith: ['merge-sort'],
+  prosCons: {
+    pros: ['Turns a big problem into small, identical ones', 'Often beats the obvious O(n²) approach', 'Halves can be solved in parallel'],
+    cons: ['Recursion adds overhead and stack use', 'The combine step can be the tricky part', 'Sometimes a clever single pass is even faster (Kadane’s algorithm solves this problem in O(n))'],
+    useWhen: ['The problem splits into independent subproblems of the same kind', 'Combining answers is cheap', 'Work can be spread over several processors'],
+    avoidWhen: ['Subproblems overlap and repeat (use dynamic programming)', 'A simple linear scan exists'],
+  },
+  applications: [
+    'Sorting with merge sort and quick sort',
+    'Binary search and finding the closest pair of points',
+    'Fast multiplication of large numbers (Karatsuba) and the fast Fourier transform',
+    'Processing huge data sets in parallel, as in MapReduce',
+  ],
+  commonMistakes: [
+    'Forgetting the crossing case, so runs that span the middle are never found.',
+    'Using a base case that never triggers, such as lo > hi when the code only ever reaches lo === hi.',
+    'Splitting unevenly, which can turn O(n log n) into O(n²).',
+    'Treating overlapping subproblems as independent and recomputing them.',
+  ],
+  quiz: [
+    {
+      id: 'q1',
+      type: 'predict-next',
+      prompt: 'The whole array has just been split at index 4. Which range is solved next?',
+      view: maxSubarraySteps([-2, 1, -3, 4, -1, 2, 1, -5, 4])[1]!.view,
+      options: ['The left half, 0..4', 'The right half, 5..8', 'The crossing run', 'The whole array again'],
+      answer: 0,
+      explanation: 'The code calls maxSubarray(arr, lo, mid) first, so the left half is solved completely before the right half starts.',
+    },
+    {
+      id: 'q2',
+      type: 'multiple-choice',
+      prompt: 'Where can the best run of a range be?',
+      options: ['In the left half, in the right half, or crossing the middle', 'Only in the left half', 'Only crossing the middle', 'Always the whole range'],
+      answer: 0,
+      explanation: 'Every run is entirely left of the middle, entirely right of it, or contains both middle positions.',
+    },
+    {
+      id: 'q3',
+      type: 'complexity',
+      prompt: 'What is the running time of this divide-and-conquer algorithm?',
+      options: ['O(n log n)', 'O(n²)', 'O(log n)', 'O(2ⁿ)'],
+      answer: 0,
+      explanation: 'O(n) work per level for the crossing runs, over about log n levels of halving.',
+    },
+    {
+      id: 'q4',
+      type: 'code',
+      prompt: 'What does this call return?',
+      code: 'maxSubarray([3, -10, 4, 2]);',
+      options: ['6', '3', '-1', '9'],
+      answer: 0,
+      explanation: 'The best run is 4 + 2 = 6 in the right half. Including 3 would also include −10.',
+    },
+  ],
+  summary: [
+    'Divide and conquer splits a problem, solves the parts recursively, and combines the results.',
+    'For maximum subarray, the best run is in the left half, the right half, or crosses the middle.',
+    'The crossing run is found by extending outward from the middle.',
+    'Linear work per level and log n levels give O(n log n).',
+  ],
+};

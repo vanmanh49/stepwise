@@ -5,7 +5,7 @@ import { bfs, bfsCode, bfsSteps } from './bfs';
 import { dfs, dfsCode, dfsSteps } from './dfs';
 import { dijkstra, dijkstraCode, dijkstraSteps } from './dijkstra';
 import { directedGraph, islandGraph, simpleGraph, weightedGraph } from './graphs';
-import { neighbours } from './view';
+import { edgeKey, graphView, neighbours } from './view';
 
 function graph(directed: boolean, nodes: string, edges: [string, string, number?][]): Graph {
   return {
@@ -43,6 +43,14 @@ function activeOrder(steps: Step[]): string[] {
   }
   return order;
 }
+
+describe('graphView edge labels', () => {
+  it('labels only the edges it is given', () => {
+    const view = graphView(weightedGraph, {}, {}, { edgeLabels: { [edgeKey('A', 'B')]: '3/4' } });
+    expect(view.edges.find((e) => e.from === 'A' && e.to === 'B')?.label).toBe('3/4');
+    expect(view.edges.filter((e) => e.label !== undefined)).toHaveLength(1);
+  });
+});
 
 describe('neighbours', () => {
   it('lists both directions of an undirected edge, sorted by id', () => {

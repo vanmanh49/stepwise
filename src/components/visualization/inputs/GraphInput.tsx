@@ -12,8 +12,12 @@ export function GraphInput({ config, code, onStep }: { config: GraphConfig; code
   const [graphId, setGraphId] = useState(config.graphs[0]!.id);
   const graph = config.graphs.find((g) => g.id === graphId) ?? config.graphs[0]!;
   const [start, setStart] = useState(graph.nodes[0]!.id);
+  const [goal, setGoal] = useState(graph.nodes[graph.nodes.length - 1]!.id);
   const [ran, setRan] = useState(false);
-  const steps = useMemo(() => config.generate(graph, start), [config, graph, start]);
+  const steps = useMemo(
+    () => (config.needsGoal ? config.generate(graph, start, goal) : config.generate(graph, start)),
+    [config, graph, start, goal],
+  );
 
   return (
     <Visualizer
@@ -35,6 +39,7 @@ export function GraphInput({ config, code, onStep }: { config: GraphConfig; code
                 const next = config.graphs.find((g) => g.id === e.target.value)!;
                 setGraphId(next.id);
                 setStart(next.nodes[0]!.id);
+                setGoal(next.nodes[next.nodes.length - 1]!.id);
                 setRan(true);
               }}
             >
@@ -56,6 +61,28 @@ export function GraphInput({ config, code, onStep }: { config: GraphConfig; code
                 value={start}
                 onChange={(e) => {
                   setStart(e.target.value);
+                  setRan(true);
+                }}
+              >
+                {graph.nodes.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {config.needsGoal && (
+            <div className="flex flex-col gap-2">
+              <label htmlFor={`${id}-goal`} className="eyebrow">
+                Goal node
+              </label>
+              <select
+                id={`${id}-goal`}
+                className="field pr-8"
+                value={goal}
+                onChange={(e) => {
+                  setGoal(e.target.value);
                   setRan(true);
                 }}
               >

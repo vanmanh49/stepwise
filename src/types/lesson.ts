@@ -48,7 +48,15 @@ export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
 
 /** Describes the inputs a lesson's visualization accepts and how steps are generated. */
 export type VisualizationConfig =
-  | { kind: 'sort'; initial: number[]; generate(values: number[]): Step[] }
+  | {
+      kind: 'sort';
+      initial: number[];
+      /** Largest value the Random button produces; defaults to 99. */
+      randomMax?: number;
+      /** Smallest value the Random button produces; defaults to 1. */
+      randomMin?: number;
+      generate(values: number[]): Step[];
+    }
   | {
       kind: 'search';
       initial: number[];
@@ -63,7 +71,22 @@ export type VisualizationConfig =
     }
   | { kind: 'structure'; structure: StructureDef }
   | { kind: 'text'; text: TextDef }
-  | { kind: 'graph'; graphs: Graph[]; needsStart: boolean; generate(g: Graph, start: string): Step[] }
+  | {
+      kind: 'graph';
+      graphs: Graph[];
+      needsStart: boolean;
+      /** Shows a goal node select; the goal defaults to the graph's last node. */
+      needsGoal?: boolean;
+      generate(g: Graph, start: string, goal?: string): Step[];
+    }
+  | {
+      kind: 'form';
+      fields: FormField[];
+      /** Quick-fill chips; the first is loaded when the lesson opens. */
+      presets: { label: string; values: Record<string, string> }[];
+      /** Parses its own fields; unusable input yields one explanatory step. */
+      generate(values: Record<string, string>): Step[];
+    }
   | {
       kind: 'sql';
       dataset: DatasetId;
@@ -73,6 +96,16 @@ export type VisualizationConfig =
       examples: { label: string; query: string }[];
       exercises: SqlExercise[];
     };
+
+export interface FormField {
+  name: string;
+  label: string;
+  /** "numbers" is a comma-separated list; "choice" is a select over options. */
+  type: 'number' | 'numbers' | 'text' | 'choice';
+  sample: string;
+  options?: string[];
+  help?: string;
+}
 
 export interface SqlExercise {
   /** Unique within the lesson. */

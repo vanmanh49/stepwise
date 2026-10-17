@@ -192,3 +192,152 @@ export const negativeCycleGraph = makeGraph(
     ['D', 'B', 1],
   ],
 );
+
+/** Directed and weighted, for all-pairs shortest paths. No pair of nodes has edges both ways, so arrows never overlap. */
+export const allPairsGraph = makeGraph(
+  'all-pairs',
+  'Directed weighted graph',
+  true,
+  [
+    ['A', 10, 50],
+    ['B', 50, 10],
+    ['C', 90, 50],
+    ['D', 50, 90],
+  ],
+  [
+    ['A', 'B', 3],
+    ['A', 'D', 7],
+    ['B', 'C', 2],
+    ['C', 'A', 5],
+    ['C', 'D', 1],
+    ['D', 'B', 4],
+  ],
+);
+
+/** A negative edge but no negative cycle: B → C → D → B weighs 1. */
+export const allPairsNegativeGraph = makeGraph(
+  'all-pairs-negative',
+  'With a negative edge',
+  true,
+  [
+    ['A', 10, 50],
+    ['B', 50, 12],
+    ['C', 50, 88],
+    ['D', 90, 50],
+  ],
+  [
+    ['A', 'B', 4],
+    ['A', 'C', 3],
+    ['B', 'C', -2],
+    ['C', 'D', 2],
+    ['D', 'B', 1],
+  ],
+);
+
+/** A triangle with a tail, plus a separate pair: two components and one cycle. */
+export const cycleGraph = makeGraph(
+  'cycle',
+  'Graph with a cycle',
+  false,
+  [
+    ['A', 12, 20],
+    ['B', 44, 12],
+    ['C', 30, 62],
+    ['D', 56, 92],
+    ['E', 76, 30],
+    ['F', 94, 72],
+  ],
+  [
+    ['A', 'B'],
+    ['B', 'C'],
+    ['C', 'A'],
+    ['C', 'D'],
+    ['E', 'F'],
+  ],
+);
+
+/**
+ * A 4 × 3 grid of nodes A–L. Edge weights are straight-line distances rounded up,
+ * so the straight-line heuristic of A* never overestimates.
+ */
+function gridGraph(id: string, name: string, blocked: [string, string][]): Graph {
+  const xs = [10, 37, 63, 90];
+  const ys = [10, 50, 90];
+  const nodes: NodeSpec[] = [];
+  ys.forEach((y, r) => xs.forEach((x, c) => nodes.push([String.fromCharCode(65 + r * 4 + c), x, y])));
+  const at = (r: number, c: number) => nodes[r * 4 + c]!;
+  const edges: EdgeSpec[] = [];
+  const link = (a: NodeSpec, b: NodeSpec) => {
+    const isBlocked = blocked.some(([p, q]) => (p === a[0] && q === b[0]) || (p === b[0] && q === a[0]));
+    if (!isBlocked) edges.push([a[0], b[0], Math.ceil(Math.hypot(b[1] - a[1], b[2] - a[2]))]);
+  };
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 4; c++) {
+      if (c < 3) link(at(r, c), at(r, c + 1));
+      if (r < 2) link(at(r, c), at(r + 1, c));
+    }
+  }
+  return makeGraph(id, name, false, nodes, edges);
+}
+
+export const wallGraph = gridGraph('wall', 'Grid with a wall', [
+  ['B', 'C'],
+  ['F', 'G'],
+]);
+
+export const openGraph = gridGraph('open', 'Open grid', []);
+
+/** A flow network from source S to sink T; edge weights are capacities. Its maximum flow is 19. */
+export const flowNetwork = makeGraph(
+  'flow',
+  'Flow network',
+  true,
+  [
+    ['S', 6, 50],
+    ['A', 36, 14],
+    ['C', 36, 86],
+    ['B', 68, 14],
+    ['D', 68, 86],
+    ['T', 94, 50],
+  ],
+  [
+    ['S', 'A', 10],
+    ['S', 'C', 10],
+    ['A', 'B', 4],
+    ['A', 'C', 2],
+    ['A', 'D', 8],
+    ['C', 'D', 9],
+    ['D', 'B', 6],
+    ['B', 'T', 10],
+    ['D', 'T', 10],
+  ],
+);
+
+/** Directed, with three strongly connected components: {A, B, C}, {D, E, F, G} and {H}. */
+export const sccGraph = makeGraph(
+  'scc',
+  'Three strongly connected parts',
+  true,
+  [
+    ['A', 6, 30],
+    ['B', 28, 6],
+    ['C', 28, 56],
+    ['D', 54, 30],
+    ['E', 76, 6],
+    ['F', 96, 38],
+    ['G', 72, 62],
+    ['H', 92, 94],
+  ],
+  [
+    ['A', 'B'],
+    ['B', 'C'],
+    ['C', 'A'],
+    ['C', 'D'],
+    ['B', 'E'],
+    ['D', 'E'],
+    ['E', 'F'],
+    ['F', 'G'],
+    ['G', 'D'],
+    ['G', 'H'],
+  ],
+);

@@ -24,6 +24,8 @@ function edgeStyle(role: GraphEdgeView['role']) {
   }
 }
 
+const labelWidth = (edge: GraphEdgeView) => Math.max(22, String(edge.label ?? edge.weight).length * 7 + 8);
+
 export function GraphRenderer({ view }: { view: GraphView }) {
   const at = new Map(view.nodes.map((n) => [n.id, { x: px(n.x), y: py(n.y) }]));
 
@@ -59,16 +61,24 @@ export function GraphRenderer({ view }: { view: GraphView }) {
                   fillOpacity={style.strokeOpacity ?? 1}
                 />
               )}
-              {edge.weight !== undefined && (
+              {(edge.label ?? edge.weight) !== undefined && (
                 <g transform={`translate(${mid.x}, ${mid.y})`}>
-                  <rect x={-11} y={-10} width={22} height={20} rx={6} fill="var(--surface)" stroke="var(--border)" />
+                  <rect
+                    x={-labelWidth(edge) / 2}
+                    y={-10}
+                    width={labelWidth(edge)}
+                    height={20}
+                    rx={6}
+                    fill="var(--surface)"
+                    stroke="var(--border)"
+                  />
                   <text
                     textAnchor="middle"
                     dominantBaseline="central"
                     fill="var(--text)"
                     className="font-mono text-[11px] font-semibold"
                   >
-                    {edge.weight}
+                    {edge.label ?? edge.weight}
                   </text>
                 </g>
               )}

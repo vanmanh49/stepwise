@@ -56,6 +56,14 @@ export function rolesInView(view: View): Role[] {
       return [...view.nodes.map((n) => n.role), ...view.edges.map((e) => e.role)];
     case 'table':
       return view.tables.flatMap((t) => t.rows.map((r) => r.role));
+    case 'grid':
+      return view.rows.flatMap((r) => r.cells.flatMap((c) => (c ? [c.role] : [])));
+    case 'calls':
+      return view.frames.map((f) => f.role);
+    case 'buckets':
+      return [...(view.input?.cells ?? []), ...view.buckets.flatMap((b) => b.cells)].map((c) => c.role);
+    case 'panels':
+      return view.panels.flatMap((p) => rolesInView(p.view));
   }
 }
 

@@ -77,6 +77,8 @@ export interface GraphEdgeView {
   from: string;
   to: string;
   weight?: number;
+  /** Shown instead of the weight when set, e.g. "3/5" for flow over capacity. */
+  label?: string;
   role: Role;
 }
 
@@ -121,7 +123,59 @@ export interface TableView {
   tables: SqlTable[];
 }
 
-export type View = ArrayView | ListView | StackView | QueueView | TreeView | HeapView | GraphView | TableView;
+/** A labelled 2-D table: DP tables, boards, and text rows aligned with null gaps. */
+export interface GridView {
+  kind: 'grid';
+  /** Column headers, e.g. capacities 0..C or the characters of a string. */
+  colLabels?: string[];
+  rows: { label?: string; cells: (Cell | null)[] }[];
+  /** Dependency arrows between cells, as [row, col] pairs. */
+  arrows?: { from: [number, number]; to: [number, number] }[];
+}
+
+export interface CallFrame {
+  id: string;
+  parent?: string;
+  /** e.g. "fib(4)". */
+  label: string;
+  /** Return value once the frame has finished. */
+  result?: string;
+  role: Role;
+}
+
+/** A recursion tree: one frame per call. */
+export interface CallsView {
+  kind: 'calls';
+  frames: CallFrame[];
+}
+
+/** Values distributed into labelled buckets, e.g. radix sort's digit buckets. */
+export interface BucketsView {
+  kind: 'buckets';
+  /** The array being distributed or collected. */
+  input?: { label: string; cells: Cell[] };
+  buckets: { label: string; cells: Cell[] }[];
+}
+
+/** Several views shown together in one step. Panels do not nest. */
+export interface PanelsView {
+  kind: 'panels';
+  panels: { label?: string; view: Exclude<View, PanelsView> }[];
+}
+
+export type View =
+  | ArrayView
+  | ListView
+  | StackView
+  | QueueView
+  | TreeView
+  | HeapView
+  | GraphView
+  | TableView
+  | GridView
+  | CallsView
+  | BucketsView
+  | PanelsView;
 
 export interface Step {
   /** What happened. */

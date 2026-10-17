@@ -1,0 +1,97 @@
+import { countingSortCode, countingSortSteps } from '../../algorithms/sorting/counting';
+import type { Lesson } from '../../types/lesson';
+
+export const countingSort: Lesson = {
+  id: 'counting-sort',
+  title: 'Counting Sort',
+  category: 'algorithms',
+  difficulty: 'intermediate',
+  group: 'Sorting',
+  description: 'Sort small whole numbers without a single comparison, by counting how often each value appears.',
+  keywords: ['non-comparison sort', 'histogram', 'prefix sum', 'stable sort', 'linear time', 'integer sort'],
+  prerequisites: ['array'],
+  overview:
+    'Counting sort sorts whole numbers from a small range by counting them. It tallies how many times each value occurs, turns the tallies into positions, and drops every value straight into its place. It never compares two values, which lets it beat the O(n log n) limit of comparison sorts.',
+  concept: [
+    'Imagine sorting a pile of exam papers marked 0 to 9. Instead of comparing papers, you make ten piles, one per mark, and count how many papers land in each. If there are two 0s and three 1s, you already know the 1s fill positions 2, 3 and 4 of the sorted stack.',
+    'That is the whole trick. One counter per possible value records how often it occurs. A running total over the counters says where each value ends: if five values are at most 3, the last 3 belongs at index 4.',
+    'Placing values from the right end of the input, and stepping each counter down as it is used, keeps equal values in their original order. That property is called stability, and it is what makes counting sort the building block of radix sort.',
+    'The catch is the range. Counting sort needs one counter per possible value, so it shines for values like ages, grades or digits, and is useless for values spread over billions.',
+  ],
+  howItWorks: [
+    'Create one counter for each possible value (here 0 to 9), all starting at zero.',
+    'Read the input once and add one to the counter of each value.',
+    'Replace each counter with the running total up to it. Counter d now says how many values are at most d.',
+    'Walk the input from right to left. For each value, decrease its counter and write the value at that index of the output.',
+    'The output is sorted, and equal values are in the same order as in the input.',
+  ],
+  visualization: { kind: 'sort', initial: [4, 2, 2, 8, 3, 3, 1], randomMax: 9, generate: countingSortSteps },
+  code: countingSortCode,
+  complexity: {
+    rows: [{ label: 'Counting Sort', best: 'O(n + k)', average: 'O(n + k)', worst: 'O(n + k)' }],
+    space: 'O(n + k)',
+    note: 'n is the number of values and k the number of possible values (10 here). Every value is touched a fixed number of times and every counter once, so the cost is linear as long as k stays small.',
+    curves: ['n'],
+  },
+  compareWith: ['radix-sort', 'quick-sort'],
+  prosCons: {
+    pros: ['Linear time when the range of values is small', 'Stable: equal values keep their order', 'No comparisons, so it beats the O(n log n) comparison-sort limit'],
+    cons: ['Needs one counter per possible value', 'Only works for integers or values that map to small integers', 'Needs an extra output array'],
+    useWhen: ['Values are whole numbers in a small known range', 'You need a stable sort as a step inside radix sort'],
+    avoidWhen: ['Values are spread over a huge range', 'Values are floating-point numbers or strings with no small integer key'],
+  },
+  applications: [
+    'The per-digit step inside radix sort',
+    'Sorting exam scores, ages or ratings with a fixed small range',
+    'Building histograms and frequency tables',
+    'Ordering pixels by brightness level in image processing',
+  ],
+  commonMistakes: [
+    'Placing values from the left, which reverses the order of equal values and breaks stability.',
+    'Forgetting the running-total step and using raw counts as positions.',
+    'Allocating counters for the wrong range, so the largest value has no counter.',
+    'Using it when the range is far larger than the number of values, which wastes memory and time.',
+  ],
+  quiz: [
+    {
+      id: 'q1',
+      type: 'predict-next',
+      prompt: 'Counting sort has just counted the first value, 4. Which counter changes next?',
+      view: countingSortSteps([4, 2, 2, 8, 3, 3, 1])[1]!.view,
+      options: ['Counter 2', 'Counter 4', 'Counter 0', 'Counter 8'],
+      answer: 0,
+      explanation: 'The next input value is 2, so counter 2 goes up by one.',
+    },
+    {
+      id: 'q2',
+      type: 'complexity',
+      prompt: 'What is the time complexity of counting sort for n values from a range of k possible values?',
+      options: ['O(n + k)', 'O(n log n)', 'O(n²)', 'O(k log n)'],
+      answer: 0,
+      explanation: 'One pass over the values, one pass over the counters, and one more pass over the values: n + k + n.',
+    },
+    {
+      id: 'q3',
+      type: 'multiple-choice',
+      prompt: 'Why does counting sort place values starting from the right end of the input?',
+      options: ['So equal values keep their original order', 'Because it is faster', 'Because the counters only work backwards', 'So that it uses less memory'],
+      answer: 0,
+      explanation: 'The last copy of a value takes the last slot for that value, the one before it takes the slot to its left, and so on. That keeps equal values in input order.',
+    },
+    {
+      id: 'q4',
+      type: 'code',
+      prompt: 'After the running-total step, what is count[3]?',
+      code: 'countingSort([4, 2, 2, 8, 3, 3, 1]);',
+      options: ['5', '2', '3', '7'],
+      answer: 0,
+      explanation: 'Values at most 3 are 2, 2, 3, 3 and 1: five of them. So the last 3 ends at position 5 (index 4).',
+    },
+  ],
+  summary: [
+    'Counting sort counts how often each value occurs instead of comparing values.',
+    'Running totals turn counts into final positions.',
+    'Placing from the right keeps it stable, which radix sort relies on.',
+    'It runs in O(n + k) time and needs the range k to be small.',
+  ],
+};

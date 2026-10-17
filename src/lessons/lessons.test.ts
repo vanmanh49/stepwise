@@ -30,14 +30,34 @@ const EXPECTED_IDS = [
   'merge-sort',
   'quick-sort',
   'heap-sort',
+  'counting-sort',
+  'radix-sort',
+  'recursion-fundamentals',
+  'backtracking',
+  'divide-and-conquer',
   'bfs',
   'dfs',
   'topological-sort',
   'tree-traversal',
+  'lowest-common-ancestor',
   'dijkstra',
   'bellman-ford',
+  'floyd-warshall',
   'kruskal',
   'prim',
+  'fibonacci-dp',
+  'knapsack',
+  'coin-change',
+  'lcs',
+  'lis',
+  'grid-dp',
+  'greedy',
+  'union-find',
+  'kmp',
+  'rabin-karp',
+  'a-star',
+  'network-flow',
+  'advanced-graph-algorithms',
   'select-from',
   'where',
   'null-values',
@@ -67,6 +87,8 @@ function defaultSteps(lesson: Lesson): Step[] {
     }
     case 'graph':
       return config.generate(config.graphs[0]!, config.graphs[0]!.nodes[0]!.id);
+    case 'form':
+      return config.generate(config.presets[0]!.values);
     case 'sql': {
       const result = querySteps(datasets[config.dataset], config.initialQuery);
       if (!result.ok) throw new Error(result.error.message);
@@ -79,7 +101,7 @@ describe('lesson registry', () => {
   it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
-    expect(lessonsIn('algorithms')).toHaveLength(19);
+    expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(10);
   });
 
@@ -88,7 +110,7 @@ describe('lesson registry', () => {
     expect(adjacentLessons('array').next?.id).toBe('string');
     expect(adjacentLessons('graph').next).toBeUndefined();
     expect(adjacentLessons('linear-search').prev).toBeUndefined();
-    expect(adjacentLessons('prim').next).toBeUndefined();
+    expect(adjacentLessons('prim').next?.id).toBe('fibonacci-dp');
     expect(adjacentLessons('unknown')).toEqual({});
   });
 
@@ -131,6 +153,13 @@ describe.each(lessons.map((l) => [l.id, l] as const))('lesson %s', (_id, lesson)
       expect(new Set(question.options).size).toBe(question.options.length);
       expect(question.explanation.length).toBeGreaterThan(20);
     }
+  });
+
+  it('runs every form preset', () => {
+    const config = lesson.visualization;
+    if (config.kind !== 'form') return;
+    expect(config.presets.length).toBeGreaterThanOrEqual(1);
+    for (const preset of config.presets) expect(config.generate(preset.values).length, preset.label).toBeGreaterThanOrEqual(3);
   });
 
   it('runs its default visualization with code lines inside its code', () => {
@@ -227,6 +256,16 @@ describe('curriculum', () => {
   it('drops the topic that duplicated the Binary Search Tree lesson', () => {
     expect(curriculum.some((t) => t.id === 'bst-operations')).toBe(false);
     expect(getLesson('binary-search-tree')!.keywords).toContain('bst operations');
+  });
+
+  it('gives Divide and Conquer random data with negative values, so the best run is not always everything', () => {
+    const config = getLesson('divide-and-conquer')!.visualization;
+    expect(config.kind === 'sort' && (config.randomMin ?? 1)).toBeLessThan(0);
+  });
+
+  it('has a live lesson for every algorithms topic', () => {
+    expect(topicsIn('algorithms').filter((t) => !getLesson(t.id)).map((t) => t.id)).toEqual([]);
+    expect(lessonsIn('algorithms').map((l) => l.id)).toEqual(topicsIn('algorithms').map((t) => t.id));
   });
 
   it('maps every algorithm to a Big O curve', () => {

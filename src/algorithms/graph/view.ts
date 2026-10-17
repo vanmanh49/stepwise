@@ -28,9 +28,13 @@ export function graphView(
   g: Graph,
   nodeRoles: Record<string, Role> = {},
   edgeRoles: Record<string, Role> = {},
-  extra: Pick<GraphView, 'frontier' | 'table'> & { badges?: Record<string, string> } = {},
+  extra: Pick<GraphView, 'frontier' | 'table'> & {
+    badges?: Record<string, string>;
+    /** Keyed by edgeKey(from, to). */
+    edgeLabels?: Record<string, string>;
+  } = {},
 ): GraphView {
-  const { badges, ...rest } = extra;
+  const { badges, edgeLabels, ...rest } = extra;
   return {
     kind: 'graph',
     directed: g.directed,
@@ -41,6 +45,7 @@ export function graphView(
     })),
     edges: g.edges.map((e) => ({
       ...e,
+      ...(edgeLabels?.[edgeKey(e.from, e.to)] !== undefined && { label: edgeLabels[edgeKey(e.from, e.to)] }),
       role:
         edgeRoles[edgeKey(e.from, e.to)] ?? (g.directed ? undefined : edgeRoles[edgeKey(e.to, e.from)]) ?? 'default',
     })),
