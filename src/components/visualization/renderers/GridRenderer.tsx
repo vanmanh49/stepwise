@@ -1,7 +1,8 @@
 import { LayoutGroup, motion } from 'motion/react';
 import { useId } from 'react';
 import type { Cell, GridView } from '../../../types/visualization';
-import { ROLE_META, roleBoxStyle } from '../roles';
+import { ROLE_META } from '../roles';
+import { gridCellStyle } from './gridCellStyle';
 import { spring } from './ValueBox';
 
 // Fixed cell geometry so arrows can be drawn from row and column indexes alone.
@@ -16,7 +17,7 @@ function GridCell({ cell }: { cell: Cell }) {
       layoutId={cell.id}
       transition={spring}
       className="relative flex items-center justify-center rounded-lg font-mono text-sm font-semibold transition-colors duration-200"
-      style={{ width: CELL, height: CELL, ...roleBoxStyle(cell.role) }}
+      style={{ width: CELL, height: CELL, ...gridCellStyle(cell.role) }}
     >
       {cell.value}
       {meta.mark && cell.role !== 'default' && (
