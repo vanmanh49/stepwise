@@ -102,7 +102,7 @@ export const fibonacciDp: Lesson = {
       code: 'fibMemo(6);',
       options: ['11', '25', '6', '64'],
       answer: 0,
-      explanation: 'fib(6) down to fib(1) is a chain of 6 calls, plus fib(0) once, plus 4 memo hits for fib(4), fib(3), fib(2) and fib(1): 11.',
+      explanation: 'fib(6) down to fib(1) is a chain of 6 calls. Add fib(0), a second fib(1) (a base case, answered before the memo is checked), and 3 memo hits for fib(2), fib(3) and fib(4): 11.',
     },
   ],
   summary: [
