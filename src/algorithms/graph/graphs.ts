@@ -255,3 +255,34 @@ export const cycleGraph = makeGraph(
     ['E', 'F'],
   ],
 );
+
+/**
+ * A 4 × 3 grid of nodes A–L. Edge weights are straight-line distances rounded up,
+ * so the straight-line heuristic of A* never overestimates.
+ */
+function gridGraph(id: string, name: string, blocked: [string, string][]): Graph {
+  const xs = [10, 37, 63, 90];
+  const ys = [10, 50, 90];
+  const nodes: NodeSpec[] = [];
+  ys.forEach((y, r) => xs.forEach((x, c) => nodes.push([String.fromCharCode(65 + r * 4 + c), x, y])));
+  const at = (r: number, c: number) => nodes[r * 4 + c]!;
+  const edges: EdgeSpec[] = [];
+  const link = (a: NodeSpec, b: NodeSpec) => {
+    const isBlocked = blocked.some(([p, q]) => (p === a[0] && q === b[0]) || (p === b[0] && q === a[0]));
+    if (!isBlocked) edges.push([a[0], b[0], Math.ceil(Math.hypot(b[1] - a[1], b[2] - a[2]))]);
+  };
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 4; c++) {
+      if (c < 3) link(at(r, c), at(r, c + 1));
+      if (r < 2) link(at(r, c), at(r + 1, c));
+    }
+  }
+  return makeGraph(id, name, false, nodes, edges);
+}
+
+export const wallGraph = gridGraph('wall', 'Grid with a wall', [
+  ['B', 'C'],
+  ['F', 'G'],
+]);
+
+export const openGraph = gridGraph('open', 'Open grid', []);

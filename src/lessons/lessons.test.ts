@@ -44,6 +44,7 @@ const EXPECTED_IDS = [
   'prim',
   'greedy',
   'union-find',
+  'a-star',
   'select-from',
   'where',
   'null-values',
@@ -87,7 +88,7 @@ describe('lesson registry', () => {
   it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
-    expect(lessonsIn('algorithms')).toHaveLength(25);
+    expect(lessonsIn('algorithms')).toHaveLength(26);
     expect(lessonsIn('sql')).toHaveLength(10);
   });
 

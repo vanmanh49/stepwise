@@ -1,4 +1,5 @@
 import type { Category, Lesson } from '../types/lesson';
+import { aStar } from './algorithms/a-star';
 import { bellmanFord } from './algorithms/bellman-ford';
 import { bfs } from './algorithms/bfs';
 import { binarySearch } from './algorithms/binary-search';
@@ -82,6 +83,7 @@ export const lessons: Lesson[] = [
   prim,
   greedy,
   unionFind,
+  aStar,
   selectFrom,
   where,
   nullValues,
