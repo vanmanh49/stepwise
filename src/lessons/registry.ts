@@ -3,6 +3,7 @@ import { bellmanFord } from './algorithms/bellman-ford';
 import { bfs } from './algorithms/bfs';
 import { binarySearch } from './algorithms/binary-search';
 import { bubbleSort } from './algorithms/bubble-sort';
+import { countingSort } from './algorithms/counting-sort';
 import { dfs } from './algorithms/dfs';
 import { dijkstra } from './algorithms/dijkstra';
 import { heapSort } from './algorithms/heap-sort';
@@ -13,6 +14,7 @@ import { mergeSort } from './algorithms/merge-sort';
 import { prefixSum } from './algorithms/prefix-sum';
 import { prim } from './algorithms/prim';
 import { quickSort } from './algorithms/quick-sort';
+import { radixSort } from './algorithms/radix-sort';
 import { selectionSort } from './algorithms/selection-sort';
 import { slidingWindow } from './algorithms/sliding-window';
 import { topologicalSort } from './algorithms/topological-sort';
@@ -62,6 +64,8 @@ export const lessons: Lesson[] = [
   mergeSort,
   quickSort,
   heapSort,
+  countingSort,
+  radixSort,
   bfs,
   dfs,
   topologicalSort,

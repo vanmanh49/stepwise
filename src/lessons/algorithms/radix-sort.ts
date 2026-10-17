@@ -1,0 +1,101 @@
+import { radixSortCode, radixSortSteps } from '../../algorithms/sorting/radix';
+import type { Lesson } from '../../types/lesson';
+
+export const radixSort: Lesson = {
+  id: 'radix-sort',
+  title: 'Radix Sort',
+  category: 'algorithms',
+  difficulty: 'intermediate',
+  group: 'Sorting',
+  description: 'Sort numbers one digit at a time, from the ones digit up, using ten buckets.',
+  keywords: ['lsd radix sort', 'buckets', 'digits', 'non-comparison sort', 'stable sort', 'linear time'],
+  prerequisites: ['counting-sort'],
+  overview:
+    'Radix sort sorts whole numbers digit by digit. It drops the values into ten buckets by their ones digit and collects them, then does the same for the tens digit, then the hundreds. Because each pass keeps ties in order, after the last pass the whole list is sorted, without ever comparing two numbers.',
+  concept: [
+    'Think of sorting a stack of three-digit ticket numbers by hand. Sorting by the hundreds digit first and then sorting each pile is fiddly. Radix sort does the opposite: it sorts the whole stack by the last digit, then re-sorts the whole stack by the middle digit, then by the first.',
+    'That only works because every pass is stable. When two numbers share a tens digit, the tens pass leaves them in the order the ones pass put them in, so they stay ordered by their ones digit. Each pass refines the order the earlier passes built.',
+    'The work is a fixed number of passes, one per digit of the largest value, and each pass touches every value once. For numbers with few digits that is linear time, which no comparison sort can match.',
+  ],
+  howItWorks: [
+    'Find the number of digits d of the largest value. That is how many passes are needed.',
+    'For the current digit, put every value into the bucket matching that digit (0 to 9), keeping arrival order inside a bucket.',
+    'Collect the buckets from 0 to 9 back into one list.',
+    'Move to the next digit to the left and repeat.',
+    'After the pass for the most significant digit, the list is sorted.',
+  ],
+  visualization: { kind: 'sort', initial: [170, 45, 75, 90, 802, 24, 2, 66], randomMax: 999, generate: radixSortSteps },
+  code: radixSortCode,
+  complexity: {
+    rows: [{ label: 'Radix Sort', best: 'O(d × (n + 10))', average: 'O(d × (n + 10))', worst: 'O(d × (n + 10))' }],
+    space: 'O(n)',
+    note: 'd is the number of digits of the largest value. With d fixed (three digits here) the cost grows linearly with n, whatever order the input is in.',
+    curves: ['n'],
+  },
+  compareWith: ['counting-sort', 'quick-sort'],
+  prosCons: {
+    pros: ['Linear time for fixed-length keys', 'Stable', 'Performance does not depend on the input order'],
+    cons: ['Only for integers or fixed-length keys such as strings of equal length', 'Needs extra memory for the buckets', 'Slower than quick sort when keys are long or few'],
+    useWhen: ['Sorting many integers with a small number of digits', 'Sorting fixed-length codes such as postcodes or IDs'],
+    avoidWhen: ['Keys are floating-point numbers or have very different lengths', 'Memory is tight'],
+  },
+  applications: [
+    'Sorting large batches of integer IDs or timestamps',
+    'Sorting fixed-length strings such as postcodes, dates or license plates',
+    'Building suffix arrays in text indexing',
+    'Card-sorting machines for punched cards, its original use',
+  ],
+  commonMistakes: [
+    'Starting with the most significant digit and treating the result as sorted.',
+    'Using an unstable method inside a pass, which destroys the order from earlier digits.',
+    'Stopping after the number of digits of the first value instead of the largest value.',
+    'Feeding it negative numbers without a separate step to handle the sign.',
+  ],
+  quiz: [
+    {
+      id: 'q1',
+      type: 'predict-next',
+      prompt: 'The ones-digit pass has just put 170 into bucket 0. Which bucket does 45 go into next?',
+      view: radixSortSteps([170, 45, 75, 90, 802, 24, 2, 66])[1]!.view,
+      options: ['Bucket 5', 'Bucket 4', 'Bucket 0', 'Bucket 9'],
+      answer: 0,
+      explanation: 'This pass looks only at the ones digit. The ones digit of 45 is 5.',
+    },
+    {
+      id: 'q2',
+      type: 'multiple-choice',
+      prompt: 'Why must every pass of radix sort be stable?',
+      options: [
+        'So ties on the current digit stay ordered by the digits sorted earlier',
+        'So the buckets use less memory',
+        'Because the largest value must stay last',
+        'So the passes can run in any order',
+      ],
+      answer: 0,
+      explanation: 'Two values with the same tens digit must keep the order the ones pass gave them. An unstable pass would scramble that.',
+    },
+    {
+      id: 'q3',
+      type: 'complexity',
+      prompt: 'How many passes does radix sort make on [7, 512, 38]?',
+      options: ['3', '2', '1', '512'],
+      answer: 0,
+      explanation: 'The largest value, 512, has three digits, so there is one pass each for the ones, tens and hundreds.',
+    },
+    {
+      id: 'q4',
+      type: 'code',
+      prompt: 'What is the list after the first (ones-digit) pass?',
+      code: 'radixSort([21, 13, 30]);',
+      options: ['[30, 21, 13]', '[13, 21, 30]', '[21, 13, 30]', '[30, 13, 21]'],
+      answer: 0,
+      explanation: 'Ones digits are 1, 3 and 0. Collecting buckets 0, 1, 3 gives 30, 21, 13.',
+    },
+  ],
+  summary: [
+    'Radix sort sorts by one digit at a time, starting from the ones digit.',
+    'Each pass is a stable bucket pass, so earlier passes break ties for later ones.',
+    'It makes one pass per digit of the largest value.',
+    'For keys with few digits it runs in linear time.',
+  ],
+};

@@ -35,4 +35,18 @@ describe('curveForNotation', () => {
     expect(curveForNotation('O(V × E)')?.id).toBe('n2');
     expect(curveForNotation('O(something else)')).toBeUndefined();
   });
+
+  it('maps the notations of the newer algorithm lessons to the nearest curve', () => {
+    expect(curveForNotation('O(n + k)')?.id).toBe('n');
+    expect(curveForNotation('O(d × (n + 10))')?.id).toBe('n');
+    expect(curveForNotation('O(n + m)')?.id).toBe('n');
+    expect(curveForNotation('O(α(n))')?.id).toBe('1');
+    expect(curveForNotation('O(V³)')?.id).toBe('n2');
+    expect(curveForNotation('O(V × E²)')?.id).toBe('n2');
+    expect(curveForNotation('O(n × C)')?.id).toBe('n2');
+    expect(curveForNotation('O(n × amount)')?.id).toBe('n2');
+    expect(curveForNotation('O(m × n)')?.id).toBe('n2');
+    expect(curveForNotation('O(rows × cols)')?.id).toBe('n2');
+    expect(curveForNotation('O(n!)')?.id).toBe('2n');
+  });
 });

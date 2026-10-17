@@ -90,6 +90,18 @@ const NOTATION: Record<string, string> = {
   'O(V²)': 'n2',
   'O(V × E)': 'n2',
   'O(2ⁿ)': '2n',
+  // Notations with no curve of their own map to the nearest of the six classes.
+  'O(n + k)': 'n',
+  'O(d × (n + 10))': 'n',
+  'O(n + m)': 'n',
+  'O(α(n))': '1',
+  'O(V³)': 'n2',
+  'O(V × E²)': 'n2',
+  'O(n × C)': 'n2',
+  'O(n × amount)': 'n2',
+  'O(m × n)': 'n2',
+  'O(rows × cols)': 'n2',
+  'O(n!)': '2n',
 };
 
 /** Maps a complexity string used in lesson data to the curve that represents it. */
