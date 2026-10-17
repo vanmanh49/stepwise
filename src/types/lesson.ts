@@ -53,6 +53,8 @@ export type VisualizationConfig =
       initial: number[];
       /** Largest value the Random button produces; defaults to 99. */
       randomMax?: number;
+      /** Smallest value the Random button produces; defaults to 1. */
+      randomMin?: number;
       generate(values: number[]): Step[];
     }
   | {

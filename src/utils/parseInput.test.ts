@@ -49,4 +49,10 @@ describe('randomArray', () => {
     expect(values).toHaveLength(8);
     expect(values.every((v) => Number.isInteger(v) && v >= 1 && v <= 50)).toBe(true);
   });
+
+  it('can include zero and negative values', () => {
+    const values = Array.from({ length: 50 }, () => randomArray(8, 20, -20)).flat();
+    expect(values.every((v) => Number.isInteger(v) && v >= -20 && v <= 20)).toBe(true);
+    expect(values.some((v) => v < 0)).toBe(true);
+  });
 });

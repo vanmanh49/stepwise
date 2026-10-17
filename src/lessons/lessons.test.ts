@@ -258,6 +258,11 @@ describe('curriculum', () => {
     expect(getLesson('binary-search-tree')!.keywords).toContain('bst operations');
   });
 
+  it('gives Divide and Conquer random data with negative values, so the best run is not always everything', () => {
+    const config = getLesson('divide-and-conquer')!.visualization;
+    expect(config.kind === 'sort' && (config.randomMin ?? 1)).toBeLessThan(0);
+  });
+
   it('has a live lesson for every algorithms topic', () => {
     expect(topicsIn('algorithms').filter((t) => !getLesson(t.id)).map((t) => t.id)).toEqual([]);
     expect(lessonsIn('algorithms').map((l) => l.id)).toEqual(topicsIn('algorithms').map((t) => t.id));

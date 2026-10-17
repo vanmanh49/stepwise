@@ -25,7 +25,7 @@ export const divideAndConquer: Lesson = {
     'Find the best run crossing the middle: best sum ending at mid plus best sum starting at mid + 1.',
     'Return the largest of the three.',
   ],
-  visualization: { kind: 'sort', initial: [-2, 1, -3, 4, -1, 2, 1, -5, 4], generate: maxSubarraySteps },
+  visualization: { kind: 'sort', initial: [-2, 1, -3, 4, -1, 2, 1, -5, 4], randomMin: -20, randomMax: 20, generate: maxSubarraySteps },
   code: maxSubarrayCode,
   complexity: {
     rows: [{ label: 'Maximum subarray (divide and conquer)', best: 'O(n log n)', average: 'O(n log n)', worst: 'O(n log n)' }],
