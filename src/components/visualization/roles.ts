@@ -58,6 +58,8 @@ export function rolesInView(view: View): Role[] {
       return view.tables.flatMap((t) => t.rows.map((r) => r.role));
     case 'grid':
       return view.rows.flatMap((r) => r.cells.flatMap((c) => (c ? [c.role] : [])));
+    case 'calls':
+      return view.frames.map((f) => f.role);
   }
 }
 

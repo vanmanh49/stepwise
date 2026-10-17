@@ -1,5 +1,6 @@
 import type { View } from '../../../types/visualization';
 import { ArrayRenderer } from './ArrayRenderer';
+import { CallsRenderer } from './CallsRenderer';
 import { GraphRenderer } from './GraphRenderer';
 import { GridRenderer } from './GridRenderer';
 import { HeapRenderer } from './HeapRenderer';
@@ -30,5 +31,7 @@ export function StepView({ view }: { view: View }) {
       return <TableRenderer view={view} />;
     case 'grid':
       return <GridRenderer view={view} />;
+    case 'calls':
+      return <CallsRenderer view={view} />;
   }
 }

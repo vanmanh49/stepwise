@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { GridView } from '../../types/visualization';
+import type { CallsView, GridView } from '../../types/visualization';
 import { rolesInRun, rolesInView } from './roles';
 
 describe('rolesInView', () => {
@@ -26,6 +26,17 @@ describe('rolesInView', () => {
     const view: GridView = {
       kind: 'grid',
       rows: [{ cells: [{ id: 'a', value: 1, role: 'active' }, null, { id: 'b', value: 2, role: 'sorted' }] }],
+    };
+    expect(rolesInView(view)).toEqual(['active', 'sorted']);
+  });
+
+  it('collects roles from call frames in order', () => {
+    const view: CallsView = {
+      kind: 'calls',
+      frames: [
+        { id: 'a', label: 'f(2)', role: 'active' },
+        { id: 'b', label: 'f(1)', parent: 'a', role: 'sorted', result: '1' },
+      ],
     };
     expect(rolesInView(view)).toEqual(['active', 'sorted']);
   });

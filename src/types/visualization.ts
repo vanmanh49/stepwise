@@ -131,7 +131,33 @@ export interface GridView {
   arrows?: { from: [number, number]; to: [number, number] }[];
 }
 
-export type View = ArrayView | ListView | StackView | QueueView | TreeView | HeapView | GraphView | TableView | GridView;
+export interface CallFrame {
+  id: string;
+  parent?: string;
+  /** e.g. "fib(4)". */
+  label: string;
+  /** Return value once the frame has finished. */
+  result?: string;
+  role: Role;
+}
+
+/** A recursion tree: one frame per call. */
+export interface CallsView {
+  kind: 'calls';
+  frames: CallFrame[];
+}
+
+export type View =
+  | ArrayView
+  | ListView
+  | StackView
+  | QueueView
+  | TreeView
+  | HeapView
+  | GraphView
+  | TableView
+  | GridView
+  | CallsView;
 
 export interface Step {
   /** What happened. */
