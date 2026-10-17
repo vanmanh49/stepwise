@@ -258,6 +258,11 @@ describe('curriculum', () => {
     expect(getLesson('binary-search-tree')!.keywords).toContain('bst operations');
   });
 
+  it('has a live lesson for every algorithms topic', () => {
+    expect(topicsIn('algorithms').filter((t) => !getLesson(t.id)).map((t) => t.id)).toEqual([]);
+    expect(lessonsIn('algorithms').map((l) => l.id)).toEqual(topicsIn('algorithms').map((t) => t.id));
+  });
+
   it('maps every algorithm to a Big O curve', () => {
     for (const lesson of lessonsIn('algorithms')) {
       const average = lesson.complexity!.rows[0]!.average;
