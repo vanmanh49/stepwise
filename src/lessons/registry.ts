@@ -14,6 +14,7 @@ import { divideAndConquer } from './algorithms/divide-and-conquer';
 import { fibonacciDp } from './algorithms/fibonacci-dp';
 import { floydWarshall } from './algorithms/floyd-warshall';
 import { greedy } from './algorithms/greedy';
+import { gridDp } from './algorithms/grid-dp';
 import { heapSort } from './algorithms/heap-sort';
 import { insertionSort } from './algorithms/insertion-sort';
 import { knapsack } from './algorithms/knapsack';
@@ -99,6 +100,7 @@ export const lessons: Lesson[] = [
   coinChange,
   lcs,
   lis,
+  gridDp,
   greedy,
   unionFind,
   aStar,

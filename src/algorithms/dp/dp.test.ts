@@ -5,6 +5,7 @@ import { coinChange, coinChangeCode, coinChangeSteps } from './coinChange';
 import { fibonacciDp, fibonacciDpCode, fibonacciDpSteps } from './fibonacci';
 import { lcs, lcsCode, lcsSteps } from './lcs';
 import { lis, lisCode, lisSteps } from './lis';
+import { WALL_PRESET, gridPaths, gridPathsCode, gridPathsSteps, gridPathsStepsFor } from './gridPaths';
 import { knapsack, knapsackCode, knapsackSteps } from './knapsack';
 
 function expectExplained(steps: Step[], code: string) {
@@ -323,3 +324,60 @@ function isSubsequenceOf(sub: number[], of: number[]): boolean {
   for (const v of of) if (v === sub[i]) i++;
   return i === sub.length;
 }
+
+function dfsPaths(rows: number, cols: number, blocked: [number, number][]): number {
+  const isBlocked = (r: number, c: number) => blocked.some(([br, bc]) => br === r && bc === c);
+  const count = (r: number, c: number): number => {
+    if (r >= rows || c >= cols || isBlocked(r, c)) return 0;
+    if (r === rows - 1 && c === cols - 1) return 1;
+    return count(r + 1, c) + count(r, c + 1);
+  };
+  return count(0, 0);
+}
+
+describe('grid paths', () => {
+  it('counts paths in an open grid', () => {
+    expect(gridPaths(3, 4, [])).toBe(10);
+    expect(gridPaths(6, 6, [])).toBe(252);
+  });
+
+  it.each([2, 3, 4, 5, 6].flatMap((r) => [2, 3, 4, 5, 6].map((c) => [r, c] as const)))('matches DFS with the wall for %i × %i', (r, c) => {
+    const wall = WALL_PRESET(r, c);
+    expect(wall.some(([br, bc]) => (br === 0 && bc === 0) || (br === r - 1 && bc === c - 1))).toBe(false);
+    expect(gridPaths(r, c, wall)).toBe(dfsPaths(r, c, wall));
+  });
+
+  it('fills the grid cell by cell', () => {
+    const steps = gridPathsSteps({ rows: '3', cols: '4', blocked: 'none' });
+    expectExplained(steps, gridPathsCode);
+    expectCleanCells(steps);
+    expect(gridOf(steps[steps.length - 1]!).rows[2]!.cells[3]!.value).toBe(10);
+  });
+
+  it('shows the wall as blocked cells', () => {
+    const steps = gridPathsSteps({ rows: '4', cols: '5', blocked: 'wall' });
+    expectExplained(steps, gridPathsCode);
+    const grid = gridOf(steps[steps.length - 1]!);
+    const walls = grid.rows.flatMap((row) => row.cells.filter((c) => c?.value === '■'));
+    expect(walls).toHaveLength(WALL_PRESET(4, 5).length);
+    expect(walls.every((c) => c?.role === 'discarded')).toBe(true);
+  });
+
+  it('says when no path exists', () => {
+    expect(gridPaths(3, 3, [[0, 0]])).toBe(0);
+    const steps = gridPathsStepsFor(3, 3, [[0, 0]]);
+    expectExplained(steps, gridPathsCode);
+    expect(steps[steps.length - 1]!.title.toLowerCase()).toContain('no path');
+  });
+
+  it('stays readable for the largest input', () => {
+    expectExplained(gridPathsSteps({ rows: '6', cols: '6', blocked: 'wall' }), gridPathsCode);
+  });
+
+  it.each([{ rows: '7', cols: '3', blocked: 'none' }, { rows: '3', cols: '0', blocked: 'none' }, { rows: '3', cols: '3', blocked: 'maze' }])(
+    'refuses %o with one step',
+    (values) => {
+      expect(gridPathsSteps(values)).toHaveLength(1);
+    },
+  );
+});
