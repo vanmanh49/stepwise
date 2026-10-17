@@ -32,17 +32,21 @@ export async function openSqlite(dataset: Dataset) {
      */
     run(script: string): { results: Cell[][][]; failedIndex?: number; error?: string } {
       const results: Cell[][][] = [];
-      let index = 0;
-      for (const statement of db.iterateStatements(script)) {
+      const statements = db.iterateStatements(script);
+      // Preparing a statement can fail too (an unknown table or column), so each step of the iterator is guarded.
+      for (let index = 0; ; index++) {
+        let statement;
         try {
+          const next = statements.next();
+          if (next.done) break;
+          statement = next.value;
           const rows: Cell[][] = [];
           while (statement.step()) rows.push(statement.get() as Cell[]);
           results.push(rows);
         } catch (error) {
-          statement.free();
+          statement?.free();
           return { results, failedIndex: index, error: (error as Error).message };
         }
-        index++;
       }
       return { results };
     },

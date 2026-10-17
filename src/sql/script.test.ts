@@ -103,6 +103,13 @@ describe('UPDATE', () => {
     expect(rows(sub, 'products')![2]![3]).toBe(59.9);
   });
 
+  it('lets a subquery see rows changed earlier in the same UPDATE, as SQLite does', () => {
+    const result = ok('UPDATE products SET price = (SELECT AVG(price) FROM products p2 WHERE p2.category = products.category)');
+    const prices = rows(result, 'products')!.map((r) => r[3] as number);
+    const sqlite = [23.416666666666668, 24.722222222222225, 18.962962962962965, 30.1, 36, 30.025, 27.03125, 29.75, 32.625];
+    prices.forEach((p, i) => expect(p).toBeCloseTo(sqlite[i]!, 10));
+  });
+
   it('fails on the first duplicate key, as SQLite checks row by row, and changes nothing', () => {
     const { error } = failed('UPDATE products SET id = id + 1');
     expect(error.kind).toBe('constraint');

@@ -153,13 +153,11 @@ function update(db: Dataset, st: Extract<Statement, { kind: 'update' }>, emit?: 
   const { relation, rows, env } = matching(db, st.table, st.where, emit);
   const scopeOf = (row: Row) => ({ columns: relation.columns, row, ...env });
   if (rows.length === 0) for (const s of st.set) evaluate(s.expr, scopeOf(nullRow(relation.columns)));
-  // Every new value is worked out from the rows as they were, then written row by row.
-  const planned = rows.map((row) => {
+  // Like SQLite, rows are updated one at a time: each SET reads that row's old values, while a
+  // subquery over the table already sees the rows changed before it.
+  for (const row of rows) {
     const values = [...row.values];
     st.set.forEach((s, k) => (values[targets[k]!] = evaluate(s.expr, scopeOf(row))));
-    return { row, values };
-  });
-  for (const { row, values } of planned) {
     const index = table.rowIds!.indexOf(row.id);
     const before = table.rows[index]!;
     const after = toStored(table, values, st.line, row.id, false);
@@ -170,7 +168,7 @@ function update(db: Dataset, st: Extract<Statement, { kind: 'update' }>, emit?: 
     );
     emit?.({ kind: 'updated', table: table.name, rowId: row.id, changed, relation: relationOf(db, table) });
   }
-  return planned.length;
+  return rows.length;
 }
 
 function remove(db: Dataset, st: Extract<Statement, { kind: 'delete' }>, emit?: Emit): number {
