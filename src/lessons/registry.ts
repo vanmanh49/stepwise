@@ -18,6 +18,7 @@ import { heapSort } from './algorithms/heap-sort';
 import { insertionSort } from './algorithms/insertion-sort';
 import { knapsack } from './algorithms/knapsack';
 import { kruskal } from './algorithms/kruskal';
+import { lcs } from './algorithms/lcs';
 import { linearSearch } from './algorithms/linear-search';
 import { lowestCommonAncestor } from './algorithms/lowest-common-ancestor';
 import { mergeSort } from './algorithms/merge-sort';
@@ -95,6 +96,7 @@ export const lessons: Lesson[] = [
   fibonacciDp,
   knapsack,
   coinChange,
+  lcs,
   greedy,
   unionFind,
   aStar,

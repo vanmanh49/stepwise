@@ -3,6 +3,7 @@ import type { GridView, Step } from '../../types/visualization';
 import { greedyCoins } from '../greedy/coins';
 import { coinChange, coinChangeCode, coinChangeSteps } from './coinChange';
 import { fibonacciDp, fibonacciDpCode, fibonacciDpSteps } from './fibonacci';
+import { lcs, lcsCode, lcsSteps } from './lcs';
 import { knapsack, knapsackCode, knapsackSteps } from './knapsack';
 
 function expectExplained(steps: Step[], code: string) {
@@ -203,4 +204,69 @@ describe('coin change', () => {
       expect(coinChangeSteps(values)).toHaveLength(1);
     },
   );
+});
+
+function isSubsequence(sub: string, of: string): boolean {
+  let i = 0;
+  for (const ch of of) if (ch === sub[i]) i++;
+  return i === sub.length;
+}
+
+function bruteLcsLength(a: string, b: string): number {
+  let best = 0;
+  for (let mask = 0; mask < 1 << a.length; mask++) {
+    const sub = [...a].filter((_, i) => mask & (1 << i)).join('');
+    if (sub.length > best && isSubsequence(sub, b)) best = sub.length;
+  }
+  return best;
+}
+
+function seededText(length: number, seed: number): string {
+  return Array.from({ length }, () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return 'ABC'[seed % 3];
+  }).join('');
+}
+
+describe('longest common subsequence', () => {
+  it('finds a common subsequence of length 4 in the lesson example', () => {
+    const result = lcs('ABCBDAB', 'BDCABA');
+    expect(result).toHaveLength(4);
+    expect(isSubsequence(result, 'ABCBDAB')).toBe(true);
+    expect(isSubsequence(result, 'BDCABA')).toBe(true);
+  });
+
+  it.each(Array.from({ length: 20 }, (_, i) => i + 1))('matches brute force on seeded strings %i', (seed) => {
+    const a = seededText(1 + (seed % 6), seed);
+    const b = seededText(1 + ((seed * 7) % 6), seed + 50);
+    const result = lcs(a, b);
+    expect(result.length).toBe(bruteLcsLength(a, b));
+    expect(isSubsequence(result, a) && isSubsequence(result, b)).toBe(true);
+  });
+
+  it('fills the table and traces back the subsequence', () => {
+    const steps = lcsSteps({ a: 'ABCBDAB', b: 'BDCABA' });
+    expectExplained(steps, lcsCode);
+    expectCleanCells(steps);
+    const grid = gridOf(steps[steps.length - 1]!);
+    expect(grid.colLabels).toEqual(['', 'B', 'D', 'C', 'A', 'B', 'A']);
+    expect(grid.rows.map((r) => r.label)).toEqual(['', 'A', 'B', 'C', 'B', 'D', 'A', 'B']);
+    expect(grid.rows[7]!.cells[6]!.value).toBe(4);
+    expect(steps[steps.length - 1]!.title).toContain(lcs('ABCBDAB', 'BDCABA'));
+  });
+
+  it('says when there is no common character', () => {
+    expect(lcs('ABC', 'XYZ')).toBe('');
+    const steps = lcsSteps({ a: 'ABC', b: 'XYZ' });
+    expectExplained(steps, lcsCode);
+    expect(steps[steps.length - 1]!.title.toLowerCase()).toContain('empty');
+  });
+
+  it('stays readable for the largest input', () => {
+    expectExplained(lcsSteps({ a: 'ABCDEFGH', b: 'HGFEDCBA' }), lcsCode);
+  });
+
+  it.each([{ a: 'ABCDEFGHI', b: 'AB' }, { a: '', b: 'AB' }])('refuses %o with one step', (values) => {
+    expect(lcsSteps(values)).toHaveLength(1);
+  });
 });
