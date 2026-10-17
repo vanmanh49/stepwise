@@ -1,4 +1,10 @@
-export type SqlErrorKind = 'syntax' | 'name' | 'unsupported' | 'limit';
+export type SqlErrorKind = 'syntax' | 'name' | 'unsupported' | 'limit' | 'constraint';
+
+export interface ConstraintInfo {
+  rule: 'NOT NULL' | 'UNIQUE' | 'PRIMARY KEY' | 'CHECK' | 'FOREIGN KEY';
+  table: string;
+  column?: string;
+}
 
 /** A problem with the learner's query, located at a 1-based line and column. */
 export class SqlError extends Error {
@@ -12,6 +18,24 @@ export class SqlError extends Error {
   ) {
     super(message);
     this.name = 'SqlError';
+  }
+
+  /** Set when a write broke a constraint. */
+  readonly constraint?: ConstraintInfo;
+}
+
+/** A write that broke a constraint, with the row that broke it and the row it clashed with. */
+export class ConstraintError extends SqlError {
+  constructor(
+    message: string,
+    override readonly constraint: ConstraintInfo,
+    /** The new or changed row; for a parent-side foreign key failure, the child row that still refers to it. */
+    readonly rowId: string,
+    line: number,
+    column: number,
+    readonly clashWith?: { table: string; rowId: string },
+  ) {
+    super(message, 'constraint', line, column);
   }
 }
 
