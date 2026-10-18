@@ -1,9 +1,9 @@
-import type { Expr, JoinClause, SelectStatement, TableRef } from './ast';
+import { caseParts, windowParts, type Cte, type Expr, type JoinClause, type SelectStatement, type SetOp, type TableRef } from './ast';
 import { findTable, type ColumnType, type Dataset } from './datasets';
 import { asSqlError, SqlError, suggest } from './errors';
-import { evaluate, evaluateTruth, referencedColumns, resolveColumn, type Scope } from './evaluate';
+import { aggregateValues, evaluate, evaluateTruth, referencedColumns, resolveColumn, windowKey, type ExecContext, type Scope } from './evaluate';
 import { parseQuery } from './parse';
-import { compareValues, Real, valueKey, type SqlValue, type Truth } from './values';
+import { compare, compareValues, formatValue, Real, toNumber, valueKey, type SqlValue, type Truth } from './values';
 
 export interface ColumnRef {
   /** The alias if the query gave one, else the table name. */
@@ -48,7 +48,31 @@ export type TraceEvent =
   | { kind: 'projected'; relation: Relation }
   | { kind: 'distinct'; input: Relation; removed: string[]; relation: Relation }
   | { kind: 'sorted'; input: Relation; relation: Relation }
-  | { kind: 'limited'; input: Relation; relation: Relation };
+  | { kind: 'limited'; input: Relation; relation: Relation }
+  /** One SELECT of a compound, evaluated on its own; `op` joins it to the result so far. */
+  | { kind: 'compound-side'; index: number; op?: SetOp; relation: Relation }
+  /** Notes are keyed by row id, e.g. "duplicate, dropped". */
+  | { kind: 'cte'; name: string; relation: Relation }
+  /** Rows sorted into a window's partitions; `label` names the PARTITION BY. */
+  | { kind: 'window-partitions'; input: Relation; partitions: string[][]; label: string }
+  /** One row's window values; `relation` builds the rows in partition order with the window columns filled so far. */
+  | {
+      kind: 'window-row';
+      relation: () => Relation;
+      row: string;
+      partition: string;
+      position: number;
+      dependsOn: string[];
+      columns: string[];
+      values: SqlValue[];
+      fn: string;
+      detail: string;
+    }
+  /** Which branch of a SELECT column's CASE one row took. */
+  | { kind: 'case-row'; input: Relation; row: string; branch: string; value: SqlValue; values: Record<string, string> }
+  /** Round 0 is the anchor; the last round adds no rows. */
+  | { kind: 'recursion-round'; name: string; round: number; read: Relation; added: Relation; total: Relation }
+  | { kind: 'combined'; op: SetOp; left: Relation; right: Relation; relation: Relation; notes: Record<string, string> };
 
 export type RunResult = { ok: true; result: QueryResult; statement: SelectStatement } | { ok: false; error: SqlError };
 
@@ -78,10 +102,15 @@ export function cellValue(v: number | string | null, type: ColumnType): SqlValue
   return typeof v === 'number' && (type === 'REAL' || !Number.isInteger(v)) ? new Real(v) : v;
 }
 
-export function scan(db: Dataset, ref: TableRef): Relation {
+export function scan(db: Dataset, ref: TableRef, ctes?: ReadonlyMap<string, Relation>): Relation {
+  const cte = ctes?.get(ref.table.toLowerCase());
+  if (cte) {
+    const label = ref.alias ?? ref.table;
+    return { columns: cte.columns.map((c) => ({ ...c, table: label })), rows: cte.rows };
+  }
   const table = findTable(db, ref.table);
   if (!table) {
-    const close = suggest(ref.table, db.tables.map((t) => t.name));
+    const close = suggest(ref.table, [...db.tables.map((t) => t.name), ...(ctes ? [...ctes.keys()] : [])]);
     throw new SqlError(
       `No table \`${ref.table}\`.` + (close ? ` Did you mean \`${close}\`?` : ''),
       'name',
@@ -110,8 +139,8 @@ function probe(expr: Expr, relation: Relation, env: Env) {
 }
 
 function join(left: Relation, clause: JoinClause, env: Env, trace?: Trace): Relation {
-  const right = scan(env.db, clause);
-  trace?.({ kind: 'scan', table: findTable(env.db, clause.table)!.name, relation: right });
+  const right = scan(env.db, clause, env.ctes);
+  trace?.({ kind: 'scan', table: tableName(env, clause.table), relation: right });
   const columns = [...left.columns, ...right.columns];
   if (left.rows.length === 0 || right.rows.length === 0) probe(clause.on, { columns, rows: [] }, env);
   const rows: Row[] = [];
@@ -195,6 +224,12 @@ function walk(expr: Expr, visit: (e: Expr, insideAggregate: boolean) => void | f
     case 'aggregate':
       if (expr.arg !== '*') walk(expr.arg, visit, true);
       return;
+    case 'case':
+      children.push(...caseParts(expr));
+      break;
+    case 'window':
+      children.push(...windowParts(expr));
+      break;
     default:
       return;
   }
@@ -220,6 +255,9 @@ function rejectNested(expr: Expr) {
   walk(expr, (e, insideAggregate) => {
     if (e.type === 'aggregate' && insideAggregate) {
       throw new SqlError("Aggregates can't be nested.", 'syntax', e.line, e.column);
+    }
+    if (e.type === 'window' && insideAggregate) {
+      throw new SqlError("Window functions can't be used inside aggregates.", 'syntax', e.line, e.column);
     }
   });
 }
@@ -279,6 +317,15 @@ function mapChildren(expr: Expr, f: (e: Expr) => Expr): Expr {
       return { ...expr, operand: f(expr.operand), items: expr.items.map(f) };
     case 'aggregate':
       return expr.arg === '*' ? expr : { ...expr, arg: f(expr.arg) };
+    case 'window':
+      return { ...expr, args: expr.args.map(f), partitionBy: expr.partitionBy.map(f), orderBy: expr.orderBy.map((o) => ({ ...o, expr: f(o.expr) })) };
+    case 'case':
+      return {
+        ...expr,
+        ...(expr.operand && { operand: f(expr.operand) }),
+        whens: expr.whens.map((w) => ({ when: f(w.when), then: f(w.then) })),
+        ...(expr.else && { else: f(expr.else) }),
+      };
     default:
       return expr;
   }
@@ -321,16 +368,198 @@ function outputs(stmt: SelectStatement, source: Relation): Output[] {
 }
 
 /** Runs a SELECT. Reports trace events for the top-level statement only; subqueries pass no trace. */
+/** The name to show for a table or CTE in steps. */
+function tableName(env: Env, name: string): string {
+  return env.ctes?.has(name.toLowerCase()) ? name : (findTable(env.db, name)?.name ?? name);
+}
+
+/** Whether a SELECT reads `name` in its FROM or JOINs, or in another SELECT of its compound. */
+function refersTo(stmt: SelectStatement, name: string): boolean {
+  const same = (table: string) => table.toLowerCase() === name.toLowerCase();
+  return (
+    (stmt.from !== undefined && same(stmt.from.table)) ||
+    stmt.joins.some((j) => same(j.table)) ||
+    (stmt.compound ?? []).some((c) => refersTo(c.select, name))
+  );
+}
+
+/** Evaluates WITH clauses in order; each sees the ones before it. */
+export function bindCtes(
+  db: Dataset,
+  ctes: Cte[],
+  base?: ReadonlyMap<string, Relation>,
+  outer?: Scope,
+  trace?: Trace,
+  ctx?: ExecContext,
+): Map<string, Relation> {
+  const bound = new Map(base ?? []);
+  for (const cte of ctes) {
+    if (refersTo(cte.query, cte.name)) {
+      if (!cte.recursive) throw new SqlError('Add RECURSIVE to let a CTE refer to itself.', 'syntax', cte.line, cte.column);
+      const relation = recursiveCte(db, cte, bound, outer, trace, ctx);
+      bound.set(cte.name.toLowerCase(), relation);
+      trace?.({ kind: 'cte', name: cte.name, relation });
+      continue;
+    }
+    const result = executeSelect(db, cte.query, undefined, outer, undefined, bound, ctx);
+    const relation = cteRelation(cte, result.columns, result.rows.map((values, i) => ({ id: `${cte.name}#${i}`, values })));
+    bound.set(cte.name.toLowerCase(), relation);
+    trace?.({ kind: 'cte', name: cte.name, relation });
+  }
+  return bound;
+}
+
+function cteRelation(cte: Cte, columns: string[], rows: Row[]): Relation {
+  if (cte.columns && cte.columns.length !== columns.length) {
+    throw new SqlError(
+      `CTE \`${cte.name}\` lists ${cte.columns.length} columns but its SELECT returns ${columns.length}.`,
+      'syntax',
+      cte.line,
+      cte.column,
+    );
+  }
+  return { columns: (cte.columns ?? columns).map((name) => ({ table: cte.name, name })), rows };
+}
+
+/** The expressions of one SELECT (not of its compound parts or subqueries). */
+function expressionsOf(stmt: SelectStatement): Expr[] {
+  return [
+    ...stmt.columns.flatMap((c) => (c.kind === 'expr' ? [c.expr] : [])),
+    ...stmt.joins.map((j) => j.on),
+    ...(stmt.where ? [stmt.where] : []),
+    ...stmt.groupBy,
+    ...(stmt.having ? [stmt.having] : []),
+    ...stmt.orderBy.map((o) => o.expr),
+  ];
+}
+
+/** Whether a SELECT reads `name` anywhere: FROM, JOIN, compound parts, CTE bodies or subqueries. */
+function mentions(stmt: SelectStatement, name: string): boolean {
+  if (refersTo(stmt, name)) return true;
+  if ((stmt.with ?? []).some((c) => mentions(c.query, name)) || (stmt.compound ?? []).some((c) => mentions(c.select, name))) return true;
+  let found = false;
+  for (const expr of expressionsOf(stmt)) {
+    walk(expr, (e) => {
+      if ((e.type === 'subquery' || e.type === 'inSubquery') && mentions(e.query, name)) found = true;
+    });
+  }
+  return found;
+}
+
+/** SQLite's rules for the recursive SELECT: no aggregates and no window functions. */
+function checkRecursiveStep(step: SelectStatement) {
+  for (const expr of expressionsOf(step)) {
+    walk(expr, (e) => {
+      if (e.type === 'aggregate') {
+        throw new SqlError(`Aggregates like ${e.fn} can't be used in the recursive SELECT of a CTE.`, 'syntax', e.line, e.column);
+      }
+      if (e.type === 'window') throw new SqlError("Window functions can't be used in the recursive SELECT of a CTE.", 'syntax', e.line, e.column);
+    });
+  }
+}
+
+/** Most rounds and rows a recursive CTE may produce, so a recursion without an end cannot freeze the page. */
+export const MAX_ROUNDS = 100;
+export const MAX_RECURSIVE_ROWS = 1000;
+
+/**
+ * WITH RECURSIVE name AS (anchor UNION [ALL] step): the anchor runs once, then the step runs
+ * again and again on the rows the previous round added, until a round adds nothing. With UNION,
+ * rows already found are not added again, which also ends cycles.
+ */
+function recursiveCte(db: Dataset, cte: Cte, bound: Map<string, Relation>, outer?: Scope, trace?: Trace, ctx?: ExecContext): Relation {
+  const parts = cte.query.compound ?? [];
+  const anchor = { ...cte.query, compound: undefined, orderBy: [], limit: undefined } as SelectStatement;
+  const step = parts[0]?.select;
+  const references = (s: SelectStatement) =>
+    [s.from?.table, ...s.joins.map((j) => j.table)].filter((t) => t?.toLowerCase() === cte.name.toLowerCase()).length;
+  if (
+    parts.length !== 1 ||
+    !step ||
+    mentions(anchor, cte.name) ||
+    references(step) !== 1 ||
+    (step.compound ?? []).length > 0 ||
+    expressionsOf(step).some((expr) => {
+      let inSubquery = false;
+      walk(expr, (e) => {
+        if ((e.type === 'subquery' || e.type === 'inSubquery') && mentions(e.query, cte.name)) inSubquery = true;
+      });
+      return inSubquery;
+    }) ||
+    (step.with ?? []).some((c) => mentions(c.query, cte.name))
+  ) {
+    throw new SqlError('A recursive CTE must refer to itself exactly once, in FROM or JOIN.', 'syntax', cte.line, cte.column);
+  }
+  checkRecursiveStep(step);
+  const op = parts[0]!.op;
+  if (op !== 'UNION' && op !== 'UNION ALL') {
+    throw new SqlError('A recursive CTE joins its two SELECTs with UNION or UNION ALL.', 'syntax', parts[0]!.line, 1);
+  }
+
+  const anchorResult = executeSelect(db, anchor, undefined, outer, undefined, bound, ctx);
+  cteRelation(cte, anchorResult.columns, []);
+  const columns = cte.columns ?? anchorResult.columns;
+  const all: Row[] = [];
+  const seen = new Set<string>();
+  const add = (values: SqlValue[]): Row | undefined => {
+    const key = values.map(valueKey).join('|');
+    if (op === 'UNION' && seen.has(key)) return undefined;
+    seen.add(key);
+    const row = { id: `${cte.name}#${all.length}`, values };
+    all.push(row);
+    return row;
+  };
+  const relationOf = (rows: Row[]) => cteRelation(cte, columns, rows);
+  const guard = () => new SqlError('This recursion never stops on its own. Add a condition that ends it, such as WHERE n < 10.', 'limit', cte.line, cte.column);
+
+  let working = anchorResult.rows.flatMap((values) => add(values) ?? []);
+  trace?.({ kind: 'recursion-round', name: cte.name, round: 0, read: relationOf([]), added: relationOf(working), total: relationOf([...all]) });
+  for (let round = 1; working.length > 0; round++) {
+    if (round > MAX_ROUNDS) throw guard();
+    const scope = new Map(bound).set(cte.name.toLowerCase(), relationOf(working));
+    const result = executeSelect(db, step, undefined, outer, undefined, scope, ctx);
+    if (result.columns.length !== columns.length) {
+      throw new SqlError(
+        `Each SELECT in a UNION must return the same number of columns: the first returns ${columns.length}, this one returns ${result.columns.length}.`,
+        'syntax',
+        parts[0]!.selectLine,
+        parts[0]!.selectColumn,
+      );
+    }
+    const read = working;
+    working = result.rows.flatMap((values) => add(values) ?? []);
+    if (all.length > MAX_RECURSIVE_ROWS) throw guard();
+    trace?.({ kind: 'recursion-round', name: cte.name, round, read: relationOf(read), added: relationOf(working), total: relationOf([...all]) });
+  }
+  return relationOf(all);
+}
+
 export function executeSelect(
   db: Dataset,
   stmt: SelectStatement,
   trace?: Trace,
   outer?: Scope,
   correlation?: { used: boolean },
+  ctes?: ReadonlyMap<string, Relation>,
+  ctx?: ExecContext,
 ): QueryResult {
-  const env: Env = { outer, db, ctx: outer?.ctx ?? { cache: new Map(), work: 0 }, ...(correlation && { correlation }) };
-  let relation = scan(db, stmt.from);
-  trace?.({ kind: 'scan', table: findTable(db, stmt.from.table)!.name, relation });
+  // One budget for the whole query, shared by its CTEs, recursion rounds and UNION sides.
+  const shared = outer?.ctx ?? ctx ?? { cache: new Map(), work: 0 };
+  let inScope = ctes ?? outer?.ctes;
+  if (stmt.with) inScope = bindCtes(db, stmt.with, inScope, outer, trace, shared);
+  if (stmt.compound?.length) return executeCompound(db, stmt, trace, outer, correlation, inScope, shared);
+  const env: Env = {
+    outer,
+    db,
+    ctx: shared,
+    ...(correlation && { correlation }),
+    ...(inScope && { ctes: inScope }),
+  };
+  let relation: Relation = { columns: [], rows: [{ id: 'one', values: [] }] };
+  if (stmt.from) {
+    relation = scan(db, stmt.from, env.ctes);
+    trace?.({ kind: 'scan', table: tableName(env, stmt.from.table), relation });
+  }
   for (const clause of stmt.joins) {
     rejectAggregate(clause.on, (fn) => `Aggregates like ${fn} can't be used in JOIN … ON.`);
     relation = join(relation, clause, env, trace);
@@ -418,8 +647,44 @@ export function executeSelect(
     if (having) rows = filter('HAVING', having, groupedRelation, scopeOf, empty, trace).rows;
   }
 
+  const windowExprs: Extract<Expr, { type: 'window' }>[] = [];
+  for (const e of [...cols.flatMap((c) => (c.expr ? [c.expr] : [])), ...stmt.orderBy.map((o) => o.expr)]) {
+    walk(e, (node) => {
+      if (node.type === 'window') windowExprs.push(node);
+    });
+  }
+  if (windowExprs.length > 0) {
+    const windows = computeWindows(windowExprs, rows, scopeOf);
+    const plain = scopeOf;
+    scopeOf = (row) => ({ ...plain(row), windows });
+    empty = { ...empty, windows };
+    if (trace && !grouped) traceWindows(windowExprs[0]!, cols, filtered, rows, plain, scopeOf, trace);
+  }
   if (rows.length === 0) for (const c of cols) if (c.expr) evaluate(c.expr, empty);
   const scopeById = new Map(rows.map((row) => [row.id, scopeOf(row)]));
+  if (trace && !grouped) {
+    let firstCase: Extract<Expr, { type: 'case' }> | undefined;
+    for (const c of cols) {
+      if (c.expr) {
+        walk(c.expr, (node) => {
+          if (node.type === 'case') firstCase ??= node;
+        });
+      }
+    }
+    if (firstCase) {
+      for (const row of rows) {
+        const scope = scopeById.get(row.id)!;
+        trace({
+          kind: 'case-row',
+          input: filtered,
+          row: row.id,
+          branch: caseBranch(firstCase, scope),
+          value: evaluate(firstCase, scope),
+          values: referencedColumns(firstCase, scope),
+        });
+      }
+    }
+  }
   let projected: Relation = {
     columns: cols.map((c) => ({ name: c.name })),
     rows: rows.map((row) => {
@@ -488,6 +753,284 @@ export function executeSelect(
   }
 
   return { columns: cols.map((c) => c.name), rows: projected.rows.map((row) => row.values) };
+}
+
+/** Most window rows traced one by one; steps show at most this many anyway. */
+const MAX_TRACED_WINDOW_ROWS = 400;
+
+/** Steps for the first window function: its partitions, then each row's value and what it depends on. */
+function traceWindows(
+  expr: Extract<Expr, { type: 'window' }>,
+  cols: Output[],
+  input: Relation,
+  rows: Row[],
+  plain: (row: Row) => Scope,
+  withWindows: (row: Row) => Scope,
+  trace: Trace,
+) {
+  const partitions = windowPartitions(expr, rows, plain);
+  const label = expr.partitionBy.length > 0 ? expr.partitionBy.map((p) => p.text).join(', ') : '';
+  trace({ kind: 'window-partitions', input: { columns: input.columns, rows: partitions.flat() }, partitions: partitions.map((p) => p.map((r) => r.id)), label });
+  const windowCols = cols.filter((c) => c.expr && findWindow(c.expr));
+  const filled = new Map<string, SqlValue[]>();
+  const order = partitions.flat();
+  let traced = 0;
+  const nameIndex = input.columns.findIndex((c) => c.name.toLowerCase() === 'name');
+  const nameOf = (row: Row, position: number) => (nameIndex >= 0 ? formatValue(row.values[nameIndex]!) : `row ${position}`);
+  for (const partition of partitions) {
+    const keys = partition.map((row) => expr.orderBy.map((o) => evaluate(o.expr, plain(row))));
+    const peer = (i: number) => keys[i]!.map(valueKey).join('|');
+    const partitionName = label ? label + ' ' + expr.partitionBy.map((p) => formatValue(evaluate(p, plain(partition[0]!)))).join(', ') : 'All rows';
+    partition.forEach((row, i) => {
+      if (traced >= MAX_TRACED_WINDOW_ROWS) return;
+      traced++;
+      const values = windowCols.map((c) => evaluate(c.expr!, withWindows(row)));
+      filled.set(row.id, values);
+      const peers = partition.filter((_, k) => k !== i && peer(k) === peer(i));
+      let dependsOn: Row[] = [];
+      let detail = '';
+      if (expr.fn === 'RANK' || expr.fn === 'DENSE_RANK') {
+        dependsOn = peers;
+        if (peers.length > 0) detail = `tied with ${peers.map((p) => nameOf(p, partition.indexOf(p) + 1)).join(', ')} on ${keys[i]!.map(formatValue).join(', ')}`;
+      } else if (expr.fn === 'LAG' || expr.fn === 'LEAD') {
+        const offset = expr.args[1] ? toNumber(evaluate(expr.args[1], plain(row))) ?? 1 : 1;
+        const target = partition[expr.fn === 'LAG' ? i - offset : i + offset];
+        dependsOn = target ? [target] : [];
+        detail = target ? `from ${nameOf(target, partition.indexOf(target) + 1)}` : `no row ${offset} ${expr.fn === 'LAG' ? 'before' : 'after'}, so the default`;
+      } else if (expr.fn !== 'ROW_NUMBER') {
+        let last = i;
+        while (last < partition.length - 1 && peer(last + 1) === peer(i)) last++;
+        const frame = expr.orderBy.length > 0 ? partition.slice(0, last + 1) : partition;
+        dependsOn = frame.filter((r) => r !== row);
+        detail = `over ${frame.length} ${frame.length === 1 ? 'row' : 'rows'}`;
+      }
+      const done = traced;
+      trace({
+        kind: 'window-row',
+        // Built only for the steps that are shown; the first `done` rows in partition order are filled.
+        relation: () => ({
+          columns: [...input.columns, ...windowCols.map((c) => ({ name: c.name }))],
+          rows: order.map((r, k) => ({ id: r.id, values: [...r.values, ...(k < done ? filled.get(r.id)! : windowCols.map(() => ''))] })),
+        }),
+        row: row.id,
+        partition: partitionName,
+        position: i + 1,
+        dependsOn: dependsOn.map((r) => r.id),
+        columns: windowCols.map((c) => c.name),
+        values,
+        fn: expr.text.slice(0, expr.text.toUpperCase().indexOf(' OVER')).trim(),
+        detail,
+      });
+    });
+  }
+}
+
+function findWindow(expr: Expr): boolean {
+  let found = false;
+  walk(expr, (node) => {
+    if (node.type === 'window') found = true;
+  });
+  return found;
+}
+
+/** Which branch a CASE takes for a row, in words. */
+function caseBranch(expr: Extract<Expr, { type: 'case' }>, scope: Scope): string {
+  const operand = expr.operand ? evaluate(expr.operand, scope) : undefined;
+  for (const { when } of expr.whens) {
+    if (expr.operand) {
+      if (compare('=', operand!, evaluate(when, scope)) === true) return `WHEN ${when.text} matches`;
+    } else if (evaluateTruth(when, scope) === true) {
+      return `WHEN ${when.text} is true`;
+    }
+  }
+  return expr.else ? 'ELSE' : 'no WHEN applies, so NULL';
+}
+
+const rowKey = (row: Row) => row.values.map(valueKey).join('|');
+
+/**
+ * Window function values, by windowKey and then row id. Rows are split into partitions in
+ * first-seen order and sorted by the window's ORDER BY (ties keep their order). With ORDER BY,
+ * an aggregate's frame runs from the partition start to the current row and its peers;
+ * without ORDER BY it is the whole partition, as in SQLite.
+ */
+function computeWindows(
+  exprs: Extract<Expr, { type: 'window' }>[],
+  rows: Row[],
+  scopeOf: (row: Row) => Scope,
+): Map<string, Map<string, SqlValue>> {
+  const result = new Map<string, Map<string, SqlValue>>();
+  for (const expr of exprs) {
+    const key = windowKey(expr);
+    if (result.has(key)) continue;
+    const values = new Map<string, SqlValue>();
+    result.set(key, values);
+    for (const partition of windowPartitions(expr, rows, scopeOf)) {
+      const order = partition.map((row) => expr.orderBy.map((o) => evaluate(o.expr, scopeOf(row))));
+      // Peers share ORDER BY values; find each row's peer group and dense rank in one pass.
+      const keys = order.map((values) => values.map(valueKey).join('|'));
+      const groupStart: number[] = [];
+      const dense: number[] = [];
+      keys.forEach((key, i) => {
+        const same = i > 0 && keys[i - 1] === key;
+        groupStart.push(same ? groupStart[i - 1]! : i);
+        dense.push(i === 0 ? 1 : same ? dense[i - 1]! : dense[i - 1]! + 1);
+      });
+      const groupEnd: number[] = [];
+      for (let i = keys.length - 1; i >= 0; i--) groupEnd[i] = i < keys.length - 1 && keys[i + 1] === keys[i] ? groupEnd[i + 1]! : i;
+      partition.forEach((row, i) => {
+        const scope = scopeOf(row);
+        const first = groupStart[i]!;
+        const last = groupEnd[i]!;
+        let value: SqlValue;
+        switch (expr.fn) {
+          case 'ROW_NUMBER':
+            value = i + 1;
+            break;
+          case 'RANK':
+            value = first + 1;
+            break;
+          case 'DENSE_RANK':
+            value = dense[i]!;
+            break;
+          case 'LAG':
+          case 'LEAD': {
+            const offset = expr.args[1] ? toNumber(evaluate(expr.args[1], scope)) ?? 1 : 1;
+            const target = expr.fn === 'LAG' ? i - offset : i + offset;
+            const other = partition[target];
+            value = other ? evaluate(expr.args[0]!, scopeOf(other)) : expr.args[2] ? evaluate(expr.args[2], scope) : null;
+            break;
+          }
+          default: {
+            const frame = expr.orderBy.length > 0 ? partition.slice(0, last + 1) : partition;
+            value = expr.star ? frame.length : aggregateValues(expr.fn, frame.map((r) => evaluate(expr.args[0]!, scopeOf(r))));
+          }
+        }
+        values.set(row.id, value);
+      });
+    }
+  }
+  return result;
+}
+
+/** A window's rows split by PARTITION BY (first-seen order), each sorted by its ORDER BY. */
+export function windowPartitions(expr: Extract<Expr, { type: 'window' }>, rows: Row[], scopeOf: (row: Row) => Scope): Row[][] {
+  const groups = new Map<string, Row[]>();
+  for (const row of rows) {
+    const key = expr.partitionBy.map((p) => valueKey(evaluate(p, scopeOf(row)))).join('|');
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  return [...groups.values()].map((partition) => {
+    const keyed = partition.map((row) => ({ row, keys: expr.orderBy.map((o) => evaluate(o.expr, scopeOf(row))) }));
+    keyed.sort((a, b) => {
+      for (let k = 0; k < expr.orderBy.length; k++) {
+        const c = compareValues(a.keys[k]!, b.keys[k]!);
+        if (c !== 0) return expr.orderBy[k]!.desc ? -c : c;
+      }
+      return 0;
+    });
+    return keyed.map((k) => k.row);
+  });
+}
+
+/** Combines two relations with a set operator; `notes` explains what happened to each input row. */
+function combine(op: SetOp, left: Relation, right: Relation): { relation: Relation; notes: Record<string, string> } {
+  const notes: Record<string, string> = {};
+  const rightKeys = new Set(right.rows.map(rowKey));
+  const seen = new Set<string>();
+  const rows: Row[] = [];
+  const keepOnce = (row: Row, note: string) => {
+    const key = rowKey(row);
+    if (seen.has(key)) {
+      notes[row.id] = 'duplicate, dropped';
+      return;
+    }
+    seen.add(key);
+    rows.push(row);
+    notes[row.id] = note;
+  };
+  if (op === 'UNION ALL') {
+    for (const row of [...left.rows, ...right.rows]) {
+      rows.push(row);
+      notes[row.id] = 'kept';
+    }
+  } else if (op === 'UNION') {
+    for (const row of [...left.rows, ...right.rows]) keepOnce(row, 'kept');
+  } else {
+    for (const row of left.rows) {
+      const inRight = rightKeys.has(rowKey(row));
+      if (op === 'INTERSECT' ? inRight : !inRight) keepOnce(row, op === 'INTERSECT' ? 'in both' : 'kept');
+      else notes[row.id] = op === 'INTERSECT' ? 'only in left' : 'also in right, removed';
+    }
+  }
+  return { relation: { columns: left.columns, rows }, notes };
+}
+
+/** A UNION, INTERSECT or EXCEPT: each SELECT on its own, combined left to right, then sorted and limited as a whole. */
+function executeCompound(
+  db: Dataset,
+  stmt: SelectStatement,
+  trace?: Trace,
+  outer?: Scope,
+  correlation?: { used: boolean },
+  ctes?: ReadonlyMap<string, Relation>,
+  ctx?: ExecContext,
+): QueryResult {
+  const sides = [{ ...stmt, with: undefined, compound: undefined, orderBy: [], limit: undefined } as SelectStatement, ...stmt.compound!.map((c) => c.select)];
+  const results = sides.map((side) => executeSelect(db, side, undefined, outer, correlation, ctes, ctx));
+  const width = results[0]!.columns.length;
+  stmt.compound!.forEach((part, i) => {
+    const count = results[i + 1]!.columns.length;
+    if (count !== width) {
+      throw new SqlError(
+        `Each SELECT in a UNION must return the same number of columns: the first returns ${width}, this one returns ${count}.`,
+        'syntax',
+        part.selectLine,
+        part.selectColumn,
+      );
+    }
+  });
+  const toRelation = (result: QueryResult, side: number): Relation => ({
+    columns: results[0]!.columns.map((name) => ({ name })),
+    rows: result.rows.map((values, i) => ({ id: `select${side + 1}#${i}`, values })),
+  });
+  let relation = toRelation(results[0]!, 0);
+  trace?.({ kind: 'compound-side', index: 0, relation });
+  stmt.compound!.forEach((part, i) => {
+    const right = toRelation(results[i + 1]!, i + 1);
+    trace?.({ kind: 'compound-side', index: i + 1, op: part.op, relation: right });
+    const { relation: next, notes } = combine(part.op, relation, right);
+    trace?.({ kind: 'combined', op: part.op, left: relation, right, relation: next, notes });
+    relation = next;
+  });
+
+  if (stmt.orderBy.length > 0) {
+    const names = results[0]!.columns.map((c) => c.toLowerCase());
+    const indexes = stmt.orderBy.map(({ expr }) => {
+      if (expr.type === 'literal' && typeof expr.value === 'number' && Number.isInteger(expr.value) && expr.value >= 1 && expr.value <= width) {
+        return expr.value - 1;
+      }
+      const i = expr.type === 'column' && expr.table === undefined ? names.indexOf(expr.name.toLowerCase()) : -1;
+      if (i < 0) throw new SqlError('ORDER BY after UNION can only name a result column or its position.', 'syntax', expr.line, expr.column);
+      return i;
+    });
+    const input = relation;
+    const rows = [...relation.rows].sort((a, b) => {
+      for (let k = 0; k < indexes.length; k++) {
+        const c = compareValues(a.values[indexes[k]!]!, b.values[indexes[k]!]!);
+        if (c !== 0) return stmt.orderBy[k]!.desc ? -c : c;
+      }
+      return 0;
+    });
+    relation = { columns: relation.columns, rows };
+    trace?.({ kind: 'sorted', input, relation });
+  }
+  if (stmt.limit) {
+    const input = relation;
+    relation = { columns: relation.columns, rows: relation.rows.slice(stmt.limit.offset, stmt.limit.offset + stmt.limit.count) };
+    trace?.({ kind: 'limited', input, relation });
+  }
+  return { columns: results[0]!.columns, rows: relation.rows.map((r) => r.values) };
 }
 
 /** Parses and runs a query. Never throws. */

@@ -6,6 +6,7 @@ const FOREIGN_KEYS: Record<string, Record<string, [table: string, column: string
   orders: { customer_id: ['customers', 'id'] },
   order_items: { order_id: ['orders', 'id'], product_id: ['products', 'id'] },
   enrollments: { student_id: ['students', 'id'], course_id: ['courses', 'id'] },
+  employees: { manager_id: ['employees', 'id'], department_id: ['departments', 'id'] },
 };
 
 function table(db: Dataset, name: string): DatasetTable {
@@ -33,7 +34,8 @@ describe.each(Object.values(datasets).map((db) => [db.id, db] as const))('datase
       t.columns.forEach((c, i) => {
         const cell = row[i];
         if (cell === null) {
-          expect(c.name === 'id' || c.name in keys, `${t.name}.${c.name} must not be NULL`).toBe(false);
+          // A foreign key may be NULL (no parent), unless the column is declared NOT NULL.
+          expect(c.name === 'id' || (c.name in keys && c.notNull === true), `${t.name}.${c.name} must not be NULL`).toBe(false);
           return;
         }
         if (c.type === 'INTEGER') expect(Number.isInteger(cell), `${t.name}.${c.name}`).toBe(true);
@@ -44,7 +46,7 @@ describe.each(Object.values(datasets).map((db) => [db.id, db] as const))('datase
     if (t.columns.some((c) => c.name === 'id')) expect(unique(col(t, 'id'))).toBe(true);
     for (const [column, [target, targetColumn]] of Object.entries(keys)) {
       const ids = new Set(col(table(db, target), targetColumn));
-      for (const value of col(t, column)) expect(ids.has(value), `${t.name}.${column}=${value}`).toBe(true);
+      for (const value of col(t, column)) if (value !== null) expect(ids.has(value), `${t.name}.${column}=${value}`).toBe(true);
     }
   });
 });
@@ -207,5 +209,33 @@ describe('declared constraints', () => {
     expect(sqlite.query('PRAGMA foreign_key_check').rows).toEqual([]);
     expect(sqlite.query('PRAGMA foreign_keys').rows).toEqual([[1]]);
     sqlite.close();
+  });
+});
+
+describe('company dataset', () => {
+  const company = datasets.company;
+  const emp = (name: string) => {
+    const t = findTable(company, 'employees')!;
+    return t.rows.find((r) => r[1] === name)!;
+  };
+
+  it('has departments and employees as the spec lists them', () => {
+    expect(findTable(company, 'departments')!.rows).toEqual([[1, 'Management'], [2, 'Engineering'], [3, 'Sales'], [4, 'Support']]);
+    expect(findTable(company, 'employees')!.rows).toHaveLength(12);
+    expect(emp('Lan')).toEqual([1, 'Lan', null, 1, 9000, '2015-02-01']);
+    expect(emp('Bao')).toEqual([11, 'Bao', 6, 2, 3600, '2023-03-01']);
+  });
+
+  it('has the properties the lessons rely on', () => {
+    const employees = findTable(company, 'employees')!;
+    const byId = new Map(employees.rows.map((r) => [r[0], r]));
+    const chain: unknown[] = [];
+    for (let r = emp('Bao'); r; r = byId.get(r[2]!)!) chain.unshift(r[1]);
+    expect(chain).toEqual(['Lan', 'Minh', 'Tuan', 'Khoa', 'Bao']);
+    expect([emp('Tuan')[4], emp('Vy')[4], emp('Tuan')[3], emp('Vy')[3]]).toEqual([5200, 5200, 2, 2]);
+    expect(emp('Khoa')[4]! > emp('Tuan')[4]!).toBe(true);
+    expect(emp('Linh')[5]! < emp('Hoa')[5]!).toBe(true);
+    expect(emp('Thu')[3]).toBeNull();
+    expect(employees.rows.some((r) => r[3] === 4)).toBe(false);
   });
 });

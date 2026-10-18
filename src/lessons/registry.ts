@@ -63,6 +63,13 @@ import { selectFrom } from './sql/select-from';
 import { subqueries } from './sql/subqueries';
 import { update } from './sql/update';
 import { where } from './sql/where';
+import { windowFunctions } from './sql/window-functions';
+import { recursiveCtes } from './sql/recursive-ctes';
+import { ctes } from './sql/ctes';
+import { setOperations } from './sql/set-operations';
+import { caseExpressions } from './sql/case-expressions';
+import { manyToMany } from './sql/many-to-many';
+import { selfJoin } from './sql/self-join';
 
 /** Every live lesson, in recommended learning order. Register new lessons here. */
 export const lessons: Lesson[] = [
@@ -128,8 +135,15 @@ export const lessons: Lesson[] = [
   innerJoin,
   leftJoin,
   subqueries,
+  selfJoin,
+  manyToMany,
   createTable,
   constraints,
+  caseExpressions,
+  setOperations,
+  ctes,
+  recursiveCtes,
+  windowFunctions,
 ];
 
 const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));

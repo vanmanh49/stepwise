@@ -1,4 +1,4 @@
-import type { AggregateFn, Expr, JoinClause, SelectItem, SelectStatement, Statement, TableRef } from './ast';
+import { caseParts, windowParts, type AggregateFn, type Expr, type JoinClause, type SelectItem, type Cte, type SelectStatement, type SetOp, type Statement, type WindowFn, type TableRef } from './ast';
 import { asSqlError, SqlError } from './errors';
 import type { ColumnDef, ColumnType, TableSchema } from './schema';
 import { tokenize, type Token } from './tokenize';
@@ -17,17 +17,15 @@ const COLUMN_TYPES = new Set<string>(['INTEGER', 'REAL', 'TEXT']);
 const WRITES = new Set(['INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP']);
 
 const AGGREGATES = new Set<string>(['COUNT', 'SUM', 'AVG', 'MIN', 'MAX']);
+/** Functions that only exist with OVER. */
+const RANKING = new Set<string>(['ROW_NUMBER', 'RANK', 'DENSE_RANK']);
+const OFFSET = new Set<string>(['LAG', 'LEAD']);
+const LATER_WINDOW = new Set<string>(['NTILE', 'FIRST_VALUE', 'LAST_VALUE', 'NTH_VALUE', 'PERCENT_RANK', 'CUME_DIST']);
 const COMPARISONS = new Set(['=', '<>', '!=', '<', '<=', '>', '>=']);
 
 /** Statement or clause keywords that belong to a later lesson, with the curriculum id that covers them. */
 const LATER: Record<string, string | undefined> = {
   ALTER: undefined,
-  WITH: 'ctes',
-  UNION: 'set-operations',
-  INTERSECT: 'set-operations',
-  EXCEPT: 'set-operations',
-  OVER: 'window-functions',
-  CASE: 'case-expressions',
   EXISTS: undefined,
 };
 
@@ -109,7 +107,9 @@ class Parser {
       throw new SqlError(`Only a SELECT query can run here, not ${t.value}.`, 'unsupported', t.line, t.column);
     }
     if (t.kind === 'keyword' && t.value in LATER) throw unsupported(t.value, t, LATER[t.value]);
-    const statement = this.select();
+    const ctes = this.isKeyword('WITH') ? this.withClause() : undefined;
+    if (ctes && !this.isKeyword('SELECT')) this.fail('SELECT after WITH');
+    const statement = { ...this.select(), ...(ctes && { with: ctes }) };
     if (this.isKeyword('UNION', 'INTERSECT', 'EXCEPT')) this.fail('the end of the query');
     if (this.isPunct(';')) this.next();
     if (this.token.kind !== 'eof') {
@@ -121,7 +121,8 @@ class Parser {
     return statement;
   }
 
-  select(): SelectStatement {
+  /** One SELECT up to HAVING: the part each side of a UNION has. ORDER BY and LIMIT belong to the whole query. */
+  private selectCore(): SelectStatement {
     const lines: SelectStatement['lines'] = {};
     const selectToken = this.expectKeyword('SELECT');
     lines.SELECT = selectToken.line;
@@ -135,41 +136,44 @@ class Parser {
       columns.push(this.selectItem());
     }
 
-    const hint = this.token.kind === 'identifier' ? ' Is a comma missing, or AS before an alias?' : '';
-    lines.FROM = this.expectKeyword('FROM', hint).line;
-    const from = this.tableRef();
-    if (this.isPunct(',')) {
-      throw new SqlError(
-        "Joining tables with a comma isn't supported here. Use JOIN … ON instead.",
-        'unsupported',
-        this.token.line,
-        this.token.column,
-      );
-    }
-
+    if (this.token.kind === 'identifier') this.fail('FROM', ' Is a comma missing, or AS before an alias?');
+    // Without FROM, the query reads a single row with no columns, as in SQLite.
+    let from: TableRef | undefined;
     const joins: JoinClause[] = [];
-    for (;;) {
-      const start = this.token;
-      if (this.isKeyword('RIGHT', 'FULL', 'CROSS', 'NATURAL')) {
-        throw unsupported(`${start.value} JOIN`, start);
+    if (this.isKeyword('FROM')) {
+      lines.FROM = this.next().line;
+      from = this.tableRef();
+      if (this.isPunct(',')) {
+        throw new SqlError(
+          "Joining tables with a comma isn't supported here. Use JOIN … ON instead.",
+          'unsupported',
+          this.token.line,
+          this.token.column,
+        );
       }
-      let kind: JoinClause['kind'];
-      if (this.acceptKeyword('JOIN')) kind = 'inner';
-      else if (this.isKeyword('INNER')) {
-        this.next();
-        this.expectKeyword('JOIN');
-        kind = 'inner';
-      } else if (this.isKeyword('LEFT')) {
-        this.next();
-        this.acceptKeyword('OUTER');
-        this.expectKeyword('JOIN');
-        kind = 'left';
-      } else break;
-      const ref = this.tableRef();
-      if (this.isKeyword('USING')) throw unsupported('USING', this.token);
-      this.expectKeyword('ON');
-      joins.push({ kind, ...ref, on: this.expr(), line: start.line });
-      lines.JOIN ??= start.line;
+      for (;;) {
+        const start = this.token;
+        if (this.isKeyword('RIGHT', 'FULL', 'CROSS', 'NATURAL')) {
+          throw unsupported(`${start.value} JOIN`, start);
+        }
+        let kind: JoinClause['kind'];
+        if (this.acceptKeyword('JOIN')) kind = 'inner';
+        else if (this.isKeyword('INNER')) {
+          this.next();
+          this.expectKeyword('JOIN');
+          kind = 'inner';
+        } else if (this.isKeyword('LEFT')) {
+          this.next();
+          this.acceptKeyword('OUTER');
+          this.expectKeyword('JOIN');
+          kind = 'left';
+        } else break;
+        const ref = this.tableRef();
+        if (this.isKeyword('USING')) throw unsupported('USING', this.token);
+        this.expectKeyword('ON');
+        joins.push({ kind, ...ref, on: this.expr(), line: start.line });
+        lines.JOIN ??= start.line;
+      }
     }
 
     let where: Expr | undefined;
@@ -195,6 +199,31 @@ class Parser {
       having = this.expr();
     }
 
+    if (this.isWord('WINDOW')) throw unsupported('named windows (WINDOW … AS)', this.token);
+    return {
+      distinct,
+      columns,
+      ...(from && { from }),
+      joins,
+      ...(where && { where }),
+      groupBy,
+      ...(having && { having }),
+      orderBy: [],
+      lines,
+    };
+  }
+
+  select(): SelectStatement {
+    const statement = this.selectCore();
+    const lines = statement.lines;
+    const compound: NonNullable<SelectStatement['compound']> = [];
+    while (this.isKeyword('UNION', 'INTERSECT', 'EXCEPT')) {
+      const opToken = this.next();
+      const op: SetOp = opToken.value === 'UNION' && this.acceptKeyword('ALL') ? 'UNION ALL' : (opToken.value as SetOp);
+      const at = this.token;
+      compound.push({ op, select: this.selectCore(), line: opToken.line, selectLine: at.line, selectColumn: at.column });
+    }
+
     const orderBy: SelectStatement['orderBy'] = [];
     if (this.isKeyword('ORDER')) {
       lines['ORDER BY'] = this.next().line;
@@ -217,18 +246,10 @@ class Parser {
       limit = { count, offset };
     }
 
-    return {
-      distinct,
-      columns,
-      from,
-      joins,
-      ...(where && { where }),
-      groupBy,
-      ...(having && { having }),
-      orderBy,
-      ...(limit && { limit }),
-      lines,
-    };
+    if (this.isKeyword('UNION', 'INTERSECT', 'EXCEPT')) {
+      throw new SqlError('ORDER BY and LIMIT go after the last SELECT of a UNION.', 'syntax', this.token.line, this.token.column);
+    }
+    return { ...statement, ...(compound.length > 0 && { compound }), orderBy, ...(limit && { limit }), lines };
   }
 
   private wholeNumber(clause: string): number {
@@ -284,6 +305,24 @@ class Parser {
     return this.next();
   }
 
+  /** WITH [RECURSIVE] name [(columns)] AS (SELECT …), … */
+  private withClause(): Cte[] {
+    this.expectKeyword('WITH');
+    const recursive = this.acceptWord('RECURSIVE');
+    const ctes: Cte[] = [];
+    do {
+      if (ctes.length > 0) this.next();
+      const name = this.identifier('a name for the WITH query');
+      const columns = this.isPunct('(') ? this.nameList('a column name') : undefined;
+      this.expectKeyword('AS');
+      this.expectPunct('(');
+      const query = this.select();
+      this.expectPunct(')');
+      ctes.push({ name: name.value, ...(columns && { columns }), query, recursive, line: name.line, column: name.column });
+    } while (this.isPunct(','));
+    return ctes;
+  }
+
   private atEnd(): boolean {
     return this.token.kind === 'eof';
   }
@@ -304,6 +343,12 @@ class Parser {
   }
 
   private scriptStatement(): Statement {
+    if (this.isKeyword('WITH')) {
+      const ctes = this.withClause();
+      if (!this.isKeyword('SELECT', 'INSERT', 'UPDATE', 'DELETE')) this.fail('SELECT, INSERT, UPDATE or DELETE after WITH');
+      const statement = this.scriptStatement();
+      return statement.kind === 'select' ? { ...statement, select: { ...statement.select, with: ctes } } : ({ ...statement, with: ctes } as Statement);
+    }
     const t = this.token;
     if (this.isKeyword('SELECT')) {
       const select = this.select();
@@ -694,6 +739,7 @@ class Parser {
         this.next();
         return this.node(t, { type: 'literal', value: t.value });
       case 'keyword':
+        if (t.value === 'CASE') return this.caseExpr();
         if (t.value === 'NULL' || t.value === 'TRUE' || t.value === 'FALSE') {
           this.next();
           return this.node(t, { type: 'literal', value: t.value === 'NULL' ? null : t.value === 'TRUE' ? 1 : 0 });
@@ -727,9 +773,26 @@ class Parser {
     }
   }
 
+  private caseExpr(): Expr {
+    const start = this.expectKeyword('CASE');
+    const operand = this.isKeyword('WHEN') ? undefined : this.expr();
+    const whens: { when: Expr; then: Expr }[] = [];
+    do {
+      this.expectKeyword('WHEN');
+      const when = this.expr();
+      this.expectKeyword('THEN');
+      whens.push({ when, then: this.expr() });
+    } while (this.isKeyword('WHEN'));
+    const otherwise = this.acceptKeyword('ELSE') ? this.expr() : undefined;
+    this.expectKeyword('END');
+    return this.node(start, { type: 'case', ...(operand && { operand }), whens, ...(otherwise && { else: otherwise }) });
+  }
+
   private call(): Expr {
     const nameToken = this.next();
     const fn = nameToken.value.toUpperCase();
+    if (RANKING.has(fn) || OFFSET.has(fn)) return this.windowCall(nameToken, fn as WindowFn);
+    if (LATER_WINDOW.has(fn)) throw unsupported(fn, nameToken);
     if (!AGGREGATES.has(fn)) {
       throw new SqlError(`Function \`${fn}\` isn't supported here yet.`, 'unsupported', nameToken.line, nameToken.column);
     }
@@ -744,8 +807,68 @@ class Parser {
       arg = this.expr();
     }
     this.expectPunct(')');
-    if (this.isKeyword('OVER')) throw unsupported('OVER', this.token, LATER.OVER);
+    if (this.isWord('FILTER')) throw unsupported('FILTER', this.token);
+    if (this.isKeyword('OVER')) {
+      if (distinct) throw unsupported('DISTINCT in a window function', nameToken);
+      const window = this.over();
+      return this.node(nameToken, { type: 'window', fn: fn as AggregateFn, args: arg === '*' ? [] : [arg], star: arg === '*', ...window });
+    }
     return this.node(nameToken, { type: 'aggregate', fn: fn as AggregateFn, arg, distinct });
+  }
+
+  /** ROW_NUMBER(), RANK(), DENSE_RANK(), LAG(x [, n [, default]]), LEAD(…), each followed by OVER. */
+  private windowCall(nameToken: Token, fn: WindowFn): Expr {
+    this.expectPunct('(');
+    const args: Expr[] = [];
+    if (!this.isPunct(')')) {
+      do {
+        if (args.length > 0) this.next();
+        args.push(this.expr());
+      } while (this.isPunct(','));
+    }
+    this.expectPunct(')');
+    const allowed = OFFSET.has(fn) ? [1, 2, 3] : [0];
+    if (!allowed.includes(args.length)) {
+      throw new SqlError(
+        OFFSET.has(fn) ? `${fn} takes one to three arguments: a value, how far to look, and a default.` : `${fn} takes no arguments: write ${fn}().`,
+        'syntax',
+        nameToken.line,
+        nameToken.column,
+      );
+    }
+    if (!this.isKeyword('OVER')) throw new SqlError(`${fn} needs OVER (…) to say how to number or order the rows.`, 'syntax', this.token.line, this.token.column);
+    return this.node(nameToken, { type: 'window', fn, args, star: false, ...this.over() });
+  }
+
+  /** OVER ([PARTITION BY …] [ORDER BY …]). Frames and named windows are not supported. */
+  private over(): { partitionBy: Expr[]; orderBy: { expr: Expr; desc: boolean }[] } {
+    this.expectKeyword('OVER');
+    if (this.token.kind === 'identifier') throw unsupported('named windows', this.token);
+    this.expectPunct('(');
+    const partitionBy: Expr[] = [];
+    if (this.acceptKeyword('PARTITION')) {
+      this.expectKeyword('BY');
+      do {
+        if (partitionBy.length > 0) this.next();
+        partitionBy.push(this.expr());
+      } while (this.isPunct(','));
+    }
+    const orderBy: { expr: Expr; desc: boolean }[] = [];
+    if (this.acceptKeyword('ORDER')) {
+      this.expectKeyword('BY');
+      do {
+        if (orderBy.length > 0) this.next();
+        const expr = this.expr();
+        const desc = this.acceptKeyword('DESC');
+        if (!desc) this.acceptKeyword('ASC');
+        orderBy.push({ expr, desc });
+      } while (this.isPunct(','));
+    }
+    if (this.isWord('ROWS') || this.isWord('RANGE') || this.isWord('GROUPS')) {
+      throw unsupported(`window frames (${this.token.value.toUpperCase()} BETWEEN …)`, this.token);
+    }
+    this.expectPunct(')');
+    return { partitionBy, orderBy };
   }
 }
 
@@ -789,6 +912,12 @@ export function firstNode(expr: Expr, test: (e: Expr) => boolean): Expr | undefi
       break;
     case 'aggregate':
       if (expr.arg !== '*') children.push(expr.arg);
+      break;
+    case 'case':
+      children.push(...caseParts(expr));
+      break;
+    case 'window':
+      children.push(...windowParts(expr));
       break;
   }
   for (const child of children) {

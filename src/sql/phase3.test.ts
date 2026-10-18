@@ -1,0 +1,314 @@
+import { describe, expect, it } from 'vitest';
+import { datasets, findTable } from './datasets';
+import { runScript } from './script';
+import { runQuery } from './execute';
+import { parseQuery } from './parse';
+import { querySteps } from './steps';
+import { toPlain } from './values';
+
+export function rows(sql: string, db = datasets.shop) {
+  const result = runQuery(db, sql);
+  if (!result.ok) throw new Error(`${result.error.message} (${result.error.line}:${result.error.column})`);
+  return result.result.rows.map((r) => r.map(toPlain));
+}
+
+export function error(sql: string, db = datasets.shop) {
+  const result = runQuery(db, sql);
+  if (result.ok) throw new Error(`expected an error: ${sql}`);
+  return result.error;
+}
+
+describe('CASE', () => {
+  it('parses the searched form', () => {
+    const parsed = parseQuery("SELECT CASE WHEN price > 1 THEN 'a' WHEN price > 0 THEN 'b' ELSE 'c' END FROM products");
+    if (!parsed.ok) throw new Error(parsed.error.message);
+    const item = parsed.statement.columns[0]!;
+    expect(item.kind === 'expr' && item.expr).toMatchObject({ type: 'case', whens: [{}, {}], else: { type: 'literal', value: 'c' } });
+  });
+
+  it('parses the simple form', () => {
+    const parsed = parseQuery("SELECT CASE category WHEN 'Books' THEN 1 END FROM products");
+    if (!parsed.ok) throw new Error(parsed.error.message);
+    const item = parsed.statement.columns[0]!;
+    expect(item.kind === 'expr' && item.expr).toMatchObject({ type: 'case', operand: { type: 'column', name: 'category' } });
+  });
+
+  it('needs END', () => {
+    expect(error("SELECT CASE WHEN 1 THEN 'a' FROM products").message).toContain('Expected END');
+  });
+
+  it('takes the first true branch, and NULL without ELSE', () => {
+    expect(rows('SELECT CASE WHEN 1 = 1 THEN 1 WHEN 1 = 1 THEN 2 END FROM customers WHERE id = 1')).toEqual([[1]]);
+    expect(rows('SELECT CASE WHEN 1 = 0 THEN 1 END FROM customers WHERE id = 1')).toEqual([[null]]);
+  });
+
+  it('never matches NULL in the simple form', () => {
+    expect(rows("SELECT CASE city WHEN NULL THEN 'n' ELSE 'e' END FROM customers WHERE id = 4")).toEqual([['e']]);
+  });
+
+  it('works inside aggregates and GROUP BY', () => {
+    expect(rows("SELECT SUM(CASE WHEN status = 'shipped' THEN 1 ELSE 0 END) FROM orders")).toEqual([[7]]);
+    expect(rows("SELECT CASE WHEN price > 30 THEN 'high' ELSE 'low' END, COUNT(*) FROM products GROUP BY CASE WHEN price > 30 THEN 'high' ELSE 'low' END ORDER BY 1")).toEqual([
+      ['high', 4],
+      ['low', 5],
+    ]);
+  });
+});
+
+describe('SELECT without FROM', () => {
+  it('returns one row', () => {
+    expect(rows("SELECT 1, 'a'")).toEqual([[1, 'a']]);
+    expect(rows('SELECT 1 + 1 AS two')).toEqual([[2]]);
+  });
+
+  it('can be filtered away', () => {
+    expect(rows('SELECT 1 WHERE 0')).toEqual([]);
+  });
+
+  it('counts its one row', () => {
+    expect(rows('SELECT COUNT(*)')).toEqual([[1]]);
+  });
+
+  it('has no columns to name', () => {
+    expect(error('SELECT x').message).toContain('No column `x`');
+  });
+
+  it('still asks for a comma when two names run together', () => {
+    expect(error('SELECT name city FROM customers').message).toContain('Is a comma missing');
+  });
+
+  it('steps from start to result on line 1', () => {
+    const result = querySteps(datasets.shop, 'SELECT 1 + 1');
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.steps.length).toBeGreaterThanOrEqual(2);
+    expect(result.steps.every((s) => s.codeLine === 1)).toBe(true);
+    expect(result.steps.at(-1)!.title).toBe('Result: 1 row');
+  });
+});
+
+const sorted = (r: unknown[][]) => [...r].map((x) => JSON.stringify(x)).sort();
+
+describe('set operations', () => {
+  it('UNION removes duplicates, including NULL duplicates', () => {
+    expect(sorted(rows('SELECT city FROM customers UNION SELECT city FROM customers'))).toEqual(
+      sorted(rows('SELECT DISTINCT city FROM customers')),
+    );
+  });
+
+  it('UNION ALL keeps every row', () => {
+    expect(rows('SELECT city FROM customers UNION ALL SELECT city FROM customers')).toHaveLength(20);
+  });
+
+  it('INTERSECT and EXCEPT', () => {
+    const shipped = "SELECT customer_id FROM orders WHERE status = 'shipped'";
+    const pending = "SELECT customer_id FROM orders WHERE status = 'pending'";
+    const both = rows(`${shipped} INTERSECT ${pending}`).map((r) => r[0]);
+    const onlyShipped = rows(`${shipped} EXCEPT ${pending}`).map((r) => r[0]);
+    const s = new Set(rows(shipped).map((r) => r[0]));
+    const p = new Set(rows(pending).map((r) => r[0]));
+    expect(new Set(both)).toEqual(new Set([...s].filter((x) => p.has(x))));
+    expect(new Set(onlyShipped)).toEqual(new Set([...s].filter((x) => !p.has(x))));
+    expect(new Set(both).size).toBe(both.length);
+  });
+
+  it('runs three operands left to right', () => {
+    const r = rows('SELECT id FROM customers WHERE id <= 3 UNION SELECT id FROM customers WHERE id = 5 EXCEPT SELECT id FROM customers WHERE id = 2');
+    expect(r.map((x) => x[0]).sort()).toEqual([1, 3, 5]);
+  });
+
+  it('names columns after the first SELECT', () => {
+    const result = runQuery(datasets.shop, 'SELECT name AS who FROM customers UNION SELECT name FROM products');
+    expect(result.ok && result.result.columns).toEqual(['who']);
+  });
+
+  it('refuses different column counts at the second SELECT', () => {
+    const e = error('SELECT id, name FROM customers\nUNION\nSELECT id, name, city FROM customers');
+    expect(e.message).toBe('Each SELECT in a UNION must return the same number of columns: the first returns 2, this one returns 3.');
+    expect(e.line).toBe(3);
+  });
+
+  it('sorts and limits the whole result by name or position', () => {
+    expect(rows('SELECT id FROM customers WHERE id < 3 UNION SELECT id FROM products WHERE id > 7 ORDER BY 1 DESC LIMIT 2')).toEqual([[9], [8]]);
+    expect(rows("SELECT name FROM customers WHERE id = 1 UNION SELECT name FROM products WHERE id = 1 ORDER BY name")).toEqual([['Ana'], ['SQL Basics']]);
+  });
+
+  it('only sorts by a result column or position', () => {
+    expect(error('SELECT price FROM products UNION SELECT id FROM customers ORDER BY price * 2').message).toBe(
+      'ORDER BY after UNION can only name a result column or its position.',
+    );
+  });
+
+  it('puts ORDER BY and LIMIT after the last SELECT', () => {
+    expect(error('SELECT id FROM customers ORDER BY id UNION SELECT id FROM products').message).toBe(
+      'ORDER BY and LIMIT go after the last SELECT of a UNION.',
+    );
+  });
+});
+
+describe('CTEs', () => {
+  const company = datasets.company;
+
+  it('reads a CTE like a table', () => {
+    expect(rows('WITH big AS (SELECT name, salary FROM employees WHERE salary > 6000) SELECT name FROM big ORDER BY salary DESC', company)).toEqual([
+      ['Lan'],
+      ['Minh'],
+      ['Hoa'],
+    ]);
+  });
+
+  it('lets later CTEs use earlier ones', () => {
+    const sql =
+      'WITH eng AS (SELECT * FROM employees WHERE department_id = 2), rich AS (SELECT name FROM eng WHERE salary > 5000) SELECT COUNT(*) FROM rich';
+    expect(rows(sql, company)).toEqual([[4]]);
+  });
+
+  it('can be used twice in one query', () => {
+    const sql = 'WITH d AS (SELECT department_id, AVG(salary) AS avg_salary FROM employees GROUP BY department_id) SELECT COUNT(*) FROM d a JOIN d b ON a.avg_salary < b.avg_salary';
+    expect(rows(sql, company)).toEqual([[6]]);
+  });
+
+  it('renames columns with a column list', () => {
+    const result = runQuery(company, 'WITH t (who, pay) AS (SELECT name, salary FROM employees) SELECT who FROM t WHERE pay = 9000');
+    expect(result.ok && result.result.rows).toEqual([['Lan']]);
+  });
+
+  it('checks the column list against the SELECT', () => {
+    expect(error('WITH t (a, b) AS (SELECT id, name, salary FROM employees) SELECT * FROM t', company).message).toBe(
+      'CTE `t` lists 2 columns but its SELECT returns 3.',
+    );
+  });
+
+  it('shadows a table of the same name for this query only', () => {
+    expect(rows('WITH employees AS (SELECT 1 AS n) SELECT * FROM employees', company)).toEqual([[1]]);
+    expect(rows('SELECT COUNT(*) FROM employees', company)).toEqual([[12]]);
+  });
+
+  it('is visible inside subqueries', () => {
+    expect(rows('WITH top AS (SELECT MAX(salary) AS s FROM employees) SELECT name FROM employees WHERE salary = (SELECT s FROM top)', company)).toEqual([['Lan']]);
+  });
+
+  it('suggests a close name for a missing CTE', () => {
+    expect(error('WITH dept_pay AS (SELECT 1 AS n) SELECT * FROM dept_py', company).message).toContain('Did you mean `dept_pay`?');
+  });
+
+  it('needs RECURSIVE to refer to itself', () => {
+    expect(error('WITH n (x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 3) SELECT * FROM n', company).message).toBe(
+      'Add RECURSIVE to let a CTE refer to itself.',
+    );
+  });
+
+  it('can come before INSERT, UPDATE and DELETE', () => {
+    const update = runScript(company, 'WITH low AS (SELECT id FROM employees WHERE salary < 4000) UPDATE employees SET salary = salary + 100 WHERE id IN (SELECT id FROM low)');
+    expect(update.ok && findTable(update.db, 'employees')!.rows.filter((r) => r[4] === 3100 || r[4] === 3700 || r[4] === 4000).length).toBe(3);
+    const del = runScript(company, 'WITH leaf AS (SELECT id FROM employees WHERE id = 11) DELETE FROM employees WHERE id IN (SELECT id FROM leaf)');
+    expect(del.ok && findTable(del.db, 'employees')!.rows).toHaveLength(11);
+    const ins = runScript(company, "WITH n AS (SELECT 'Tam' AS name) INSERT INTO employees (name, salary) SELECT name, 3000 FROM n");
+    expect(ins.ok && findTable(ins.db, 'employees')!.rows.at(-1)).toEqual([13, 'Tam', null, null, 3000, null]);
+  });
+});
+
+describe('recursive CTEs', () => {
+  const company = datasets.company;
+  const GUARD = 'This recursion never stops on its own. Add a condition that ends it, such as WHERE n < 10.';
+
+  it('counts from 1 to 10', () => {
+    expect(rows('WITH RECURSIVE n (x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 10) SELECT x FROM n').map((r) => r[0])).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ]);
+  });
+
+  it('walks down the org chart with levels', () => {
+    const sql =
+      'WITH RECURSIVE chain (id, name, level) AS (SELECT id, name, 1 FROM employees WHERE manager_id IS NULL UNION ALL SELECT e.id, e.name, c.level + 1 FROM employees e JOIN chain c ON e.manager_id = c.id) SELECT name, level FROM chain ORDER BY level, name';
+    expect(rows(sql, company)).toEqual([
+      ['Lan', 1], ['Hoa', 2], ['Minh', 2], ['Thu', 2], ['Linh', 3], ['Quang', 3], ['Tuan', 3], ['Vy', 3], ['Khoa', 4], ['Mai', 4], ['Nam', 4], ['Bao', 5],
+    ]);
+  });
+
+  it('walks up from Bao to Lan', () => {
+    const sql =
+      "WITH RECURSIVE up (id, name, manager_id) AS (SELECT id, name, manager_id FROM employees WHERE name = 'Bao' UNION ALL SELECT e.id, e.name, e.manager_id FROM employees e JOIN up ON e.id = up.manager_id) SELECT name FROM up";
+    expect(rows(sql, company).map((r) => r[0])).toEqual(['Bao', 'Khoa', 'Tuan', 'Minh', 'Lan']);
+  });
+
+  it('stops at a cycle with UNION, and hits the guard with UNION ALL', () => {
+    const setup = 'CREATE TABLE edges (a INTEGER, b INTEGER);\nINSERT INTO edges VALUES (1, 2), (2, 3), (3, 1);\n';
+    const union = runScript(company, `${setup}WITH RECURSIVE r (n) AS (SELECT 1 UNION SELECT b FROM edges JOIN r ON a = n) SELECT n FROM r`);
+    expect(union.ok && union.statements.at(-1)!.result!.rows).toEqual([[1], [2], [3]]);
+    const all = runScript(company, `${setup}WITH RECURSIVE r (n) AS (SELECT 1 UNION ALL SELECT b FROM edges JOIN r ON a = n) SELECT n FROM r`);
+    expect(!all.ok && all.error.message).toBe(GUARD);
+  });
+
+  it('stops a recursion that never ends', () => {
+    const e = error('WITH RECURSIVE n (x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n) SELECT * FROM n');
+    expect(e.kind).toBe('limit');
+    expect(e.message).toBe(GUARD);
+  });
+
+  it('needs the step to refer to the CTE exactly once', () => {
+    expect(error('WITH RECURSIVE n (x) AS (SELECT 1 UNION ALL SELECT a.x FROM n a JOIN n b ON a.x = b.x) SELECT * FROM n').message).toBe(
+      'A recursive CTE must refer to itself exactly once, in FROM or JOIN.',
+    );
+  });
+});
+
+describe('window functions', () => {
+  const company = datasets.company;
+  const eng = (fn: string) =>
+    Object.fromEntries(rows(`SELECT name, ${fn} OVER (PARTITION BY department_id ORDER BY salary DESC) FROM employees WHERE department_id = 2`, company));
+
+  it('ranks with ties', () => {
+    expect(eng('RANK()')).toEqual({ Minh: 1, Khoa: 2, Tuan: 3, Vy: 3, Nam: 5, Bao: 6 });
+    expect(eng('DENSE_RANK()')).toEqual({ Minh: 1, Khoa: 2, Tuan: 3, Vy: 3, Nam: 4, Bao: 5 });
+    const numbers = eng('ROW_NUMBER()');
+    expect([numbers.Minh, numbers.Khoa, numbers.Nam, numbers.Bao]).toEqual([1, 2, 5, 6]);
+    expect(new Set([numbers.Tuan, numbers.Vy])).toEqual(new Set([3, 4]));
+  });
+
+  it('includes tied rows in a running sum', () => {
+    const sums = Object.fromEntries(rows('SELECT name, SUM(salary) OVER (ORDER BY salary) FROM employees', company));
+    expect(sums.Tuan).toBe(sums.Vy);
+    expect(sums.Lan).toBe(62500);
+  });
+
+  it('averages over the whole partition without ORDER BY', () => {
+    // WHERE runs before windows, so read Minh's row from the whole table.
+    const avg = Object.fromEntries(rows('SELECT name, AVG(salary) OVER (PARTITION BY department_id) FROM employees', company)).Minh as number;
+    expect(avg).toBeCloseTo(5083.333, 2);
+  });
+
+  it('looks back and ahead with LAG and LEAD', () => {
+    const r = rows('SELECT LAG(salary) OVER (ORDER BY id), LAG(salary, 2, 0) OVER (ORDER BY id), LEAD(name) OVER (ORDER BY id) FROM employees ORDER BY id', company);
+    expect(r[0]).toEqual([null, 0, 'Minh']);
+    expect(r[2]).toEqual([7000, 9000, 'Tuan']);
+    expect(r.at(-1)![2]).toBeNull();
+  });
+
+  it('ranks groups by an aggregate', () => {
+    expect(rows('SELECT department_id, RANK() OVER (ORDER BY SUM(salary) DESC) FROM employees GROUP BY department_id ORDER BY 2', company)).toEqual([
+      [2, 1],
+      [3, 2],
+      [1, 3],
+      [null, 4],
+    ]);
+  });
+
+  it('can sort by a window function', () => {
+    expect(rows('SELECT name FROM employees ORDER BY ROW_NUMBER() OVER (ORDER BY salary DESC) LIMIT 2', company)).toEqual([['Lan'], ['Minh']]);
+  });
+
+  it('only allows window functions in SELECT and ORDER BY', () => {
+    expect(error('SELECT name FROM employees WHERE RANK() OVER (ORDER BY salary) = 1', company).message).toBe(
+      'Window functions can only be used in SELECT and ORDER BY.',
+    );
+  });
+
+  it.each([
+    ['SELECT SUM(salary) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) FROM employees', 'ROWS'],
+    ['SELECT NTILE(2) OVER (ORDER BY id) FROM employees', 'NTILE'],
+    ['SELECT RANK() OVER w FROM employees WINDOW w AS (ORDER BY id)', 'named windows'],
+    ['SELECT RANK() FROM employees', 'needs OVER'],
+  ])('explains %s', (sql, words) => {
+    expect(error(sql, company).message).toContain(words);
+  });
+});

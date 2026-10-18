@@ -17,9 +17,32 @@ export type Expr = { text: string; line: number; column: number } & (
   | { type: 'inSubquery'; operand: Expr; query: SelectStatement; negated: boolean }
   | { type: 'subquery'; query: SelectStatement }
   | { type: 'aggregate'; fn: AggregateFn; arg: Expr | '*'; distinct: boolean }
+  /** A window function: `fn(args) OVER (PARTITION BY … ORDER BY …)`. `star` is COUNT(*). */
+  | {
+      type: 'window';
+      fn: WindowFn;
+      args: Expr[];
+      star: boolean;
+      partitionBy: Expr[];
+      orderBy: { expr: Expr; desc: boolean }[];
+    }
+  /** Searched CASE has no operand; simple CASE compares the operand with each WHEN. */
+  | { type: 'case'; operand?: Expr; whens: { when: Expr; then: Expr }[]; else?: Expr }
 );
 
-export type Clause = 'FROM' | 'JOIN' | 'WHERE' | 'GROUP BY' | 'HAVING' | 'SELECT' | 'DISTINCT' | 'ORDER BY' | 'LIMIT';
+export type WindowFn = 'ROW_NUMBER' | 'RANK' | 'DENSE_RANK' | 'LAG' | 'LEAD' | AggregateFn;
+
+/** The sub-expressions of a window function: arguments, then PARTITION BY, then ORDER BY. */
+export function windowParts(expr: Extract<Expr, { type: 'window' }>): Expr[] {
+  return [...expr.args, ...expr.partitionBy, ...expr.orderBy.map((o) => o.expr)];
+}
+
+/** The sub-expressions of a CASE, in evaluation order. */
+export function caseParts(expr: Extract<Expr, { type: 'case' }>): Expr[] {
+  return [...(expr.operand ? [expr.operand] : []), ...expr.whens.flatMap((w) => [w.when, w.then]), ...(expr.else ? [expr.else] : [])];
+}
+
+export type Clause = 'FROM' | 'JOIN' | 'WHERE' | 'GROUP BY' | 'HAVING' | 'SELECT' | 'DISTINCT' | 'ORDER BY' | 'LIMIT' | 'WITH' | 'WINDOW' | SetOp;
 
 /** The order SQL evaluates clauses in, which is also the order steps are shown. */
 export const LOGICAL_ORDER: Clause[] = ['FROM', 'JOIN', 'WHERE', 'GROUP BY', 'HAVING', 'SELECT', 'DISTINCT', 'ORDER BY', 'LIMIT'];
@@ -43,16 +66,36 @@ export interface JoinClause extends TableRef {
 export interface SelectStatement {
   distinct: boolean;
   columns: SelectItem[];
-  from: TableRef;
+  /** Absent for SELECT without FROM, which reads one row with no columns. */
+  from?: TableRef;
   joins: JoinClause[];
   where?: Expr;
   groupBy: Expr[];
   having?: Expr;
   orderBy: { expr: Expr; desc: boolean }[];
   limit?: { count: number; offset: number };
+  /**
+   * Later SELECTs joined by set operators, on the first SELECT of a compound. The first
+   * SELECT's orderBy and limit then apply to the whole result.
+   */
+  compound?: { op: SetOp; select: SelectStatement; line: number; selectLine: number; selectColumn: number }[];
+  /** WITH clauses, on the outermost SELECT only. */
+  with?: Cte[];
   /** First source line of each clause present. */
   lines: Partial<Record<Clause, number>>;
 }
+
+/** One named query of a WITH clause. */
+export interface Cte {
+  name: string;
+  columns?: string[];
+  query: SelectStatement;
+  recursive: boolean;
+  line: number;
+  column: number;
+}
+
+export type SetOp = 'UNION' | 'UNION ALL' | 'INTERSECT' | 'EXCEPT';
 
 /** One statement of a script. Every line is 1-based in the whole script. */
 export type Statement =
@@ -63,6 +106,7 @@ export type Statement =
       columns?: string[];
       values?: Expr[][];
       select?: SelectStatement;
+      with?: Cte[];
       line: number;
       lines: { INSERT: number; VALUES?: number; SELECT?: number };
     }
@@ -71,10 +115,11 @@ export type Statement =
       table: TableRef;
       set: { name: string; expr: Expr; line: number; column: number }[];
       where?: Expr;
+      with?: Cte[];
       line: number;
       lines: { UPDATE: number; SET: number; WHERE?: number };
     }
-  | { kind: 'delete'; table: TableRef; where?: Expr; line: number; lines: { DELETE: number; WHERE?: number } }
+  | { kind: 'delete'; table: TableRef; where?: Expr; with?: Cte[]; line: number; lines: { DELETE: number; WHERE?: number } }
   /** `checks` holds every CHECK condition as parsed, so its columns can be checked against the new table. */
   | { kind: 'create'; schema: TableSchema; checks: Expr[]; line: number; column: number }
   | { kind: 'drop'; table: string; ifExists: boolean; line: number; column: number };

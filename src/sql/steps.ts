@@ -4,7 +4,7 @@ import type { Dataset } from './datasets';
 import { asSqlError, type SqlError } from './errors';
 import { executeSelect, type QueryResult, type Relation, type TraceEvent } from './execute';
 import { parseQuery } from './parse';
-import { toPlain, type Truth } from './values';
+import { formatValue, toPlain, type Truth } from './values';
 
 export const MAX_STEPS = 400;
 /** Row checks shown per clause before the rest are summarised, when a run would be too long. */
@@ -16,7 +16,8 @@ const rows = (n: number) => `${n} ${n === 1 ? 'row' : 'rows'}`;
 const word = (outcome: Truth) => (outcome === null ? 'unknown' : String(outcome));
 
 function columnNames(relation: Relation): string[] {
-  const qualify = new Set(relation.columns.map((c) => c.table)).size > 1;
+  // Qualify names only when columns come from more than one table.
+  const qualify = new Set(relation.columns.flatMap((c) => (c.table ? [c.table] : []))).size > 1;
   return relation.columns.map((c) => (qualify && c.table ? `${c.table}.${c.name}` : c.name));
 }
 
@@ -48,7 +49,20 @@ export interface Draft {
 }
 
 export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
-  const clauses = LOGICAL_ORDER.filter((c) => stmt.lines[c] !== undefined);
+  // A compound shows its SELECTs and operators in the order they are written.
+  const clauses: Clause[] = stmt.compound?.length
+    ? [
+        'SELECT',
+        ...stmt.compound.flatMap((c): Clause[] => [c.op, 'SELECT']),
+        ...(stmt.orderBy.length > 0 ? (['ORDER BY'] as const) : []),
+        ...(stmt.limit ? (['LIMIT'] as const) : []),
+      ]
+    : LOGICAL_ORDER.filter((c) => stmt.lines[c] !== undefined);
+  if (stmt.with) clauses.unshift('WITH');
+  const usesWindow = events.some((e) => e.kind === 'window-partitions');
+  if (usesWindow) clauses.splice(clauses.indexOf('SELECT'), 0, 'WINDOW');
+  const cteLine = (name: string) => stmt.with?.find((c) => c.name.toLowerCase() === name.toLowerCase())?.line ?? 1;
+  const recursed = new Set<string>();
   const lineOf = (clause: Clause, fallback?: number) => stmt.lines[clause] ?? fallback ?? stmt.lines.SELECT ?? 1;
   const view = (current: Clause | undefined, tables: SqlTable[]): TableView => ({
     kind: 'table',
@@ -68,29 +82,165 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
   let fromLabel = '';
   let workingLabel = '';
   let lastScan = '';
+  let scans = 0;
+  let combines = 0;
+  const tableNames = [stmt.from?.table, ...stmt.joins.map((j) => j.table)].flatMap((t) => (t ? [t.toLowerCase()] : []));
+  const repeated = new Set(tableNames.filter((t, i) => tableNames.indexOf(t) !== i));
   let joinIndex = -1;
   let joinLeft: Relation | undefined;
   // Checks of the current clause in order; each step's view reads the checks made so far.
   let tested: [id: string, outcome: Truth][] = [];
   let lastRelation: Relation | undefined;
 
+  if (!stmt.from) {
+    push(undefined, {
+      title: 'Run the query',
+      why: `Without FROM, the query works on a single row with no columns. Clauses run in this order: ${clauses.join(' → ')}.`,
+    }, () => []);
+  }
+
   for (const event of events) {
     switch (event.kind) {
-      case 'scan':
-        lastScan = event.table;
-        if (drafts.length > 0) break; // a JOIN's table; its pairs show it
-        fromLabel = workingLabel = event.table;
+      case 'scan': {
+        // A table that appears more than once (a self join) is labelled by alias: "e (employees)".
+        const ref = scans === 0 ? stmt.from : stmt.joins[scans - 1];
+        scans++;
+        const label = ref?.alias && repeated.has(ref.table.toLowerCase()) ? `${ref.alias} (${event.table})` : event.table;
+        lastScan = label;
+        if (scans > 1) break; // a JOIN's table; its pairs show it
+        fromLabel = workingLabel = label;
         lastRelation = event.relation;
         push(undefined, {
           title: 'Run the query',
           why: `SQL runs the clauses in this order: ${clauses.join(' → ')}.`,
           next: 'FROM picks the table to read.',
-        }, () => [toTable(event.table, event.relation)]);
+        }, () => [toTable(label, event.relation)]);
         push('FROM', {
           title: `FROM ${event.table}: start with all ${rows(event.relation.rows.length)}`,
           why: 'FROM picks the table the query reads. Every later clause works on these rows.',
-        }, () => [toTable(event.table, event.relation)]);
+        }, () => [toTable(label, event.relation)]);
         break;
+      }
+
+      case 'window-partitions': {
+        const group = new Map(event.partitions.flatMap((ids, p) => ids.map((id) => [id, p + 1] as const)));
+        const n = event.partitions.length;
+        push('WINDOW', {
+          title: event.label ? `WINDOW: ${n} ${n === 1 ? 'partition' : 'partitions'} by ${event.label}` : 'WINDOW: all rows form one partition',
+          why: 'A window function looks at rows near each row without merging them. PARTITION BY splits the rows into groups, and ORDER BY sorts each group.',
+        }, () => [toTable(workingLabel, event.input, (id) => ({ group: group.get(id)! }))], {}, lineOf('SELECT'));
+        break;
+      }
+
+      case 'window-row': {
+        const depends = new Set(event.dependsOn);
+        const shown = event.values.map((v) => formatValue(v));
+        push('WINDOW', {
+          title: `${event.partition}, row ${event.position}: ${event.fn} = ${shown[0]}${event.detail ? `, ${event.detail}` : ''}`,
+          why: 'The value is worked out from this row and the rows marked next to it, within its partition. The row itself stays in the result.',
+          variables: Object.fromEntries(event.columns.map((c, i) => [c, shown[i]!])),
+        }, () => {
+          const relation = event.relation();
+          return [
+            toTable(workingLabel, relation, (id) => (id === event.row ? { role: 'active', focus: [relation.columns.length - event.columns.length] } : depends.has(id) ? { role: 'compare' } : {})),
+          ];
+        }, { group: 'WINDOW', kept: true }, lineOf('SELECT'));
+        break;
+      }
+
+      case 'cte': {
+        if (recursed.has(event.name)) break; // its rounds already showed it
+        push('WITH', {
+          title: `WITH ${event.name}: ${rows(event.relation.rows.length)}`,
+          why: `The WITH query runs first. Its result works like a table called ${event.name} for the rest of the query.`,
+        }, () => [toTable(event.name, event.relation)], {}, cteLine(event.name));
+        break;
+      }
+
+      case 'recursion-round': {
+        recursed.add(event.name);
+        const read = new Set(event.read.rows.map((r) => r.id));
+        const added = new Set(event.added.rows.map((r) => r.id));
+        const nameColumn = Math.max(0, event.total.columns.findIndex((c) => c.name.toLowerCase() === 'name'));
+        const names = event.added.rows.map((r) => formatValue(r.values[nameColumn]!));
+        const n = event.added.rows.length;
+        const done = event.round > 0 && n === 0;
+        const title =
+          event.round === 0
+            ? `Start: ${rows(n)}${n > 0 && n <= 3 ? ` (${names.join(', ')})` : ''}`
+            : done
+              ? `Round ${event.round} finds nothing, so the recursion stops`
+              : `Round ${event.round}: ${n} new ${n === 1 ? 'row' : 'rows'}, reached from the ${rows(event.read.rows.length)} found ${event.round === 1 ? 'at the start' : `in round ${event.round - 1}`}`;
+        const why =
+          event.round === 0
+            ? 'The first SELECT (the anchor) runs once. Its rows start the result.'
+            : done
+              ? 'The recursive SELECT found no new rows from the last round, so nothing more can be reached.'
+              : `The recursive SELECT runs again, but reads only the rows found in the previous round as ${event.name}. Its new rows join the result.`;
+        push('WITH', { title, why }, () => [
+          toTable(event.name, event.total, (id) => (added.has(id) ? { role: 'found' } : read.has(id) ? { role: 'compare' } : {})),
+        ], done ? {} : { group: `ROUNDS-${event.name}`, kept: true }, cteLine(event.name));
+        break;
+      }
+
+      case 'compound-side': {
+        const n = stmt.compound!.length + 1;
+        const name = event.index === 0 ? 'Left SELECT' : n === 2 ? 'Right SELECT' : `SELECT ${event.index + 1}`;
+        const line = event.index === 0 ? lineOf('SELECT') : stmt.compound![event.index - 1]!.selectLine;
+        if (event.index === 0) {
+          push(undefined, {
+            title: 'Run the query',
+            why: `Each SELECT runs on its own first. Then their rows are combined from left to right: ${clauses.join(' → ')}.`,
+          }, () => [], {}, line);
+        }
+        push('SELECT', {
+          title: `${name}: ${rows(event.relation.rows.length)}`,
+          why: event.index === 0 ? 'The first SELECT runs as a normal query.' : 'The next SELECT runs on its own, with the same number of columns.',
+        }, () => [toTable(name, event.relation)], {}, line);
+        break;
+      }
+
+      case 'combined': {
+        combines++;
+        const part = stmt.compound![combines - 1]!;
+        const dropped = Object.values(event.notes).filter((n) => n === 'duplicate, dropped').length;
+        const role = (note?: string) =>
+          note === undefined ? {} : ({ role: note === 'kept' || note === 'in both' ? 'found' : 'discarded', note } as Partial<SqlRow>);
+        const title = {
+          UNION: `UNION: ${rows(event.relation.rows.length)}, ${dropped} ${dropped === 1 ? 'duplicate' : 'duplicates'} dropped`,
+          'UNION ALL': `UNION ALL: all ${rows(event.relation.rows.length)} kept`,
+          INTERSECT: `INTERSECT: ${rows(event.relation.rows.length)} in both`,
+          EXCEPT: `EXCEPT: ${rows(event.relation.rows.length)} left after removing those on the right`,
+        }[event.op];
+        const why = {
+          UNION: 'UNION puts the rows of both sides together and keeps one copy of each repeated row.',
+          'UNION ALL': 'UNION ALL puts the rows of both sides together and keeps every row, repeats included.',
+          INTERSECT: 'INTERSECT keeps the rows that appear on both sides, once each.',
+          EXCEPT: 'EXCEPT keeps the rows of the left side that do not appear on the right, once each.',
+        }[event.op];
+        lastRelation = event.relation;
+        push(event.op, { title, why }, () => [
+          toTable(combines === 1 ? 'left' : 'result so far', event.left, (id) => role(event.notes[id])),
+          toTable('right', event.right, (id) => role(event.notes[id])),
+          toTable('combined', event.relation, () => ({ role: 'found' })),
+        ], {}, part.line);
+        break;
+      }
+
+      case 'case-row': {
+        const i = event.input.rows.findIndex((r) => r.id === event.row);
+        const shown = typeof event.value === 'string' ? `'${event.value}'` : formatValue(event.value);
+        const read = Object.entries(event.values).map(([k, v]) => `${k} ${v}`).join(', ');
+        const focus = focusOf(event.input, event.values);
+        push('SELECT', {
+          title: `Row ${i + 1}: ${read ? `${read} → ` : ''}${event.branch} → ${shown}`,
+          why: 'CASE tries its WHEN conditions in order and uses the first one that is true. If none is, it uses ELSE, or NULL when there is no ELSE.',
+        }, () => [toTable(workingLabel, event.input, (id) => (id === event.row ? { role: 'active', note: shown, ...(focus.length > 0 && { focus }) } : {}))], {
+          group: 'CASE',
+          kept: true,
+        });
+        break;
+      }
 
       case 'join-test': {
         if (joinLeft !== event.left) {

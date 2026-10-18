@@ -1,7 +1,7 @@
-import type { Expr, SelectStatement } from './ast';
+import { caseParts, type AggregateFn, type Expr, type SelectStatement } from './ast';
 import type { ColumnType, Dataset } from './datasets';
 import { SqlError, suggest } from './errors';
-import { executeSelect, type ColumnRef, type Row } from './execute';
+import { executeSelect, type ColumnRef, type Relation, type Row } from './execute';
 import {
   and,
   arithmetic,
@@ -36,6 +36,36 @@ export interface Scope {
   ctx: ExecContext;
   /** Set on the scopes of a subquery; marked when a name is looked up outside it. */
   correlation?: { used: boolean };
+  /** Results of the WITH clauses in force, by lower-case name. */
+  ctes?: ReadonlyMap<string, Relation>;
+  /** Window function values for this query's rows: by windowKey(expr), then by row id. */
+  windows?: ReadonlyMap<string, ReadonlyMap<string, SqlValue>>;
+}
+
+/** Identifies a window function by where it is written, which survives copying the expression. */
+export const windowKey = (expr: Expr) => `${expr.line}:${expr.column}`;
+
+/** COUNT, SUM, AVG, MIN or MAX over values, as SQLite computes them (NULLs ignored). */
+export function aggregateValues(fn: AggregateFn, values: SqlValue[]): SqlValue {
+  const present = values.filter((v): v is Exclude<SqlValue, null> => v !== null);
+  switch (fn) {
+    case 'COUNT':
+      return present.length;
+    case 'MIN':
+    case 'MAX': {
+      if (present.length === 0) return null;
+      const sign = fn === 'MIN' ? 1 : -1;
+      return present.reduce((best, v) => (sign * compareValues(v, best) < 0 ? v : best));
+    }
+    case 'SUM':
+    case 'AVG': {
+      if (present.length === 0) return null;
+      const real = present.some((v) => typeof v !== 'number');
+      const sum = present.reduce<number>((total, v) => total + toNumber(v)!, 0);
+      if (fn === 'AVG') return new Real(sum / present.length);
+      return real ? new Real(sum) : sum;
+    }
+  }
 }
 
 type Comparison = '=' | '<>' | '<' | '<=' | '>' | '>=';
@@ -203,6 +233,19 @@ export function evaluate(expr: Expr, scope: Scope): SqlValue {
       return runSubquery(expr, scope, 'used as a value')[0] ?? null;
     case 'aggregate':
       return aggregate(expr, scope);
+    case 'window': {
+      const values = scope.windows?.get(windowKey(expr));
+      if (!values) throw new SqlError('Window functions can only be used in SELECT and ORDER BY.', 'syntax', expr.line, expr.column);
+      return values.get(scope.row.id) ?? null;
+    }
+    case 'case': {
+      const operand = expr.operand ? evaluate(expr.operand, scope) : undefined;
+      for (const { when, then } of expr.whens) {
+        const hit = expr.operand ? compare('=', operand!, evaluate(when, scope)) : evaluateTruth(when, scope);
+        if (hit === true) return evaluate(then, scope);
+      }
+      return expr.else ? evaluate(expr.else, scope) : null;
+    }
   }
 }
 
@@ -222,24 +265,7 @@ function aggregate(expr: Extract<Expr, { type: 'aggregate' }>, scope: Scope): Sq
     for (const v of values) if (!byKey.has(valueKey(v))) byKey.set(valueKey(v), v);
     values = [...byKey.values()];
   }
-  switch (expr.fn) {
-    case 'COUNT':
-      return values.length;
-    case 'MIN':
-    case 'MAX': {
-      if (values.length === 0) return null;
-      const sign = expr.fn === 'MIN' ? 1 : -1;
-      return values.reduce((best, v) => (sign * compareValues(v, best) < 0 ? v : best));
-    }
-    case 'SUM':
-    case 'AVG': {
-      if (values.length === 0) return null;
-      const real = values.some((v) => typeof v !== 'number');
-      const sum = values.reduce<number>((total, v) => total + toNumber(v)!, 0);
-      if (expr.fn === 'AVG') return new Real(sum / values.length);
-      return real ? new Real(sum) : sum;
-    }
-  }
+  return aggregateValues(expr.fn, values);
 }
 
 export function evaluateTruth(expr: Expr, scope: Scope): Truth {
@@ -274,6 +300,11 @@ export function referencedColumns(expr: Expr, scope: Scope): Record<string, stri
       case 'inSubquery':
         return visit(e.operand);
       case 'aggregate':
+        values[e.text] = formatValue(evaluate(e, scope));
+        return;
+      case 'case':
+        return caseParts(e).forEach(visit);
+      case 'window':
         values[e.text] = formatValue(evaluate(e, scope));
         return;
       default:
