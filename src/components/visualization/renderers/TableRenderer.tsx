@@ -64,7 +64,8 @@ function Table({ table }: { table: SqlTable }) {
   return (
     <figure className="card min-w-0 p-3">
       <figcaption className="eyebrow mb-2">{table.label}</figcaption>
-      <div className="overflow-x-auto">
+      {/* relative: the header's screen-reader-only labels are absolutely positioned and would otherwise escape this scroll box and widen the page. */}
+      <div className="relative overflow-x-auto">
         <table className="w-full border-separate border-spacing-y-1 font-mono text-xs sm:text-sm">
           <thead>
             <tr className="text-left text-muted">
