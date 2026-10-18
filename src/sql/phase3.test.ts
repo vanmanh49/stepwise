@@ -251,3 +251,64 @@ describe('recursive CTEs', () => {
     );
   });
 });
+
+describe('window functions', () => {
+  const company = datasets.company;
+  const eng = (fn: string) =>
+    Object.fromEntries(rows(`SELECT name, ${fn} OVER (PARTITION BY department_id ORDER BY salary DESC) FROM employees WHERE department_id = 2`, company));
+
+  it('ranks with ties', () => {
+    expect(eng('RANK()')).toEqual({ Minh: 1, Khoa: 2, Tuan: 3, Vy: 3, Nam: 5, Bao: 6 });
+    expect(eng('DENSE_RANK()')).toEqual({ Minh: 1, Khoa: 2, Tuan: 3, Vy: 3, Nam: 4, Bao: 5 });
+    const numbers = eng('ROW_NUMBER()');
+    expect([numbers.Minh, numbers.Khoa, numbers.Nam, numbers.Bao]).toEqual([1, 2, 5, 6]);
+    expect(new Set([numbers.Tuan, numbers.Vy])).toEqual(new Set([3, 4]));
+  });
+
+  it('includes tied rows in a running sum', () => {
+    const sums = Object.fromEntries(rows('SELECT name, SUM(salary) OVER (ORDER BY salary) FROM employees', company));
+    expect(sums.Tuan).toBe(sums.Vy);
+    expect(sums.Lan).toBe(62500);
+  });
+
+  it('averages over the whole partition without ORDER BY', () => {
+    // WHERE runs before windows, so read Minh's row from the whole table.
+    const avg = Object.fromEntries(rows('SELECT name, AVG(salary) OVER (PARTITION BY department_id) FROM employees', company)).Minh as number;
+    expect(avg).toBeCloseTo(5083.333, 2);
+  });
+
+  it('looks back and ahead with LAG and LEAD', () => {
+    const r = rows('SELECT LAG(salary) OVER (ORDER BY id), LAG(salary, 2, 0) OVER (ORDER BY id), LEAD(name) OVER (ORDER BY id) FROM employees ORDER BY id', company);
+    expect(r[0]).toEqual([null, 0, 'Minh']);
+    expect(r[2]).toEqual([7000, 9000, 'Tuan']);
+    expect(r.at(-1)![2]).toBeNull();
+  });
+
+  it('ranks groups by an aggregate', () => {
+    expect(rows('SELECT department_id, RANK() OVER (ORDER BY SUM(salary) DESC) FROM employees GROUP BY department_id ORDER BY 2', company)).toEqual([
+      [2, 1],
+      [3, 2],
+      [1, 3],
+      [null, 4],
+    ]);
+  });
+
+  it('can sort by a window function', () => {
+    expect(rows('SELECT name FROM employees ORDER BY ROW_NUMBER() OVER (ORDER BY salary DESC) LIMIT 2', company)).toEqual([['Lan'], ['Minh']]);
+  });
+
+  it('only allows window functions in SELECT and ORDER BY', () => {
+    expect(error('SELECT name FROM employees WHERE RANK() OVER (ORDER BY salary) = 1', company).message).toBe(
+      'Window functions can only be used in SELECT and ORDER BY.',
+    );
+  });
+
+  it.each([
+    ['SELECT SUM(salary) OVER (ORDER BY id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) FROM employees', 'ROWS'],
+    ['SELECT NTILE(2) OVER (ORDER BY id) FROM employees', 'NTILE'],
+    ['SELECT RANK() OVER w FROM employees WINDOW w AS (ORDER BY id)', 'named windows'],
+    ['SELECT RANK() FROM employees', 'needs OVER'],
+  ])('explains %s', (sql, words) => {
+    expect(error(sql, company).message).toContain(words);
+  });
+});

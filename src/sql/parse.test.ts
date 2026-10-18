@@ -125,7 +125,6 @@ describe('parse errors', () => {
     ['UPDATE t SET a = 1', 'Only a SELECT query can run here, not UPDATE.', undefined],
     ['DELETE FROM t', 'Only a SELECT query can run here, not DELETE.', undefined],
     ['CREATE TABLE t (a INTEGER)', 'Only a SELECT query can run here, not CREATE.', undefined],
-    ['SELECT COUNT(*) OVER (PARTITION BY a) FROM t', '`OVER` isn\'t supported here yet. It is covered in a later lesson.', 'window-functions'],
     ['SELECT * FROM t RIGHT JOIN u ON t.a = u.a', '`RIGHT JOIN` isn\'t supported here yet.', undefined],
     ['SELECT UPPER(name) FROM t', 'Function `UPPER` isn\'t supported here yet.', undefined],
   ])('explains that %s is unsupported', (sql, message, topic) => {

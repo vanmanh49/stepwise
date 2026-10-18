@@ -17,9 +17,25 @@ export type Expr = { text: string; line: number; column: number } & (
   | { type: 'inSubquery'; operand: Expr; query: SelectStatement; negated: boolean }
   | { type: 'subquery'; query: SelectStatement }
   | { type: 'aggregate'; fn: AggregateFn; arg: Expr | '*'; distinct: boolean }
+  /** A window function: `fn(args) OVER (PARTITION BY … ORDER BY …)`. `star` is COUNT(*). */
+  | {
+      type: 'window';
+      fn: WindowFn;
+      args: Expr[];
+      star: boolean;
+      partitionBy: Expr[];
+      orderBy: { expr: Expr; desc: boolean }[];
+    }
   /** Searched CASE has no operand; simple CASE compares the operand with each WHEN. */
   | { type: 'case'; operand?: Expr; whens: { when: Expr; then: Expr }[]; else?: Expr }
 );
+
+export type WindowFn = 'ROW_NUMBER' | 'RANK' | 'DENSE_RANK' | 'LAG' | 'LEAD' | AggregateFn;
+
+/** The sub-expressions of a window function: arguments, then PARTITION BY, then ORDER BY. */
+export function windowParts(expr: Extract<Expr, { type: 'window' }>): Expr[] {
+  return [...expr.args, ...expr.partitionBy, ...expr.orderBy.map((o) => o.expr)];
+}
 
 /** The sub-expressions of a CASE, in evaluation order. */
 export function caseParts(expr: Extract<Expr, { type: 'case' }>): Expr[] {

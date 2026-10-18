@@ -21,6 +21,10 @@ afterAll(() => {
   for (const engine of engines.values()) engine.close();
 });
 
+it('has a corpus of at least 90 queries', () => {
+  expect(corpus3.length).toBeGreaterThanOrEqual(90);
+});
+
 describe.each(corpus3)('$db: $sql', ({ db, sql, ordered }) => {
   it('matches SQLite', () => {
     const ours = runQuery(datasets[db], sql);

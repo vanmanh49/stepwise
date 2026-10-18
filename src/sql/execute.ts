@@ -1,9 +1,9 @@
-import { caseParts, type Cte, type Expr, type JoinClause, type SelectStatement, type SetOp, type TableRef } from './ast';
+import { caseParts, windowParts, type Cte, type Expr, type JoinClause, type SelectStatement, type SetOp, type TableRef } from './ast';
 import { findTable, type ColumnType, type Dataset } from './datasets';
 import { asSqlError, SqlError, suggest } from './errors';
-import { evaluate, evaluateTruth, referencedColumns, resolveColumn, type Scope } from './evaluate';
+import { aggregateValues, evaluate, evaluateTruth, referencedColumns, resolveColumn, windowKey, type Scope } from './evaluate';
 import { parseQuery } from './parse';
-import { compareValues, Real, valueKey, type SqlValue, type Truth } from './values';
+import { compareValues, Real, toNumber, valueKey, type SqlValue, type Truth } from './values';
 
 export interface ColumnRef {
   /** The alias if the query gave one, else the table name. */
@@ -210,6 +210,9 @@ function walk(expr: Expr, visit: (e: Expr, insideAggregate: boolean) => void | f
     case 'case':
       children.push(...caseParts(expr));
       break;
+    case 'window':
+      children.push(...windowParts(expr));
+      break;
     default:
       return;
   }
@@ -294,6 +297,8 @@ function mapChildren(expr: Expr, f: (e: Expr) => Expr): Expr {
       return { ...expr, operand: f(expr.operand), items: expr.items.map(f) };
     case 'aggregate':
       return expr.arg === '*' ? expr : { ...expr, arg: f(expr.arg) };
+    case 'window':
+      return { ...expr, args: expr.args.map(f), partitionBy: expr.partitionBy.map(f), orderBy: expr.orderBy.map((o) => ({ ...o, expr: f(o.expr) })) };
     case 'case':
       return {
         ...expr,
@@ -565,6 +570,18 @@ export function executeSelect(
     if (having) rows = filter('HAVING', having, groupedRelation, scopeOf, empty, trace).rows;
   }
 
+  const windowExprs: Extract<Expr, { type: 'window' }>[] = [];
+  for (const e of [...cols.flatMap((c) => (c.expr ? [c.expr] : [])), ...stmt.orderBy.map((o) => o.expr)]) {
+    walk(e, (node) => {
+      if (node.type === 'window') windowExprs.push(node);
+    });
+  }
+  if (windowExprs.length > 0) {
+    const windows = computeWindows(windowExprs, rows, scopeOf);
+    const plain = scopeOf;
+    scopeOf = (row) => ({ ...plain(row), windows });
+    empty = { ...empty, windows };
+  }
   if (rows.length === 0) for (const c of cols) if (c.expr) evaluate(c.expr, empty);
   const scopeById = new Map(rows.map((row) => [row.id, scopeOf(row)]));
   let projected: Relation = {
@@ -638,6 +655,83 @@ export function executeSelect(
 }
 
 const rowKey = (row: Row) => row.values.map(valueKey).join('|');
+
+/**
+ * Window function values, by windowKey and then row id. Rows are split into partitions in
+ * first-seen order and sorted by the window's ORDER BY (ties keep their order). With ORDER BY,
+ * an aggregate's frame runs from the partition start to the current row and its peers;
+ * without ORDER BY it is the whole partition, as in SQLite.
+ */
+function computeWindows(
+  exprs: Extract<Expr, { type: 'window' }>[],
+  rows: Row[],
+  scopeOf: (row: Row) => Scope,
+): Map<string, Map<string, SqlValue>> {
+  const result = new Map<string, Map<string, SqlValue>>();
+  for (const expr of exprs) {
+    const key = windowKey(expr);
+    if (result.has(key)) continue;
+    const values = new Map<string, SqlValue>();
+    result.set(key, values);
+    for (const partition of windowPartitions(expr, rows, scopeOf)) {
+      const order = partition.map((row) => expr.orderBy.map((o) => evaluate(o.expr, scopeOf(row))));
+      const peerKey = (i: number) => order[i]!.map(valueKey).join('|');
+      partition.forEach((row, i) => {
+        const scope = scopeOf(row);
+        let first = i;
+        while (first > 0 && peerKey(first - 1) === peerKey(i)) first--;
+        let last = i;
+        while (last < partition.length - 1 && peerKey(last + 1) === peerKey(i)) last++;
+        let value: SqlValue;
+        switch (expr.fn) {
+          case 'ROW_NUMBER':
+            value = i + 1;
+            break;
+          case 'RANK':
+            value = first + 1;
+            break;
+          case 'DENSE_RANK':
+            value = new Set(partition.slice(0, i + 1).map((_, k) => peerKey(k))).size;
+            break;
+          case 'LAG':
+          case 'LEAD': {
+            const offset = expr.args[1] ? toNumber(evaluate(expr.args[1], scope)) ?? 1 : 1;
+            const target = expr.fn === 'LAG' ? i - offset : i + offset;
+            const other = partition[target];
+            value = other ? evaluate(expr.args[0]!, scopeOf(other)) : expr.args[2] ? evaluate(expr.args[2], scope) : null;
+            break;
+          }
+          default: {
+            const frame = expr.orderBy.length > 0 ? partition.slice(0, last + 1) : partition;
+            value = expr.star ? frame.length : aggregateValues(expr.fn, frame.map((r) => evaluate(expr.args[0]!, scopeOf(r))));
+          }
+        }
+        values.set(row.id, value);
+      });
+    }
+  }
+  return result;
+}
+
+/** A window's rows split by PARTITION BY (first-seen order), each sorted by its ORDER BY. */
+export function windowPartitions(expr: Extract<Expr, { type: 'window' }>, rows: Row[], scopeOf: (row: Row) => Scope): Row[][] {
+  const groups = new Map<string, Row[]>();
+  for (const row of rows) {
+    const key = expr.partitionBy.map((p) => valueKey(evaluate(p, scopeOf(row)))).join('|');
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  return [...groups.values()].map((partition) => {
+    const keyed = partition.map((row) => ({ row, keys: expr.orderBy.map((o) => evaluate(o.expr, scopeOf(row))) }));
+    keyed.sort((a, b) => {
+      for (let k = 0; k < expr.orderBy.length; k++) {
+        const c = compareValues(a.keys[k]!, b.keys[k]!);
+        if (c !== 0) return expr.orderBy[k]!.desc ? -c : c;
+      }
+      return 0;
+    });
+    return keyed.map((k) => k.row);
+  });
+}
 
 /** Combines two relations with a set operator; `notes` explains what happened to each input row. */
 function combine(op: SetOp, left: Relation, right: Relation): { relation: Relation; notes: Record<string, string> } {

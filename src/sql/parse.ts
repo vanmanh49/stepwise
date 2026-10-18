@@ -1,4 +1,4 @@
-import { caseParts, type AggregateFn, type Expr, type JoinClause, type SelectItem, type Cte, type SelectStatement, type SetOp, type Statement, type TableRef } from './ast';
+import { caseParts, windowParts, type AggregateFn, type Expr, type JoinClause, type SelectItem, type Cte, type SelectStatement, type SetOp, type Statement, type WindowFn, type TableRef } from './ast';
 import { asSqlError, SqlError } from './errors';
 import type { ColumnDef, ColumnType, TableSchema } from './schema';
 import { tokenize, type Token } from './tokenize';
@@ -17,12 +17,15 @@ const COLUMN_TYPES = new Set<string>(['INTEGER', 'REAL', 'TEXT']);
 const WRITES = new Set(['INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP']);
 
 const AGGREGATES = new Set<string>(['COUNT', 'SUM', 'AVG', 'MIN', 'MAX']);
+/** Functions that only exist with OVER. */
+const RANKING = new Set<string>(['ROW_NUMBER', 'RANK', 'DENSE_RANK']);
+const OFFSET = new Set<string>(['LAG', 'LEAD']);
+const LATER_WINDOW = new Set<string>(['NTILE', 'FIRST_VALUE', 'LAST_VALUE', 'NTH_VALUE', 'PERCENT_RANK', 'CUME_DIST']);
 const COMPARISONS = new Set(['=', '<>', '!=', '<', '<=', '>', '>=']);
 
 /** Statement or clause keywords that belong to a later lesson, with the curriculum id that covers them. */
 const LATER: Record<string, string | undefined> = {
   ALTER: undefined,
-  OVER: 'window-functions',
   EXISTS: undefined,
 };
 
@@ -196,6 +199,7 @@ class Parser {
       having = this.expr();
     }
 
+    if (this.isWord('WINDOW')) throw unsupported('named windows (WINDOW … AS)', this.token);
     return {
       distinct,
       columns,
@@ -787,6 +791,8 @@ class Parser {
   private call(): Expr {
     const nameToken = this.next();
     const fn = nameToken.value.toUpperCase();
+    if (RANKING.has(fn) || OFFSET.has(fn)) return this.windowCall(nameToken, fn as WindowFn);
+    if (LATER_WINDOW.has(fn)) throw unsupported(fn, nameToken);
     if (!AGGREGATES.has(fn)) {
       throw new SqlError(`Function \`${fn}\` isn't supported here yet.`, 'unsupported', nameToken.line, nameToken.column);
     }
@@ -801,8 +807,68 @@ class Parser {
       arg = this.expr();
     }
     this.expectPunct(')');
-    if (this.isKeyword('OVER')) throw unsupported('OVER', this.token, LATER.OVER);
+    if (this.isWord('FILTER')) throw unsupported('FILTER', this.token);
+    if (this.isKeyword('OVER')) {
+      if (distinct) throw unsupported('DISTINCT in a window function', nameToken);
+      const window = this.over();
+      return this.node(nameToken, { type: 'window', fn: fn as AggregateFn, args: arg === '*' ? [] : [arg], star: arg === '*', ...window });
+    }
     return this.node(nameToken, { type: 'aggregate', fn: fn as AggregateFn, arg, distinct });
+  }
+
+  /** ROW_NUMBER(), RANK(), DENSE_RANK(), LAG(x [, n [, default]]), LEAD(…), each followed by OVER. */
+  private windowCall(nameToken: Token, fn: WindowFn): Expr {
+    this.expectPunct('(');
+    const args: Expr[] = [];
+    if (!this.isPunct(')')) {
+      do {
+        if (args.length > 0) this.next();
+        args.push(this.expr());
+      } while (this.isPunct(','));
+    }
+    this.expectPunct(')');
+    const allowed = OFFSET.has(fn) ? [1, 2, 3] : [0];
+    if (!allowed.includes(args.length)) {
+      throw new SqlError(
+        OFFSET.has(fn) ? `${fn} takes one to three arguments: a value, how far to look, and a default.` : `${fn} takes no arguments: write ${fn}().`,
+        'syntax',
+        nameToken.line,
+        nameToken.column,
+      );
+    }
+    if (!this.isKeyword('OVER')) throw new SqlError(`${fn} needs OVER (…) to say how to number or order the rows.`, 'syntax', this.token.line, this.token.column);
+    return this.node(nameToken, { type: 'window', fn, args, star: false, ...this.over() });
+  }
+
+  /** OVER ([PARTITION BY …] [ORDER BY …]). Frames and named windows are not supported. */
+  private over(): { partitionBy: Expr[]; orderBy: { expr: Expr; desc: boolean }[] } {
+    this.expectKeyword('OVER');
+    if (this.token.kind === 'identifier') throw unsupported('named windows', this.token);
+    this.expectPunct('(');
+    const partitionBy: Expr[] = [];
+    if (this.acceptKeyword('PARTITION')) {
+      this.expectKeyword('BY');
+      do {
+        if (partitionBy.length > 0) this.next();
+        partitionBy.push(this.expr());
+      } while (this.isPunct(','));
+    }
+    const orderBy: { expr: Expr; desc: boolean }[] = [];
+    if (this.acceptKeyword('ORDER')) {
+      this.expectKeyword('BY');
+      do {
+        if (orderBy.length > 0) this.next();
+        const expr = this.expr();
+        const desc = this.acceptKeyword('DESC');
+        if (!desc) this.acceptKeyword('ASC');
+        orderBy.push({ expr, desc });
+      } while (this.isPunct(','));
+    }
+    if (this.isWord('ROWS') || this.isWord('RANGE') || this.isWord('GROUPS')) {
+      throw unsupported(`window frames (${this.token.value.toUpperCase()} BETWEEN …)`, this.token);
+    }
+    this.expectPunct(')');
+    return { partitionBy, orderBy };
   }
 }
 
@@ -849,6 +915,9 @@ export function firstNode(expr: Expr, test: (e: Expr) => boolean): Expr | undefi
       break;
     case 'case':
       children.push(...caseParts(expr));
+      break;
+    case 'window':
+      children.push(...windowParts(expr));
       break;
   }
   for (const child of children) {
