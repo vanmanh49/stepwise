@@ -1,5 +1,5 @@
-import { ArrowLeft, ArrowRight, CircleCheck, Menu } from 'lucide-react';
-import { Suspense, use, useCallback, useEffect, useState } from 'react';
+import { ArrowLeft, ArrowRight, CircleCheck, Menu, TriangleAlert } from 'lucide-react';
+import { Component, Suspense, use, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { BigOChart } from '../components/bigo/BigOChart';
 import { CodePanel } from '../components/code/CodePanel';
@@ -121,6 +121,11 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
     visit(lesson.id);
     document.title = `${lesson.title} — Stepwise`;
   }, [lesson, visit]);
+
+  // Fetch the next lesson in the background so "Next lesson" opens without waiting.
+  useEffect(() => {
+    if (next) loadLesson(next.id).catch(() => {});
+  }, [next]);
 
   const onStep = useCallback((step: Step, index: number, total: number) => setLive({ step, index, total }), []);
 
@@ -299,12 +304,76 @@ export default function LessonPage({ category }: { category: Category }) {
   const lesson = getLesson(lessonId);
   if (!lesson) return <NotFound />;
   if (lesson.category !== category) return <Navigate to={lessonPath(lesson)} replace />;
-  // The key resets inputs, playback and quiz state when moving between lessons.
+  // The key resets inputs, playback, quiz state and a failed load when moving between lessons.
   return (
-    <Suspense key={lesson.id} fallback={<p className="px-6 py-24 text-center text-muted">Loading…</p>}>
-      <LoadedLesson meta={lesson} />
-    </Suspense>
+    <LessonLoadBoundary key={lesson.id} meta={lesson}>
+      <Suspense fallback={<LessonPlaceholder meta={lesson}><p className="text-lg text-muted">Loading lesson…</p></LessonPlaceholder>}>
+        <LoadedLesson meta={lesson} />
+      </Suspense>
+    </LessonLoadBoundary>
   );
+}
+
+/** The page frame drawn from metadata alone, shown while the lesson's content loads or if it fails. */
+function LessonPlaceholder({ meta, children }: { meta: LessonMeta; children: ReactNode }) {
+  useEffect(() => {
+    document.title = `${meta.title} — Stepwise`;
+  }, [meta]);
+
+  return (
+    <div className="mx-auto grid max-w-[1400px] gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:py-10 xl:grid-cols-[230px_minmax(0,1fr)_230px]">
+      <aside className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto pr-1 lg:block">
+        <CourseSidebar category={meta.category} activeId={meta.id} />
+      </aside>
+      <article className="min-w-0">
+        <header className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+            <Link to={`/${meta.category}`} className="hover:text-text">
+              {CATEGORY_TITLE[meta.category]}
+            </Link>
+            {meta.group && (
+              <>
+                <span aria-hidden>/</span>
+                <span>{meta.group}</span>
+              </>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{meta.title}</h1>
+            <DifficultyBadge difficulty={meta.difficulty} />
+          </div>
+          {children}
+        </header>
+      </article>
+    </div>
+  );
+}
+
+/** Shows a retry message when a lesson's content can't be downloaded, for example while offline. */
+class LessonLoadBoundary extends Component<{ meta: LessonMeta; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <LessonPlaceholder meta={this.props.meta}>
+        <div role="alert" className="card flex flex-col items-start gap-3 p-6">
+          <p className="flex items-center gap-2 font-medium">
+            <TriangleAlert size={18} aria-hidden className="text-danger" />
+            This lesson couldn't load. Check your connection.
+          </p>
+          {/* Browsers remember a failed import() of a chunk and won't fetch it again, so retry with a reload. */}
+          <button type="button" className="btn" onClick={() => window.location.reload()}>
+            Try again
+          </button>
+        </div>
+      </LessonPlaceholder>
+    );
+  }
 }
 
 /** Suspends until the lesson's content has loaded; loadLesson returns the same promise per id. */
