@@ -116,6 +116,11 @@ export interface SqlExercise {
   /** True only when the task asks for an order. */
   orderMatters: boolean;
   hint?: string;
+  /**
+   * For exercises that change data: statements run after the learner's script and after the
+   * solution, each on the database that script left behind. Their outcomes must match.
+   */
+  probes?: string[];
 }
 
 export interface QuizQuestion {
