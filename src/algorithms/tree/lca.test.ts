@@ -46,7 +46,7 @@ describe('lcaStructure', () => {
     [10, 14],
     [6, 6],
   ])('marks exactly the answer as found for LCA(%i, %i)', (a, b) => {
-    const { steps, state } = lcaOp.run(tree, [a, b]);
+    const { steps, state } = lcaOp.run(tree, [a, b], []);
     expect(state).toEqual(tree);
     const last = steps[steps.length - 1]!.view;
     const found = last.kind === 'tree' ? last.nodes.filter((n) => n.role === 'found') : [];
@@ -55,7 +55,7 @@ describe('lcaStructure', () => {
   });
 
   it('refuses a missing value with one step', () => {
-    const { steps } = lcaOp.run(tree, [1, 99]);
+    const { steps } = lcaOp.run(tree, [1, 99], []);
     expect(steps).toHaveLength(1);
     expect(steps[0]!.why).toContain('99');
   });

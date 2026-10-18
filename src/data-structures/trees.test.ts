@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { StructureDef } from '../types/lesson';
+import { sampleInputs } from './shared';
 import type { View } from '../types/visualization';
 import { binaryTreeStructure, levelOrderTree } from './binaryTree';
 import { priorityQueueStructure } from './priorityQueue';
@@ -7,7 +8,7 @@ import { priorityQueueStructure } from './priorityQueue';
 function run(def: StructureDef, opId: string, state: number[], ...args: number[]) {
   const op = def.ops.find((o) => o.id === opId);
   if (!op) throw new Error(`no op ${opId}`);
-  return op.run(state, args);
+  return op.run(state, args, []);
 }
 
 const shown = (view: View): unknown =>
@@ -116,7 +117,7 @@ describe.each([
 ] as const)('%s operations', (_name, def) => {
   it.each(def.ops.map((op) => [op.id, op] as const))('%s is consistent', (_id, op) => {
     const before = [...def.initial];
-    const result = op.run(def.initial, op.args.map((a) => a.sample));
+    const result = op.run(def.initial, sampleInputs(op).args, []);
     const lines = def.code.split('\n').length;
     expect(def.initial).toEqual(before);
     expect(result.steps.length).toBeGreaterThanOrEqual(2);

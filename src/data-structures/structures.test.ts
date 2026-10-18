@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { simpleGraph } from '../algorithms/graph/graphs';
 import type { StructureDef } from '../types/lesson';
+import { sampleInputs } from './shared';
 import type { Step, View } from '../types/visualization';
 import { arrayStructure } from './array';
 import { bstStructure } from './bst';
@@ -13,7 +14,7 @@ import { stackStructure } from './stack';
 function run(def: StructureDef, opId: string, state: number[], ...args: number[]) {
   const op = def.ops.find((o) => o.id === opId);
   if (!op) throw new Error(`no op ${opId}`);
-  return op.run(state, args);
+  return op.run(state, args, []);
 }
 
 /** The data a view shows, without roles or pointers. */
@@ -202,8 +203,7 @@ describe.each([
 ] as const)('%s operations', (_name, def) => {
   it.each(def.ops.map((op) => [op.id, op] as const))('%s is consistent', (_id, op) => {
     const before = [...def.initial];
-    const sample = op.args.map((a) => a.sample);
-    const result = op.run(def.initial, sample);
+    const result = op.run(def.initial, sampleInputs(op).args, []);
     const lines = def.code.split('\n').length;
 
     expect(def.initial).toEqual(before);

@@ -68,7 +68,7 @@ describe('traversalStructure', () => {
   it('offers the four traversals and never changes the tree', () => {
     expect(traversalStructure.ops.map((op) => op.id)).toEqual(ORDERS);
     for (const op of traversalStructure.ops) {
-      const result = op.run(traversalStructure.initial, []);
+      const result = op.run(traversalStructure.initial, [], []);
       expect(result.state).toEqual(traversalStructure.initial);
       expect(result.steps.length).toBeGreaterThan(2);
     }

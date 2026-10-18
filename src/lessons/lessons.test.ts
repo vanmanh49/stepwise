@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { curveForNotation } from '../components/bigo/complexities';
+import { sampleInputs } from '../data-structures/shared';
 import { checkExercise, probeOutcomes } from '../sql/check';
 import { scriptSteps } from '../sql/scriptSteps';
 import { datasets } from '../sql/datasets';
@@ -97,7 +98,8 @@ function defaultSteps(lesson: Lesson): Step[] {
       return config.generate(config.initial, config.target);
     case 'structure': {
       const op = config.structure.ops[0]!;
-      return op.run(config.structure.initial, op.args.map((a) => a.sample)).steps;
+      const { args, words } = sampleInputs(op);
+      return op.run(config.structure.initial, args, words).steps;
     }
     case 'text': {
       const op = config.text.ops[0]!;
