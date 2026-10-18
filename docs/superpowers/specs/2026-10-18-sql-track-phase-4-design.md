@@ -54,8 +54,8 @@ Only AND-ed terms are used. After the access paths, the plan adds `USE TEMP B-TR
 
 ### Executor
 
-- Rows of each table come from its planned access path: a rowid lookup or B-tree search yields only the candidate rows; WHERE and ON still run on every candidate, so results never change. With an index, rows come back in index order, as in SQLite.
-- A new trace event `index-search { table, index, tree, path, scanned, rowids, examined, total }` is emitted for the top-level query's index and rowid searches.
+- **Only indexes created with `CREATE INDEX` change execution** (user decision): when a table's planned path uses such an index, its rows come from a B-tree search, so only candidate rows are read; WHERE and ON still run on every candidate, so results never change, and rows come back in index order, as in SQLite. Rowid lookups and implicit `sqlite_autoindex_*` indexes appear in `EXPLAIN QUERY PLAN` but data is still read row by row, so lessons 1–22 step exactly as before. The Query Plans lesson says that SQLite would use those too.
+- A new trace event `index-search { table, index, tree, path, scanned, rowids, examined, total }` is emitted for the top-level query's searches of created indexes.
 - The work budget counts examined rows, so an index really does less work.
 
 ### Transactions (`script.ts`)
@@ -99,7 +99,7 @@ A script is a **sessions script** when its statements start with `A:` or `B:` (e
 ## 2. Steps and visualization
 
 - **`btree` view** (new `BTreeView` in `types/visualization.ts`): nodes with several keys, edges, linked leaves, and roles for the visited path and matching entries. Laid out level by level; at 375px it scrolls inside its box. `TableView` gains an optional `index?: BTreeView` drawn above its tables.
-- **Index steps:** "Search idx_salary for salary > 5000" (root highlighted) → one step per level down → "Scan the leaves: 5 matches" → "Fetch 5 rows by rowid" (the table, with fetched rows marked) → "Examined 5 of 12 rows; a full scan reads 12." Rowid lookups get one short step. Then the usual WHERE/SELECT steps on the candidates.
+- **Index steps:** "Search idx_salary for salary > 5000" (root highlighted) → one step per level down → "Scan the leaves: 5 matches" → "Fetch 5 rows by rowid" (the table, with fetched rows marked) → "Examined 5 of 12 rows; a full scan reads 12." Then the usual WHERE/SELECT steps on the candidates.
 - **EXPLAIN QUERY PLAN steps:** the plan as an indented tree (one step per entry, linked to the clause it serves), then the result rows.
 - **View steps:** "VIEW dept_pay: 4 rows" at the line that reads it, like a CTE step.
 - **Transaction steps:** "BEGIN: changes are now pending", pending rows marked (`pending` role: inserted, changed, deleted), "COMMIT: 2 changes kept" / "ROLLBACK: 2 changes undone" / "ROLLBACK TO s: 1 change undone", "The script ended inside a transaction, so its changes are undone."
