@@ -63,8 +63,20 @@ export interface SelectStatement {
    * SELECT's orderBy and limit then apply to the whole result.
    */
   compound?: { op: SetOp; select: SelectStatement; line: number; selectLine: number; selectColumn: number }[];
+  /** WITH clauses, on the outermost SELECT only. */
+  with?: Cte[];
   /** First source line of each clause present. */
   lines: Partial<Record<Clause, number>>;
+}
+
+/** One named query of a WITH clause. */
+export interface Cte {
+  name: string;
+  columns?: string[];
+  query: SelectStatement;
+  recursive: boolean;
+  line: number;
+  column: number;
 }
 
 export type SetOp = 'UNION' | 'UNION ALL' | 'INTERSECT' | 'EXCEPT';
@@ -78,6 +90,7 @@ export type Statement =
       columns?: string[];
       values?: Expr[][];
       select?: SelectStatement;
+      with?: Cte[];
       line: number;
       lines: { INSERT: number; VALUES?: number; SELECT?: number };
     }
@@ -86,10 +99,11 @@ export type Statement =
       table: TableRef;
       set: { name: string; expr: Expr; line: number; column: number }[];
       where?: Expr;
+      with?: Cte[];
       line: number;
       lines: { UPDATE: number; SET: number; WHERE?: number };
     }
-  | { kind: 'delete'; table: TableRef; where?: Expr; line: number; lines: { DELETE: number; WHERE?: number } }
+  | { kind: 'delete'; table: TableRef; where?: Expr; with?: Cte[]; line: number; lines: { DELETE: number; WHERE?: number } }
   /** `checks` holds every CHECK condition as parsed, so its columns can be checked against the new table. */
   | { kind: 'create'; schema: TableSchema; checks: Expr[]; line: number; column: number }
   | { kind: 'drop'; table: string; ifExists: boolean; line: number; column: number };

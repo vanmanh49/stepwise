@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { datasets } from './datasets';
+import { datasets, findTable } from './datasets';
+import { runScript } from './script';
 import { runQuery } from './execute';
 import { parseQuery } from './parse';
 import { querySteps } from './steps';
@@ -141,5 +142,67 @@ describe('set operations', () => {
     expect(error('SELECT id FROM customers ORDER BY id UNION SELECT id FROM products').message).toBe(
       'ORDER BY and LIMIT go after the last SELECT of a UNION.',
     );
+  });
+});
+
+describe('CTEs', () => {
+  const company = datasets.company;
+
+  it('reads a CTE like a table', () => {
+    expect(rows('WITH big AS (SELECT name, salary FROM employees WHERE salary > 6000) SELECT name FROM big ORDER BY salary DESC', company)).toEqual([
+      ['Lan'],
+      ['Minh'],
+      ['Hoa'],
+    ]);
+  });
+
+  it('lets later CTEs use earlier ones', () => {
+    const sql =
+      'WITH eng AS (SELECT * FROM employees WHERE department_id = 2), rich AS (SELECT name FROM eng WHERE salary > 5000) SELECT COUNT(*) FROM rich';
+    expect(rows(sql, company)).toEqual([[4]]);
+  });
+
+  it('can be used twice in one query', () => {
+    const sql = 'WITH d AS (SELECT department_id, AVG(salary) AS avg_salary FROM employees GROUP BY department_id) SELECT COUNT(*) FROM d a JOIN d b ON a.avg_salary < b.avg_salary';
+    expect(rows(sql, company)).toEqual([[6]]);
+  });
+
+  it('renames columns with a column list', () => {
+    const result = runQuery(company, 'WITH t (who, pay) AS (SELECT name, salary FROM employees) SELECT who FROM t WHERE pay = 9000');
+    expect(result.ok && result.result.rows).toEqual([['Lan']]);
+  });
+
+  it('checks the column list against the SELECT', () => {
+    expect(error('WITH t (a, b) AS (SELECT id, name, salary FROM employees) SELECT * FROM t', company).message).toBe(
+      'CTE `t` lists 2 columns but its SELECT returns 3.',
+    );
+  });
+
+  it('shadows a table of the same name for this query only', () => {
+    expect(rows('WITH employees AS (SELECT 1 AS n) SELECT * FROM employees', company)).toEqual([[1]]);
+    expect(rows('SELECT COUNT(*) FROM employees', company)).toEqual([[12]]);
+  });
+
+  it('is visible inside subqueries', () => {
+    expect(rows('WITH top AS (SELECT MAX(salary) AS s FROM employees) SELECT name FROM employees WHERE salary = (SELECT s FROM top)', company)).toEqual([['Lan']]);
+  });
+
+  it('suggests a close name for a missing CTE', () => {
+    expect(error('WITH dept_pay AS (SELECT 1 AS n) SELECT * FROM dept_py', company).message).toContain('Did you mean `dept_pay`?');
+  });
+
+  it('needs RECURSIVE to refer to itself', () => {
+    expect(error('WITH n (x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 3) SELECT * FROM n', company).message).toBe(
+      'Add RECURSIVE to let a CTE refer to itself.',
+    );
+  });
+
+  it('can come before INSERT, UPDATE and DELETE', () => {
+    const update = runScript(company, 'WITH low AS (SELECT id FROM employees WHERE salary < 4000) UPDATE employees SET salary = salary + 100 WHERE id IN (SELECT id FROM low)');
+    expect(update.ok && findTable(update.db, 'employees')!.rows.filter((r) => r[4] === 3100 || r[4] === 3700 || r[4] === 4000).length).toBe(3);
+    const del = runScript(company, 'WITH leaf AS (SELECT id FROM employees WHERE id = 11) DELETE FROM employees WHERE id IN (SELECT id FROM leaf)');
+    expect(del.ok && findTable(del.db, 'employees')!.rows).toHaveLength(11);
+    const ins = runScript(company, "WITH n AS (SELECT 'Tam' AS name) INSERT INTO employees (name, salary) SELECT name, 3000 FROM n");
+    expect(ins.ok && findTable(ins.db, 'employees')!.rows.at(-1)).toEqual([13, 'Tam', null, null, 3000, null]);
   });
 });

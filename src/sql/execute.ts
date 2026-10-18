@@ -1,4 +1,4 @@
-import { caseParts, type Expr, type JoinClause, type SelectStatement, type SetOp, type TableRef } from './ast';
+import { caseParts, type Cte, type Expr, type JoinClause, type SelectStatement, type SetOp, type TableRef } from './ast';
 import { findTable, type ColumnType, type Dataset } from './datasets';
 import { asSqlError, SqlError, suggest } from './errors';
 import { evaluate, evaluateTruth, referencedColumns, resolveColumn, type Scope } from './evaluate';
@@ -52,6 +52,7 @@ export type TraceEvent =
   /** One SELECT of a compound, evaluated on its own; `op` joins it to the result so far. */
   | { kind: 'compound-side'; index: number; op?: SetOp; relation: Relation }
   /** Notes are keyed by row id, e.g. "duplicate, dropped". */
+  | { kind: 'cte'; name: string; relation: Relation }
   | { kind: 'combined'; op: SetOp; left: Relation; right: Relation; relation: Relation; notes: Record<string, string> };
 
 export type RunResult = { ok: true; result: QueryResult; statement: SelectStatement } | { ok: false; error: SqlError };
@@ -82,10 +83,15 @@ export function cellValue(v: number | string | null, type: ColumnType): SqlValue
   return typeof v === 'number' && (type === 'REAL' || !Number.isInteger(v)) ? new Real(v) : v;
 }
 
-export function scan(db: Dataset, ref: TableRef): Relation {
+export function scan(db: Dataset, ref: TableRef, ctes?: ReadonlyMap<string, Relation>): Relation {
+  const cte = ctes?.get(ref.table.toLowerCase());
+  if (cte) {
+    const label = ref.alias ?? ref.table;
+    return { columns: cte.columns.map((c) => ({ ...c, table: label })), rows: cte.rows };
+  }
   const table = findTable(db, ref.table);
   if (!table) {
-    const close = suggest(ref.table, db.tables.map((t) => t.name));
+    const close = suggest(ref.table, [...db.tables.map((t) => t.name), ...(ctes ? [...ctes.keys()] : [])]);
     throw new SqlError(
       `No table \`${ref.table}\`.` + (close ? ` Did you mean \`${close}\`?` : ''),
       'name',
@@ -114,8 +120,8 @@ function probe(expr: Expr, relation: Relation, env: Env) {
 }
 
 function join(left: Relation, clause: JoinClause, env: Env, trace?: Trace): Relation {
-  const right = scan(env.db, clause);
-  trace?.({ kind: 'scan', table: findTable(env.db, clause.table)!.name, relation: right });
+  const right = scan(env.db, clause, env.ctes);
+  trace?.({ kind: 'scan', table: tableName(env, clause.table), relation: right });
   const columns = [...left.columns, ...right.columns];
   if (left.rows.length === 0 || right.rows.length === 0) probe(clause.on, { columns, rows: [] }, env);
   const rows: Row[] = [];
@@ -335,19 +341,83 @@ function outputs(stmt: SelectStatement, source: Relation): Output[] {
 }
 
 /** Runs a SELECT. Reports trace events for the top-level statement only; subqueries pass no trace. */
+/** The name to show for a table or CTE in steps. */
+function tableName(env: Env, name: string): string {
+  return env.ctes?.has(name.toLowerCase()) ? name : (findTable(env.db, name)?.name ?? name);
+}
+
+/** Whether a SELECT reads `name` in its FROM or JOINs, or in another SELECT of its compound. */
+function refersTo(stmt: SelectStatement, name: string): boolean {
+  const same = (table: string) => table.toLowerCase() === name.toLowerCase();
+  return (
+    (stmt.from !== undefined && same(stmt.from.table)) ||
+    stmt.joins.some((j) => same(j.table)) ||
+    (stmt.compound ?? []).some((c) => refersTo(c.select, name))
+  );
+}
+
+/** Evaluates WITH clauses in order; each sees the ones before it. */
+export function bindCtes(
+  db: Dataset,
+  ctes: Cte[],
+  base?: ReadonlyMap<string, Relation>,
+  outer?: Scope,
+  trace?: Trace,
+): Map<string, Relation> {
+  const bound = new Map(base ?? []);
+  for (const cte of ctes) {
+    if (refersTo(cte.query, cte.name)) {
+      if (!cte.recursive) throw new SqlError('Add RECURSIVE to let a CTE refer to itself.', 'syntax', cte.line, cte.column);
+      bound.set(cte.name.toLowerCase(), recursiveCte(db, cte, bound, outer, trace));
+      continue;
+    }
+    const result = executeSelect(db, cte.query, undefined, outer, undefined, bound);
+    const relation = cteRelation(cte, result.columns, result.rows.map((values, i) => ({ id: `${cte.name}#${i}`, values })));
+    bound.set(cte.name.toLowerCase(), relation);
+    trace?.({ kind: 'cte', name: cte.name, relation });
+  }
+  return bound;
+}
+
+function cteRelation(cte: Cte, columns: string[], rows: Row[]): Relation {
+  if (cte.columns && cte.columns.length !== columns.length) {
+    throw new SqlError(
+      `CTE \`${cte.name}\` lists ${cte.columns.length} columns but its SELECT returns ${columns.length}.`,
+      'syntax',
+      cte.line,
+      cte.column,
+    );
+  }
+  return { columns: (cte.columns ?? columns).map((name) => ({ table: cte.name, name })), rows };
+}
+
+/** Placeholder until WITH RECURSIVE is supported. */
+function recursiveCte(_db: Dataset, cte: Cte, _bound: Map<string, Relation>, _outer?: Scope, _trace?: Trace): Relation {
+  throw new SqlError('`WITH RECURSIVE` isn\'t supported here yet.', 'unsupported', cte.line, cte.column);
+}
+
 export function executeSelect(
   db: Dataset,
   stmt: SelectStatement,
   trace?: Trace,
   outer?: Scope,
   correlation?: { used: boolean },
+  ctes?: ReadonlyMap<string, Relation>,
 ): QueryResult {
-  if (stmt.compound?.length) return executeCompound(db, stmt, trace, outer, correlation);
-  const env: Env = { outer, db, ctx: outer?.ctx ?? { cache: new Map(), work: 0 }, ...(correlation && { correlation }) };
+  let inScope = ctes ?? outer?.ctes;
+  if (stmt.with) inScope = bindCtes(db, stmt.with, inScope, outer, trace);
+  if (stmt.compound?.length) return executeCompound(db, stmt, trace, outer, correlation, inScope);
+  const env: Env = {
+    outer,
+    db,
+    ctx: outer?.ctx ?? { cache: new Map(), work: 0 },
+    ...(correlation && { correlation }),
+    ...(inScope && { ctes: inScope }),
+  };
   let relation: Relation = { columns: [], rows: [{ id: 'one', values: [] }] };
   if (stmt.from) {
-    relation = scan(db, stmt.from);
-    trace?.({ kind: 'scan', table: findTable(db, stmt.from.table)!.name, relation });
+    relation = scan(db, stmt.from, env.ctes);
+    trace?.({ kind: 'scan', table: tableName(env, stmt.from.table), relation });
   }
   for (const clause of stmt.joins) {
     rejectAggregate(clause.on, (fn) => `Aggregates like ${fn} can't be used in JOIN … ON.`);
@@ -544,9 +614,16 @@ function combine(op: SetOp, left: Relation, right: Relation): { relation: Relati
 }
 
 /** A UNION, INTERSECT or EXCEPT: each SELECT on its own, combined left to right, then sorted and limited as a whole. */
-function executeCompound(db: Dataset, stmt: SelectStatement, trace?: Trace, outer?: Scope, correlation?: { used: boolean }): QueryResult {
-  const sides = [{ ...stmt, compound: undefined, orderBy: [], limit: undefined } as SelectStatement, ...stmt.compound!.map((c) => c.select)];
-  const results = sides.map((side) => executeSelect(db, side, undefined, outer, correlation));
+function executeCompound(
+  db: Dataset,
+  stmt: SelectStatement,
+  trace?: Trace,
+  outer?: Scope,
+  correlation?: { used: boolean },
+  ctes?: ReadonlyMap<string, Relation>,
+): QueryResult {
+  const sides = [{ ...stmt, with: undefined, compound: undefined, orderBy: [], limit: undefined } as SelectStatement, ...stmt.compound!.map((c) => c.select)];
+  const results = sides.map((side) => executeSelect(db, side, undefined, outer, correlation, ctes));
   const width = results[0]!.columns.length;
   stmt.compound!.forEach((part, i) => {
     const count = results[i + 1]!.columns.length;

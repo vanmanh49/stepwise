@@ -3,7 +3,7 @@ import { checkForeignKeys, checkRow } from './constraints';
 import { findTable, type Dataset, type DatasetTable } from './datasets';
 import { ConstraintError, SqlError, suggest } from './errors';
 import { evaluate } from './evaluate';
-import { executeSelect, filter, nullRow, scan, type Env, type QueryResult, type Relation, type Row, type TraceEvent } from './execute';
+import { bindCtes, executeSelect, filter, nullRow, scan, type Env, type QueryResult, type Relation, type Row, type TraceEvent } from './execute';
 import { firstNode } from './parse';
 import { isRowidAlias, type TableSchema } from './schema';
 import { applyAffinity, valueKey, type SqlValue } from './values';
@@ -28,7 +28,7 @@ export type WriteEvent =
 export type Emit = (event: WriteEvent) => void;
 
 const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
-const newEnv = (db: Dataset): Env => ({ db, ctx: { cache: new Map(), work: 0 } });
+const newEnv = (db: Dataset, ctes?: ReadonlyMap<string, Relation>): Env => ({ db, ctx: { cache: new Map(), work: 0 }, ...(ctes && { ctes }) });
 
 function tableOf(db: Dataset, ref: { table: string; line: number; column: number }): DatasetTable {
   const table = findTable(db, ref.table);
@@ -102,14 +102,15 @@ function insert(db: Dataset, st: Extract<Statement, { kind: 'insert' }>, emit?: 
   const table = tableOf(db, st.table);
   const names = st.columns ?? table.columns.map((c) => c.name);
   const targets = names.map((name) => columnIndex(table, name, st.table.line, st.table.column));
+  const ctes = st.with ? bindCtes(db, st.with) : undefined;
   let incoming: SqlValue[][];
   if (st.select) {
     // The whole result is read before anything is written, so a table can be copied into itself.
-    const result = executeSelect(db, st.select);
+    const result = executeSelect(db, st.select, undefined, undefined, undefined, ctes);
     emit?.({ kind: 'select-for-insert', table: table.name, result });
     incoming = result.rows;
   } else {
-    const env = newEnv(db);
+    const env = newEnv(db, ctes);
     const scope = { columns: [], row: { id: 'values', values: [] }, ...env };
     incoming = st.values!.map((row) => row.map((expr) => evaluate(expr, scope)));
   }
@@ -139,8 +140,14 @@ function insert(db: Dataset, st: Extract<Statement, { kind: 'insert' }>, emit?: 
   return incoming.length;
 }
 
-function matching(db: Dataset, ref: TableRef, where: Extract<Statement, { kind: 'update' }>['where'], emit?: Emit): { relation: Relation; rows: Row[]; env: Env } {
-  const env = newEnv(db);
+function matching(
+  db: Dataset,
+  ref: TableRef,
+  where: Extract<Statement, { kind: 'update' }>['where'],
+  emit?: Emit,
+  ctes?: ReadonlyMap<string, Relation>,
+): { relation: Relation; rows: Row[]; env: Env } {
+  const env = newEnv(db, ctes);
   const relation = scan(db, ref);
   if (!where) return { relation, rows: relation.rows, env };
   const scopeOf = (row: Row) => ({ columns: relation.columns, row, ...env });
@@ -151,7 +158,7 @@ function matching(db: Dataset, ref: TableRef, where: Extract<Statement, { kind: 
 function update(db: Dataset, st: Extract<Statement, { kind: 'update' }>, emit?: Emit): number {
   const table = tableOf(db, st.table);
   const targets = st.set.map((s) => columnIndex(table, s.name, s.line, s.column));
-  const { relation, rows, env } = matching(db, st.table, st.where, emit);
+  const { relation, rows, env } = matching(db, st.table, st.where, emit, st.with ? bindCtes(db, st.with) : undefined);
   const scopeOf = (row: Row) => ({ columns: relation.columns, row, ...env });
   if (rows.length === 0) for (const s of st.set) evaluate(s.expr, scopeOf(nullRow(relation.columns)));
   // Like SQLite, rows are updated one at a time: each SET reads that row's old values, while a
@@ -174,7 +181,7 @@ function update(db: Dataset, st: Extract<Statement, { kind: 'update' }>, emit?: 
 
 function remove(db: Dataset, st: Extract<Statement, { kind: 'delete' }>, emit?: Emit): number {
   const table = tableOf(db, st.table);
-  const { relation, rows } = matching(db, st.table, st.where, emit);
+  const { relation, rows } = matching(db, st.table, st.where, emit, st.with ? bindCtes(db, st.with) : undefined);
   const gone = new Set(rows.map((r) => r.id));
   const keep = table.rowIds!.map((id) => !gone.has(id));
   table.rows = table.rows.filter((_, i) => keep[i]);

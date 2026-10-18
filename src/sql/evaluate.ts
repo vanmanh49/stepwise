@@ -1,7 +1,7 @@
 import { caseParts, type Expr, type SelectStatement } from './ast';
 import type { ColumnType, Dataset } from './datasets';
 import { SqlError, suggest } from './errors';
-import { executeSelect, type ColumnRef, type Row } from './execute';
+import { executeSelect, type ColumnRef, type Relation, type Row } from './execute';
 import {
   and,
   arithmetic,
@@ -36,6 +36,8 @@ export interface Scope {
   ctx: ExecContext;
   /** Set on the scopes of a subquery; marked when a name is looked up outside it. */
   correlation?: { used: boolean };
+  /** Results of the WITH clauses in force, by lower-case name. */
+  ctes?: ReadonlyMap<string, Relation>;
 }
 
 type Comparison = '=' | '<>' | '<' | '<=' | '>' | '>=';

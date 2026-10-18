@@ -1,4 +1,4 @@
-import { caseParts, type AggregateFn, type Expr, type JoinClause, type SelectItem, type SelectStatement, type SetOp, type Statement, type TableRef } from './ast';
+import { caseParts, type AggregateFn, type Expr, type JoinClause, type SelectItem, type Cte, type SelectStatement, type SetOp, type Statement, type TableRef } from './ast';
 import { asSqlError, SqlError } from './errors';
 import type { ColumnDef, ColumnType, TableSchema } from './schema';
 import { tokenize, type Token } from './tokenize';
@@ -22,7 +22,6 @@ const COMPARISONS = new Set(['=', '<>', '!=', '<', '<=', '>', '>=']);
 /** Statement or clause keywords that belong to a later lesson, with the curriculum id that covers them. */
 const LATER: Record<string, string | undefined> = {
   ALTER: undefined,
-  WITH: 'ctes',
   OVER: 'window-functions',
   EXISTS: undefined,
 };
@@ -105,7 +104,9 @@ class Parser {
       throw new SqlError(`Only a SELECT query can run here, not ${t.value}.`, 'unsupported', t.line, t.column);
     }
     if (t.kind === 'keyword' && t.value in LATER) throw unsupported(t.value, t, LATER[t.value]);
-    const statement = this.select();
+    const ctes = this.isKeyword('WITH') ? this.withClause() : undefined;
+    if (ctes && !this.isKeyword('SELECT')) this.fail('SELECT after WITH');
+    const statement = { ...this.select(), ...(ctes && { with: ctes }) };
     if (this.isKeyword('UNION', 'INTERSECT', 'EXCEPT')) this.fail('the end of the query');
     if (this.isPunct(';')) this.next();
     if (this.token.kind !== 'eof') {
@@ -300,6 +301,24 @@ class Parser {
     return this.next();
   }
 
+  /** WITH [RECURSIVE] name [(columns)] AS (SELECT …), … */
+  private withClause(): Cte[] {
+    this.expectKeyword('WITH');
+    const recursive = this.acceptWord('RECURSIVE');
+    const ctes: Cte[] = [];
+    do {
+      if (ctes.length > 0) this.next();
+      const name = this.identifier('a name for the WITH query');
+      const columns = this.isPunct('(') ? this.nameList('a column name') : undefined;
+      this.expectKeyword('AS');
+      this.expectPunct('(');
+      const query = this.select();
+      this.expectPunct(')');
+      ctes.push({ name: name.value, ...(columns && { columns }), query, recursive, line: name.line, column: name.column });
+    } while (this.isPunct(','));
+    return ctes;
+  }
+
   private atEnd(): boolean {
     return this.token.kind === 'eof';
   }
@@ -320,6 +339,12 @@ class Parser {
   }
 
   private scriptStatement(): Statement {
+    if (this.isKeyword('WITH')) {
+      const ctes = this.withClause();
+      if (!this.isKeyword('SELECT', 'INSERT', 'UPDATE', 'DELETE')) this.fail('SELECT, INSERT, UPDATE or DELETE after WITH');
+      const statement = this.scriptStatement();
+      return statement.kind === 'select' ? { ...statement, select: { ...statement.select, with: ctes } } : ({ ...statement, with: ctes } as Statement);
+    }
     const t = this.token;
     if (this.isKeyword('SELECT')) {
       const select = this.select();
