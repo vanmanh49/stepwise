@@ -210,3 +210,18 @@ Unit tests cover:
 - **differential tests**: over 120 queries run through both the interpreter and real SQLite ([sql.js](https://github.com/sql-js/sql.js)), whose results must match. sql.js is a dev dependency used only by tests; it is never bundled into the app.
 
 Tests run in Node without a browser. Component behaviour is checked manually in the browser.
+
+## Working with Claude Code
+
+The repository shares a Claude Code setup in `.claude/settings.json`. When you open the project in Claude Code and trust the folder, it offers to add the official plugin marketplace (`anthropics/claude-plugins-official`) and install these plugins:
+
+| Plugin | Used for |
+|---|---|
+| `superpowers` | The spec → plan → build workflow. Specs and plans live in `docs/superpowers/` |
+| `playwright` | Checking lessons in a real browser |
+| `context7` | Up-to-date docs for React, Vite, Tailwind and the other libraries |
+| `frontend-design` | UI and visual design work |
+| `code-review` | Reviewing a branch or pull request |
+| `code-simplifier` | Tidying recently changed code |
+
+Run `/plugin` in Claude Code to see or change what is installed. Personal settings go in `.claude/settings.local.json`, which is git-ignored.
