@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { StructureArg } from '../types/lesson';
-import { parseOpFields, sampleInputs } from './shared';
+import { lineOf, parseOpFields, sampleInputs } from './shared';
 
 const put: { label: string; args: StructureArg[] } = {
   label: 'Put',
@@ -30,5 +30,12 @@ describe('parseOpFields', () => {
 describe('sampleInputs', () => {
   it('splits an operation’s samples into numbers and words', () => {
     expect(sampleInputs(put)).toEqual({ args: [4], words: ['emu'] });
+  });
+});
+
+describe('lineOf', () => {
+  it('finds the 1-based line holding a snippet and throws when it is missing', () => {
+    expect(lineOf('a\nb = 1\nc', 'b =')).toBe(2);
+    expect(() => lineOf('a', 'zzz')).toThrow('zzz');
   });
 });

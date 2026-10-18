@@ -51,3 +51,10 @@ export function sampleInputs(op: { args: StructureArg[] }): { args: number[]; wo
     words: op.args.flatMap((a) => ('text' in a ? [a.sample] : [])),
   };
 }
+
+/** The 1-based line of `code` containing `snippet`; throws if absent, so a code edit can't silently misplace steps. */
+export function lineOf(code: string, snippet: string): number {
+  const line = code.split('\n').findIndex((l) => l.includes(snippet)) + 1;
+  if (line === 0) throw new Error(`Code has no line containing ${snippet}`);
+  return line;
+}
