@@ -102,6 +102,17 @@ describe('red-black delete', () => {
     expect(inorder(rebuild(state))).toEqual([5, 12, 15, 20]);
   });
 
+  it('finishes the story when the double black reaches the root', () => {
+    const { steps, state } = run('delete', [B(5), B(3), B(7)], 3);
+    expect(titles(steps).at(-1)).toBe('The double black reached the root: drop it');
+    expect(state).toEqual([B(5), R(7)]);
+  });
+
+  it('says there is nothing to fix after deleting the only node', () => {
+    const { steps } = run('delete', [B(5)], 5);
+    expect(titles(steps).at(-1)).toBe('The tree is now empty: nothing to fix');
+  });
+
   it('removes the last node', () => {
     const { steps, state } = run('delete', [B(4)], 4);
     expect(state).toEqual([]);

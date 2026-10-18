@@ -323,6 +323,15 @@ function deleteFixup(tree: Tree, x: RbNode | null, parent: RbNode | null, steps:
       });
       x = p;
       parent = p.parent;
+      if (x === tree.root && !x.red) {
+        steps.push({
+          title: 'The double black reached the root: drop it',
+          why: 'Every path in the tree passes through the root, so all of them are one black short together. Black heights are equal again, and the fix is done.',
+          codeLine: LINE.absorb,
+          variables: { root: x.value },
+          view: draw(tree, { [x.value]: 'found' }),
+        });
+      }
       continue;
     }
     if (!isRed(far)) {
@@ -474,10 +483,12 @@ export const redBlackStructure: StructureDef<RBState> = {
           y.red = z.red;
         }
         steps.push({
-          title: removedRed ? 'A red node was removed: nothing to fix' : 'A black node was removed: fix the double black',
+          title: removedRed ? 'A red node was removed: nothing to fix' : tree.root === null ? 'The tree is now empty: nothing to fix' : 'A black node was removed: fix the double black',
           why: removedRed
             ? 'Removing a red node never changes how many black nodes a path has, and cannot put two reds together.'
-            : `Every path through the removed spot is now one black node short. Treat the ${x ? `node ${x.value}` : 'empty spot'} that took its place as "double black" and push the extra black around until it can be absorbed.`,
+            : tree.root === null
+              ? 'The only node is gone. An empty tree breaks no rules.'
+              : `Every path through the removed spot is now one black node short. Treat the ${x ? `node ${x.value}` : 'empty spot'} that took its place as "double black" and push the extra black around until it can be absorbed.`,
           codeLine: LINE.needsFix,
           variables: { value },
           view: draw(tree, x ? { [x.value]: 'active' } : xParent ? { [xParent.value]: 'compare' } : {}),
