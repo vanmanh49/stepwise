@@ -9,6 +9,7 @@ export function AppShell() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- the point is to run on every navigation
   }, [pathname]);
 
   useEffect(() => {

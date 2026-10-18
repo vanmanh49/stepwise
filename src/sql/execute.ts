@@ -221,7 +221,7 @@ function readIndexed(source: Indexed, scope: Scope, env: Env, trace?: Trace): Re
   // Every combination of the IN values, in key order, as SQLite reads them.
   let prefixes: SqlValue[][] = [[]];
   path.equal.forEach((values, k) => {
-    const sorted = [...new Map(values.map((e) => value(e, k)).map((v) => [valueKey(v), v])).values()].sort(compareValues);
+    const sorted = [...new Map(values.map((e) => value(e, k)).map((v) => [valueKey(v), v])).values()].toSorted(compareValues);
     prefixes = prefixes.flatMap((p) => sorted.map((v) => [...p, v]));
   });
   const k = path.equal.length;
@@ -483,6 +483,7 @@ function mapChildren(expr: Expr, f: (e: Expr) => Expr): Expr {
       return {
         ...expr,
         ...(expr.operand && { operand: f(expr.operand) }),
+        // oxlint-disable-next-line unicorn/no-thenable -- the THEN branch of a CASE node; never awaited
         whens: expr.whens.map((w) => ({ when: f(w.when), then: f(w.then) })),
         ...(expr.else && { else: f(expr.else) }),
       };
@@ -868,7 +869,7 @@ export function executeSelect(
   if (stmt.distinct) {
     const seen = new Set<string>();
     const removed: string[] = [];
-    const rows = projected.rows.filter((row) => {
+    const distinctRows = projected.rows.filter((row) => {
       const key = row.values.map(valueKey).join('|');
       if (seen.has(key)) {
         removed.push(row.id);
@@ -878,7 +879,7 @@ export function executeSelect(
       return true;
     });
     const input = projected;
-    projected = { columns: projected.columns, rows };
+    projected = { columns: projected.columns, rows: distinctRows };
     trace?.({ kind: 'distinct', input, removed, relation: projected });
   }
 
@@ -1039,11 +1040,11 @@ function computeWindows(
     for (const partition of windowPartitions(expr, rows, scopeOf)) {
       const order = partition.map((row) => expr.orderBy.map((o) => evaluate(o.expr, scopeOf(row))));
       // Peers share ORDER BY values; find each row's peer group and dense rank in one pass.
-      const keys = order.map((values) => values.map(valueKey).join('|'));
+      const keys = order.map((orderValues) => orderValues.map(valueKey).join('|'));
       const groupStart: number[] = [];
       const dense: number[] = [];
-      keys.forEach((key, i) => {
-        const same = i > 0 && keys[i - 1] === key;
+      keys.forEach((peerKey, i) => {
+        const same = i > 0 && keys[i - 1] === peerKey;
         groupStart.push(same ? groupStart[i - 1]! : i);
         dense.push(i === 0 ? 1 : same ? dense[i - 1]! : dense[i - 1]! + 1);
       });
@@ -1186,7 +1187,7 @@ function executeCompound(
       return i;
     });
     const input = relation;
-    const rows = [...relation.rows].sort((a, b) => {
+    const rows = relation.rows.toSorted((a, b) => {
       for (let k = 0; k < indexes.length; k++) {
         const c = compareValues(a.values[indexes[k]!]!, b.values[indexes[k]!]!);
         if (c !== 0) return stmt.orderBy[k]!.desc ? -c : c;

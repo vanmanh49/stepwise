@@ -28,6 +28,7 @@ jobs:
           node-version: lts/*
           cache: npm
       - run: npm ci
+      - run: npm run lint
       - run: npm test
       # Builds under /stepwise/ and copies index.html to 404.html so deep links work.
       - run: npm run build:pages

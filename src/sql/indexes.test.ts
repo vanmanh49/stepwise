@@ -35,8 +35,8 @@ describe('reading through a created index', () => {
 
   it('never matches NULL in an indexed column', () => {
     const sql = 'SELECT name FROM employees WHERE department_id < 3';
-    const plain = lastRows(sql).map((r) => r[0]).sort();
-    expect(lastRows(`CREATE INDEX i ON employees(department_id);\n${sql}`).map((r) => r[0]).sort()).toEqual(plain);
+    const plain = lastRows(sql).map((r) => r[0]).toSorted();
+    expect(lastRows(`CREATE INDEX i ON employees(department_id);\n${sql}`).map((r) => r[0]).toSorted()).toEqual(plain);
     expect(plain).not.toContain('Thu');
   });
 
@@ -52,7 +52,7 @@ describe('reading through a created index', () => {
   it('searches the inner table of a join once per outer row', () => {
     const sql = "CREATE INDEX idx_dept ON employees(department_id);\nSELECT e.name FROM departments d JOIN employees e ON e.department_id = d.id WHERE d.name = 'Sales'";
     const { result, events } = run(sql);
-    expect(result.statements.at(-1)!.result!.rows.map((r) => r[0]).sort()).toEqual(['Hoa', 'Linh', 'Mai', 'Quang']);
+    expect(result.statements.at(-1)!.result!.rows.map((r) => r[0]).toSorted()).toEqual(['Hoa', 'Linh', 'Mai', 'Quang']);
     expect(searches(events)).toHaveLength(4);
     const pairs = events.filter((e) => e.kind === 'join-test');
     expect(pairs).toHaveLength(11); // 1 + 6 + 4 + 0 candidates instead of 4 × 12

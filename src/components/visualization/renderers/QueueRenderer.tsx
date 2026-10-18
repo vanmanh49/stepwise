@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import type { QueueView } from '../../../types/visualization';
-import { ValueBox, spring } from './ValueBox';
+import { ValueBox } from './ValueBox';
+import { spring } from './spring';
 
 export function QueueRenderer({ view }: { view: QueueView }) {
   const last = view.items.length - 1;

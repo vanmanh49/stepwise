@@ -9,7 +9,7 @@ import { toPlain } from './values';
 type Cell = number | string | null;
 
 const normalise = (rows: Cell[][]) => rows.map((row) => row.map((v) => (typeof v === 'number' ? Number(v.toPrecision(12)) : v)));
-const asMultiset = (rows: Cell[][]) => normalise(rows).map((r) => JSON.stringify(r)).sort();
+const asMultiset = (rows: Cell[][]) => normalise(rows).map((r) => JSON.stringify(r)).toSorted();
 
 /** One label per kind of failure, comparable across the two engines. */
 function ourFailure(error: SqlError): string {
@@ -52,7 +52,7 @@ describe.each(scriptCorpus)('$db: $sql', ({ db, sql }) => {
 
       const tables = sqlite.tables();
       const mine = ourTables(ours.db);
-      expect(Object.keys(mine).map((n) => n.toLowerCase()).sort()).toEqual(Object.keys(tables).map((n) => n.toLowerCase()).sort());
+      expect(Object.keys(mine).map((n) => n.toLowerCase()).toSorted()).toEqual(Object.keys(tables).map((n) => n.toLowerCase()).toSorted());
       for (const [name, rows] of Object.entries(mine)) expect(asMultiset(rows), name).toEqual(asMultiset(tables[name]!));
 
       ours.statements.forEach((statement, i) => {

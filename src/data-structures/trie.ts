@@ -57,7 +57,7 @@ function draw(words: string[], roles: Record<string, Role> = {}, extra: string[]
   const stored = new Set(words);
   return {
     kind: 'trie',
-    nodes: [...prefixes].sort().map((p) => ({
+    nodes: [...prefixes].toSorted().map((p) => ({
       id: idOf(p),
       ...(p !== '' && { parent: idOf(p.slice(0, -1)) }),
       letter: p.at(-1) ?? '',
@@ -141,7 +141,7 @@ export const trieStructure: StructureDef<string[]> = {
           steps.push({ title: `"${word}" is already stored`, why: 'The last node is already marked as the end of a word, so nothing changes.', codeLine: LINE.mark, variables: { word }, view: draw(words, pathRoles(word, word.length, 'found')) });
           return { steps, state: words };
         }
-        const next = [...words, word].sort();
+        const next = [...words, word].toSorted();
         steps.push({
           title: `Mark "${word}" as a word`,
           why: 'The node at the end of the path is marked, so a search can tell a stored word from a prefix of a longer word.',
@@ -207,7 +207,7 @@ export const trieStructure: StructureDef<string[]> = {
         const next = words.filter((w) => w !== word);
         // Nodes still needed by another word stay; the rest are pruned from the bottom up.
         const kept = new Set(next.flatMap(prefixesOf));
-        const doomed = prefixesOf(word).filter((p) => !kept.has(p)).reverse();
+        const doomed = prefixesOf(word).filter((p) => !kept.has(p)).toReversed();
         steps.push({
           title: `Unmark "${word}"`,
           why: doomed.length > 0 ? 'The end-of-word mark is removed. Then, going back up, any node with no children and no mark is useless and is deleted.' : 'The end-of-word mark is removed. Its nodes stay, because another word still uses them.',

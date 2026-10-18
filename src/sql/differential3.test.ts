@@ -9,7 +9,7 @@ type Cell = number | string | null;
 type Sqlite = Awaited<ReturnType<typeof openSqlite>>;
 
 const normalise = (rows: Cell[][]) => rows.map((row) => row.map((v) => (typeof v === 'number' ? Number(v.toPrecision(12)) : v)));
-const asMultiset = (rows: Cell[][]) => normalise(rows).map((r) => JSON.stringify(r)).sort();
+const asMultiset = (rows: Cell[][]) => normalise(rows).map((r) => JSON.stringify(r)).toSorted();
 
 const engines = new Map<DatasetId, Sqlite>();
 

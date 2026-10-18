@@ -83,9 +83,9 @@ class Planner {
 
   constructor(private readonly db: Dataset) {}
 
-  add(parent: number, detail: string): number {
+  add(parent: number, text: string): number {
     const id = this.nextId++;
-    this.entries.push({ id, parent, detail });
+    this.entries.push({ id, parent, detail: text });
     return id;
   }
 

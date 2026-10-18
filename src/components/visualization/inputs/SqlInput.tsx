@@ -1,5 +1,5 @@
 import { Play, RotateCcw } from 'lucide-react';
-import { useId, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useId, useMemo, useState, type FormEvent } from 'react';
 import { datasets } from '../../../sql/datasets';
 import { MAX_QUERY_LENGTH } from '../../../sql/parse';
 import { parseScript } from '../../../sql/parse';
@@ -8,11 +8,9 @@ import type { VisualizationConfig } from '../../../types/lesson';
 import { SchemaPanel } from '../../sql/SchemaPanel';
 import { Visualizer } from '../Visualizer';
 import type { StepListener } from './LessonVisualization';
+import { isRunShortcut } from './runShortcut';
 
 type SqlConfig = Extract<VisualizationConfig, { kind: 'sql' }>;
-
-/** True for Ctrl+Enter or Cmd+Enter, the usual "run" shortcut in SQL editors. */
-export const isRunShortcut = (event: KeyboardEvent) => event.key === 'Enter' && (event.ctrlKey || event.metaKey);
 
 /** A query editor over a sample database; any query that runs is stepped through clause by clause. */
 export function SqlInput({ config, onStep }: { config: SqlConfig; code: string; onStep?: StepListener }) {

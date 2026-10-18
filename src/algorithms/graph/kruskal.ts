@@ -31,7 +31,7 @@ export const kruskalCode = `function kruskal(graph: Graph): Edge[] {
 export function sortedEdges(g: Graph): WeightedEdge[] {
   return g.edges
     .map((e) => ({ from: e.from, to: e.to, weight: e.weight ?? 1 }))
-    .sort((a, b) => a.weight - b.weight || a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
+    .toSorted((a, b) => a.weight - b.weight || a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
 }
 
 /** A minimal disjoint set: each node maps to the smallest node id in its group. */
@@ -41,7 +41,7 @@ function makeGroups(g: Graph) {
     group,
     find: (id: string) => group[id]!,
     union(a: string, b: string) {
-      const [keep, drop] = [group[a]!, group[b]!].sort((x, y) => x.localeCompare(y)) as [string, string];
+      const [keep, drop] = [group[a]!, group[b]!].toSorted((x, y) => x.localeCompare(y)) as [string, string];
       for (const id of Object.keys(group)) if (group[id] === drop) group[id] = keep;
     },
   };

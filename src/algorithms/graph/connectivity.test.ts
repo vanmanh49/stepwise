@@ -66,7 +66,12 @@ function reaches(g: Graph, from: string, to: string): boolean {
   while (queue.length > 0) {
     const id = queue.shift()!;
     if (id === to) return true;
-    for (const e of g.edges) if (e.from === id && !seen.has(e.to)) (seen.add(e.to), queue.push(e.to));
+    for (const e of g.edges) {
+      if (e.from === id && !seen.has(e.to)) {
+        seen.add(e.to);
+        queue.push(e.to);
+      }
+    }
   }
   return false;
 }
@@ -74,7 +79,7 @@ function reaches(g: Graph, from: string, to: string): boolean {
 /** Groups nodes that can reach each other both ways. */
 function bruteForceScc(g: Graph): string[][] {
   const groups: string[][] = [];
-  for (const node of g.nodes.map((n) => n.id).sort()) {
+  for (const node of g.nodes.map((n) => n.id).toSorted()) {
     const group = groups.find((grp) => reaches(g, grp[0]!, node) && reaches(g, node, grp[0]!));
     if (group) group.push(node);
     else groups.push([node]);
@@ -88,7 +93,7 @@ describe('stronglyConnectedComponents', () => {
   });
 
   it('puts every node of a DAG on its own', () => {
-    expect(stronglyConnectedComponents(courseGraph)).toEqual(courseGraph.nodes.map((n) => [n.id]).sort());
+    expect(stronglyConnectedComponents(courseGraph)).toEqual(courseGraph.nodes.map((n) => [n.id]).toSorted());
   });
 
   it.each([sccGraph, directedGraph, courseGraph])('matches mutual reachability on $name', (g) => {

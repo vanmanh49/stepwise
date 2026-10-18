@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { DifficultyBadge } from '../components/lesson/DifficultyBadge';
 import { LessonCard } from '../components/lesson/LessonCard';
-import { CATEGORY_TITLE } from '../components/navigation/CourseSidebar';
+import { CATEGORY_TITLE } from '../lessons/labels';
 import { ProgressBar } from '../components/progress/ProgressBar';
 import { DIFFICULTIES, topicsIn } from '../lessons/curriculum';
 import { lessonsIn } from '../lessons/registry';

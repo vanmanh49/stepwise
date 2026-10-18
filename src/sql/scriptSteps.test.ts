@@ -143,6 +143,6 @@ describe('scriptSteps', () => {
 
   it('gives a quiz view at an index', () => {
     expect(scriptViewAt(shop, EXAMPLE, 0).kind).toBe('table');
-    expect(() => scriptViewAt(shop, 'SELECT nope FROM customers', 0)).toThrow();
+    expect(() => scriptViewAt(shop, 'SELECT nope FROM customers', 0)).toThrow('in: SELECT nope FROM customers');
   });
 });

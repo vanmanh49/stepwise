@@ -155,7 +155,7 @@ export function traversalSteps(levelOrder: number[], order: TraversalOrder): Ste
     steps.push({
       title: `Go down the left side to ${levelOrder[first]}`,
       why: `The left subtree comes before the node itself, so the walk passes ${waiting(first)
-        .reverse()
+        .toReversed()
         .map((p) => levelOrder[p])
         .join(' and ')} without visiting ${waiting(first).length === 1 ? 'it' : 'them'} yet. They wait on the call stack.`,
       codeLine: lines.descend,

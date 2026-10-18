@@ -6,7 +6,7 @@ import { mergeSort, mergeSortCode, mergeSortSteps } from './merge';
 import { quickSort, quickSortCode, quickSortSteps } from './quick';
 import { selectionSort, selectionSortCode, selectionSortSteps } from './selection';
 
-const ascending = (values: number[]) => [...values].sort((a, b) => a - b);
+const ascending = (values: number[]) => values.toSorted((a, b) => a - b);
 
 function seeded(count: number): number[] {
   let seed = 42;
@@ -62,13 +62,13 @@ describe.each([
 
   it('keeps every cell identity through every step', () => {
     const result = steps([5, 2, 8, 1, 9, 3]);
-    const initial = realIds(result[0]!).sort();
+    const initial = realIds(result[0]!).toSorted();
     expect(initial).toHaveLength(6);
     for (const step of result) {
       expect(step.view.kind).toBe('array');
       const ids = realIds(step);
       expect(new Set(ids).size).toBe(ids.length);
-      expect([...ids].sort()).toEqual(initial);
+      expect(ids.toSorted()).toEqual(initial);
     }
   });
 

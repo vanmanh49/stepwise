@@ -1,7 +1,8 @@
 import { LayoutGroup, motion } from 'motion/react';
 import { useId } from 'react';
 import type { BucketsView, Cell } from '../../../types/visualization';
-import { ValueBox, spring } from './ValueBox';
+import { ValueBox } from './ValueBox';
+import { spring } from './spring';
 
 function Moving({ cell, wide = false }: { cell: Cell; wide?: boolean }) {
   // layoutId lets a value glide between the input row and its bucket.

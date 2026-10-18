@@ -29,7 +29,7 @@ function shown(view: View): unknown {
     case 'heap':
       return view.items.map((c) => c.value);
     case 'tree':
-      return view.nodes.map((n) => [n.value, n.left, n.right]).sort();
+      return view.nodes.map((n) => [n.value, n.left, n.right]).toSorted();
     case 'graph':
       return view.nodes.map((n) => n.id);
   }

@@ -5,7 +5,7 @@ import { datasets, type DatasetId } from '../../sql/datasets';
 import { MAX_QUERY_LENGTH } from '../../sql/parse';
 import { useProgress } from '../../store/progress';
 import type { SqlExercise } from '../../types/lesson';
-import { isRunShortcut } from '../visualization/inputs/SqlInput';
+import { isRunShortcut } from '../visualization/inputs/runShortcut';
 
 function Exercise({
   lessonId,

@@ -16,13 +16,13 @@ function edgeSets(view: View) {
   const [graph, matrix, list, edgeList] = panels(view) as [GraphView, GridView, GridView, ArrayView];
   const both = (u: string, v: string) => (graph.directed ? [`${u}>${v}`] : [`${u}>${v}`, `${v}>${u}`]);
   return {
-    graph: graph.edges.flatMap((e) => both(e.from.slice(1), e.to.slice(1))).sort(),
-    matrix: matrix.rows.flatMap((row, u) => row.cells.flatMap((c, v) => (c?.value === 1 ? [`${u}>${v}`] : []))).sort(),
-    list: list.rows.flatMap((row, u) => row.cells.flatMap((c) => (c ? [`${u}>${c.value}`] : []))).sort(),
+    graph: graph.edges.flatMap((e) => both(e.from.slice(1), e.to.slice(1))).toSorted(),
+    matrix: matrix.rows.flatMap((row, u) => row.cells.flatMap((c, v) => (c?.value === 1 ? [`${u}>${v}`] : []))).toSorted(),
+    list: list.rows.flatMap((row, u) => row.cells.flatMap((c) => (c ? [`${u}>${c.value}`] : []))).toSorted(),
     edgeList: edgeList.cells.flatMap((c) => {
       const [u, v] = String(c.value).split(/[–→]/);
       return both(u!, v!);
-    }).sort(),
+    }).toSorted(),
   };
 }
 

@@ -86,7 +86,7 @@ describe('SELECT without FROM', () => {
   });
 });
 
-const sorted = (r: unknown[][]) => [...r].map((x) => JSON.stringify(x)).sort();
+const sorted = (r: unknown[][]) => [...r].map((x) => JSON.stringify(x)).toSorted();
 
 describe('set operations', () => {
   it('UNION removes duplicates, including NULL duplicates', () => {
@@ -113,7 +113,7 @@ describe('set operations', () => {
 
   it('runs three operands left to right', () => {
     const r = rows('SELECT id FROM customers WHERE id <= 3 UNION SELECT id FROM customers WHERE id = 5 EXCEPT SELECT id FROM customers WHERE id = 2');
-    expect(r.map((x) => x[0]).sort()).toEqual([1, 3, 5]);
+    expect(r.map((x) => x[0]).toSorted()).toEqual([1, 3, 5]);
   });
 
   it('names columns after the first SELECT', () => {

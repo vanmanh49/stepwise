@@ -145,7 +145,7 @@ describe('red-black tree over random operations', () => {
       const root = rebuild(state);
       expect(root?.red ?? false).toBe(false);
       check(root);
-      expect(inorder(root)).toEqual([...reference].sort((a, b) => a - b));
+      expect(inorder(root)).toEqual([...reference].toSorted((a, b) => a - b));
     }
     for (const name of [
       'Uncle # is red: recolour',

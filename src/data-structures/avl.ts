@@ -251,7 +251,7 @@ export const avlStructure: StructureDef = {
           variables: { value },
           view: view(inserted, { ...path, [value]: 'found' }),
         });
-        const next = retrace(inserted, ancestors.reverse(), true, steps);
+        const next = retrace(inserted, ancestors.toReversed(), true, steps);
         return { steps, state: toPreorder(next) };
       },
     },
@@ -310,7 +310,7 @@ export const avlStructure: StructureDef = {
           variables: { value },
           view: view(removed, twoChildren ? { [gone]: 'found' } : {}),
         });
-        const next = retrace(removed, ancestors.reverse(), false, steps);
+        const next = retrace(removed, ancestors.toReversed(), false, steps);
         return { steps, state: toPreorder(next) };
       },
     },

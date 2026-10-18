@@ -3,7 +3,7 @@ import type { Cell, Step } from '../../types/visualization';
 import { countingSort, countingSortCode, countingSortSteps } from './counting';
 import { radixSort, radixSortCode, radixSortSteps } from './radix';
 
-const ascending = (values: number[]) => [...values].sort((a, b) => a - b);
+const ascending = (values: number[]) => values.toSorted((a, b) => a - b);
 
 function seeded(count: number, max: number, seed: number): number[] {
   return Array.from({ length: count }, () => {

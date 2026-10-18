@@ -78,7 +78,7 @@ describe('like', () => {
 
 describe('compareValues', () => {
   it('sorts NULL first, then numbers, then text', () => {
-    const sorted = ['b', 2, null, new Real(1.5), 'a'].sort(compareValues);
+    const sorted = ['b', 2, null, new Real(1.5), 'a'].toSorted(compareValues);
     expect(sorted).toEqual([null, new Real(1.5), 2, 'a', 'b']);
   });
 });

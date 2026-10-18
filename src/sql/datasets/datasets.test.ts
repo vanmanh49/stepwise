@@ -87,7 +87,7 @@ describe('shop dataset', () => {
     expect(averages.some((a) => a > 30)).toBe(true);
     expect(averages.some((a) => a <= 30)).toBe(true);
     expect(unique(prices)).toBe(false);
-    const sorted = [...prices].sort((a, b) => a - b);
+    const sorted = prices.toSorted((a, b) => a - b);
     expect(sorted[0]).toBeLessThan(sorted[1]!);
     expect(sorted[1]).toBeLessThan(sorted[2]!);
     expect(sorted[2]).toBeLessThan(sorted[3]!);

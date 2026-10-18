@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import type { CallsView } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
 import { callBoxWidth, layoutCalls } from './callsLayout';
-import { spring } from './ValueBox';
+import { spring } from './spring';
 
 const GAP = 12;
 const ROW = 64;

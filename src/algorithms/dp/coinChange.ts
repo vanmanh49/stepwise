@@ -18,7 +18,7 @@ export const coinChangeCode = `function coinChange(coins: number[], amount: numb
 const LINE = { init: 3, fill: 7, none: 6, done: 11 };
 
 function solve(coins: number[], amount: number): { dp: number[]; last: (number | undefined)[] } {
-  const dp = new Array<number>(amount + 1).fill(Infinity);
+  const dp = Array.from({ length: amount + 1 }, () => Infinity);
   const last: (number | undefined)[] = [];
   dp[0] = 0;
   for (let a = 1; a <= amount; a++) {
@@ -45,7 +45,7 @@ export function coinChangeSteps(input: Record<string, string>): Step[] {
   if (!coinsRead.ok) return refusal('Check the coins', coinsRead.why, empty);
   const amountRead = readInt(input, 'amount', 'Amount', { min: 0, max: 20 });
   if (!amountRead.ok) return refusal('Check the amount', amountRead.why, empty);
-  const coins = [...new Set(coinsRead.value)].sort((a, b) => a - b);
+  const coins = [...new Set(coinsRead.value)].toSorted((a, b) => a - b);
   const amount = amountRead.value;
 
   const { dp, last } = solve(coins, amount);

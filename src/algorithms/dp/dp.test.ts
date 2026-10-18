@@ -99,7 +99,10 @@ function bruteKnapsack(weights: number[], values: number[], capacity: number): n
     let w = 0;
     let v = 0;
     weights.forEach((wi, i) => {
-      if (mask & (1 << i)) (w += wi), (v += values[i]!);
+      if (mask & (1 << i)) {
+        w += wi;
+        v += values[i]!;
+      }
     });
     if (w <= capacity) best = Math.max(best, v);
   }

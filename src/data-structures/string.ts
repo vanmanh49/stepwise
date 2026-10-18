@@ -178,7 +178,7 @@ export const stringStructure: TextDef = {
           left++;
           right--;
         }
-        const result = [...text].reverse().join('');
+        const result = [...text].toReversed().join('');
         steps.push({
           title: `The reversed string is "${result}"`,
           why:

@@ -104,7 +104,7 @@ describe('B-tree', () => {
       if (op === 'delete') reference.delete(value);
       checkShape(state);
       expect(new Set(depths(state)).size).toBe(1);
-      expect(keysOf(state)).toEqual([...reference].sort((a, b) => a - b));
+      expect(keysOf(state)).toEqual([...reference].toSorted((a, b) => a - b));
     }
     for (const name of ['Borrow from the left sibling', 'Borrow from the right sibling', 'Merge with the left sibling', 'Merge with the right sibling', 'Split']) {
       expect([...seen].some((t) => t.startsWith(name)), name).toBe(true);

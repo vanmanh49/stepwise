@@ -1,26 +1,30 @@
 import { ArrowRight } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { ListView } from '../../../types/visualization';
-import { CELL_WIDTH, PointerChip, ValueBox, spring } from './ValueBox';
+import { CELL_WIDTH, PointerChip, ValueBox } from './ValueBox';
+import { spring } from './spring';
 
-export function ListRenderer({ view }: { view: ListView }) {
-  const pointersAt = (i: number) =>
-    Object.entries(view.pointers ?? {})
-      .filter(([, index]) => index === i)
-      .map(([name]) => name);
-
-  const Pointers = ({ index }: { index: number }) => (
+/** The pointer names (head, tail, prev …) above one slot, with an arrow when there are any. */
+function Pointers({ names }: { names: string[] }) {
+  return (
     <div className="flex min-h-12 flex-col items-center justify-end gap-1 pb-1">
-      {pointersAt(index).map((name) => (
+      {names.map((name) => (
         <PointerChip key={name} name={name} />
       ))}
-      {pointersAt(index).length > 0 && (
+      {names.length > 0 && (
         <span aria-hidden className="text-xs leading-none text-accent">
           ↓
         </span>
       )}
     </div>
   );
+}
+
+export function ListRenderer({ view }: { view: ListView }) {
+  const pointersAt = (i: number) =>
+    Object.entries(view.pointers ?? {})
+      .filter(([, index]) => index === i)
+      .map(([name]) => name);
 
   return (
     <div className="flex items-end gap-1.5">
@@ -36,7 +40,7 @@ export function ListRenderer({ view }: { view: ListView }) {
             className="flex items-end gap-1.5"
           >
             <div className="flex flex-col items-center">
-              <Pointers index={i} />
+              <Pointers names={pointersAt(i)} />
               <ValueBox cell={node} />
             </div>
             <ArrowRight aria-hidden size={18} className="mb-3.5 text-muted sm:mb-[18px]" />
@@ -44,7 +48,7 @@ export function ListRenderer({ view }: { view: ListView }) {
         ))}
       </AnimatePresence>
       <motion.div layout transition={spring} className="flex flex-col items-center">
-        <Pointers index={view.nodes.length} />
+        <Pointers names={pointersAt(view.nodes.length)} />
         <div
           className={`flex h-12 items-center justify-center rounded-xl border-2 border-dashed border-border font-mono text-xs text-muted sm:h-14 ${CELL_WIDTH}`}
         >

@@ -896,6 +896,7 @@ class Parser {
       this.expectKeyword('WHEN');
       const when = this.expr();
       this.expectKeyword('THEN');
+      // oxlint-disable-next-line unicorn/no-thenable -- the THEN branch of a CASE node; never awaited
       whens.push({ when, then: this.expr() });
     } while (this.isKeyword('WHEN'));
     const otherwise = this.acceptKeyword('ELSE') ? this.expr() : undefined;

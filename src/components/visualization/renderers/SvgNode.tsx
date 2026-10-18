@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import type { Role } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
-import { spring } from './ValueBox';
+import { spring } from './spring';
 
 export const NODE_RADIUS = 20;
 

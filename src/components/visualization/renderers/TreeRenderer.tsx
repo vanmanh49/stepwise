@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import type { TreeView } from '../../../types/visualization';
 import { NODE_RADIUS, SvgNode } from './SvgNode';
 import { layoutTree } from './treeLayout';
-import { spring } from './ValueBox';
+import { spring } from './spring';
 
 const X_GAP = 54;
 const Y_GAP = 66;

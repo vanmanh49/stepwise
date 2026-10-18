@@ -46,7 +46,7 @@ function fullyIndexed(db: Dataset): Dataset {
   return copy;
 }
 
-const asMultiset = (rows: unknown[][]) => rows.map((r) => JSON.stringify(r.map(toPlain as (v: unknown) => unknown))).sort();
+const asMultiset = (rows: unknown[][]) => rows.map((r) => JSON.stringify(r.map(toPlain as (v: unknown) => unknown))).toSorted();
 
 describe.each([...corpus, ...corpus3].map((entry) => [entry.db, entry.sql] as const))('%s with every column indexed: %s', (db, sql) => {
   it('returns the same rows as without indexes', () => {

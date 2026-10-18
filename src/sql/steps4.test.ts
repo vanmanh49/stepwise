@@ -39,7 +39,7 @@ describe('index steps', () => {
     ];
     const at = order.map((t) => titles(s).indexOf(t));
     expect(at.every((i) => i >= 0), titles(s).join('\n')).toBe(true);
-    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    expect(at.toSorted((a, b) => a - b)).toEqual(at);
     // WHERE then checks only the 6 rows the index found.
     expect(titles(s).filter((t) => t.startsWith('Row ')).length).toBe(6);
   });

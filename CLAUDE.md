@@ -12,11 +12,12 @@ npm test                                 # whole Vitest suite (src/**/*.test.ts)
 npx vitest run src/sql/parse.test.ts     # one file
 npx vitest run -t "rotates left"         # tests whose name matches
 npm run typecheck                        # tsc --noEmit (strict, noUncheckedIndexedAccess)
+npm run lint                             # oxlint --deny-warnings (config: .oxlintrc.json)
 npm run build                            # typecheck + production build
 npm run build:pages                      # build under /stepwise/ and copy index.html to 404.html
 ```
 
-There is no linter. `typecheck` and `npm test` are the checks; CI runs `npm test` and then `build:pages`.
+CI runs `npm run lint`, `npm test` and then `build:pages`. The linter is Oxlint rather than ESLint because typescript-eslint does not support TypeScript 7. Its `correctness` and `suspicious` categories are errors, plus the React hooks rules. A few rules are switched off in `.oxlintrc.json` because they don't fit this code (the automatic JSX runtime, narrowing `{ok}` results inside tests, helpers kept next to their only caller). For a deliberate exception, use `// oxlint-disable-next-line <rule> -- <reason>`.
 
 Every push to `main` deploys to GitHub Pages (`.github/workflows/deploy.yml`), and a failing test blocks the deploy.
 

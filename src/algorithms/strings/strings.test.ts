@@ -63,7 +63,7 @@ describe('KMP', () => {
     const scan = steps.filter((s) => s.view.kind === 'panels' && typeof s.variables?.i === 'number');
     expect(scan.length).toBeGreaterThan(0);
     const positions = scan.map((s) => s.variables!.i as number);
-    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(positions).toEqual(positions.toSorted((a, b) => a - b));
     expect(steps[steps.length - 1]!.title).toContain('10');
   });
 

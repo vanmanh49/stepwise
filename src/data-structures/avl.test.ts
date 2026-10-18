@@ -91,7 +91,7 @@ describe('AVL tree', () => {
       if (op === 'insert' && reference.size < MAX_AVL_NODES) reference.add(value);
       if (op === 'delete') reference.delete(value);
       const root = build(state);
-      expect(inorder(root)).toEqual([...reference].sort((a, b) => a - b));
+      expect(inorder(root)).toEqual([...reference].toSorted((a, b) => a - b));
       checkBalanced(root);
     }
   });

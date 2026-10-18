@@ -113,7 +113,7 @@ describe('runQuery: DISTINCT, ORDER BY and LIMIT', () => {
   it('sorts by several keys with DESC', () => {
     const r = plain(run('SELECT name, price FROM products ORDER BY price DESC, name'));
     const expected = [...products]
-      .sort((a, b) => (b[3] as number) - (a[3] as number) || String(a[1]).localeCompare(String(b[1])))
+      .toSorted((a, b) => (b[3] as number) - (a[3] as number) || String(a[1]).localeCompare(String(b[1])))
       .map((p) => [p[1], p[3]]);
     expect(r).toEqual(expected);
   });
