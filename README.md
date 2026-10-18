@@ -48,6 +48,7 @@ Then open the URL that Vite prints (normally http://localhost:5173).
 | `npm run preview` | Serve the production build locally |
 | `npm test` | Run the unit tests once |
 | `npm run typecheck` | Type-check without building |
+| `npm run bench` | Time the SQL engine on heavy queries (`src/sql/engine.bench.ts`) |
 | `npm run lint` | Lint with [Oxlint](https://oxc.rs) (config in `.oxlintrc.json`); warnings count as failures |
 | `npm run build:pages` | Build for GitHub Pages under `/stepwise/` |
 

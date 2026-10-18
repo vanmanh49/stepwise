@@ -1,7 +1,16 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "oxc", "react", "vitest"],
-  "env": { "browser": true, "es2024": true },
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react",
+    "vitest"
+  ],
+  "env": {
+    "browser": true,
+    "es2024": true
+  },
   "categories": {
     "correctness": "error",
     "suspicious": "error"
@@ -9,12 +18,44 @@
   "rules": {
     "react/rules-of-hooks": "error",
     "react/exhaustive-deps": "error",
-    "react/only-export-components": ["error", { "allowConstantExport": true }],
+    "react/only-export-components": [
+      "error",
+      {
+        "allowConstantExport": true
+      }
+    ],
     "react/react-in-jsx-scope": "off",
     "unicorn/consistent-function-scoping": "off",
     "vitest/no-conditional-expect": "off",
-    "vitest/valid-expect": ["error", { "maxArgs": 2 }],
-    "vitest/expect-expect": ["error", { "assertFunctionNames": ["expect", "expectExplained"] }]
+    "vitest/valid-expect": [
+      "error",
+      {
+        "maxArgs": 2
+      }
+    ],
+    "vitest/expect-expect": [
+      "error",
+      {
+        "assertFunctionNames": [
+          "expect",
+          "expectExplained"
+        ]
+      }
+    ]
   },
-  "ignorePatterns": ["dist", "node_modules", ".superpowers"]
+  "overrides": [
+    {
+      "files": [
+        "**/*.bench.ts"
+      ],
+      "rules": {
+        "vitest/expect-expect": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "dist",
+    "node_modules",
+    ".superpowers"
+  ]
 }

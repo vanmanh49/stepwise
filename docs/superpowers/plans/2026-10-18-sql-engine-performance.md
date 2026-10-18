@@ -38,14 +38,14 @@
 
 **Produces:** `export function rowIndex(rows: readonly Row[], id: string): number`
 
-- [ ] Tests:
+- [x] Tests:
   - returns the same index as `findIndex` for each id;
   - returns −1 for a missing id;
   - returns the first index when ids repeat;
   - two different arrays holding the same ids at different positions each answer for themselves.
-- [ ] Run; expect a failure because `rowIndex` is not exported.
-- [ ] Implement with a `WeakMap<readonly Row[], Map<string, number>>`. Replace the `rows.findIndex((r) => r.id === …)` lookups in `steps.ts` and `scriptSteps.ts`, and `rows.find((r) => r.id === …)` where the row itself is needed.
-- [ ] Run the SQL tests and the full suite; commit.
+- [x] Run; expect a failure because `rowIndex` is not exported.
+- [x] Implement with a `WeakMap<readonly Row[], Map<string, number>>`. Replace the `rows.findIndex((r) => r.id === …)` lookups in `steps.ts` and `scriptSteps.ts`, and `rows.find((r) => r.id === …)` where the row itself is needed.
+- [x] Run the SQL tests and the full suite; commit.
 
 ### Task 3: `matchingColumns` for column resolution
 
@@ -53,17 +53,17 @@
 
 **Produces:** `export function matchingColumns(columns: readonly ColumnRef[], expr: { table?: string; name: string }): readonly number[]`
 
-- [ ] Tests:
+- [x] Tests:
   - agrees with a direct scan for qualified, unqualified and differently-cased references;
   - repeated calls return equal results;
   - one reference node gives different answers for two different column lists.
-- [ ] Run; expect a failure because the function is not exported.
-- [ ] Implement with `WeakMap<readonly ColumnRef[], WeakMap<object, readonly number[]>>`, keyed by the expression node. Make `resolveColumn` use it in place of its `flatMap`.
-- [ ] Run the SQL tests and the full suite; commit.
+- [x] Run; expect a failure because the function is not exported.
+- [x] Implement with `WeakMap<readonly ColumnRef[], WeakMap<object, readonly number[]>>`, keyed by the expression node. Make `resolveColumn` use it in place of its `flatMap`.
+- [x] Run the SQL tests and the full suite; commit.
 
 ### Task 4: Verify and ship
 
-- [ ] Run `npm run bench` again and compare with the baseline.
-- [ ] Re-measure the browser freeze on the 4× throttled profile with the production build.
-- [ ] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build:pages`.
-- [ ] Final whole-branch review on Opus; then PR and merge.
+- [x] Run `npm run bench` again and compare with the baseline.
+- [x] Re-measure the browser freeze on the 4× throttled profile with the production build.
+- [x] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build:pages`.
+- [x] Final whole-branch review on Opus; then PR and merge.

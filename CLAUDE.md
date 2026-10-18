@@ -13,6 +13,7 @@ npx vitest run src/sql/parse.test.ts     # one file
 npx vitest run -t "rotates left"         # tests whose name matches
 npm run typecheck                        # tsc --noEmit (strict, noUncheckedIndexedAccess)
 npm run lint                             # oxlint --deny-warnings (config: .oxlintrc.json)
+npm run bench                            # SQL engine timings (src/sql/*.bench.ts, Vitest bench fixture)
 npm run build                            # typecheck + production build
 npm run build:pages                      # build under /stepwise/ and copy index.html to 404.html
 ```
