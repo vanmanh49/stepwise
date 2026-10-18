@@ -3,7 +3,7 @@ import { findTable, type ColumnType, type Dataset } from './datasets';
 import { asSqlError, SqlError, suggest } from './errors';
 import { aggregateValues, evaluate, evaluateTruth, referencedColumns, resolveColumn, windowKey, type Scope } from './evaluate';
 import { parseQuery } from './parse';
-import { compare, compareValues, Real, toNumber, valueKey, type SqlValue, type Truth } from './values';
+import { compare, compareValues, formatValue, Real, toNumber, valueKey, type SqlValue, type Truth } from './values';
 
 export interface ColumnRef {
   /** The alias if the query gave one, else the table name. */
@@ -53,6 +53,21 @@ export type TraceEvent =
   | { kind: 'compound-side'; index: number; op?: SetOp; relation: Relation }
   /** Notes are keyed by row id, e.g. "duplicate, dropped". */
   | { kind: 'cte'; name: string; relation: Relation }
+  /** Rows sorted into a window's partitions; `label` names the PARTITION BY. */
+  | { kind: 'window-partitions'; input: Relation; partitions: string[][]; label: string }
+  /** One row's window values; `relation` shows the rows in partition order with the window columns filled so far. */
+  | {
+      kind: 'window-row';
+      relation: Relation;
+      row: string;
+      partition: string;
+      position: number;
+      dependsOn: string[];
+      columns: string[];
+      values: SqlValue[];
+      fn: string;
+      detail: string;
+    }
   /** Which branch of a SELECT column's CASE one row took. */
   | { kind: 'case-row'; input: Relation; row: string; branch: string; value: SqlValue; values: Record<string, string> }
   /** Round 0 is the anchor; the last round adds no rows. */
@@ -583,6 +598,7 @@ export function executeSelect(
     const plain = scopeOf;
     scopeOf = (row) => ({ ...plain(row), windows });
     empty = { ...empty, windows };
+    if (trace && !grouped) traceWindows(windowExprs[0]!, cols, filtered, rows, plain, scopeOf, trace);
   }
   if (rows.length === 0) for (const c of cols) if (c.expr) evaluate(c.expr, empty);
   const scopeById = new Map(rows.map((row) => [row.id, scopeOf(row)]));
@@ -677,6 +693,75 @@ export function executeSelect(
   }
 
   return { columns: cols.map((c) => c.name), rows: projected.rows.map((row) => row.values) };
+}
+
+/** Steps for the first window function: its partitions, then each row's value and what it depends on. */
+function traceWindows(
+  expr: Extract<Expr, { type: 'window' }>,
+  cols: Output[],
+  input: Relation,
+  rows: Row[],
+  plain: (row: Row) => Scope,
+  withWindows: (row: Row) => Scope,
+  trace: Trace,
+) {
+  const partitions = windowPartitions(expr, rows, plain);
+  const label = expr.partitionBy.length > 0 ? expr.partitionBy.map((p) => p.text).join(', ') : '';
+  trace({ kind: 'window-partitions', input: { columns: input.columns, rows: partitions.flat() }, partitions: partitions.map((p) => p.map((r) => r.id)), label });
+  const windowCols = cols.filter((c) => c.expr && findWindow(c.expr));
+  const filled = new Map<string, SqlValue[]>();
+  const nameIndex = input.columns.findIndex((c) => c.name.toLowerCase() === 'name');
+  const nameOf = (row: Row, position: number) => (nameIndex >= 0 ? formatValue(row.values[nameIndex]!) : `row ${position}`);
+  for (const partition of partitions) {
+    const keys = partition.map((row) => expr.orderBy.map((o) => evaluate(o.expr, plain(row))));
+    const peer = (i: number) => keys[i]!.map(valueKey).join('|');
+    const partitionName = label ? label + ' ' + expr.partitionBy.map((p) => formatValue(evaluate(p, plain(partition[0]!)))).join(', ') : 'All rows';
+    partition.forEach((row, i) => {
+      const values = windowCols.map((c) => evaluate(c.expr!, withWindows(row)));
+      filled.set(row.id, values);
+      const peers = partition.filter((_, k) => k !== i && peer(k) === peer(i));
+      let dependsOn: Row[] = [];
+      let detail = '';
+      if (expr.fn === 'RANK' || expr.fn === 'DENSE_RANK') {
+        dependsOn = peers;
+        if (peers.length > 0) detail = `tied with ${peers.map((p) => nameOf(p, partition.indexOf(p) + 1)).join(', ')} on ${keys[i]!.map(formatValue).join(', ')}`;
+      } else if (expr.fn === 'LAG' || expr.fn === 'LEAD') {
+        const offset = expr.args[1] ? toNumber(evaluate(expr.args[1], plain(row))) ?? 1 : 1;
+        const target = partition[expr.fn === 'LAG' ? i - offset : i + offset];
+        dependsOn = target ? [target] : [];
+        detail = target ? `from ${nameOf(target, partition.indexOf(target) + 1)}` : `no row ${offset} ${expr.fn === 'LAG' ? 'before' : 'after'}, so the default`;
+      } else if (expr.fn !== 'ROW_NUMBER') {
+        let last = i;
+        while (last < partition.length - 1 && peer(last + 1) === peer(i)) last++;
+        const frame = expr.orderBy.length > 0 ? partition.slice(0, last + 1) : partition;
+        dependsOn = frame.filter((r) => r !== row);
+        detail = `over ${frame.length} ${frame.length === 1 ? 'row' : 'rows'}`;
+      }
+      trace({
+        kind: 'window-row',
+        relation: {
+          columns: [...input.columns, ...windowCols.map((c) => ({ name: c.name }))],
+          rows: partitions.flat().map((r) => ({ id: r.id, values: [...r.values, ...(filled.get(r.id) ?? windowCols.map(() => ''))] })),
+        },
+        row: row.id,
+        partition: partitionName,
+        position: i + 1,
+        dependsOn: dependsOn.map((r) => r.id),
+        columns: windowCols.map((c) => c.name),
+        values,
+        fn: expr.text.slice(0, expr.text.toUpperCase().indexOf(' OVER')).trim(),
+        detail,
+      });
+    });
+  }
+}
+
+function findWindow(expr: Expr): boolean {
+  let found = false;
+  walk(expr, (node) => {
+    if (node.type === 'window') found = true;
+  });
+  return found;
 }
 
 /** Which branch a CASE takes for a row, in words. */

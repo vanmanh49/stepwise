@@ -16,7 +16,8 @@ const rows = (n: number) => `${n} ${n === 1 ? 'row' : 'rows'}`;
 const word = (outcome: Truth) => (outcome === null ? 'unknown' : String(outcome));
 
 function columnNames(relation: Relation): string[] {
-  const qualify = new Set(relation.columns.map((c) => c.table)).size > 1;
+  // Qualify names only when columns come from more than one table.
+  const qualify = new Set(relation.columns.flatMap((c) => (c.table ? [c.table] : []))).size > 1;
   return relation.columns.map((c) => (qualify && c.table ? `${c.table}.${c.name}` : c.name));
 }
 
@@ -58,6 +59,8 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
       ]
     : LOGICAL_ORDER.filter((c) => stmt.lines[c] !== undefined);
   if (stmt.with) clauses.unshift('WITH');
+  const usesWindow = events.some((e) => e.kind === 'window-partitions');
+  if (usesWindow) clauses.splice(clauses.indexOf('SELECT'), 0, 'WINDOW');
   const cteLine = (name: string) => stmt.with?.find((c) => c.name.toLowerCase() === name.toLowerCase())?.line ?? 1;
   const recursed = new Set<string>();
   const lineOf = (clause: Clause, fallback?: number) => stmt.lines[clause] ?? fallback ?? stmt.lines.SELECT ?? 1;
@@ -116,6 +119,29 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
           title: `FROM ${event.table}: start with all ${rows(event.relation.rows.length)}`,
           why: 'FROM picks the table the query reads. Every later clause works on these rows.',
         }, () => [toTable(label, event.relation)]);
+        break;
+      }
+
+      case 'window-partitions': {
+        const group = new Map(event.partitions.flatMap((ids, p) => ids.map((id) => [id, p + 1] as const)));
+        const n = event.partitions.length;
+        push('WINDOW', {
+          title: event.label ? `WINDOW: ${n} ${n === 1 ? 'partition' : 'partitions'} by ${event.label}` : 'WINDOW: all rows form one partition',
+          why: 'A window function looks at rows near each row without merging them. PARTITION BY splits the rows into groups, and ORDER BY sorts each group.',
+        }, () => [toTable(workingLabel, event.input, (id) => ({ group: group.get(id)! }))], {}, lineOf('SELECT'));
+        break;
+      }
+
+      case 'window-row': {
+        const depends = new Set(event.dependsOn);
+        const shown = event.values.map((v) => formatValue(v));
+        push('WINDOW', {
+          title: `${event.partition}, row ${event.position}: ${event.fn} = ${shown[0]}${event.detail ? `, ${event.detail}` : ''}`,
+          why: 'The value is worked out from this row and the rows marked next to it, within its partition. The row itself stays in the result.',
+          variables: Object.fromEntries(event.columns.map((c, i) => [c, shown[i]!])),
+        }, () => [
+          toTable(workingLabel, event.relation, (id) => (id === event.row ? { role: 'active', focus: [event.relation.columns.length - event.columns.length] } : depends.has(id) ? { role: 'compare' } : {})),
+        ], { group: 'WINDOW', kept: true }, lineOf('SELECT'));
         break;
       }
 

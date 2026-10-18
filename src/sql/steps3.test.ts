@@ -136,3 +136,36 @@ describe('CTE and recursion steps', () => {
     expect(!result.ok && result.error.message).toBe('This recursion never stops on its own. Add a condition that ends it, such as WHERE n < 10.');
   });
 });
+
+describe('window steps', () => {
+  const company = datasets.company;
+  const RANKS = 'SELECT name, department_id, salary,\n  RANK() OVER (PARTITION BY department_id ORDER BY salary DESC) AS pay_rank\nFROM employees;';
+
+  it('sorts rows into partitions, then fills the new column row by row', () => {
+    const list = steps(RANKS, company);
+    expectWellFormed(list, RANKS, company);
+    const clauses = view(list[0]!).clauses;
+    expect(clauses.indexOf('WINDOW')).toBe(clauses.indexOf('SELECT') - 1);
+    const partition = list.find((s) => view(s).current === 'WINDOW' && /partitions/.test(s.title))!;
+    const groups = view(partition).tables[0]!.rows.map((r) => r.group);
+    expect(new Set(groups).size).toBe(4);
+    expect(groups).toEqual([...groups].sort((a, b) => a! - b!));
+  });
+
+  it('explains ties and marks the tied row', () => {
+    const list = steps(RANKS, company);
+    const vy = list.find((s) => /^department_id 2, row 4: RANK\(\) = 3, tied with Tuan on 5200$/.test(s.title))!;
+    expect(vy).toBeDefined();
+    const table = view(vy).tables[0]!;
+    const name = table.columns.indexOf('name');
+    expect(table.rows.find((r) => r.role === 'active')!.cells[name]).toBe('Vy');
+    expect(table.rows.filter((r) => r.role === 'compare').map((r) => r.cells[name])).toEqual(['Tuan']);
+    expect(table.columns.at(-1)).toBe('pay_rank');
+  });
+
+  it('marks the frame of a running sum', () => {
+    const list = steps('SELECT name, SUM(salary) OVER (ORDER BY hired) AS running\nFROM employees;', company);
+    const third = list.find((s) => /, row 3: SUM\(salary\) = /.test(s.title))!;
+    expect(view(third).tables[0]!.rows.filter((r) => r.role === 'compare')).toHaveLength(2);
+  });
+});
