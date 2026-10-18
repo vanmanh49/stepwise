@@ -36,7 +36,7 @@ export const avlTree: Lesson = {
     note: 'The balance rule keeps the height below about 1.44 × log₂ n, so every operation walks a short path. A rotation only changes a few pointers, O(1). An insert needs at most one fix (one or two rotations); a delete may rotate at every level, which is still O(log n).',
     curves: ['log'],
   },
-  compareWith: ['binary-search-tree'],
+  compareWith: ['binary-search-tree', 'red-black-tree'],
   prosCons: {
     pros: ['Guaranteed O(log n) search, insert and delete', 'More strictly balanced than a red-black tree, so lookups are slightly faster', 'Keeps values in sorted order'],
     cons: ['More rotations on insert and delete than a red-black tree', 'Each node stores a height', 'More code than a plain BST'],
