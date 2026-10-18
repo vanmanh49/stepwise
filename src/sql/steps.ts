@@ -57,6 +57,9 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
         ...(stmt.limit ? (['LIMIT'] as const) : []),
       ]
     : LOGICAL_ORDER.filter((c) => stmt.lines[c] !== undefined);
+  if (stmt.with) clauses.unshift('WITH');
+  const cteLine = (name: string) => stmt.with?.find((c) => c.name.toLowerCase() === name.toLowerCase())?.line ?? 1;
+  const recursed = new Set<string>();
   const lineOf = (clause: Clause, fallback?: number) => stmt.lines[clause] ?? fallback ?? stmt.lines.SELECT ?? 1;
   const view = (current: Clause | undefined, tables: SqlTable[]): TableView => ({
     kind: 'table',
@@ -101,7 +104,7 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
         scans++;
         const label = ref?.alias && repeated.has(ref.table.toLowerCase()) ? `${ref.alias} (${event.table})` : event.table;
         lastScan = label;
-        if (drafts.length > 0) break; // a JOIN's table; its pairs show it
+        if (scans > 1) break; // a JOIN's table; its pairs show it
         fromLabel = workingLabel = label;
         lastRelation = event.relation;
         push(undefined, {
@@ -113,6 +116,41 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
           title: `FROM ${event.table}: start with all ${rows(event.relation.rows.length)}`,
           why: 'FROM picks the table the query reads. Every later clause works on these rows.',
         }, () => [toTable(label, event.relation)]);
+        break;
+      }
+
+      case 'cte': {
+        if (recursed.has(event.name)) break; // its rounds already showed it
+        push('WITH', {
+          title: `WITH ${event.name}: ${rows(event.relation.rows.length)}`,
+          why: `The WITH query runs first. Its result works like a table called ${event.name} for the rest of the query.`,
+        }, () => [toTable(event.name, event.relation)], {}, cteLine(event.name));
+        break;
+      }
+
+      case 'recursion-round': {
+        recursed.add(event.name);
+        const read = new Set(event.read.rows.map((r) => r.id));
+        const added = new Set(event.added.rows.map((r) => r.id));
+        const nameColumn = Math.max(0, event.total.columns.findIndex((c) => c.name.toLowerCase() === 'name'));
+        const names = event.added.rows.map((r) => formatValue(r.values[nameColumn]!));
+        const n = event.added.rows.length;
+        const done = event.round > 0 && n === 0;
+        const title =
+          event.round === 0
+            ? `Start: ${rows(n)}${n > 0 && n <= 3 ? ` (${names.join(', ')})` : ''}`
+            : done
+              ? `Round ${event.round} finds nothing, so the recursion stops`
+              : `Round ${event.round}: ${n} new ${n === 1 ? 'row' : 'rows'}, reached from the ${rows(event.read.rows.length)} found ${event.round === 1 ? 'at the start' : `in round ${event.round - 1}`}`;
+        const why =
+          event.round === 0
+            ? 'The first SELECT (the anchor) runs once. Its rows start the result.'
+            : done
+              ? 'The recursive SELECT found no new rows from the last round, so nothing more can be reached.'
+              : `The recursive SELECT runs again, but reads only the rows found in the previous round as ${event.name}. Its new rows join the result.`;
+        push('WITH', { title, why }, () => [
+          toTable(event.name, event.total, (id) => (added.has(id) ? { role: 'found' } : read.has(id) ? { role: 'compare' } : {})),
+        ], done ? {} : { group: `ROUNDS-${event.name}`, kept: true }, cteLine(event.name));
         break;
       }
 

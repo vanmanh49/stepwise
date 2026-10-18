@@ -96,3 +96,43 @@ describe('set operation steps', () => {
     expect(list.filter((s) => ['UNION', 'EXCEPT'].includes(view(s).current ?? '')).length).toBe(2);
   });
 });
+
+describe('CTE and recursion steps', () => {
+  const company = datasets.company;
+
+  it('shows each CTE as a named table before the main query', () => {
+    const sql =
+      'WITH dept_pay AS (\n  SELECT department_id, AVG(salary) AS avg_salary FROM employees GROUP BY department_id\n)\nSELECT e.name FROM employees e\nJOIN dept_pay d ON d.department_id = e.department_id\nWHERE e.salary > d.avg_salary;';
+    const list = steps(sql, company);
+    expectWellFormed(list, sql, company);
+    const cte = list.findIndex((s) => /^WITH dept_pay: \d+ rows$/.test(s.title));
+    const from = list.findIndex((s) => view(s).current === 'FROM');
+    expect(cte).toBeGreaterThanOrEqual(0);
+    expect(cte).toBeLessThan(from);
+    expect(view(list[cte]!).tables[0]!.label).toBe('dept_pay');
+    expect(list[cte]!.codeLine).toBe(1);
+    expect(view(list[cte]!).clauses[0]).toBe('WITH');
+  });
+
+  it('shows the recursion round by round until it stops', () => {
+    const sql =
+      'WITH RECURSIVE chain (id, name, level) AS (\n  SELECT id, name, 1 FROM employees WHERE manager_id IS NULL\n  UNION ALL\n  SELECT e.id, e.name, c.level + 1 FROM employees e JOIN chain c ON e.manager_id = c.id\n)\nSELECT name, level FROM chain;';
+    const list = steps(sql, company);
+    expectWellFormed(list, sql, company);
+    const titles = list.map((s) => s.title);
+    expect(titles).toContain('Start: 1 row (Lan)');
+    expect(titles).toContain('Round 1: 3 new rows, reached from the 1 row found at the start');
+    expect(titles).toContain('Round 2: 4 new rows, reached from the 3 rows found in round 1');
+    expect(titles).toContain('Round 5 finds nothing, so the recursion stops');
+    const round2 = list.find((s) => s.title.startsWith('Round 2:'))!;
+    const table = view(round2).tables[0]!;
+    expect(table.label).toBe('chain');
+    expect(table.rows.filter((r) => r.role === 'found')).toHaveLength(4);
+    expect(table.rows.filter((r) => r.role === 'compare')).toHaveLength(3);
+  });
+
+  it('reports a recursion that never stops', () => {
+    const result = querySteps(company, 'WITH RECURSIVE n (x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n) SELECT * FROM n');
+    expect(!result.ok && result.error.message).toBe('This recursion never stops on its own. Add a condition that ends it, such as WHERE n < 10.');
+  });
+});
