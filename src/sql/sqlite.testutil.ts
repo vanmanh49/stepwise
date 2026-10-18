@@ -50,6 +50,15 @@ export async function openSqlite(dataset: Dataset) {
       }
       return { results };
     },
+    /** Runs one statement; an error is returned rather than thrown. */
+    exec(sql: string): { rows: Cell[][]; error?: string } {
+      try {
+        const [result] = db.exec(sql);
+        return { rows: (result?.values ?? []) as Cell[][] };
+      } catch (error) {
+        return { rows: [], error: (error as Error).message };
+      }
+    },
     /** Every table's rows. */
     tables(): Record<string, Cell[][]> {
       const names = (db.exec("SELECT name FROM sqlite_master WHERE type = 'table'")[0]?.values ?? []).map((r) => String(r[0]));

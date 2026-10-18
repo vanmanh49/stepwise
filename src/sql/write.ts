@@ -27,6 +27,14 @@ export type WriteEvent =
   | { kind: 'index-created' | 'index-dropped'; index: IndexDef }
   | { kind: 'view-created' | 'view-dropped'; view: ViewDef }
   | { kind: 'explained'; entries: PlanEntry[] }
+  /** `tables` lists the tables whose rows changed: since BEGIN or the savepoint, or what was undone. */
+  | {
+      kind: 'transaction';
+      action: 'begin' | 'commit' | 'rollback' | 'savepoint' | 'release' | 'rollback-to' | 'auto-rollback';
+      name?: string;
+      changes: number;
+      tables: { name: string; before?: Relation; after?: Relation }[];
+    }
   | TraceEvent;
 
 export type Emit = (event: WriteEvent) => void;
@@ -363,8 +371,9 @@ export function executeStatement(db: Dataset, statement: Statement, emit?: Emit)
         return { affected: entries.length, result };
       }
       case 'transaction':
+        throw new SqlError('Transaction statements run in a script.', 'syntax', statement.line, statement.column);
       case 'set-isolation':
-        throw new SqlError(`\`${statement.kind}\` isn't supported here yet.`, 'unsupported', statement.line, 1);
+        throw new SqlError('SET TRANSACTION only works in a two-session script (A: … B: …).', 'syntax', statement.line, statement.column);
       default: {
         const before = structuredClone(db.tables);
         const affected = statement.kind === 'insert' ? insert(db, statement, emit) : statement.kind === 'update' ? update(db, statement, emit) : remove(db, statement, emit);
