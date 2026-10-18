@@ -69,6 +69,14 @@ describe('scriptSteps', () => {
     expect(updated.codeLine).toBe(2);
   });
 
+  it('shows WHERE’s matches on the table as it was before the statement', () => {
+    const list = steps('DELETE FROM order_items WHERE order_id = 3;\nDELETE FROM order_items');
+    const matched = list.find((s) => s.title === 'WHERE matched 2 rows')!;
+    const rows = tableIn(matched, 'order_items').rows;
+    expect(rows).toHaveLength(18);
+    expect(rows.filter((r) => r.role === 'found').map((r) => r.cells[0])).toEqual([3, 3]);
+  });
+
   it('marks deleted rows, then shows the table without them', () => {
     const list = steps('DELETE FROM order_items WHERE order_id = 3');
     const deleted = list.find((s) => tableIn(s, 'order_items').rows.some((r) => r.note === 'deleted'))!;

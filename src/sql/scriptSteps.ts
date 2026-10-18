@@ -177,11 +177,12 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
               why: statement.kind === 'update' ? 'Only these rows will be changed.' : 'Only these rows will be removed.',
               codeLine: lineOf(statement, 'WHERE'),
             },
-            view: view('WHERE', () => {
-              const matched = new Set(event.relation.rows.map((r) => r.id));
-              const all = known(target!)!;
-              return [sqlTable(target!, all.relation, all.schema, (id) => (matched.has(id) ? { role: 'found' } : {}))];
-            }),
+            // Read now: views are built later, when the table may have changed.
+            view: ((all: Known, matched: Set<string>) =>
+              view('WHERE', () => [sqlTable(target!, all.relation, all.schema, (id) => (matched.has(id) ? { role: 'found' } : {}))]))(
+              before.get(target!.toLowerCase())!,
+              new Set(event.relation.rows.map((r) => r.id)),
+            ),
           });
           break;
         case 'select-for-insert':
