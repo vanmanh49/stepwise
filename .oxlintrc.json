@@ -16,5 +16,6 @@
     "vitest/valid-expect": ["error", { "maxArgs": 2 }],
     "vitest/expect-expect": ["error", { "assertFunctionNames": ["expect", "expectExplained"] }]
   },
+  "overrides": [{ "files": ["**/*.bench.ts"], "rules": { "vitest/expect-expect": "off" } }],
   "ignorePatterns": ["dist", "node_modules", ".superpowers"]
 }

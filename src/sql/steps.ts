@@ -3,13 +3,30 @@ import { LOGICAL_ORDER, type Clause, type SelectStatement } from './ast';
 import type { BTree } from './btree';
 import type { Dataset } from './datasets';
 import { asSqlError, type SqlError } from './errors';
-import { executeSelect, type QueryResult, type Relation, type TraceEvent } from './execute';
+import { executeSelect, type QueryResult, type Relation, type Row, type TraceEvent } from './execute';
 import { parseQuery } from './parse';
 import { formatValue, toPlain, type Truth } from './values';
 
 export const MAX_STEPS = 400;
 /** Row checks shown per clause before the rest are summarised, when a run would be too long. */
 const FIRST_CHECKS = 12;
+
+const positions = new WeakMap<readonly Row[], Map<string, number>>();
+
+/**
+ * Where the first row with this id sits, or -1: the same answer as findIndex, but each array is
+ * indexed once. A big join traces thousands of row checks against the same relation, and steps
+ * are built only after the query has finished, so no array changes after it is indexed.
+ */
+export function rowIndex(rows: readonly Row[], id: string): number {
+  let byId = positions.get(rows);
+  if (!byId) {
+    byId = new Map();
+    for (let i = rows.length - 1; i >= 0; i--) byId.set(rows[i]!.id, i);
+    positions.set(rows, byId);
+  }
+  return byId.get(id) ?? -1;
+}
 
 export type StepsResult = { ok: true; steps: Step[]; result: QueryResult } | { ok: false; error: SqlError };
 
@@ -310,7 +327,7 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
       }
 
       case 'case-row': {
-        const i = event.input.rows.findIndex((r) => r.id === event.row);
+        const i = rowIndex(event.input.rows, event.row);
         const shown = typeof event.value === 'string' ? `'${event.value}'` : formatValue(event.value);
         const read = Object.entries(event.values).map(([k, v]) => `${k} ${v}`).join(', ');
         const focus = focusOf(event.input, event.values);
@@ -330,8 +347,8 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
           joinLeft = event.left;
         }
         const leftLabel = joinIndex === 0 ? fromLabel : 'joined rows';
-        const i = event.left.rows.findIndex((r) => r.id === event.leftRow);
-        const j = event.right.rows.findIndex((r) => r.id === event.rightRow);
+        const i = rowIndex(event.left.rows, event.leftRow);
+        const j = rowIndex(event.right.rows, event.rightRow);
         const kept = event.outcome === true;
         push('JOIN', {
           title: `${leftLabel} row ${i + 1} with ${lastScan} row ${j + 1}: ${event.join.on.text} → ${word(event.outcome)}`,
@@ -351,7 +368,7 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
       case 'join-unmatched': {
         const left = joinLeft ?? lastRelation!;
         const leftLabel = joinIndex <= 0 ? fromLabel : 'joined rows';
-        const i = left.rows.findIndex((r) => r.id === event.leftRow);
+        const i = rowIndex(left.rows, event.leftRow);
         push('JOIN', {
           title: `No match for row ${i + 1}, so LEFT JOIN keeps it with NULLs`,
           why: "LEFT JOIN keeps every row of the left table. Where nothing matched, the right table's columns are NULL.",
@@ -376,7 +393,7 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
         tested.push([event.row, event.outcome]);
         const checked = tested;
         const count = tested.length;
-        const i = event.input.rows.findIndex((r) => r.id === event.row);
+        const i = rowIndex(event.input.rows, event.row);
         const kept = event.outcome === true;
         const label = event.clause === 'WHERE' ? workingLabel : 'groups';
         const focus = focusOf(event.input, event.values);

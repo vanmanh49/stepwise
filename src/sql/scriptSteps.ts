@@ -7,7 +7,7 @@ import { parseScript } from './parse';
 import { columnNotes, type TableSchema } from './schema';
 import { runScript, type ScriptResult } from './script';
 import { isSessionsScript, type Anomaly, type SessionEvent } from './sessions';
-import { btreeView, buildDrafts, fit, focusOf, querySteps, toTable, type Draft } from './steps';
+import { btreeView, buildDrafts, fit, focusOf, querySteps, rowIndex, toTable, type Draft } from './steps';
 import { formatValue, toPlain, type SqlValue, type Truth } from './values';
 import { relationOf, type WriteEvent } from './write';
 
@@ -229,7 +229,7 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
         case 'filter-test': {
           const where = statement.kind === 'update' || statement.kind === 'delete' ? statement.where! : undefined;
           if (!where) break;
-          const i = event.input.rows.findIndex((r) => r.id === event.row);
+          const i = rowIndex(event.input.rows, event.row);
           const focus = focusOf(event.input, event.values);
           const verb = statement.kind === 'update' ? 'changed' : 'deleted';
           drafts.push({
@@ -288,7 +288,7 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
           break;
         case 'inserted': {
           inserted++;
-          const row = event.relation.rows.find((r) => r.id === event.rowId)!;
+          const row = event.relation.rows[rowIndex(event.relation.rows, event.rowId)]!;
           const schema = known(event.table)?.schema;
           drafts.push({
             step: {
@@ -311,7 +311,7 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
         }
         case 'updated': {
           const schema = known(event.table)?.schema;
-          const position = event.relation.rows.findIndex((r) => r.id === event.rowId) + 1;
+          const position = rowIndex(event.relation.rows, event.rowId) + 1;
           const note = event.changed.map((c) => `${c.column}: ${describeChange(c.before, c.after)}`).join('; ');
           const focus = event.changed.map((c) => event.relation.columns.findIndex((col) => col.name === c.column));
           drafts.push({
@@ -451,7 +451,7 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
               const shown = t[side];
               if (!shown) return [];
               const other = new Map((side === 'after' ? t.before : t.after)?.rows.map((r) => [r.id, JSON.stringify(r.values)]) ?? []);
-              return [sqlTable(t.name, shown, known(t.name)?.schema, (id) => decorate({ id }, other.get(id) !== JSON.stringify(shown.rows.find((r) => r.id === id)!.values)))];
+              return [sqlTable(t.name, shown, known(t.name)?.schema, (id) => decorate({ id }, other.get(id) !== JSON.stringify(shown.rows[rowIndex(shown.rows, id)]!.values)))];
             });
           const kept = marked((_, isChanged) => (isChanged ? { role: 'found', note: 'kept' } : {}), 'after');
           const undone = marked((_, isChanged) => (isChanged ? { role: 'discarded', note: 'undone' } : {}), 'before');
@@ -617,7 +617,7 @@ function buildSessionDrafts(db: Dataset, sql: string, statements: Statement[], e
     return [...a.map((rel, i) => ['A', rel, b[i]] as const), ...b.map((rel, i) => ['B', rel, a[i]] as const)].map(([side, rel, other]) => {
       const theirs = new Map(other?.rows.map((r) => [r.id, JSON.stringify(r.values)]) ?? []);
       return toTable(`${side} sees ${rel.columns[0]?.table ?? ''}`, rel, (id) =>
-        theirs.get(id) !== JSON.stringify(rel.rows.find((r) => r.id === id)!.values) ? { role: 'frontier', note: 'differs' } : {},
+        theirs.get(id) !== JSON.stringify(rel.rows[rowIndex(rel.rows, id)]!.values) ? { role: 'frontier', note: 'differs' } : {},
       );
     });
   };
