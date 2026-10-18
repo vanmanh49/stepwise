@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { getLesson } from '../../lessons/registry';
 import { searchIndex, searchTopics, type SearchItem } from './search';
 
 const titles = (query: string) => searchTopics(query, searchIndex).map((item) => item.title);
@@ -43,9 +44,7 @@ describe('searchTopics', () => {
   });
 
   it('gives live lessons a path and planned topics none', () => {
-    const queue = searchIndex.find((item) => item.id === 'queue');
-    const trie = searchIndex.find((item) => item.id === 'trie');
-    expect(queue?.path).toBe('/data-structures/queue');
-    expect(trie?.path).toBeUndefined();
+    expect(searchIndex.find((item) => item.id === 'queue')?.path).toBe('/data-structures/queue');
+    for (const item of searchIndex) expect(item.path !== undefined, item.id).toBe(getLesson(item.id) !== undefined);
   });
 });
