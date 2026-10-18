@@ -30,7 +30,7 @@ export function BTreeRenderer({ view }: { view: BTreeView }) {
           height={height}
           viewBox={`0 0 ${width} ${height}`}
           role="img"
-          aria-label={`B-tree index ${view.label}: ${view.nodes.length} nodes, ${leafCount} leaves`}
+          aria-label={`B-tree ${view.label}: ${view.nodes.length} nodes, ${leafCount} leaves`}
           className="max-w-none"
         >
           {view.nodes.flatMap((node) =>
@@ -53,7 +53,7 @@ export function BTreeRenderer({ view }: { view: BTreeView }) {
               );
             }),
           )}
-          {leaves.slice(1).map((leaf, i) => {
+          {view.linked !== false && leaves.slice(1).map((leaf, i) => {
             const prev = leaves[i]!;
             return (
               <line

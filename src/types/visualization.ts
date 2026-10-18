@@ -50,6 +50,10 @@ export interface TreeNode {
   role: Role;
   left?: string;
   right?: string;
+  /** Short text drawn above the node, e.g. a balance factor or a range. */
+  badge?: string;
+  /** A red-black tree node's colour. */
+  color?: 'red' | 'black';
 }
 
 export interface TreeView {
@@ -134,6 +138,14 @@ export interface BTreeView {
   label: string;
   root: string;
   nodes: { id: string; keys: string[]; children: string[]; leaf: boolean; role: Role; matched: number[] }[];
+  /** Whether leaves link left to right, as in a B+ tree; defaults to true. */
+  linked?: boolean;
+}
+
+/** A trie: one node per prefix. The root has an empty letter and no parent. */
+export interface TrieView {
+  kind: 'trie';
+  nodes: { id: string; parent?: string; letter: string; /** Set on a node that ends a word. */ word?: string; role: Role }[];
 }
 
 /** A two-session script: each statement in its session's column, then the tables as each session sees them. */
@@ -175,6 +187,8 @@ export interface BucketsView {
   /** The array being distributed or collected. */
   input?: { label: string; cells: Cell[] };
   buckets: { label: string; cells: Cell[] }[];
+  /** "up" stacks cells from the bottom (radix sort); "down" lists a chain from the top, in wide cells. Defaults to "up". */
+  direction?: 'up' | 'down';
 }
 
 /** Several views shown together in one step. Panels do not nest. */
@@ -185,6 +199,7 @@ export interface PanelsView {
 
 export type View =
   | BTreeView
+  | TrieView
   | SessionsView
   | ArrayView
   | ListView

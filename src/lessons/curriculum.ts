@@ -33,7 +33,7 @@ export const curriculum: Topic[] = [
     ['segment-tree', 'Segment Tree'],
     ['fenwick-tree', 'Fenwick Tree'],
     ['b-tree', 'B-Tree / B+ Tree'],
-    ['advanced-graph-structures', 'Advanced Graph Structures'],
+    ['advanced-graph-structures', 'Graph Representations'],
   ]),
   ...topics('algorithms', 'beginner', [
     ['linear-search', 'Linear Search', 'Searching'],

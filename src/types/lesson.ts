@@ -10,19 +10,26 @@ export interface Graph {
   edges: { from: string; to: string; weight?: number }[];
 }
 
-export interface StructureOp {
+/** An input shown in the UI; `sample` is the initial field value. Text inputs take one word. */
+export type StructureArg =
+  | { name: string; label: string; sample: number }
+  | { name: string; label: string; sample: string; text: true };
+
+export interface StructureOp<S = number[]> {
   id: string;
   label: string;
-  /** Numeric inputs shown in the UI; `sample` is the initial field value. */
-  args: { name: string; label: string; sample: number }[];
-  /** Must not mutate `state`. Invalid operations return one explanatory step and the same state. */
-  run(state: number[], args: number[]): { steps: Step[]; state: number[] };
+  args: StructureArg[];
+  /**
+   * Must not mutate `state`. Numbers arrive in `args` and words in `words`, each in field order.
+   * Invalid operations return one explanatory step and the same state.
+   */
+  run(state: S, args: number[], words: string[]): { steps: Step[]; state: S };
 }
 
-export interface StructureDef {
-  initial: number[];
-  view(state: number[]): View;
-  ops: StructureOp[];
+export interface StructureDef<S = number[]> {
+  initial: S;
+  view(state: S): View;
+  ops: StructureOp<S>[];
   code: string;
 }
 
@@ -69,7 +76,7 @@ export type VisualizationConfig =
       randomTarget?(values: number[]): number;
       generate(values: number[], target: number): Step[];
     }
-  | { kind: 'structure'; structure: StructureDef }
+  | { kind: 'structure'; structure: StructureDef<unknown> }
   | { kind: 'text'; text: TextDef }
   | {
       kind: 'graph';

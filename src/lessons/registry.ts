@@ -39,6 +39,15 @@ import { treeTraversal } from './algorithms/tree-traversal';
 import { twoPointers } from './algorithms/two-pointers';
 import { unionFind } from './algorithms/union-find';
 import { array } from './data-structures/array';
+import { advancedGraphStructures } from './data-structures/advanced-graph-structures';
+import { bTree } from './data-structures/b-tree';
+import { fenwickTree } from './data-structures/fenwick-tree';
+import { segmentTree } from './data-structures/segment-tree';
+import { disjointSet } from './data-structures/disjoint-set';
+import { redBlackTree } from './data-structures/red-black-tree';
+import { avlTree } from './data-structures/avl-tree';
+import { trie } from './data-structures/trie';
+import { hashTable } from './data-structures/hash-table';
 import { binarySearchTree } from './data-structures/binary-search-tree';
 import { binaryTree } from './data-structures/binary-tree';
 import { graph } from './data-structures/graph';
@@ -84,11 +93,20 @@ export const lessons: Lesson[] = [
   linkedList,
   stack,
   queue,
+  hashTable,
   binaryTree,
   binarySearchTree,
   heap,
   priorityQueue,
   graph,
+  trie,
+  avlTree,
+  redBlackTree,
+  disjointSet,
+  segmentTree,
+  fenwickTree,
+  bTree,
+  advancedGraphStructures,
   linearSearch,
   binarySearch,
   bubbleSort,

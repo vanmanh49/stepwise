@@ -1,13 +1,14 @@
 import { RotateCcw } from 'lucide-react';
 import { useId, useState, type FormEvent } from 'react';
 import type { StructureDef, StructureOp, VisualizationConfig } from '../../../types/lesson';
+import { parseOpFields } from '../../../data-structures/shared';
 import type { Step } from '../../../types/visualization';
 import { Visualizer } from '../Visualizer';
 import type { StepListener } from './LessonVisualization';
 
 type StructureConfig = Extract<VisualizationConfig, { kind: 'structure' }>;
 
-const idle = (structure: StructureDef, state: number[]): Step[] => [
+const idle = (structure: StructureDef<unknown>, state: unknown): Step[] => [
   {
     title: 'Pick an operation',
     why: 'Choose an operation above to watch it run step by step on the current contents.',
@@ -21,8 +22,8 @@ function OperationForm({
   onRun,
   onError,
 }: {
-  op: StructureOp;
-  onRun(args: number[]): void;
+  op: StructureOp<unknown>;
+  onRun(args: number[], words: string[]): void;
   onError(message: string): void;
 }) {
   const id = useId();
@@ -30,10 +31,9 @@ function OperationForm({
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    const args = fields.map((f) => (/^-?\d{1,3}$/.test(f.trim()) ? Number(f) : NaN));
-    const bad = args.findIndex(Number.isNaN);
-    if (bad >= 0) return onError(`${op.label}: enter a whole number between -999 and 999 for ${op.args[bad]!.label}.`);
-    onRun(args);
+    const parsed = parseOpFields(op, fields);
+    if (!parsed.ok) return onError(parsed.error);
+    onRun(parsed.args, parsed.words);
   };
 
   return (
@@ -45,11 +45,12 @@ function OperationForm({
           </label>
           <input
             id={`${id}-${arg.name}`}
-            className="field w-16 px-2 font-mono"
+            className={`field px-2 font-mono ${'text' in arg ? 'w-24' : 'w-16'}`}
             value={fields[i]}
             onChange={(e) => setFields(fields.map((f, k) => (k === i ? e.target.value : f)))}
-            inputMode="numeric"
+            inputMode={'text' in arg ? 'text' : 'numeric'}
             autoComplete="off"
+            spellCheck={false}
           />
         </div>
       ))}
@@ -76,8 +77,8 @@ export function StructureInput({
   const [error, setError] = useState<string>();
   const [ran, setRan] = useState(false);
 
-  const run = (op: StructureOp, args: number[]) => {
-    const result = op.run(state, args);
+  const run = (op: StructureOp<unknown>, args: number[], words: string[]) => {
+    const result = op.run(state, args, words);
     setState(result.state);
     setSteps(result.steps);
     setError(undefined);
@@ -102,7 +103,7 @@ export function StructureInput({
           <span className="eyebrow">Operations</span>
           <div className="flex flex-wrap items-end gap-2">
             {structure.ops.map((op) => (
-              <OperationForm key={op.id} op={op} onRun={(args) => run(op, args)} onError={setError} />
+              <OperationForm key={op.id} op={op} onRun={(args, words) => run(op, args, words)} onError={setError} />
             ))}
             <button type="button" className="btn mb-1.5" onClick={reset}>
               <RotateCcw size={16} aria-hidden /> Reset

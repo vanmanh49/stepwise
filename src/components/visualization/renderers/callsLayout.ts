@@ -4,8 +4,9 @@ import type { CallFrame } from '../../../types/visualization';
  * Leaves take consecutive columns in call order and each parent sits midway
  * between its first and last child, so frames never overlap whatever the
  * number of children. y is the depth. Frames whose parent is missing are roots.
+ * Works for any tree given as parent links, such as a trie.
  */
-export function layoutCalls(frames: CallFrame[]): { id: string; x: number; y: number }[] {
+export function layoutCalls(frames: { id: string; parent?: string }[]): { id: string; x: number; y: number }[] {
   const ids = new Set(frames.map((f) => f.id));
   const children = new Map<string, string[]>();
   const roots: string[] = [];

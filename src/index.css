@@ -39,6 +39,10 @@
   --role-discarded-fg: #77766f;
   --role-pivot: #d4560f;
   --role-pivot-fg: #ffffff;
+
+  --node-red: #c62f3a;
+  --node-black: #1b1b19;
+  --node-on-color: #ffffff;
 }
 
 .dark {
@@ -78,6 +82,10 @@
   --role-discarded-fg: #8a8c92;
   --role-pivot: #ff8a47;
   --role-pivot-fg: #2a1000;
+
+  --node-red: #d9434d;
+  --node-black: #000000;
+  --node-on-color: #ffffff;
 }
 
 @theme inline {

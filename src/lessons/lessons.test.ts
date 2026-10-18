@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { curveForNotation } from '../components/bigo/complexities';
+import { sampleInputs } from '../data-structures/shared';
 import { checkExercise, probeOutcomes } from '../sql/check';
 import { scriptSteps } from '../sql/scriptSteps';
 import { datasets } from '../sql/datasets';
@@ -14,11 +15,20 @@ const EXPECTED_IDS = [
   'linked-list',
   'stack',
   'queue',
+  'hash-table',
   'binary-tree',
   'binary-search-tree',
   'heap',
   'priority-queue',
   'graph',
+  'trie',
+  'avl-tree',
+  'red-black-tree',
+  'disjoint-set',
+  'segment-tree',
+  'fenwick-tree',
+  'b-tree',
+  'advanced-graph-structures',
   'linear-search',
   'binary-search',
   'bubble-sort',
@@ -97,7 +107,8 @@ function defaultSteps(lesson: Lesson): Step[] {
       return config.generate(config.initial, config.target);
     case 'structure': {
       const op = config.structure.ops[0]!;
-      return op.run(config.structure.initial, op.args.map((a) => a.sample)).steps;
+      const { args, words } = sampleInputs(op);
+      return op.run(config.structure.initial, args, words).steps;
     }
     case 'text': {
       const op = config.text.ops[0]!;
@@ -118,7 +129,7 @@ function defaultSteps(lesson: Lesson): Step[] {
 describe('lesson registry', () => {
   it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
-    expect(lessonsIn('data-structures')).toHaveLength(10);
+    expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
   });
@@ -126,7 +137,7 @@ describe('lesson registry', () => {
   it('links previous and next lessons within a category', () => {
     expect(adjacentLessons('array').prev).toBeUndefined();
     expect(adjacentLessons('array').next?.id).toBe('string');
-    expect(adjacentLessons('graph').next).toBeUndefined();
+    expect(adjacentLessons('graph').next?.id).toBe('trie');
     expect(adjacentLessons('linear-search').prev).toBeUndefined();
     expect(adjacentLessons('prim').next?.id).toBe('fibonacci-dp');
     expect(adjacentLessons('unknown')).toEqual({});
