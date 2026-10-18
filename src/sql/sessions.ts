@@ -1,6 +1,7 @@
 import type { Expr, IsolationLevel, SelectStatement, Statement } from './ast';
 import { exprChildren } from './ast';
-import { cloneDataset, findTable, type Dataset } from './datasets';
+import { cloneDataset, findTable, indexesOf, type Dataset } from './datasets';
+import { isRowidAlias } from './schema';
 import { asSqlError, SqlError } from './errors';
 import { filter, scan, type QueryResult, type Relation, type Row } from './execute';
 import type { ScriptResult, StatementOutcome } from './script';
@@ -45,7 +46,7 @@ type Changes = Map<string, Map<string, (number | string | null)[] | null>>;
 interface State {
   level: IsolationLevel;
   /** Open transaction, or undefined between transactions. */
-  open?: { explicit: boolean; changes: Changes; inserted: Map<string, string[]>; read: Map<string, string>; queries: Map<string, Set<string>> };
+  open?: { explicit: boolean; changes: Changes; read: Map<string, string>; queries: Map<string, Set<string>> };
   blockedOn?: Session;
   /** After a deadlock: statements are skipped until the next BEGIN. */
   skipping: boolean;
@@ -55,6 +56,21 @@ const POSITIONS = new Set(['line', 'column', 'lines', 'selectLine', 'selectColum
 
 const rowKey = (table: string, id: string) => `${table.toLowerCase()}\u0000${id}`;
 const other = (s: Session): Session => (s === 'A' ? 'B' : 'A');
+
+/** The values of a row's PRIMARY KEY and UNIQUE keys, as strings that clash exactly when the keys do. */
+function uniqueKeys(db: Dataset, tableName: string, values: (number | string | null)[]): string[] {
+  const table = findTable(db, tableName);
+  if (!table) return [];
+  const sets = [
+    ...[isRowidAlias(table)].flatMap((c) => (c ? [[c]] : [])),
+    ...indexesOf(db, table.name).filter((i) => i.unique).map((i) => i.columns),
+  ];
+  return sets.flatMap((columns) => {
+    const at = columns.map((c) => table.columns.findIndex((col) => col.name.toLowerCase() === c.toLowerCase()));
+    const key = at.map((i) => values[i] ?? null);
+    return key.some((v) => v === null) ? [] : [`${table.name.toLowerCase()}\u0000${columns.join(',')}\u0000${JSON.stringify(key)}`];
+  });
+}
 
 /** Every node of an expression, without entering subqueries. */
 const nodes = (e: Expr): Expr[] => [e, ...exprChildren(e).flatMap(nodes)];
@@ -81,6 +97,8 @@ export function runSessions(start: Dataset, statements: Statement[], emit?: Emit
   const bad = statements.findIndex((s) => !ALLOWED.has(s.kind) || (s.kind === 'transaction' && !['begin', 'commit', 'rollback'].includes(s.action)));
   if (bad >= 0) return fail(new SqlError('Only SELECT, INSERT, UPDATE, DELETE and transaction statements can run in a session.', 'unsupported', statements[bad]!.line, 1), bad);
 
+  /** New rows get ids no other row, in either session, will ever use. */
+  let insertedRows = 0;
   const states: Record<Session, State> = { A: { level: 'READ COMMITTED', skipping: false }, B: { level: 'READ COMMITTED', skipping: false } };
   /** Row locks: shared holders and the exclusive holder. */
   const shared = new Map<string, Set<Session>>();
@@ -121,7 +139,7 @@ export function runSessions(start: Dataset, statements: Statement[], emit?: Emit
     emit?.({ kind: 'session', session: statements[index]!.session!, index, statement: statements[index]!, status, seenBy: seen(), ...extra });
 
   const begin = (s: Session, explicit: boolean) => {
-    states[s].open = { explicit, changes: new Map(), inserted: new Map(), read: new Map(), queries: new Map() };
+    states[s].open = { explicit, changes: new Map(), read: new Map(), queries: new Map() };
   };
   const release = (s: Session) => {
     for (const holders of shared.values()) holders.delete(s);
@@ -251,18 +269,21 @@ export function runSessions(start: Dataset, statements: Statement[], emit?: Emit
         if (old >= 0 && now >= 0 && JSON.stringify(was.rows[old]) === JSON.stringify(values)) continue;
         // New rows get ids no other session uses.
         if (old < 0) {
-          const fresh = `${table.name}+${s}${(open.inserted.get(table.name)?.length ?? 0) + 1}`;
-          open.inserted.set(table.name, [...(open.inserted.get(table.name) ?? []), fresh]);
-          id = fresh;
+          id = `${table.name}+${s}${++insertedRows}`;
         }
         touched.push({ table: table.name, id, values });
       }
     }
-    for (const { table, id } of touched) {
+    // Uncommitted rows of the other session, by key, so a row with the same key waits as it would on a unique index.
+    const theirKeys = new Set<string>();
+    for (const [tableName, rows] of states[them].open?.changes ?? []) {
+      for (const values of rows.values()) if (values) for (const k of uniqueKeys(view, tableName, values)) theirKeys.add(k);
+    }
+    for (const { table, id, values } of touched) {
       const key = rowKey(table, id);
       const lockedByThem = exclusive.get(key) === them || shared.get(key)?.has(them) || tableLocks.get(table.toLowerCase())?.has(them);
-      if (lockedByThem) {
-        open.inserted.forEach((ids, t) => open.inserted.set(t, ids.filter((x) => !touched.some((c) => c.id === x && c.table === t))));
+      const sameKey = values !== null && uniqueKeys(view, table, values).some((k) => theirKeys.has(k));
+      if (lockedByThem || sameKey) {
         return undoAutocommit();
       }
     }

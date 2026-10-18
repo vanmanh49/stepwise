@@ -216,13 +216,15 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
       pinned: true,
     });
 
+    // A SELECT's own events make its steps; a transaction event after it (the end-of-script rollback) is handled below.
+    let events = segment.events;
     if (statement.kind === 'select') {
-      if (index !== failedIndex) drafts.push(...buildDrafts(statement.select, segment.events as TraceEvent[]));
-      continue;
+      if (index !== failedIndex) drafts.push(...buildDrafts(statement.select, segment.events.filter((e) => e.kind !== 'transaction') as TraceEvent[]));
+      events = segment.events.filter((e) => e.kind === 'transaction');
     }
 
     let inserted = 0;
-    for (const event of segment.events) {
+    for (const event of events) {
       switch (event.kind) {
         case 'filter-test': {
           const where = statement.kind === 'update' || statement.kind === 'delete' ? statement.where! : undefined;

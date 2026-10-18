@@ -8,7 +8,8 @@ import { valueKey, type SqlValue } from './values';
 
 /** What a probe did: returned rows (none for a write that succeeded), broke a constraint, or failed otherwise. */
 export type ProbeOutcome =
-  | { kind: 'rows'; columns: number; keys: string[] }
+  /** `plan` marks EXPLAIN QUERY PLAN rows, which compare more loosely (see samePlan). */
+  | { kind: 'rows'; columns: number; keys: string[]; plan?: boolean }
   | { kind: 'constraint'; rule: ConstraintInfo['rule']; table: string }
   | { kind: 'error'; message: string };
 
@@ -52,7 +53,7 @@ export function probeOutcomes(db: Dataset, script: string, probes: string[]): Pr
     if (!last.result) return { kind: 'rows', columns: 0, keys: [] };
     // A plan names the index it uses; any name the learner chose is as good as the solution's.
     const rows = last.kind === 'explain' ? last.result.rows.map((row) => row.map((v) => (typeof v === 'string' ? v.replace(/INDEX \S+/, 'INDEX ?') : v))) : last.result.rows;
-    return { kind: 'rows', columns: last.result.columns.length, keys: rows.map(rowKey) };
+    return { kind: 'rows', columns: last.result.columns.length, keys: rows.map(rowKey), ...(last.kind === 'explain' && { plan: true }) };
   });
 }
 
@@ -62,7 +63,17 @@ const sameRule = (a: ConstraintInfo['rule'], b: ConstraintInfo['rule']) => {
   return a === b || (duplicate(a) && duplicate(b));
 };
 
+/**
+ * Plans match line by line, except that a covering index is as good as a plain one: it answers
+ * the query without reading the table. A COVERING INDEX the solution needs must still be there.
+ */
+function samePlan(expected: string[], actual: string[]): boolean {
+  const plain = (k: string) => k.replace('COVERING INDEX', 'INDEX');
+  return expected.length === actual.length && expected.every((e, i) => plain(e) === plain(actual[i]!) && (!e.includes('COVERING') || actual[i]!.includes('COVERING')));
+}
+
 function sameOutcome(a: ProbeOutcome, b: ProbeOutcome, orderMatters: boolean): boolean {
+  if (a.kind === 'rows' && b.kind === 'rows' && a.plan && b.plan) return samePlan(a.keys, b.keys);
   if (a.kind === 'rows' && b.kind === 'rows') {
     if (a.columns !== b.columns || a.keys.length !== b.keys.length) return false;
     if (orderMatters) return a.keys.every((k, i) => k === b.keys[i]);
@@ -82,9 +93,10 @@ function finalResult(db: Dataset, sql: string): { ok: true; result: QueryResult 
   if (!parsed.ok || !isSessionsScript(parsed.statements)) return runQuery(db, sql);
   const run = runScript(db, sql);
   if (!run.ok) return run;
-  const last = [...run.statements].reverse().find((s) => s.kind === 'select' && s.result && !s.error);
-  if (!last) return { ok: false, error: new SqlError('This script has no SELECT that ran.', 'syntax', 1, 1) };
-  return { ok: true, result: last.result! };
+  // What each SELECT read, in script order, then the data both sessions left behind: one line each.
+  const reads = run.statements.flatMap((st, i) => (st.kind === 'select' && st.result && !st.error ? [`read ${i + 1}: ${st.result.rows.map(rowKey).join(' / ')}`] : []));
+  const tables = run.db.tables.map((t) => `${t.name}: ${t.rows.map((r) => r.map(valueKey).join('|')).join(' / ')}`);
+  return { ok: true, result: { columns: ['outcome'], rows: [...reads, ...tables].map((line) => [line]) } };
 }
 
 /**
