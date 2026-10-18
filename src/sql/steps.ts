@@ -139,9 +139,12 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
           title: `${event.partition}, row ${event.position}: ${event.fn} = ${shown[0]}${event.detail ? `, ${event.detail}` : ''}`,
           why: 'The value is worked out from this row and the rows marked next to it, within its partition. The row itself stays in the result.',
           variables: Object.fromEntries(event.columns.map((c, i) => [c, shown[i]!])),
-        }, () => [
-          toTable(workingLabel, event.relation, (id) => (id === event.row ? { role: 'active', focus: [event.relation.columns.length - event.columns.length] } : depends.has(id) ? { role: 'compare' } : {})),
-        ], { group: 'WINDOW', kept: true }, lineOf('SELECT'));
+        }, () => {
+          const relation = event.relation();
+          return [
+            toTable(workingLabel, relation, (id) => (id === event.row ? { role: 'active', focus: [relation.columns.length - event.columns.length] } : depends.has(id) ? { role: 'compare' } : {})),
+          ];
+        }, { group: 'WINDOW', kept: true }, lineOf('SELECT'));
         break;
       }
 

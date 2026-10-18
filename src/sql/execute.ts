@@ -1,7 +1,7 @@
 import { caseParts, windowParts, type Cte, type Expr, type JoinClause, type SelectStatement, type SetOp, type TableRef } from './ast';
 import { findTable, type ColumnType, type Dataset } from './datasets';
 import { asSqlError, SqlError, suggest } from './errors';
-import { aggregateValues, evaluate, evaluateTruth, referencedColumns, resolveColumn, windowKey, type Scope } from './evaluate';
+import { aggregateValues, evaluate, evaluateTruth, referencedColumns, resolveColumn, windowKey, type ExecContext, type Scope } from './evaluate';
 import { parseQuery } from './parse';
 import { compare, compareValues, formatValue, Real, toNumber, valueKey, type SqlValue, type Truth } from './values';
 
@@ -55,10 +55,10 @@ export type TraceEvent =
   | { kind: 'cte'; name: string; relation: Relation }
   /** Rows sorted into a window's partitions; `label` names the PARTITION BY. */
   | { kind: 'window-partitions'; input: Relation; partitions: string[][]; label: string }
-  /** One row's window values; `relation` shows the rows in partition order with the window columns filled so far. */
+  /** One row's window values; `relation` builds the rows in partition order with the window columns filled so far. */
   | {
       kind: 'window-row';
-      relation: Relation;
+      relation: () => Relation;
       row: string;
       partition: string;
       position: number;
@@ -256,6 +256,9 @@ function rejectNested(expr: Expr) {
     if (e.type === 'aggregate' && insideAggregate) {
       throw new SqlError("Aggregates can't be nested.", 'syntax', e.line, e.column);
     }
+    if (e.type === 'window' && insideAggregate) {
+      throw new SqlError("Window functions can't be used inside aggregates.", 'syntax', e.line, e.column);
+    }
   });
 }
 
@@ -387,17 +390,18 @@ export function bindCtes(
   base?: ReadonlyMap<string, Relation>,
   outer?: Scope,
   trace?: Trace,
+  ctx?: ExecContext,
 ): Map<string, Relation> {
   const bound = new Map(base ?? []);
   for (const cte of ctes) {
     if (refersTo(cte.query, cte.name)) {
       if (!cte.recursive) throw new SqlError('Add RECURSIVE to let a CTE refer to itself.', 'syntax', cte.line, cte.column);
-      const relation = recursiveCte(db, cte, bound, outer, trace);
+      const relation = recursiveCte(db, cte, bound, outer, trace, ctx);
       bound.set(cte.name.toLowerCase(), relation);
       trace?.({ kind: 'cte', name: cte.name, relation });
       continue;
     }
-    const result = executeSelect(db, cte.query, undefined, outer, undefined, bound);
+    const result = executeSelect(db, cte.query, undefined, outer, undefined, bound, ctx);
     const relation = cteRelation(cte, result.columns, result.rows.map((values, i) => ({ id: `${cte.name}#${i}`, values })));
     bound.set(cte.name.toLowerCase(), relation);
     trace?.({ kind: 'cte', name: cte.name, relation });
@@ -417,6 +421,43 @@ function cteRelation(cte: Cte, columns: string[], rows: Row[]): Relation {
   return { columns: (cte.columns ?? columns).map((name) => ({ table: cte.name, name })), rows };
 }
 
+/** The expressions of one SELECT (not of its compound parts or subqueries). */
+function expressionsOf(stmt: SelectStatement): Expr[] {
+  return [
+    ...stmt.columns.flatMap((c) => (c.kind === 'expr' ? [c.expr] : [])),
+    ...stmt.joins.map((j) => j.on),
+    ...(stmt.where ? [stmt.where] : []),
+    ...stmt.groupBy,
+    ...(stmt.having ? [stmt.having] : []),
+    ...stmt.orderBy.map((o) => o.expr),
+  ];
+}
+
+/** Whether a SELECT reads `name` anywhere: FROM, JOIN, compound parts, CTE bodies or subqueries. */
+function mentions(stmt: SelectStatement, name: string): boolean {
+  if (refersTo(stmt, name)) return true;
+  if ((stmt.with ?? []).some((c) => mentions(c.query, name)) || (stmt.compound ?? []).some((c) => mentions(c.select, name))) return true;
+  let found = false;
+  for (const expr of expressionsOf(stmt)) {
+    walk(expr, (e) => {
+      if ((e.type === 'subquery' || e.type === 'inSubquery') && mentions(e.query, name)) found = true;
+    });
+  }
+  return found;
+}
+
+/** SQLite's rules for the recursive SELECT: no aggregates and no window functions. */
+function checkRecursiveStep(step: SelectStatement) {
+  for (const expr of expressionsOf(step)) {
+    walk(expr, (e) => {
+      if (e.type === 'aggregate') {
+        throw new SqlError(`Aggregates like ${e.fn} can't be used in the recursive SELECT of a CTE.`, 'syntax', e.line, e.column);
+      }
+      if (e.type === 'window') throw new SqlError("Window functions can't be used in the recursive SELECT of a CTE.", 'syntax', e.line, e.column);
+    });
+  }
+}
+
 /** Most rounds and rows a recursive CTE may produce, so a recursion without an end cannot freeze the page. */
 export const MAX_ROUNDS = 100;
 export const MAX_RECURSIVE_ROWS = 1000;
@@ -426,21 +467,37 @@ export const MAX_RECURSIVE_ROWS = 1000;
  * again and again on the rows the previous round added, until a round adds nothing. With UNION,
  * rows already found are not added again, which also ends cycles.
  */
-function recursiveCte(db: Dataset, cte: Cte, bound: Map<string, Relation>, outer?: Scope, trace?: Trace): Relation {
+function recursiveCte(db: Dataset, cte: Cte, bound: Map<string, Relation>, outer?: Scope, trace?: Trace, ctx?: ExecContext): Relation {
   const parts = cte.query.compound ?? [];
   const anchor = { ...cte.query, compound: undefined, orderBy: [], limit: undefined } as SelectStatement;
   const step = parts[0]?.select;
   const references = (s: SelectStatement) =>
     [s.from?.table, ...s.joins.map((j) => j.table)].filter((t) => t?.toLowerCase() === cte.name.toLowerCase()).length;
-  if (parts.length !== 1 || !step || refersTo(anchor, cte.name) || references(step) !== 1 || (step.compound ?? []).length > 0) {
+  if (
+    parts.length !== 1 ||
+    !step ||
+    mentions(anchor, cte.name) ||
+    references(step) !== 1 ||
+    (step.compound ?? []).length > 0 ||
+    expressionsOf(step).some((expr) => {
+      let inSubquery = false;
+      walk(expr, (e) => {
+        if ((e.type === 'subquery' || e.type === 'inSubquery') && mentions(e.query, cte.name)) inSubquery = true;
+      });
+      return inSubquery;
+    }) ||
+    (step.with ?? []).some((c) => mentions(c.query, cte.name))
+  ) {
     throw new SqlError('A recursive CTE must refer to itself exactly once, in FROM or JOIN.', 'syntax', cte.line, cte.column);
   }
+  checkRecursiveStep(step);
   const op = parts[0]!.op;
   if (op !== 'UNION' && op !== 'UNION ALL') {
     throw new SqlError('A recursive CTE joins its two SELECTs with UNION or UNION ALL.', 'syntax', parts[0]!.line, 1);
   }
 
-  const anchorResult = executeSelect(db, anchor, undefined, outer, undefined, bound);
+  const anchorResult = executeSelect(db, anchor, undefined, outer, undefined, bound, ctx);
+  cteRelation(cte, anchorResult.columns, []);
   const columns = cte.columns ?? anchorResult.columns;
   const all: Row[] = [];
   const seen = new Set<string>();
@@ -460,7 +517,7 @@ function recursiveCte(db: Dataset, cte: Cte, bound: Map<string, Relation>, outer
   for (let round = 1; working.length > 0; round++) {
     if (round > MAX_ROUNDS) throw guard();
     const scope = new Map(bound).set(cte.name.toLowerCase(), relationOf(working));
-    const result = executeSelect(db, step, undefined, outer, undefined, scope);
+    const result = executeSelect(db, step, undefined, outer, undefined, scope, ctx);
     if (result.columns.length !== columns.length) {
       throw new SqlError(
         `Each SELECT in a UNION must return the same number of columns: the first returns ${columns.length}, this one returns ${result.columns.length}.`,
@@ -484,14 +541,17 @@ export function executeSelect(
   outer?: Scope,
   correlation?: { used: boolean },
   ctes?: ReadonlyMap<string, Relation>,
+  ctx?: ExecContext,
 ): QueryResult {
+  // One budget for the whole query, shared by its CTEs, recursion rounds and UNION sides.
+  const shared = outer?.ctx ?? ctx ?? { cache: new Map(), work: 0 };
   let inScope = ctes ?? outer?.ctes;
-  if (stmt.with) inScope = bindCtes(db, stmt.with, inScope, outer, trace);
-  if (stmt.compound?.length) return executeCompound(db, stmt, trace, outer, correlation, inScope);
+  if (stmt.with) inScope = bindCtes(db, stmt.with, inScope, outer, trace, shared);
+  if (stmt.compound?.length) return executeCompound(db, stmt, trace, outer, correlation, inScope, shared);
   const env: Env = {
     outer,
     db,
-    ctx: outer?.ctx ?? { cache: new Map(), work: 0 },
+    ctx: shared,
     ...(correlation && { correlation }),
     ...(inScope && { ctes: inScope }),
   };
@@ -695,6 +755,9 @@ export function executeSelect(
   return { columns: cols.map((c) => c.name), rows: projected.rows.map((row) => row.values) };
 }
 
+/** Most window rows traced one by one; steps show at most this many anyway. */
+const MAX_TRACED_WINDOW_ROWS = 400;
+
 /** Steps for the first window function: its partitions, then each row's value and what it depends on. */
 function traceWindows(
   expr: Extract<Expr, { type: 'window' }>,
@@ -710,6 +773,8 @@ function traceWindows(
   trace({ kind: 'window-partitions', input: { columns: input.columns, rows: partitions.flat() }, partitions: partitions.map((p) => p.map((r) => r.id)), label });
   const windowCols = cols.filter((c) => c.expr && findWindow(c.expr));
   const filled = new Map<string, SqlValue[]>();
+  const order = partitions.flat();
+  let traced = 0;
   const nameIndex = input.columns.findIndex((c) => c.name.toLowerCase() === 'name');
   const nameOf = (row: Row, position: number) => (nameIndex >= 0 ? formatValue(row.values[nameIndex]!) : `row ${position}`);
   for (const partition of partitions) {
@@ -717,6 +782,8 @@ function traceWindows(
     const peer = (i: number) => keys[i]!.map(valueKey).join('|');
     const partitionName = label ? label + ' ' + expr.partitionBy.map((p) => formatValue(evaluate(p, plain(partition[0]!)))).join(', ') : 'All rows';
     partition.forEach((row, i) => {
+      if (traced >= MAX_TRACED_WINDOW_ROWS) return;
+      traced++;
       const values = windowCols.map((c) => evaluate(c.expr!, withWindows(row)));
       filled.set(row.id, values);
       const peers = partition.filter((_, k) => k !== i && peer(k) === peer(i));
@@ -737,12 +804,14 @@ function traceWindows(
         dependsOn = frame.filter((r) => r !== row);
         detail = `over ${frame.length} ${frame.length === 1 ? 'row' : 'rows'}`;
       }
+      const done = traced;
       trace({
         kind: 'window-row',
-        relation: {
+        // Built only for the steps that are shown; the first `done` rows in partition order are filled.
+        relation: () => ({
           columns: [...input.columns, ...windowCols.map((c) => ({ name: c.name }))],
-          rows: partitions.flat().map((r) => ({ id: r.id, values: [...r.values, ...(filled.get(r.id) ?? windowCols.map(() => ''))] })),
-        },
+          rows: order.map((r, k) => ({ id: r.id, values: [...r.values, ...(k < done ? filled.get(r.id)! : windowCols.map(() => ''))] })),
+        }),
         row: row.id,
         partition: partitionName,
         position: i + 1,
@@ -798,13 +867,21 @@ function computeWindows(
     result.set(key, values);
     for (const partition of windowPartitions(expr, rows, scopeOf)) {
       const order = partition.map((row) => expr.orderBy.map((o) => evaluate(o.expr, scopeOf(row))));
-      const peerKey = (i: number) => order[i]!.map(valueKey).join('|');
+      // Peers share ORDER BY values; find each row's peer group and dense rank in one pass.
+      const keys = order.map((values) => values.map(valueKey).join('|'));
+      const groupStart: number[] = [];
+      const dense: number[] = [];
+      keys.forEach((key, i) => {
+        const same = i > 0 && keys[i - 1] === key;
+        groupStart.push(same ? groupStart[i - 1]! : i);
+        dense.push(i === 0 ? 1 : same ? dense[i - 1]! : dense[i - 1]! + 1);
+      });
+      const groupEnd: number[] = [];
+      for (let i = keys.length - 1; i >= 0; i--) groupEnd[i] = i < keys.length - 1 && keys[i + 1] === keys[i] ? groupEnd[i + 1]! : i;
       partition.forEach((row, i) => {
         const scope = scopeOf(row);
-        let first = i;
-        while (first > 0 && peerKey(first - 1) === peerKey(i)) first--;
-        let last = i;
-        while (last < partition.length - 1 && peerKey(last + 1) === peerKey(i)) last++;
+        const first = groupStart[i]!;
+        const last = groupEnd[i]!;
         let value: SqlValue;
         switch (expr.fn) {
           case 'ROW_NUMBER':
@@ -814,7 +891,7 @@ function computeWindows(
             value = first + 1;
             break;
           case 'DENSE_RANK':
-            value = new Set(partition.slice(0, i + 1).map((_, k) => peerKey(k))).size;
+            value = dense[i]!;
             break;
           case 'LAG':
           case 'LEAD': {
@@ -897,9 +974,10 @@ function executeCompound(
   outer?: Scope,
   correlation?: { used: boolean },
   ctes?: ReadonlyMap<string, Relation>,
+  ctx?: ExecContext,
 ): QueryResult {
   const sides = [{ ...stmt, with: undefined, compound: undefined, orderBy: [], limit: undefined } as SelectStatement, ...stmt.compound!.map((c) => c.select)];
-  const results = sides.map((side) => executeSelect(db, side, undefined, outer, correlation, ctes));
+  const results = sides.map((side) => executeSelect(db, side, undefined, outer, correlation, ctes, ctx));
   const width = results[0]!.columns.length;
   stmt.compound!.forEach((part, i) => {
     const count = results[i + 1]!.columns.length;

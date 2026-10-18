@@ -56,7 +56,8 @@ export const windowFunctions: Lesson = {
     exercises: [
       {
         id: 'top-earners',
-        prompt: 'List the names of the top earners in each department (rank 1 by salary within the department). Use a CTE to compute the rank.',
+        prompt:
+          'List the names of the top earners in each department (rank 1 by salary within the department). Thu, who has no department, forms a group of her own, so she counts too. Use a CTE to compute the rank.',
         solution:
           'WITH ranked AS (SELECT name, RANK() OVER (PARTITION BY department_id ORDER BY salary DESC) AS r FROM employees) SELECT name FROM ranked WHERE r = 1;',
         orderMatters: false,
