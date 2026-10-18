@@ -39,6 +39,7 @@ import { treeTraversal } from './algorithms/tree-traversal';
 import { twoPointers } from './algorithms/two-pointers';
 import { unionFind } from './algorithms/union-find';
 import { array } from './data-structures/array';
+import { advancedGraphStructures } from './data-structures/advanced-graph-structures';
 import { bTree } from './data-structures/b-tree';
 import { fenwickTree } from './data-structures/fenwick-tree';
 import { segmentTree } from './data-structures/segment-tree';
@@ -105,6 +106,7 @@ export const lessons: Lesson[] = [
   segmentTree,
   fenwickTree,
   bTree,
+  advancedGraphStructures,
   linearSearch,
   binarySearch,
   bubbleSort,
