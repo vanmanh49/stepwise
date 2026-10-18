@@ -245,7 +245,7 @@ function insertFixup(tree: Tree, z: RbNode, steps: Step[]): void {
         why: `${z.value} and its parent ${p.value} are both red, which is not allowed. The uncle is red too, so ${p.value} and ${uncle!.value} turn black and ${g.value} turns red. Black heights stay the same, but ${g.value} may now clash with its own parent, so the check moves up to it.`,
         codeLine: LINE.redUncle,
         variables: { node: z.value, parent: p.value, uncle: uncle!.value, grandparent: g.value },
-        view: draw(tree, { [p.value]: 'swap', [uncle!.value]: 'swap', [g.value]: 'active' }),
+        view: draw(tree, { [p.value]: 'active', [uncle!.value]: 'active', [g.value]: 'active' }),
       });
       z = g;
       continue;
@@ -258,7 +258,7 @@ function insertFixup(tree: Tree, z: RbNode, steps: Step[]): void {
         why: `${z.value} is the ${parentIsLeft ? 'right' : 'left'} child of a ${parentIsLeft ? 'left' : 'right'} child, a zig-zag. The uncle is black, so recolouring cannot help. Rotating ${p.value} lines the two red nodes up so the next case can fix them.`,
         codeLine: LINE.triangle,
         variables: { node: z.value, parent: p.value },
-        view: draw(tree, { [z.value]: 'swap', [p.value]: 'swap' }),
+        view: draw(tree, { [z.value]: 'active', [p.value]: 'active' }),
       });
       z = p;
     }
@@ -306,7 +306,7 @@ function deleteFixup(tree: Tree, x: RbNode | null, parent: RbNode | null, steps:
         why: `The ${x ? `node ${x.value}` : 'empty spot'} under ${p.value} is "double black": its paths are one black node short. Its sibling ${w.value} is red, so rotate ${p.value} towards the short side and swap their colours. The new sibling is black, which the next cases need.`,
         codeLine: LINE.redSibling,
         variables: { parent: p.value, sibling: w.value },
-        view: draw(tree, { ...focus, [w.value]: 'swap', [p.value]: 'swap' }),
+        view: draw(tree, { ...focus, [w.value]: 'active', [p.value]: 'active' }),
       });
       w = left ? p.right! : p.left!;
     }
@@ -319,7 +319,7 @@ function deleteFixup(tree: Tree, x: RbNode | null, parent: RbNode | null, steps:
         why: `Turning ${w.value} red takes one black off the sibling's side too, so both sides of ${p.value} are level. Now ${p.value} as a whole is one black short. ${p.red ? `${p.value} is red, so making it black ends the fix.` : `The double black moves up to ${p.value}.`}`,
         codeLine: LINE.blackNephews,
         variables: { parent: p.value, sibling: w.value },
-        view: draw(tree, { ...focus, [w.value]: 'swap', [p.value]: 'active' }),
+        view: draw(tree, { ...focus, [w.value]: 'active', [p.value]: 'active' }),
       });
       x = p;
       parent = p.parent;
@@ -335,7 +335,7 @@ function deleteFixup(tree: Tree, x: RbNode | null, parent: RbNode | null, steps:
         why: `${near!.value}, the sibling's child nearer the short side, is red and the far one is black. Rotating ${w.value} away and swapping colours moves the red to the far side, ready for the last case.`,
         codeLine: LINE.nearNephew,
         variables: { sibling: w.value, near: near!.value },
-        view: draw(tree, { ...focus, [near!.value]: 'swap', [w.value]: 'swap' }),
+        view: draw(tree, { ...focus, [near!.value]: 'active', [w.value]: 'active' }),
       });
       w = left ? p.right! : p.left!;
     }

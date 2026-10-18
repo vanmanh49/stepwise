@@ -66,7 +66,7 @@ function view(state: DSUState, roles: Record<number, Role> = {}): PanelsView {
     edges: state.parent.flatMap((p, i) => (p === i ? [] : [{ from: `e${i}`, to: `e${p}`, role: roles[i] && roles[p] ? roles[i]! : ('default' as Role) }])),
   };
   const array: ArrayView = { kind: 'array', cells: state.parent.map((p, i) => ({ id: `p${i}`, value: p, role: roles[i] ?? 'default' })) };
-  return { kind: 'panels', panels: [{ label: 'Forest (arrows point to the parent; r = rank)', view: forest }, { label: 'parent[i]', view: array }] };
+  return { kind: 'panels', panels: [{ label: 'Forest (r = rank)', view: forest }, { label: 'parent[i]', view: array }] };
 }
 
 const valid = (x: number) => Number.isInteger(x) && x >= 0 && x < ELEMENTS;

@@ -90,7 +90,7 @@ function hashSteps(state: HashState, key: string, line: number): Step[] {
       codeLine: LINE.hashChar,
       variables: { key, ch, code: ch.charCodeAt(0), h },
       view: view(state, {}, {
-        label: `hash("${key}")`,
+        label: 'Hashing the key',
         cells: [...key].map((c, k) => ({ id: `c:${k}`, value: c, role: k === i ? 'active' : k < i ? 'visited' : 'default' })),
       }),
     });

@@ -62,7 +62,18 @@ export function TrieRenderer({ view }: { view: TrieView }) {
             <g key={node.id}>
               <SvgNode x={x} y={y} role={node.role} label={node.letter} />
               {node.word && (
-                <text x={x} y={y + NODE_RADIUS + 12} textAnchor="middle" dominantBaseline="central" fill="var(--text)" className="font-mono text-[11px] font-semibold">
+                <text
+                  x={x}
+                  y={y + NODE_RADIUS + 12}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fill="var(--text)"
+                  // A halo in the background colour keeps the word readable where an edge passes behind it.
+                  stroke="var(--surface)"
+                  strokeWidth={4}
+                  paintOrder="stroke"
+                  className="font-mono text-[11px] font-semibold"
+                >
                   {node.word}
                 </text>
               )}

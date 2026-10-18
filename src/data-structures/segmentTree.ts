@@ -65,7 +65,7 @@ function view(values: number[], roles: Record<string, Role> = {}, cellRoles: Rec
     kind: 'panels',
     panels: [
       { label: 'a[i]', view: array },
-      { label: 'Segment tree (sum, with its range above)', view: { kind: 'tree', root: idOf(0, SIZE - 1), nodes } },
+      { label: 'Segment tree (sum; range above)', view: { kind: 'tree', root: idOf(0, SIZE - 1), nodes } },
     ],
   };
 }

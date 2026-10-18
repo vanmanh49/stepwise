@@ -118,8 +118,8 @@ function view(state: GraphRepsState, marks: Marks = {}): PanelsView {
     kind: 'panels',
     panels: [
       { label: state.directed ? 'Directed graph' : 'Undirected graph', view: graph },
-      { label: 'Adjacency matrix: row u, column v is 1 when there is an edge u → v', view: matrix },
-      { label: 'Adjacency list: each node’s neighbours', view: lists },
+      { label: 'Adjacency matrix', view: matrix },
+      { label: 'Adjacency list', view: lists },
       { label: 'Edge list', view: edgeList },
     ],
   };
