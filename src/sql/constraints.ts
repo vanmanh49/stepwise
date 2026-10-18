@@ -74,7 +74,9 @@ export function checkRow(db: Dataset, table: DatasetTable, rowIndex: number, lin
     }
   }
 
-  for (const key of keys(table)) {
+  // A UNIQUE index made with CREATE UNIQUE INDEX works like a UNIQUE constraint.
+  const uniqueIndexes = (db.indexes ?? []).filter((i) => i.unique && i.table.toLowerCase() === table.name.toLowerCase());
+  for (const key of [...keys(table), ...uniqueIndexes.map((i) => ({ rule: 'UNIQUE' as const, columns: i.columns }))]) {
     const columns = key.columns.map((name) => index(table, name));
     const mine = columns.map((i) => values[i]!);
     if (mine.some((v) => v === null)) continue; // NULLs never clash

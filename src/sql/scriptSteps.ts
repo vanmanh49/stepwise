@@ -1,4 +1,4 @@
-import type { SqlRow, SqlTable, Step, TableView } from '../types/visualization';
+import type { SessionsView, SqlRow, SqlTable, Step, TableView, View } from '../types/visualization';
 import { LOGICAL_ORDER, type Statement } from './ast';
 import { cloneDataset, type Dataset } from './datasets';
 import { SqlError } from './errors';
@@ -6,7 +6,8 @@ import type { Relation, TraceEvent } from './execute';
 import { parseScript } from './parse';
 import { columnNotes, type TableSchema } from './schema';
 import { runScript, type ScriptResult } from './script';
-import { buildDrafts, fit, focusOf, querySteps, toTable, type Draft } from './steps';
+import { isSessionsScript, type Anomaly, type SessionEvent } from './sessions';
+import { btreeView, buildDrafts, fit, focusOf, querySteps, toTable, type Draft } from './steps';
 import { formatValue, toPlain, type SqlValue, type Truth } from './values';
 import { relationOf, type WriteEvent } from './write';
 
@@ -38,7 +39,26 @@ function summary(statement: Statement): string {
       return `CREATE TABLE ${statement.schema.name}`;
     case 'drop':
       return `DROP TABLE ${statement.table}`;
+    case 'create-index':
+      return `CREATE ${statement.unique ? 'UNIQUE ' : ''}INDEX ${statement.name}`;
+    case 'drop-index':
+      return `DROP INDEX ${statement.name}`;
+    case 'create-view':
+      return `CREATE VIEW ${statement.name}`;
+    case 'drop-view':
+      return `DROP VIEW ${statement.name}`;
+    case 'explain':
+      return 'EXPLAIN QUERY PLAN';
+    case 'transaction':
+      return transactionText(statement.action, statement.name);
+    case 'set-isolation':
+      return `SET TRANSACTION ISOLATION LEVEL ${statement.level}`;
   }
+}
+
+function transactionText(action: Extract<Statement, { kind: 'transaction' }>['action'], name?: string): string {
+  const words = { begin: 'BEGIN', commit: 'COMMIT', rollback: 'ROLLBACK', savepoint: 'SAVEPOINT', release: 'RELEASE', 'rollback-to': 'ROLLBACK TO' }[action];
+  return name ? `${words} ${name}` : words;
 }
 
 function clausesOf(statement: Statement): string[] {
@@ -55,6 +75,20 @@ function clausesOf(statement: Statement): string[] {
       return ['CREATE TABLE'];
     case 'drop':
       return ['DROP TABLE'];
+    case 'create-index':
+      return ['CREATE INDEX'];
+    case 'drop-index':
+      return ['DROP INDEX'];
+    case 'create-view':
+      return ['CREATE VIEW'];
+    case 'drop-view':
+      return ['DROP VIEW'];
+    case 'explain':
+      return ['EXPLAIN'];
+    case 'transaction':
+      return [transactionText(statement.action)];
+    case 'set-isolation':
+      return ['SET TRANSACTION'];
   }
 }
 
@@ -76,7 +110,42 @@ function intent(statement: Statement): string {
       return 'CREATE TABLE makes a new, empty table with these columns and rules.';
     case 'drop':
       return 'DROP TABLE removes the table and every row in it.';
+    case 'create-index':
+      return `CREATE INDEX builds a B-tree of ${statement.table}'s ${statement.columns.join(', ')} values, so searches on ${statement.columns.length === 1 ? 'it' : 'them'} can skip most rows.`;
+    case 'drop-index':
+      return 'DROP INDEX removes the index. The table and its rows stay.';
+    case 'create-view':
+      return 'CREATE VIEW stores the query under a name. No rows are copied; the query runs each time the view is read.';
+    case 'drop-view':
+      return 'DROP VIEW removes the stored query. The tables it read are not touched.';
+    case 'explain':
+      return 'EXPLAIN QUERY PLAN shows how the database would run the query, without running it.';
+    case 'transaction':
+      return {
+        begin: 'BEGIN starts a transaction: the changes that follow are pending until COMMIT or ROLLBACK.',
+        commit: 'COMMIT keeps every pending change of the transaction.',
+        rollback: 'ROLLBACK undoes every change made since BEGIN.',
+        savepoint: 'SAVEPOINT marks a point inside the transaction that you can roll back to.',
+        release: 'RELEASE forgets the savepoint and keeps the changes made since it.',
+        'rollback-to': 'ROLLBACK TO undoes the changes made since the savepoint; the transaction stays open.',
+      }[statement.action];
+    case 'set-isolation':
+      return 'SET TRANSACTION sets how much this session sees of the other session’s work.';
   }
+}
+
+/** What one line of EXPLAIN QUERY PLAN means, in plain words. */
+function planMeaning(detail: string): string {
+  if (detail.startsWith('SEARCH') && detail.includes('INTEGER PRIMARY KEY')) return 'The rows are found by their id (the rowid), so only those rows are read.';
+  if (detail.startsWith('SEARCH') && detail.includes('COVERING INDEX')) return 'The index finds the matching values, and it holds every column the query needs, so the table itself is never read.';
+  if (detail.startsWith('SEARCH')) return 'The index finds the matching rows, so only those rows are read from the table. "?" stands for the value being looked for.';
+  if (detail.startsWith('SCAN') && detail.includes('COVERING INDEX')) return 'Every entry of the index is read in order. The index holds every column needed, so the table is never read.';
+  if (detail.startsWith('SCAN') && detail.includes('INDEX')) return 'Every row is read, in the index’s order, which saves sorting them afterwards.';
+  if (detail.startsWith('SCAN')) return 'Every row of the table is read, one after another.';
+  if (detail.startsWith('USE TEMP B-TREE')) return 'The rows are put into a temporary B-tree to sort or group them, because no index gives them in the right order.';
+  if (detail.includes('SUBQUERY')) return detail.startsWith('CORRELATED') ? 'This subquery reads the outer row, so it runs again for every row.' : 'This subquery runs once, and its result is reused.';
+  if (detail.startsWith('CO-ROUTINE') || detail.startsWith('MATERIALIZE')) return 'This CTE or view runs on its own; its rows are then read like a table.';
+  return 'How SQLite groups the parts of this query.';
 }
 
 /** The line a clause of a write statement starts on. */
@@ -111,6 +180,17 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
     else segments.at(-1)?.events.push(event);
   }
 
+  // The open transaction: savepoint names (undefined for BEGIN) and the tables as they were when it began.
+  const frames: (string | undefined)[] = [];
+  let openedWith = new Map<string, Known>();
+  const restoreFrom = (tables: { name: string; before?: Relation; after?: Relation }[]) => {
+    for (const t of tables) {
+      const key = t.name.toLowerCase();
+      if (t.after) latest.set(key, { relation: t.after, schema: latest.get(key)?.schema ?? openedWith.get(key)!.schema });
+      else latest.delete(key);
+    }
+  };
+
   for (const segment of segments) {
     const { statement, index, total } = segment;
     // A statement stopped by an ordinary error is reported as that error, not as steps.
@@ -124,7 +204,10 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
       tables: tables(),
     });
     const known = (name: string) => latest.get(name.toLowerCase()) ?? before.get(name.toLowerCase());
-    const target = statement.kind === 'select' ? undefined : statement.kind === 'create' ? undefined : statement.kind === 'drop' ? statement.table : statement.table.table;
+    const failure = result.statements[index]?.error;
+    const insideTransaction = failure !== undefined;
+    const target =
+      statement.kind === 'insert' || statement.kind === 'update' || statement.kind === 'delete' ? statement.table.table : statement.kind === 'drop' ? statement.table : undefined;
     const targetInfo = target ? known(target) : undefined;
 
     drafts.push({
@@ -133,13 +216,15 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
       pinned: true,
     });
 
+    // A SELECT's own events make its steps; a transaction event after it (the end-of-script rollback) is handled below.
+    let events = segment.events;
     if (statement.kind === 'select') {
-      if (index !== failedIndex) drafts.push(...buildDrafts(statement.select, segment.events as TraceEvent[]));
-      continue;
+      if (index !== failedIndex) drafts.push(...buildDrafts(statement.select, segment.events.filter((e) => e.kind !== 'transaction') as TraceEvent[]));
+      events = segment.events.filter((e) => e.kind === 'transaction');
     }
 
     let inserted = 0;
-    for (const event of segment.events) {
+    for (const event of events) {
       switch (event.kind) {
         case 'filter-test': {
           const where = statement.kind === 'update' || statement.kind === 'delete' ? statement.where! : undefined;
@@ -298,6 +383,110 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
           if (at >= 0) changed.splice(at, 1);
           break;
         }
+        case 'index-created': {
+          const schema = known(event.index.table)?.schema;
+          const columns = event.index.columns.join(', ');
+          drafts.push({
+            step: {
+              title: `CREATE INDEX ${event.index.name}: a B-tree of ${event.relation.rows.length} ${columns} ${event.relation.rows.length === 1 ? 'value' : 'values'}`,
+              why: 'The leaves at the bottom hold every value in order, each with the row it comes from. The levels above say which branch holds which values, so a search can skip most of the tree.',
+              codeLine: statement.line,
+            },
+            view: () => ({
+              ...view('CREATE INDEX', () => [sqlTable(event.index.table, event.relation, schema)])(),
+              index: btreeView(`${event.index.name} on ${event.index.table}(${columns})`, event.tree),
+            }),
+          });
+          break;
+        }
+        case 'index-dropped':
+          drafts.push({
+            step: { title: `DROP INDEX ${event.index.name}`, why: 'The index is gone; queries on its columns read every row again. The table is unchanged.', codeLine: statement.line },
+            view: view('DROP INDEX', () => []),
+          });
+          break;
+        case 'view-created':
+        case 'view-dropped': {
+          const created = event.kind === 'view-created';
+          drafts.push({
+            step: {
+              title: `${created ? 'CREATE' : 'DROP'} VIEW ${event.view.name}`,
+              why: created ? 'Only the query is stored, under this name. Each time the view is read, the query runs on the tables as they are then.' : 'The stored query is gone. The tables it read are unchanged.',
+              codeLine: statement.line,
+            },
+            view: view(created ? 'CREATE VIEW' : 'DROP VIEW', () => [
+              { label: `view ${event.view.name}`, columns: ['stored query'], rows: [{ id: 'query', cells: [event.view.sql], role: created ? 'found' : 'discarded' }] },
+            ]),
+          });
+          break;
+        }
+        case 'explained': {
+          const depth = new Map<number, number>([[0, -1]]);
+          for (const entry of event.entries) depth.set(entry.id, depth.get(entry.parent)! + 1);
+          const planTable = (upTo: number) => (): SqlTable[] => [
+            {
+              label: 'query plan',
+              columns: ['id', 'parent', 'detail'],
+              rows: event.entries.slice(0, upTo + 1).map((e, i) => ({
+                id: `plan#${e.id}`,
+                cells: [e.id, e.parent, `${'  '.repeat(depth.get(e.id)!)}${e.detail}`],
+                role: i === upTo ? ('active' as const) : ('default' as const),
+              })),
+            },
+          ];
+          event.entries.forEach((entry, i) => {
+            drafts.push({
+              step: { title: `Plan line ${i + 1}: ${entry.detail}`, why: planMeaning(entry.detail), codeLine: statement.line },
+              view: view('EXPLAIN', planTable(i)),
+              group: `PLAN${index}`,
+              kept: true,
+            });
+          });
+          break;
+        }
+        case 'transaction': {
+          const n = `${event.changes} ${event.changes === 1 ? 'change' : 'changes'}`;
+          const marked = (decorate: (row: { id: string }, changed: boolean) => Partial<SqlRow>, side: 'before' | 'after') => () =>
+            event.tables.flatMap((t) => {
+              const shown = t[side];
+              if (!shown) return [];
+              const other = new Map((side === 'after' ? t.before : t.after)?.rows.map((r) => [r.id, JSON.stringify(r.values)]) ?? []);
+              return [sqlTable(t.name, shown, known(t.name)?.schema, (id) => decorate({ id }, other.get(id) !== JSON.stringify(shown.rows.find((r) => r.id === id)!.values)))];
+            });
+          const kept = marked((_, changed) => (changed ? { role: 'found', note: 'kept' } : {}), 'after');
+          const undone = marked((_, changed) => (changed ? { role: 'discarded', note: 'undone' } : {}), 'before');
+          const name = event.name ?? '';
+          const titleFor: Record<typeof event.action, string> = {
+            begin: 'BEGIN: changes are now pending',
+            commit: `COMMIT: ${n} kept`,
+            rollback: `ROLLBACK: ${n} undone`,
+            savepoint: `SAVEPOINT ${name}: a point to roll back to`,
+            release: `RELEASE ${name}: ${n} kept`,
+            'rollback-to': `ROLLBACK TO ${name}: ${n} undone`,
+            'auto-rollback': 'The script ended inside a transaction, so its changes are undone.',
+          };
+          const undoing = event.action === 'rollback' || event.action === 'rollback-to' || event.action === 'auto-rollback';
+          drafts.push({
+            step: {
+              title: titleFor[event.action],
+              why:
+                event.action === 'auto-rollback'
+                  ? 'Nothing committed the transaction, and SQLite rolls back a transaction that is still open when the connection closes.'
+                  : intent(statement),
+              codeLine: statement.line,
+            },
+            view: view(undefined, undoing ? undone : event.action === 'begin' || event.action === 'savepoint' ? () => [] : kept),
+            pinned: true,
+          });
+          if (event.action === 'begin' || (event.action === 'savepoint' && frames.length === 0)) openedWith = new Map(latest);
+          if (event.action === 'begin') frames.push(undefined);
+          else if (event.action === 'savepoint') frames.push(event.name);
+          else if (event.action === 'release') frames.splice(frames.findLastIndex((f) => f?.toLowerCase() === event.name!.toLowerCase()));
+          else if (event.action === 'rollback-to') frames.splice(frames.findLastIndex((f) => f?.toLowerCase() === event.name!.toLowerCase()) + 1);
+          else frames.length = 0;
+          if (undoing) restoreFrom(event.tables);
+          break;
+        }
         case 'violation': {
           const { rule } = event.error.constraint;
           const schema = known(event.table)?.schema;
@@ -322,7 +511,9 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
           drafts.push({
             step: {
               title: 'The statement is undone',
-              why: 'SQLite undoes every change a failed statement made, so the database is back to how it was before it. The statements after it do not run.',
+              why: insideTransaction
+                ? 'SQLite undoes every change this statement made, but only this statement: the transaction is still open, so the script goes on.'
+                : 'SQLite undoes every change a failed statement made, so the database is back to how it was before it. The statements after it do not run.',
               codeLine: statement.line,
             },
             view: view(undefined, () => (restored ? [sqlTable(event.table, restored, schema)] : [])),
@@ -333,6 +524,38 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
       }
     }
     if (index === failedIndex) for (const [name, info] of before) latest.set(name, info);
+    if (failure && failure.kind !== 'constraint') {
+      drafts.push({
+        step: { title: `Error: ${failure.message}`, why: 'Inside a transaction, a failed statement is undone on its own. The transaction stays open and the script goes on.', codeLine: statement.line },
+        view: view(undefined, () => []),
+        pinned: true,
+      });
+    }
+    const writes = statement.kind === 'insert' || statement.kind === 'update' || statement.kind === 'delete';
+    if (frames.length > 0 && writes && !failure) {
+      // Rows that differ from when the transaction began are pending until COMMIT.
+      let count = 0;
+      const tables: SqlTable[] = [];
+      for (const [key, now] of latest) {
+        const then = openedWith.get(key);
+        const old = new Map(then?.relation.rows.map((r) => [r.id, JSON.stringify(r.values)]) ?? []);
+        const pending = new Set(now.relation.rows.filter((r) => old.get(r.id) !== JSON.stringify(r.values)).map((r) => r.id));
+        const gone = then ? then.relation.rows.filter((r) => !now.relation.rows.some((x) => x.id === r.id)).length : 0;
+        if (pending.size + gone === 0) continue;
+        count += pending.size + gone;
+        tables.push(sqlTable(now.schema.name, now.relation, now.schema, (id) => (pending.has(id) ? { role: 'frontier', note: 'pending' } : {})));
+      }
+      if (count > 0) {
+        drafts.push({
+          step: {
+            title: `Pending: ${count} ${count === 1 ? 'change' : 'changes'} since BEGIN, not saved until COMMIT`,
+            why: 'Inside a transaction, changes are kept aside: ROLLBACK can still undo them, and they only become permanent at COMMIT.',
+            codeLine: statement.line,
+          },
+          view: ((shown: SqlTable[]) => view(undefined, () => shown))(tables),
+        });
+      }
+    }
   }
 
   if (result.ok && changed.length > 0) {
@@ -369,6 +592,89 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
   return drafts;
 }
 
+const ANOMALY_WHY: Record<Anomaly, string> = {
+  'dirty read': 'This read saw a change the other session has not committed. If that session rolls back, the value read never really existed.',
+  'non-repeatable read': 'The same row, read twice in one transaction, has different values: the other session changed it in between.',
+  phantom: 'The same query, run again in one transaction, finds rows that were not there before: the other session added them.',
+  'lost update': 'This write overwrites a value the other session changed after this transaction read it, so that change is lost.',
+};
+
+/** Steps for a two-session script: one per statement event, with each session's view of the tables. */
+function buildSessionDrafts(db: Dataset, sql: string, statements: Statement[], events: SessionEvent[]): Draft[] {
+  const lines = sql.split('\n');
+  const textOf = (st: Statement) => (lines[st.line - 1] ?? '').trim().replace(/^[AaBb]\s*:\s*/, '').replace(/;\s*$/, '');
+  const names = [...new Set(statements.flatMap((st) => {
+    if (st.kind === 'insert' || st.kind === 'update' || st.kind === 'delete') return [st.table.table.toLowerCase()];
+    if (st.kind === 'select') return [st.select.from?.table, ...st.select.joins.map((j) => j.table)].flatMap((t) => (t ? [t.toLowerCase()] : []));
+    return [];
+  }))];
+  const statuses: SessionsView['rows'][number]['status'][] = statements.map(() => 'next');
+  const levels: Record<'A' | 'B', string> = { A: 'READ COMMITTED', B: 'READ COMMITTED' };
+  const tablesOf = (seenBy: Record<'A' | 'B', Relation[]>): SqlTable[] => {
+    const pick = (side: 'A' | 'B') => seenBy[side].filter((r) => names.includes((r.columns[0]?.table ?? '').toLowerCase()));
+    const a = pick('A');
+    const b = pick('B');
+    return [...a.map((rel, i) => ['A', rel, b[i]] as const), ...b.map((rel, i) => ['B', rel, a[i]] as const)].map(([side, rel, other]) => {
+      const theirs = new Map(other?.rows.map((r) => [r.id, JSON.stringify(r.values)]) ?? []);
+      return toTable(`${side} sees ${rel.columns[0]?.table ?? ''}`, rel, (id) =>
+        theirs.get(id) !== JSON.stringify(rel.rows.find((r) => r.id === id)!.values) ? { role: 'frontier', note: 'differs' } : {},
+      );
+    });
+  };
+  const viewFor = (active: number, seenBy: Record<'A' | 'B', Relation[]>, snapshot = [...statuses]) => (): SessionsView => ({
+    kind: 'sessions',
+    rows: statements.map((st, i) => ({ session: st.session!, text: textOf(st), status: snapshot[i]!, active: i === active })),
+    tables: tablesOf(seenBy),
+  });
+  const start = cloneDataset(db);
+  const startSeen = { A: start.tables.map((t) => relationOf(start, t)), B: start.tables.map((t) => relationOf(start, t)) };
+  const drafts: Draft[] = [
+    {
+      step: {
+        title: 'Two sessions, A and B',
+        why: 'Two connections use the same database at once. Statements run in the order written, unless one has to wait for a lock the other session holds.',
+        codeLine: statements[0]!.line,
+      },
+      view: viewFor(-1, startSeen),
+      pinned: true,
+    },
+  ];
+  for (const event of events) {
+    const st = event.statement;
+    const s = event.session;
+    const them = s === 'A' ? 'B' : 'A';
+    const text = textOf(st);
+    statuses[event.index] = event.status;
+    if (st.kind === 'set-isolation' && event.status === 'ran') levels[s] = st.level;
+    const value = event.result
+      ? event.result.rows.length === 1 && event.result.columns.length === 1
+        ? ` → ${formatValue(event.result.rows[0]![0]!)}`
+        : ` → ${rows(event.result.rows.length)}`
+      : '';
+    const anomaly = event.anomaly ? ` — ${event.anomaly}` : '';
+    const title = {
+      ran: `${s}: ${text}${value}${anomaly}`,
+      resumed: `${s} goes on: ${text}${value}${anomaly}`,
+      waiting: `${s} waits: ${text} needs a lock ${them} holds`,
+      error: `${s}: ${text} fails — ${event.message}`,
+      skipped: `${s} skips ${text}: its transaction was rolled back`,
+      'still waiting': `${s} is still waiting when the script ends: ${text}`,
+    }[event.status];
+    const why = event.anomaly
+      ? ANOMALY_WHY[event.anomaly]
+      : {
+          ran: levels[s] === 'READ UNCOMMITTED' ? `Under READ UNCOMMITTED, ${s} sees committed rows, its own changes and ${them}'s uncommitted ones.` : `Under ${levels[s]}, ${s} sees committed rows plus its own changes.`,
+          resumed: `${them}'s transaction ended and released its locks, so ${s} can go on.`,
+          waiting: `Under ${levels[s]}, ${them} holds a lock on a row this statement needs, so ${s} waits until ${them}'s transaction ends.`,
+          error: event.message?.startsWith('Deadlock') ? 'Each session was waiting for a lock the other holds. One of them has to give way, so the database rolls back B.' : 'Only this statement is undone.',
+          skipped: `${s}'s transaction was rolled back, so its statements up to the next BEGIN do nothing.`,
+          'still waiting': `${them} never ended its transaction, so ${s} never got the lock.`,
+        }[event.status];
+    drafts.push({ step: { title, why, codeLine: st.line }, view: viewFor(event.index, event.seenBy) });
+  }
+  return drafts;
+}
+
 /** Runs a script on a fresh copy of `db` and describes it statement by statement. Never throws. */
 export function scriptSteps(db: Dataset, sql: string): ScriptStepsResult {
   const parsed = parseScript(sql);
@@ -381,6 +687,10 @@ export function scriptSteps(db: Dataset, sql: string): ScriptStepsResult {
   }
   const events: WriteEvent[] = [];
   const result = runScript(db, sql, (e) => events.push(e));
+  if (isSessionsScript(statements)) {
+    if (!result.ok) return { ok: false, error: result.error, steps: [] };
+    return { ok: true, steps: fit(buildSessionDrafts(db, sql, statements, events.filter((e): e is SessionEvent => e.kind === 'session'))), result };
+  }
   const steps = fit(buildScriptDrafts(db, statements, events, result));
   if (!result.ok && result.error.kind !== 'constraint') {
     const { error, failedIndex } = result;
@@ -388,6 +698,15 @@ export function scriptSteps(db: Dataset, sql: string): ScriptStepsResult {
     return { ok: false, error: new SqlError(message, error.kind, error.line, error.column, error.topic), steps };
   }
   return { ok: true, steps, result };
+}
+
+/** A step's view of any kind, such as a two-session timeline, for lesson quizzes. Throws if the script fails to run. */
+export function scriptStepView(db: Dataset, sql: string, index: number): View {
+  const result = scriptSteps(db, sql);
+  if (!result.ok) throw new Error(`${result.error.message} in: ${sql}`);
+  const step = result.steps.at(index);
+  if (!step) throw new Error(`No step ${index} in: ${sql}`);
+  return step.view;
 }
 
 /** A step's view, for lesson quizzes. A negative index counts from the end. Throws if the script fails to run. */

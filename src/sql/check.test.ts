@@ -123,3 +123,19 @@ describe('checkExercise with probes', () => {
     expect(Array.isArray(outcomes) && outcomes[0]).toEqual(Array.isArray(outcomes) && outcomes[1]);
   });
 });
+
+describe('EXPLAIN QUERY PLAN probes', () => {
+  const exercise = {
+    solution: 'CREATE INDEX idx_hired ON employees(hired);',
+    orderMatters: false,
+    probes: ["EXPLAIN QUERY PLAN SELECT name FROM employees WHERE hired > '2020-01-01'"],
+  };
+
+  it('accept an index with any name', () => {
+    expect(checkExercise(datasets.company, 'CREATE INDEX h ON employees (hired)', exercise)).toEqual({ status: 'correct' });
+  });
+
+  it('still reject a plan that reads every row', () => {
+    expect(checkExercise(datasets.company, 'CREATE INDEX s ON employees (salary)', exercise).status).toBe('probe');
+  });
+});

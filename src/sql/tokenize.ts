@@ -27,7 +27,7 @@ export const KEYWORDS: ReadonlySet<string> = new Set([
 ]);
 
 const OPERATORS = ['<>', '!=', '<=', '>=', '=', '<', '>', '+', '-', '*', '/', '%'];
-const PUNCT = '(),.;';
+const PUNCT = '(),.;:';
 const NUMBER = /^(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?/;
 const WORD = /^[A-Za-z_][A-Za-z0-9_]*/;
 

@@ -1,12 +1,15 @@
 import type { Dataset } from './datasets';
-import type { ConstraintInfo, SqlError } from './errors';
-import { runQuery } from './execute';
+import { SqlError, type ConstraintInfo } from './errors';
+import { runQuery, type QueryResult } from './execute';
+import { parseScript } from './parse';
 import { runScript } from './script';
+import { isSessionsScript } from './sessions';
 import { valueKey, type SqlValue } from './values';
 
 /** What a probe did: returned rows (none for a write that succeeded), broke a constraint, or failed otherwise. */
 export type ProbeOutcome =
-  | { kind: 'rows'; columns: number; keys: string[] }
+  /** `plan` marks EXPLAIN QUERY PLAN rows, which compare more loosely (see samePlan). */
+  | { kind: 'rows'; columns: number; keys: string[]; plan?: boolean }
   | { kind: 'constraint'; rule: ConstraintInfo['rule']; table: string }
   | { kind: 'error'; message: string };
 
@@ -47,7 +50,10 @@ export function probeOutcomes(db: Dataset, script: string, probes: string[]): Pr
       return error.constraint ? { kind: 'constraint', rule: error.constraint.rule, table: error.constraint.table.toLowerCase() } : { kind: 'error', message: error.message };
     }
     const last = run.statements.at(-1)!;
-    return last.result ? { kind: 'rows', columns: last.result.columns.length, keys: last.result.rows.map(rowKey) } : { kind: 'rows', columns: 0, keys: [] };
+    if (!last.result) return { kind: 'rows', columns: 0, keys: [] };
+    // A plan names the index it uses; any name the learner chose is as good as the solution's.
+    const rows = last.kind === 'explain' ? last.result.rows.map((row) => row.map((v) => (typeof v === 'string' ? v.replace(/INDEX \S+/, 'INDEX ?') : v))) : last.result.rows;
+    return { kind: 'rows', columns: last.result.columns.length, keys: rows.map(rowKey), ...(last.kind === 'explain' && { plan: true }) };
   });
 }
 
@@ -57,7 +63,17 @@ const sameRule = (a: ConstraintInfo['rule'], b: ConstraintInfo['rule']) => {
   return a === b || (duplicate(a) && duplicate(b));
 };
 
+/**
+ * Plans match line by line, except that a covering index is as good as a plain one: it answers
+ * the query without reading the table. A COVERING INDEX the solution needs must still be there.
+ */
+function samePlan(expected: string[], actual: string[]): boolean {
+  const plain = (k: string) => k.replace('COVERING INDEX', 'INDEX');
+  return expected.length === actual.length && expected.every((e, i) => plain(e) === plain(actual[i]!) && (!e.includes('COVERING') || actual[i]!.includes('COVERING')));
+}
+
 function sameOutcome(a: ProbeOutcome, b: ProbeOutcome, orderMatters: boolean): boolean {
+  if (a.kind === 'rows' && b.kind === 'rows' && a.plan && b.plan) return samePlan(a.keys, b.keys);
   if (a.kind === 'rows' && b.kind === 'rows') {
     if (a.columns !== b.columns || a.keys.length !== b.keys.length) return false;
     if (orderMatters) return a.keys.every((k, i) => k === b.keys[i]);
@@ -66,6 +82,21 @@ function sameOutcome(a: ProbeOutcome, b: ProbeOutcome, orderMatters: boolean): b
   if (a.kind === 'constraint' && b.kind === 'constraint') return sameRule(a.rule, b.rule) && a.table === b.table;
   if (a.kind === 'error' && b.kind === 'error') return a.message === b.message;
   return false;
+}
+
+/**
+ * The rows a query returns. A two-session script returns the rows of its last SELECT that ran,
+ * so an exercise can ask what a session ends up seeing.
+ */
+function finalResult(db: Dataset, sql: string): { ok: true; result: QueryResult } | { ok: false; error: SqlError } {
+  const parsed = parseScript(sql);
+  if (!parsed.ok || !isSessionsScript(parsed.statements)) return runQuery(db, sql);
+  const run = runScript(db, sql);
+  if (!run.ok) return run;
+  // What each SELECT read, in script order, then the data both sessions left behind: one line each.
+  const reads = run.statements.flatMap((st, i) => (st.kind === 'select' && st.result && !st.error ? [`read ${i + 1}: ${st.result.rows.map(rowKey).join(' / ')}`] : []));
+  const tables = run.db.tables.map((t) => `${t.name}: ${t.rows.map((r) => r.map(valueKey).join('|')).join(' / ')}`);
+  return { ok: true, result: { columns: ['outcome'], rows: [...reads, ...tables].map((line) => [line]) } };
 }
 
 /**
@@ -83,9 +114,9 @@ export function checkExercise(db: Dataset, query: string, exercise: { solution: 
     if (index < 0) return { status: 'correct' };
     return { status: 'probe', index, probe: exercise.probes[index]!, expected: expected[index]!, actual: actual[index]! };
   }
-  const expected = runQuery(db, exercise.solution);
+  const expected = finalResult(db, exercise.solution);
   if (!expected.ok) throw new Error(`Exercise solution fails: ${expected.error.message}`);
-  const actual = runQuery(db, query);
+  const actual = finalResult(db, query);
   if (!actual.ok) return { status: 'error', error: actual.error };
 
   const want = expected.result;

@@ -7,6 +7,7 @@ const FOREIGN_KEYS: Record<string, Record<string, [table: string, column: string
   order_items: { order_id: ['orders', 'id'], product_id: ['products', 'id'] },
   enrollments: { student_id: ['students', 'id'], course_id: ['courses', 'id'] },
   employees: { manager_id: ['employees', 'id'], department_id: ['departments', 'id'] },
+  transfers: { from_id: ['accounts', 'id'], to_id: ['accounts', 'id'] },
 };
 
 function table(db: Dataset, name: string): DatasetTable {
@@ -237,5 +238,35 @@ describe('company dataset', () => {
     expect(emp('Linh')[5]! < emp('Hoa')[5]!).toBe(true);
     expect(emp('Thu')[3]).toBeNull();
     expect(employees.rows.some((r) => r[3] === 4)).toBe(false);
+  });
+});
+
+describe('bank dataset', () => {
+  it('has accounts and transfers as the spec lists them', () => {
+    expect(findTable(datasets.bank, 'accounts')!.rows).toEqual([[1, 'An', 500], [2, 'Binh', 300], [3, 'Chi', 0], [4, 'Dung', 1200]]);
+    expect(findTable(datasets.bank, 'transfers')!.rows).toEqual([[1, 1, 2, 100], [2, 4, 3, 250]]);
+    expect(findTable(datasets.bank, 'accounts')!.columns.find((c) => c.name === 'balance')!.check).toBe('balance >= 0');
+  });
+});
+
+describe('signups dataset', () => {
+  const t = () => findTable(datasets.signups, 'course_signups')!;
+  it('is one unnormalized table with the repeats the lesson needs', () => {
+    expect(t().rows).toHaveLength(10);
+    expect(new Set(col(t(), 'student')).size).toBe(4);
+    expect(new Set(col(t(), 'course')).size).toBe(3);
+    expect(new Set(col(t(), 'teacher')).size).toBe(2);
+    const haRooms = t().rows.filter((r) => r[4] === 'Ha').map((r) => r[5]);
+    expect(haRooms.filter((r) => r === 'B12')).toHaveLength(3);
+    expect(haRooms.filter((r) => r === 'B21')).toHaveLength(1);
+    expect(t().primaryKey).toBeUndefined();
+  });
+});
+
+describe('new datasets in SQLite', () => {
+  it.each(['bank', 'signups'] as const)('%s loads with its constraints satisfied', async (id) => {
+    const sqlite = await openSqlite(datasets[id]);
+    expect(sqlite.query('PRAGMA foreign_key_check').rows).toEqual([]);
+    sqlite.close();
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cloneDataset, datasets, findTable } from './datasets';
-import { columnNotes, createTableSql, isRowidAlias } from './schema';
+import { cloneDataset, datasets, findTable, indexesOf } from './datasets';
+import { columnNotes, createTableSql, implicitIndexes, isRowidAlias } from './schema';
 
 const shopTable = (name: string) => findTable(datasets.shop, name)!;
 
@@ -61,5 +61,48 @@ describe('cloneDataset', () => {
     customers.rows.pop();
     expect(shopTable('customers').rows[0]![1]).toBe('Ana');
     expect(shopTable('customers').rows).toHaveLength(10);
+  });
+});
+
+describe('implicitIndexes', () => {
+  it('gives UNIQUE columns and non-integer primary keys SQLite\'s automatic indexes', () => {
+    expect(implicitIndexes(findTable(datasets.school, 'students')!)).toEqual([
+      { name: 'sqlite_autoindex_students_1', table: 'students', columns: ['email'], unique: true, implicit: true },
+    ]);
+    expect(implicitIndexes(findTable(datasets.school, 'enrollments')!)).toEqual([
+      { name: 'sqlite_autoindex_enrollments_1', table: 'enrollments', columns: ['student_id', 'course_id'], unique: true, implicit: true },
+    ]);
+  });
+
+  it('makes none for an INTEGER PRIMARY KEY', () => {
+    expect(implicitIndexes(findTable(datasets.company, 'employees')!)).toEqual([]);
+  });
+
+  it('numbers column constraints before table constraints', () => {
+    const table = { name: 't', columns: [{ name: 'a', type: 'TEXT' as const, unique: true }, { name: 'b', type: 'TEXT' as const }], primaryKey: ['b'], unique: [['a', 'b']] };
+    expect(implicitIndexes(table).map((i) => [i.name, i.columns])).toEqual([
+      ['sqlite_autoindex_t_1', ['a']],
+      ['sqlite_autoindex_t_2', ['b']],
+      ['sqlite_autoindex_t_3', ['a', 'b']],
+    ]);
+  });
+});
+
+describe('indexesOf', () => {
+  it('lists implicit indexes before created ones', () => {
+    const db = cloneDataset(datasets.school);
+    db.indexes = [{ name: 'idx_year', table: 'students', columns: ['year'], unique: false, implicit: false }];
+    expect(indexesOf(db, 'STUDENTS').map((i) => i.name)).toEqual(['sqlite_autoindex_students_1', 'idx_year']);
+    expect(indexesOf(db, 'courses')).toEqual([]);
+  });
+
+  it('is copied by cloneDataset', () => {
+    const db = cloneDataset(datasets.school);
+    db.indexes = [{ name: 'idx_year', table: 'students', columns: ['year'], unique: false, implicit: false }];
+    db.views = [];
+    const copy = cloneDataset(db);
+    copy.indexes!.push({ name: 'x', table: 'students', columns: ['name'], unique: false, implicit: false });
+    expect(db.indexes).toHaveLength(1);
+    expect(copy.views).toEqual([]);
   });
 });

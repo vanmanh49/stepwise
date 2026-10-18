@@ -1,5 +1,6 @@
 import type { View } from '../../../types/visualization';
 import { ArrayRenderer } from './ArrayRenderer';
+import { BTreeRenderer } from './BTreeRenderer';
 import { BucketsRenderer } from './BucketsRenderer';
 import { CallsRenderer } from './CallsRenderer';
 import { GraphRenderer } from './GraphRenderer';
@@ -8,6 +9,7 @@ import { HeapRenderer } from './HeapRenderer';
 import { ListRenderer } from './ListRenderer';
 import { PanelsRenderer } from './PanelsRenderer';
 import { QueueRenderer } from './QueueRenderer';
+import { SessionsRenderer } from './SessionsRenderer';
 import { StackRenderer } from './StackRenderer';
 import { TableRenderer } from './TableRenderer';
 import { TreeRenderer } from './TreeRenderer';
@@ -37,6 +39,10 @@ export function StepView({ view }: { view: View }) {
       return <CallsRenderer view={view} />;
     case 'buckets':
       return <BucketsRenderer view={view} />;
+    case 'btree':
+      return <BTreeRenderer view={view} />;
+    case 'sessions':
+      return <SessionsRenderer view={view} />;
     case 'panels':
       return <PanelsRenderer view={view} renderView={(panel) => <StepView view={panel} />} />;
   }

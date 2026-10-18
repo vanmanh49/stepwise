@@ -1,5 +1,6 @@
-import type { SqlRow, SqlTable, Step, TableView } from '../types/visualization';
+import type { BTreeView, Role, SessionsView, SqlRow, SqlTable, Step, TableView } from '../types/visualization';
 import { LOGICAL_ORDER, type Clause, type SelectStatement } from './ast';
+import type { BTree } from './btree';
 import type { Dataset } from './datasets';
 import { asSqlError, type SqlError } from './errors';
 import { executeSelect, type QueryResult, type Relation, type TraceEvent } from './execute';
@@ -21,6 +22,30 @@ function columnNames(relation: Relation): string[] {
   return relation.columns.map((c) => (qualify && c.table ? `${c.table}.${c.name}` : c.name));
 }
 
+/**
+ * An index for the step view. `roles` colours whole nodes (the search path); `matched` marks the
+ * leaf keys whose rows were found.
+ */
+export function btreeView(label: string, tree: BTree, roles: ReadonlyMap<string, Role> = new Map(), matched: ReadonlySet<string> = new Set()): BTreeView {
+  const leaves = new Set(tree.levels.at(-1));
+  return {
+    kind: 'btree',
+    label,
+    root: tree.root,
+    nodes: [...tree.nodes.values()].map((node) => {
+      const leaf = leaves.has(node.id);
+      return {
+        id: node.id,
+        keys: node.keys.map((key) => key.map(formatValue).join(', ')),
+        children: node.children,
+        leaf,
+        role: roles.get(node.id) ?? 'default',
+        matched: leaf ? node.entries.flatMap((e, i) => (matched.has(e.rowid) ? [i] : [])) : [],
+      };
+    }),
+  };
+}
+
 export function toTable(label: string, relation: Relation, decorate: (id: string, index: number) => Partial<SqlRow> = () => ({})): SqlTable {
   return {
     label,
@@ -40,7 +65,7 @@ export function focusOf(relation: Relation, values: Record<string, string>): num
 export interface Draft {
   step: Omit<Step, 'view'>;
   /** Built only for steps that survive summarising: a long run must not copy the table thousands of times. */
-  view: () => TableView;
+  view: () => TableView | SessionsView;
   /** Row checks of one clause share a group, so long runs can be summarised. */
   group?: string;
   kept?: boolean;
@@ -145,6 +170,63 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
             toTable(workingLabel, relation, (id) => (id === event.row ? { role: 'active', focus: [relation.columns.length - event.columns.length] } : depends.has(id) ? { role: 'compare' } : {})),
           ];
         }, { group: 'WINDOW', kept: true }, lineOf('SELECT'));
+        break;
+      }
+
+      case 'view':
+        push('FROM', {
+          title: `VIEW ${event.name}: ${rows(event.relation.rows.length)}`,
+          why: `${event.name} is a view: a stored query. It runs now, and its rows work like a table for the rest of this query.`,
+        }, () => [toTable(event.name, event.relation)], {}, lineOf('FROM'));
+        break;
+
+      case 'index-search': {
+        const label = `${event.index} on ${event.table}(${event.columns.join(', ')})`;
+        const found = new Set(event.rowids);
+        const fullTable = lastRelation;
+        // Views are built later, after WHERE has renamed the working table, so keep this step's label.
+        const tableLabel = workingLabel;
+        const withIndex = (clause: Clause, step: Omit<Step, 'view' | 'codeLine'>, index: BTreeView, tables: () => SqlTable[], extra: Partial<Draft> = {}) =>
+          drafts.push({ step: { ...step, codeLine: lineOf('WHERE', lineOf('FROM')) }, view: () => ({ ...view(clause, tables()), index }), ...extra });
+        if (scans > 1) {
+          // A join searches its inner table once per outer row: one step each.
+          const n = event.rowids.length;
+          withIndex('JOIN', {
+            title: `${event.label}: search ${event.index} for ${event.condition} → ${rows(n)}`,
+            why: 'The index finds the matching rows for this outer row directly, so only they are paired and tested with ON.',
+          }, btreeView(label, event.tree, new Map(event.path.map((id) => [id, 'visited'] as const)), found), () => [toTable(event.label, event.relation)], { group: 'INDEX-JOIN', kept: n > 0 });
+          break;
+        }
+        const from = drafts.findLast((d) => d.step.title.startsWith('FROM '));
+        if (from) {
+          from.step.title = `FROM ${event.table}: ${rows(event.total)}, read through ${event.index}`;
+          from.step.why = `An index on ${event.columns.join(', ')} lets the database find the rows WHERE wants without reading all ${rows(event.total)}.`;
+        }
+        const path = (upTo: number) => new Map(event.path.slice(0, upTo + 1).map((id, i) => [id, (i === upTo ? 'active' : 'visited') as Role]));
+        const table = () => (fullTable ? [toTable(tableLabel, fullTable)] : []);
+        withIndex('FROM', {
+          title: `Search ${event.index} for ${event.condition}`,
+          why: 'A search starts at the root. Each node’s keys say which branch below holds the values being looked for.',
+        }, btreeView(label, event.tree, path(0)), table);
+        for (let level = 1; level < event.path.length; level++) {
+          withIndex('FROM', {
+            title: `Level ${level + 1}: follow the branch towards ${event.condition}`,
+            why: level === event.path.length - 1 ? 'This is a leaf: it holds the indexed values themselves, each with the row it belongs to.' : 'The search goes down one level, skipping every branch that can’t hold a match.',
+          }, btreeView(label, event.tree, path(level)), table);
+        }
+        withIndex('FROM', {
+          title: `Scan the leaves: ${event.rowids.length} ${event.rowids.length === 1 ? 'match' : 'matches'}`,
+          why: 'Leaves are linked left to right in key order, so the search reads along them until a value is past the condition.',
+        }, btreeView(label, event.tree, path(event.path.length - 1), found), table);
+        withIndex('FROM', {
+          title: `Fetch ${rows(event.rowids.length)} by rowid`,
+          why: 'Each leaf entry says where its row is, so only those rows are read from the table.',
+        }, btreeView(label, event.tree, new Map(), found), () => (fullTable ? [toTable(tableLabel, fullTable, (id) => (found.has(id) ? { role: 'found' } : {}))] : []));
+        push('FROM', {
+          title: `Examined ${event.examined} of ${rows(event.total)}; a full scan reads ${event.total}.`,
+          why: 'WHERE still checks each of these rows, but the rows the index ruled out are never read.',
+        }, () => [toTable(tableLabel, event.relation)], {}, lineOf('WHERE', lineOf('FROM')));
+        lastRelation = event.relation;
         break;
       }
 

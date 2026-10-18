@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import type { CSSProperties } from 'react';
 import type { SqlRow, SqlTable, TableView } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
+import { BTreeRenderer } from './BTreeRenderer';
 import { visibleRows } from './tableRows';
 import { spring } from './ValueBox';
 import { notesRow } from './tableNotes';
@@ -148,7 +149,8 @@ function Table({ table }: { table: SqlTable }) {
 export function TableRenderer({ view }: { view: TableView }) {
   return (
     <div className="flex w-full flex-col gap-4">
-      <ClauseStrip clauses={view.clauses} current={view.current} />
+      {view.clauses.length > 0 && <ClauseStrip clauses={view.clauses} current={view.current} />}
+      {view.index && <BTreeRenderer view={view.index} />}
       <div className={`grid gap-4 ${COLUMNS[view.tables.length] ?? 'lg:grid-cols-3'}`}>
         {view.tables.map((table, i) => (
           <Table key={`${i}-${table.label}`} table={table} />

@@ -1,11 +1,14 @@
 import type { Statement, TableRef } from './ast';
 import { checkForeignKeys, checkRow } from './constraints';
-import { findTable, type Dataset, type DatasetTable } from './datasets';
+import { findTable, findView, indexesOf, type Dataset, type DatasetTable, type IndexDef, type ViewDef } from './datasets';
 import { ConstraintError, SqlError, suggest } from './errors';
 import { evaluate } from './evaluate';
 import { bindCtes, executeSelect, filter, nullRow, scan, type Env, type QueryResult, type Relation, type Row, type TraceEvent } from './execute';
 import { firstNode } from './parse';
-import { isRowidAlias, type TableSchema } from './schema';
+import { buildBTree, type BTree } from './btree';
+import { planSelect, type PlanEntry } from './plan';
+import type { SessionEvent } from './sessions';
+import { formatLiteral, isRowidAlias, type TableSchema } from './schema';
 import { applyAffinity, valueKey, type SqlValue } from './values';
 
 /** Most rows a table may hold after a statement, so every step stays readable. */
@@ -23,6 +26,20 @@ export type WriteEvent =
   /** `relation` is the table as it was when the row failed, before the statement is undone. */
   | { kind: 'violation'; error: ConstraintError; table: string; rowId: string; clashWith?: { table: string; rowId: string }; relation: Relation }
   | { kind: 'rolled-back'; table: string; relation?: Relation }
+  /** `tree` is the new index built over `relation`, the table's rows. */
+  | { kind: 'index-created'; index: IndexDef; tree: BTree; relation: Relation }
+  | { kind: 'index-dropped'; index: IndexDef }
+  | { kind: 'view-created' | 'view-dropped'; view: ViewDef }
+  | { kind: 'explained'; entries: PlanEntry[] }
+  | SessionEvent
+  /** `tables` lists the tables whose rows changed: since BEGIN or the savepoint, or what was undone. */
+  | {
+      kind: 'transaction';
+      action: 'begin' | 'commit' | 'rollback' | 'savepoint' | 'release' | 'rollback-to' | 'auto-rollback';
+      name?: string;
+      changes: number;
+      tables: { name: string; before?: Relation; after?: Relation }[];
+    }
   | TraceEvent;
 
 export type Emit = (event: WriteEvent) => void;
@@ -33,6 +50,7 @@ const newEnv = (db: Dataset, ctes?: ReadonlyMap<string, Relation>): Env => ({ db
 function tableOf(db: Dataset, ref: { table: string; line: number; column: number }): DatasetTable {
   const table = findTable(db, ref.table);
   if (table) return table;
+  if (findView(db, ref.table)) throw new SqlError('Views are read-only here; change the table it reads from.', 'syntax', ref.line, ref.column);
   const close = suggest(ref.table, db.tables.map((t) => t.name));
   throw new SqlError(`No table \`${ref.table}\`.` + (close ? ` Did you mean \`${close}\`?` : ''), 'name', ref.line, ref.column);
 }
@@ -193,6 +211,7 @@ function remove(db: Dataset, st: Extract<Statement, { kind: 'delete' }>, emit?: 
 function create(db: Dataset, st: Extract<Statement, { kind: 'create' }>, emit?: Emit): void {
   const { schema } = st;
   if (findTable(db, schema.name)) throw new SqlError(`Table \`${schema.name}\` already exists.`, 'name', st.line, st.column);
+  if (findView(db, schema.name)) throw new SqlError(`A table or view called \`${schema.name}\` already exists.`, 'name', st.line, st.column);
   const seen = new Set<string>();
   for (const c of schema.columns) {
     if (seen.has(c.name.toLowerCase())) throw new SqlError(`Column \`${c.name}\` appears twice.`, 'syntax', st.line, st.column);
@@ -234,6 +253,7 @@ function create(db: Dataset, st: Extract<Statement, { kind: 'create' }>, emit?: 
 
 function drop(db: Dataset, st: Extract<Statement, { kind: 'drop' }>, emit?: Emit): number {
   const table = findTable(db, st.table);
+  if (!table && findView(db, st.table)) throw new SqlError(`\`${st.table}\` is a view. Use DROP VIEW.`, 'name', st.line, st.column);
   if (!table) {
     if (st.ifExists) return 0;
     tableOf(db, { table: st.table, line: st.line, column: st.column });
@@ -246,8 +266,81 @@ function drop(db: Dataset, st: Extract<Statement, { kind: 'drop' }>, emit?: Emit
   table.rowIds = [];
   checkForeignKeys(db, snapshot, st.line);
   db.tables = db.tables.filter((t) => t !== table);
+  if (db.indexes) db.indexes = db.indexes.filter((i) => i.table.toLowerCase() !== table.name.toLowerCase());
   emit?.({ kind: 'dropped', table: table.name, before });
   return before.rows.length;
+}
+
+function createIndex(db: Dataset, st: Extract<Statement, { kind: 'create-index' }>, emit?: Emit): void {
+  const table = tableOf(db, { table: st.table, line: st.line, column: st.column });
+  const positions = st.columns.map((name) => columnIndex(table, name, st.line, st.column));
+  const all = (db.tables.flatMap((t) => indexesOf(db, t.name)));
+  if (all.some((i) => i.name.toLowerCase() === st.name.toLowerCase())) {
+    if (st.ifNotExists) return;
+    throw new SqlError(`An index called \`${st.name}\` already exists.`, 'name', st.line, st.column);
+  }
+  const index: IndexDef = { name: st.name, table: table.name, columns: positions.map((p) => table.columns[p]!.name), unique: st.unique, implicit: false };
+  if (st.unique) {
+    // NULLs never clash, as in SQLite.
+    const seen = new Map<string, number>();
+    table.rows.forEach((row, i) => {
+      const values = positions.map((p) => row[p]!);
+      if (values.some((v) => v === null)) return;
+      const key = values.map(valueKey).join('|');
+      const first = seen.get(key);
+      if (first !== undefined) {
+        const described = index.columns.map((c, k) => `${c} ${formatLiteral(values[k]!)}`).join(', ');
+        throw new SqlError(`Can't create UNIQUE index \`${st.name}\`: rows ${first + 1} and ${i + 1} both have ${described}.`, 'syntax', st.line, st.column);
+      }
+      seen.set(key, i);
+    });
+  }
+  db.indexes = [...(db.indexes ?? []), index];
+  if (emit) {
+    const relation = relationOf(db, table);
+    const tree = buildBTree(relation.rows.map((row) => ({ key: positions.map((p) => row.values[p]!), rowid: row.id })));
+    emit({ kind: 'index-created', index, tree, relation });
+  }
+}
+
+function dropIndex(db: Dataset, st: Extract<Statement, { kind: 'drop-index' }>, emit?: Emit): void {
+  const wanted = st.name.toLowerCase();
+  const index = db.tables.flatMap((t) => indexesOf(db, t.name)).find((i) => i.name.toLowerCase() === wanted);
+  if (!index) {
+    if (st.ifExists) return;
+    throw new SqlError(`No index \`${st.name}\`.`, 'name', st.line, st.column);
+  }
+  if (index.implicit) {
+    throw new SqlError(`\`${index.name}\` belongs to a UNIQUE or PRIMARY KEY constraint and can't be dropped.`, 'syntax', st.line, st.column);
+  }
+  db.indexes = (db.indexes ?? []).filter((i) => i !== index);
+  emit?.({ kind: 'index-dropped', index });
+}
+
+function createView(db: Dataset, st: Extract<Statement, { kind: 'create-view' }>, emit?: Emit): void {
+  if (findTable(db, st.name) || findView(db, st.name)) {
+    if (st.ifNotExists && findView(db, st.name)) return;
+    throw new SqlError(`A table or view called \`${st.name}\` already exists.`, 'name', st.line, st.column);
+  }
+  // Run the query once now, so a view that names a missing table or column fails here, as in SQLite.
+  const result = executeSelect(db, st.query);
+  if (st.columns && st.columns.length !== result.columns.length) {
+    throw new SqlError(`View \`${st.name}\` lists ${st.columns.length} columns but its SELECT returns ${result.columns.length}.`, 'syntax', st.line, st.column);
+  }
+  const view: ViewDef = { name: st.name, ...(st.columns && { columns: st.columns }), sql: st.sql, query: st.query };
+  db.views = [...(db.views ?? []), view];
+  emit?.({ kind: 'view-created', view });
+}
+
+function dropView(db: Dataset, st: Extract<Statement, { kind: 'drop-view' }>, emit?: Emit): void {
+  const view = findView(db, st.name);
+  if (!view) {
+    if (findTable(db, st.name)) throw new SqlError(`\`${st.name}\` is a table. Use DROP TABLE.`, 'name', st.line, st.column);
+    if (st.ifExists) return;
+    throw new SqlError(`No view \`${st.name}\`.`, 'name', st.line, st.column);
+  }
+  db.views = (db.views ?? []).filter((v) => v !== view);
+  emit?.({ kind: 'view-dropped', view });
 }
 
 /** Table a violation happened in, for the step that shows it. */
@@ -268,6 +361,28 @@ export function executeStatement(db: Dataset, statement: Statement, emit?: Emit)
         return { affected: 0 };
       case 'drop':
         return { affected: drop(db, statement, emit) };
+      case 'create-index':
+        createIndex(db, statement, emit);
+        return { affected: 0 };
+      case 'drop-index':
+        dropIndex(db, statement, emit);
+        return { affected: 0 };
+      case 'create-view':
+        createView(db, statement, emit);
+        return { affected: 0 };
+      case 'drop-view':
+        dropView(db, statement, emit);
+        return { affected: 0 };
+      case 'explain': {
+        const { entries } = planSelect(db, statement.select);
+        const result: QueryResult = { columns: ['id', 'parent', 'notused', 'detail'], rows: entries.map((e) => [e.id, e.parent, 0, e.detail]) };
+        emit?.({ kind: 'explained', entries });
+        return { affected: entries.length, result };
+      }
+      case 'transaction':
+        throw new SqlError('Transaction statements run in a script.', 'syntax', statement.line, statement.column);
+      case 'set-isolation':
+        throw new SqlError('SET TRANSACTION only works in a two-session script (A: … B: …).', 'syntax', statement.line, statement.column);
       default: {
         const before = structuredClone(db.tables);
         const affected = statement.kind === 'insert' ? insert(db, statement, emit) : statement.kind === 'update' ? update(db, statement, emit) : remove(db, statement, emit);

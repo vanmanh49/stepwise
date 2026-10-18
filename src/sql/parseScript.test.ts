@@ -122,9 +122,6 @@ describe('parseScript', () => {
     ['INSERT INTO t VALUES (1) ON CONFLICT DO NOTHING', 'ON CONFLICT'],
     ['CREATE TABLE c (p INTEGER REFERENCES p(id) ON DELETE CASCADE)', 'ON DELETE'],
     ['UPDATE t SET a = 1 RETURNING *', 'RETURNING'],
-    ['CREATE INDEX i ON t (a)', 'CREATE INDEX'],
-    ['CREATE VIEW v AS SELECT * FROM t', 'CREATE VIEW'],
-    ['BEGIN', 'BEGIN'],
     ['CREATE TABLE t (a INTEGER PRIMARY KEY AUTOINCREMENT)', 'AUTOINCREMENT'],
     ['CREATE TABLE t (a INTEGER CHECK (a IN (SELECT id FROM u)))', 'subqueries in CHECK'],
   ])('rejects %s as unsupported', (sql, feature) => {
@@ -148,6 +145,70 @@ describe('parseScript', () => {
   it('reports errors on the right line of a longer script', () => {
     const error = failure('DELETE FROM t;\nUPDATE t SET a 1');
     expect(error.line).toBe(2);
+  });
+});
+
+describe('phase 4 statements', () => {
+  it('parses CREATE INDEX and DROP INDEX', () => {
+    expect(only('CREATE UNIQUE INDEX IF NOT EXISTS i ON t (a, b)', 'create-index')).toMatchObject({
+      name: 'i',
+      table: 't',
+      columns: ['a', 'b'],
+      unique: true,
+      ifNotExists: true,
+      line: 1,
+    });
+    expect(only('CREATE INDEX idx ON employees(salary)', 'create-index')).toMatchObject({ unique: false, ifNotExists: false, columns: ['salary'] });
+    expect(only('DROP INDEX IF EXISTS i', 'drop-index')).toMatchObject({ name: 'i', ifExists: true });
+  });
+
+  it('parses CREATE VIEW with its SELECT text and DROP VIEW', () => {
+    const view = only('CREATE VIEW v (x, y) AS\nSELECT a, b FROM t WHERE a > 1', 'create-view');
+    expect(view).toMatchObject({ name: 'v', columns: ['x', 'y'], sql: 'SELECT a, b FROM t WHERE a > 1', ifNotExists: false });
+    expect(view.query.from?.table).toBe('t');
+    expect(only('CREATE VIEW IF NOT EXISTS w AS SELECT 1', 'create-view').ifNotExists).toBe(true);
+    expect(only('DROP VIEW IF EXISTS v', 'drop-view')).toMatchObject({ name: 'v', ifExists: true });
+  });
+
+  it('parses EXPLAIN QUERY PLAN', () => {
+    expect(only('EXPLAIN QUERY PLAN SELECT * FROM t', 'explain').select.from?.table).toBe('t');
+    expect(failure('EXPLAIN SELECT 1').message).toBe('Only EXPLAIN QUERY PLAN is supported here.');
+  });
+
+  it.each([
+    ['BEGIN', 'begin', undefined],
+    ['BEGIN TRANSACTION', 'begin', undefined],
+    ['COMMIT', 'commit', undefined],
+    ['END', 'commit', undefined],
+    ['END TRANSACTION', 'commit', undefined],
+    ['ROLLBACK', 'rollback', undefined],
+    ['SAVEPOINT s', 'savepoint', 's'],
+    ['RELEASE s', 'release', 's'],
+    ['RELEASE SAVEPOINT s', 'release', 's'],
+    ['ROLLBACK TO s', 'rollback-to', 's'],
+    ['ROLLBACK TO SAVEPOINT s', 'rollback-to', 's'],
+  ])('parses %s', (sql, action, name) => {
+    const statement = only(sql, 'transaction');
+    expect(statement.action).toBe(action);
+    expect(statement.name).toBe(name);
+  });
+
+  it('parses SET TRANSACTION ISOLATION LEVEL', () => {
+    expect(only('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ', 'set-isolation').level).toBe('REPEATABLE READ');
+    expect(only('SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED', 'set-isolation').level).toBe('READ UNCOMMITTED');
+    expect(failure('SET TRANSACTION ISOLATION LEVEL SNAPSHOT').message).toContain('READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ or SERIALIZABLE');
+  });
+
+  it('reads A: and B: session prefixes', () => {
+    const statements = parse('A: BEGIN;\nB: SELECT * FROM t;\na: COMMIT');
+    expect(statements.map((s) => [s.kind, s.session, s.line])).toEqual([
+      ['transaction', 'A', 1],
+      ['select', 'B', 2],
+      ['transaction', 'A', 3],
+    ]);
+    expect(parse('SELECT 1')[0]!.session).toBeUndefined();
+    expect(failure('A: SELECT 1; SELECT 2').message).toBe('Start every statement with A: or B:, or none of them.');
+    expect(failure('C: SELECT 1').message).toBe('Sessions are called A and B.');
   });
 });
 
