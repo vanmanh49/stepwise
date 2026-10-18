@@ -8,10 +8,10 @@ export const school: Dataset = {
     {
       name: 'students',
       columns: [
-        { name: 'id', type: 'INTEGER' },
-        { name: 'name', type: 'TEXT' },
+        { name: 'id', type: 'INTEGER', primaryKey: true },
+        { name: 'name', type: 'TEXT', notNull: true },
         { name: 'year', type: 'INTEGER' },
-        { name: 'email', type: 'TEXT' },
+        { name: 'email', type: 'TEXT', unique: true },
       ],
       rows: [
         [1, 'Mai', 1, 'mai@school.edu'],
@@ -29,8 +29,8 @@ export const school: Dataset = {
     {
       name: 'courses',
       columns: [
-        { name: 'id', type: 'INTEGER' },
-        { name: 'title', type: 'TEXT' },
+        { name: 'id', type: 'INTEGER', primaryKey: true },
+        { name: 'title', type: 'TEXT', notNull: true },
         { name: 'credits', type: 'INTEGER' },
       ],
       rows: [
@@ -45,10 +45,11 @@ export const school: Dataset = {
     {
       name: 'enrollments',
       columns: [
-        { name: 'student_id', type: 'INTEGER' },
-        { name: 'course_id', type: 'INTEGER' },
+        { name: 'student_id', type: 'INTEGER', references: { table: 'students', column: 'id' } },
+        { name: 'course_id', type: 'INTEGER', references: { table: 'courses', column: 'id' } },
         { name: 'grade', type: 'INTEGER' },
       ],
+      primaryKey: ['student_id', 'course_id'],
       rows: [
         [1, 1, 85],
         [1, 2, 72],

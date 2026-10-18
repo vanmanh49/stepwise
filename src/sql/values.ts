@@ -1,3 +1,5 @@
+import type { ColumnType } from './schema';
+
 /** A REAL value. Plain JS numbers are INTEGERs, so integer division can truncate the way SQLite does. */
 export class Real {
   constructor(readonly value: number) {}
@@ -142,4 +144,21 @@ export function formatValue(v: SqlValue): string {
 
 export function toPlain(v: SqlValue): number | string | null {
   return v instanceof Real ? v.value : v;
+}
+
+const WHOLE_NUMBER_TEXT = /^\s*[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?\s*$/;
+
+/**
+ * The plain value SQLite stores for `value` in a column of `type` (its type affinity).
+ * Numeric columns turn text that is entirely a number into that number; TEXT columns
+ * store numbers as text. Whole REAL values in an INTEGER column become integers.
+ */
+export function applyAffinity(value: SqlValue, type: ColumnType): number | string | null {
+  if (value === null) return null;
+  if (type === 'TEXT') return typeof value === 'string' ? value : formatValue(value);
+  if (typeof value === 'string') {
+    if (!WHOLE_NUMBER_TEXT.test(value)) return value;
+    return Number(value.trim());
+  }
+  return raw(value);
 }

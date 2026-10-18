@@ -1,24 +1,26 @@
-import type { AggregateFn, Expr, JoinClause, SelectItem, SelectStatement, TableRef } from './ast';
+import type { AggregateFn, Expr, JoinClause, SelectItem, SelectStatement, Statement, TableRef } from './ast';
 import { asSqlError, SqlError } from './errors';
+import type { ColumnDef, ColumnType, TableSchema } from './schema';
 import { tokenize, type Token } from './tokenize';
 import { Real } from './values';
 
 export const MAX_QUERY_LENGTH = 2000;
+export const MAX_STATEMENTS = 10;
 /** Deeper nesting is never needed and could overflow the call stack. */
 const MAX_DEPTH = 100;
 
 export type ParseResult = { ok: true; statement: SelectStatement } | { ok: false; error: SqlError };
+export type ScriptParse = { ok: true; statements: Statement[] } | { ok: false; error: SqlError };
+
+const COLUMN_TYPES = new Set<string>(['INTEGER', 'REAL', 'TEXT']);
+/** Statements a script can run but a single SELECT query cannot. */
+const WRITES = new Set(['INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP']);
 
 const AGGREGATES = new Set<string>(['COUNT', 'SUM', 'AVG', 'MIN', 'MAX']);
 const COMPARISONS = new Set(['=', '<>', '!=', '<', '<=', '>', '>=']);
 
 /** Statement or clause keywords that belong to a later lesson, with the curriculum id that covers them. */
 const LATER: Record<string, string | undefined> = {
-  INSERT: 'insert',
-  UPDATE: 'update',
-  DELETE: 'delete',
-  CREATE: 'create-table',
-  DROP: undefined,
   ALTER: undefined,
   WITH: 'ctes',
   UNION: 'set-operations',
@@ -103,6 +105,9 @@ class Parser {
 
   statement(): SelectStatement {
     const t = this.token;
+    if (t.kind === 'keyword' && WRITES.has(t.value)) {
+      throw new SqlError(`Only a SELECT query can run here, not ${t.value}.`, 'unsupported', t.line, t.column);
+    }
     if (t.kind === 'keyword' && t.value in LATER) throw unsupported(t.value, t, LATER[t.value]);
     const statement = this.select();
     if (this.isKeyword('UNION', 'INTERSECT', 'EXCEPT')) this.fail('the end of the query');
@@ -257,6 +262,307 @@ class Parser {
     const expr = this.expr();
     if (this.acceptKeyword('AS')) return { kind: 'expr', expr, alias: this.identifier('an alias').value };
     return { kind: 'expr', expr };
+  }
+
+  /**
+   * The current token is this word, as a keyword or an unquoted identifier. Words such as KEY or
+   * CHECK are recognised by position, so they stay usable as names, as in SQLite.
+   */
+  private isWord(word: string): boolean {
+    const t = this.token;
+    return (t.kind === 'keyword' || (t.kind === 'identifier' && !t.text.startsWith('"'))) && t.value.toUpperCase() === word;
+  }
+
+  private acceptWord(word: string): boolean {
+    if (!this.isWord(word)) return false;
+    this.next();
+    return true;
+  }
+
+  private expectWord(word: string): Token {
+    if (!this.isWord(word)) this.fail(word);
+    return this.next();
+  }
+
+  private atEnd(): boolean {
+    return this.token.kind === 'eof';
+  }
+
+  script(): Statement[] {
+    const statements: Statement[] = [];
+    for (;;) {
+      while (this.isPunct(';')) this.next();
+      if (this.atEnd()) break;
+      if (statements.length === MAX_STATEMENTS) {
+        throw new SqlError(`Scripts are limited to ${MAX_STATEMENTS} statements.`, 'limit', this.token.line, this.token.column);
+      }
+      statements.push(this.scriptStatement());
+      if (!this.atEnd() && !this.isPunct(';')) this.fail('`;` or the end of the statement');
+    }
+    if (statements.length === 0) throw new SqlError('Write a statement to run.', 'syntax', 1, 1);
+    return statements;
+  }
+
+  private scriptStatement(): Statement {
+    const t = this.token;
+    if (this.isKeyword('SELECT')) {
+      const select = this.select();
+      if (this.isKeyword('UNION', 'INTERSECT', 'EXCEPT')) this.fail('the end of the statement');
+      return { kind: 'select', select, line: t.line };
+    }
+    if (this.isKeyword('INSERT')) return this.insert();
+    if (this.isKeyword('UPDATE')) return this.update();
+    if (this.isKeyword('DELETE')) return this.deleteFrom();
+    if (this.isKeyword('CREATE')) return this.create();
+    if (this.isKeyword('DROP')) return this.drop();
+    if (this.isKeyword('ALTER')) throw unsupported('ALTER TABLE', t);
+    for (const word of ['BEGIN', 'COMMIT', 'ROLLBACK', 'SAVEPOINT', 'END']) {
+      if (this.isWord(word)) throw unsupported(word, t, 'transactions');
+    }
+    if (t.kind === 'keyword' && t.value in LATER) throw unsupported(t.value, t, LATER[t.value]);
+    return this.fail('a statement such as SELECT, INSERT, UPDATE or DELETE');
+  }
+
+  /** Clauses SQLite allows after a write that this interpreter does not run. */
+  private rejectWriteTail(): void {
+    if (this.isKeyword('ON') && this.peek().value.toUpperCase() === 'CONFLICT') throw unsupported('ON CONFLICT', this.token);
+    if (this.isWord('RETURNING')) throw unsupported('RETURNING', this.token);
+  }
+
+  private tableName(): TableRef {
+    const name = this.identifier('a table name');
+    return { table: name.value, line: name.line, column: name.column };
+  }
+
+  private nameList(what: string): string[] {
+    this.expectPunct('(');
+    const names = [this.identifier(what).value];
+    while (this.isPunct(',')) {
+      this.next();
+      names.push(this.identifier(what).value);
+    }
+    this.expectPunct(')');
+    return names;
+  }
+
+  private insert(): Statement {
+    const start = this.expectKeyword('INSERT');
+    if (this.isKeyword('OR')) throw unsupported('INSERT OR', this.token);
+    this.expectKeyword('INTO');
+    const table = this.tableName();
+    const columns = this.isPunct('(') ? this.nameList('a column name') : undefined;
+    const lines: { INSERT: number; VALUES?: number; SELECT?: number } = { INSERT: start.line };
+    let values: Expr[][] | undefined;
+    let select: SelectStatement | undefined;
+    if (this.isKeyword('VALUES')) {
+      lines.VALUES = this.next().line;
+      values = [this.valueRow()];
+      while (this.isPunct(',')) {
+        this.next();
+        values.push(this.valueRow());
+      }
+    } else if (this.isKeyword('SELECT')) {
+      lines.SELECT = this.token.line;
+      select = this.select();
+    } else if (this.isWord('DEFAULT')) {
+      throw unsupported('DEFAULT VALUES', this.token);
+    } else {
+      this.fail('VALUES or SELECT');
+    }
+    this.rejectWriteTail();
+    return { kind: 'insert', table, ...(columns && { columns }), ...(values && { values }), ...(select && { select }), line: start.line, lines };
+  }
+
+  private valueRow(): Expr[] {
+    this.expectPunct('(');
+    const row = [this.expr()];
+    while (this.isPunct(',')) {
+      this.next();
+      row.push(this.expr());
+    }
+    this.expectPunct(')');
+    return row;
+  }
+
+  private update(): Statement {
+    const start = this.expectKeyword('UPDATE');
+    if (this.isKeyword('OR')) throw unsupported('UPDATE OR', this.token);
+    const table = this.tableName();
+    const setToken = this.expectKeyword('SET');
+    const set: { name: string; expr: Expr; line: number; column: number }[] = [];
+    do {
+      if (set.length > 0) this.next();
+      const column = this.identifier('a column name');
+      if (!(this.token.kind === 'operator' && this.token.value === '=')) this.fail('`=`');
+      this.next();
+      set.push({ name: column.value, expr: this.expr(), line: column.line, column: column.column });
+    } while (this.isPunct(','));
+    const lines: { UPDATE: number; SET: number; WHERE?: number } = { UPDATE: start.line, SET: setToken.line };
+    let where: Expr | undefined;
+    if (this.isKeyword('WHERE')) {
+      lines.WHERE = this.next().line;
+      where = this.expr();
+    }
+    this.rejectWriteTail();
+    return { kind: 'update', table, set, ...(where && { where }), line: start.line, lines };
+  }
+
+  private deleteFrom(): Statement {
+    const start = this.expectKeyword('DELETE');
+    this.expectKeyword('FROM');
+    const table = this.tableName();
+    const lines: { DELETE: number; WHERE?: number } = { DELETE: start.line };
+    let where: Expr | undefined;
+    if (this.isKeyword('WHERE')) {
+      lines.WHERE = this.next().line;
+      where = this.expr();
+    }
+    this.rejectWriteTail();
+    return { kind: 'delete', table, ...(where && { where }), line: start.line, lines };
+  }
+
+  private drop(): Statement {
+    const start = this.expectKeyword('DROP');
+    if (this.isWord('INDEX')) throw unsupported('DROP INDEX', start, 'indexes');
+    if (this.isWord('VIEW')) throw unsupported('DROP VIEW', start, 'views');
+    this.expectKeyword('TABLE');
+    let ifExists = false;
+    if (this.acceptWord('IF')) {
+      this.expectKeyword('EXISTS');
+      ifExists = true;
+    }
+    const name = this.identifier('a table name');
+    return { kind: 'drop', table: name.value, ifExists, line: start.line, column: name.column };
+  }
+
+  private create(): Statement {
+    const start = this.expectKeyword('CREATE');
+    if (this.isWord('TEMP') || this.isWord('TEMPORARY')) throw unsupported('CREATE TEMP TABLE', this.token);
+    if (this.isWord('INDEX') || this.isWord('UNIQUE')) throw unsupported('CREATE INDEX', start, 'indexes');
+    if (this.isWord('VIEW')) throw unsupported('CREATE VIEW', start, 'views');
+    if (this.isWord('TRIGGER')) throw unsupported('CREATE TRIGGER', start);
+    this.expectKeyword('TABLE');
+    if (this.isWord('IF')) throw unsupported('IF NOT EXISTS', this.token);
+    const name = this.identifier('a table name');
+    if (this.isKeyword('AS')) throw unsupported('CREATE TABLE … AS', this.token);
+    const schema: TableSchema = { name: name.value, columns: [] };
+    const checks: Expr[] = [];
+    this.expectPunct('(');
+    do {
+      if (schema.columns.length > 0 || schema.primaryKey || schema.unique || schema.checks || schema.foreignKeys) this.next();
+      if (['CONSTRAINT', 'PRIMARY', 'UNIQUE', 'CHECK', 'FOREIGN'].some((w) => this.isWord(w))) this.tableConstraint(schema, checks);
+      else if (schema.primaryKey || schema.unique || schema.checks || schema.foreignKeys) this.fail('a table constraint, after the columns');
+      else schema.columns.push(this.columnDef(checks));
+    } while (this.isPunct(','));
+    this.expectPunct(')');
+    return { kind: 'create', schema, checks, line: start.line, column: start.column };
+  }
+
+  private columnType(name: Token): ColumnType {
+    const t = this.token;
+    if (t.kind !== 'identifier' && t.kind !== 'keyword') {
+      throw new SqlError(`Give column \`${name.value}\` a type: INTEGER, REAL or TEXT.`, 'syntax', t.line, t.column);
+    }
+    const type = t.value.toUpperCase();
+    if (!COLUMN_TYPES.has(type)) {
+      throw new SqlError(`\`${t.text}\` isn't a column type here. Use INTEGER, REAL or TEXT.`, 'unsupported', t.line, t.column);
+    }
+    this.next();
+    return type as ColumnType;
+  }
+
+  private columnDef(checks: Expr[]): ColumnDef {
+    const name = this.identifier('a column name');
+    const column: ColumnDef = { name: name.value, type: this.columnType(name) };
+    for (;;) {
+      if (this.acceptWord('CONSTRAINT')) this.identifier('a constraint name');
+      else if (this.acceptWord('PRIMARY')) {
+        this.expectWord('KEY');
+        if (this.isKeyword('ASC', 'DESC')) this.next();
+        if (this.isWord('AUTOINCREMENT')) throw unsupported('AUTOINCREMENT', this.token);
+        column.primaryKey = true;
+      } else if (this.acceptKeyword('NOT')) {
+        this.expectKeyword('NULL');
+        column.notNull = true;
+      } else if (this.acceptKeyword('NULL')) {
+        // An explicit NULL means "may be NULL", the default.
+      } else if (this.acceptWord('UNIQUE')) column.unique = true;
+      else if (this.acceptWord('DEFAULT')) column.default = this.defaultValue();
+      else if (this.acceptWord('CHECK')) column.check = this.checkCondition(checks);
+      else if (this.acceptWord('REFERENCES')) {
+        const table = this.identifier('a table name').value;
+        const [refColumn, ...more] = this.nameList('a column name');
+        if (more.length > 0) this.fail('one column');
+        this.rejectForeignKeyActions();
+        column.references = { table, column: refColumn! };
+      } else if (this.isWord('COLLATE') || this.isWord('GENERATED') || this.isWord('AS')) {
+        throw unsupported(this.token.value.toUpperCase(), this.token);
+      } else break;
+    }
+    return column;
+  }
+
+  private tableConstraint(schema: TableSchema, checks: Expr[]): void {
+    if (this.acceptWord('CONSTRAINT')) this.identifier('a constraint name');
+    if (this.acceptWord('PRIMARY')) {
+      this.expectWord('KEY');
+      schema.primaryKey = this.nameList('a column name');
+    } else if (this.acceptWord('UNIQUE')) {
+      (schema.unique ??= []).push(this.nameList('a column name'));
+    } else if (this.acceptWord('CHECK')) {
+      (schema.checks ??= []).push(this.checkCondition(checks));
+    } else if (this.acceptWord('FOREIGN')) {
+      this.expectWord('KEY');
+      const columns = this.nameList('a column name');
+      this.expectWord('REFERENCES');
+      const table = this.identifier('a table name').value;
+      const refColumns = this.nameList('a column name');
+      this.rejectForeignKeyActions();
+      (schema.foreignKeys ??= []).push({ columns, table, refColumns });
+    } else {
+      this.fail('PRIMARY KEY, UNIQUE, CHECK or FOREIGN KEY');
+    }
+  }
+
+  private rejectForeignKeyActions(): void {
+    if (this.isKeyword('ON')) throw unsupported(`ON ${this.peek().value.toUpperCase()}`, this.token);
+    if (this.isWord('DEFERRABLE') || this.isWord('MATCH')) throw unsupported(this.token.value.toUpperCase(), this.token);
+  }
+
+  private defaultValue(): number | string | null {
+    const t = this.token;
+    const negative = t.kind === 'operator' && t.value === '-';
+    const value = negative ? this.peek() : t;
+    if (value.kind === 'number') {
+      if (negative) this.next();
+      this.next();
+      return (negative ? -1 : 1) * Number(value.value);
+    }
+    if (!negative && t.kind === 'string') return this.next().value;
+    if (!negative && this.isKeyword('NULL')) {
+      this.next();
+      return null;
+    }
+    throw unsupported('DEFAULT with an expression', t);
+  }
+
+  /** A CHECK condition, kept as text and collected in `checks`. It may only read the row's own columns. */
+  private checkCondition(checks: Expr[]): string {
+    this.expectPunct('(');
+    const start = this.token;
+    const condition = this.expr();
+    this.expectPunct(')');
+    const found = firstNode(condition, (e) => e.type === 'subquery' || e.type === 'inSubquery' || e.type === 'aggregate');
+    if (found) throw unsupported(found.type === 'aggregate' ? 'aggregates in CHECK' : 'subqueries in CHECK', start);
+    checks.push(condition);
+    return condition.text;
+  }
+
+  /** A whole input that must be one expression, such as a stored CHECK condition. */
+  standaloneExpr(): Expr {
+    const expr = this.expr();
+    if (this.token.kind !== 'eof') this.fail('the end of the expression');
+    return expr;
   }
 
   expr(): Expr {
@@ -455,4 +761,56 @@ export function parseQuery(sql: string): ParseResult {
   } catch (error) {
     return { ok: false, error: asSqlError(error) };
   }
+}
+
+/** The first node of `expr`, itself included, for which `test` holds. */
+export function firstNode(expr: Expr, test: (e: Expr) => boolean): Expr | undefined {
+  if (test(expr)) return expr;
+  const children: Expr[] = [];
+  switch (expr.type) {
+    case 'unary':
+    case 'isNull':
+      children.push(expr.operand);
+      break;
+    case 'binary':
+      children.push(expr.left, expr.right);
+      break;
+    case 'between':
+      children.push(expr.operand, expr.low, expr.high);
+      break;
+    case 'like':
+      children.push(expr.operand, expr.pattern);
+      break;
+    case 'inList':
+      children.push(expr.operand, ...expr.items);
+      break;
+    case 'inSubquery':
+      children.push(expr.operand);
+      break;
+    case 'aggregate':
+      if (expr.arg !== '*') children.push(expr.arg);
+      break;
+  }
+  for (const child of children) {
+    const found = firstNode(child, test);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/** Parses a script of statements separated by `;`. Never throws. */
+export function parseScript(sql: string): ScriptParse {
+  try {
+    if (sql.length > MAX_QUERY_LENGTH) {
+      throw new SqlError('Scripts are limited to 2,000 characters.', 'limit', 1, 1);
+    }
+    return { ok: true, statements: new Parser(sql, tokenize(sql)).script() };
+  } catch (error) {
+    return { ok: false, error: asSqlError(error) };
+  }
+}
+
+/** Parses one expression, such as a stored CHECK condition. Throws SqlError. */
+export function parseExpression(text: string): Expr {
+  return new Parser(text, tokenize(text)).standaloneExpr();
 }

@@ -49,14 +49,19 @@ import { queue } from './data-structures/queue';
 import { stack } from './data-structures/stack';
 import { string } from './data-structures/string';
 import { aggregates } from './sql/aggregates';
+import { constraints } from './sql/constraints';
+import { createTable } from './sql/create-table';
+import { deleteLesson } from './sql/delete';
 import { distinct } from './sql/distinct';
 import { groupByHaving } from './sql/group-by-having';
 import { innerJoin } from './sql/inner-join';
+import { insert } from './sql/insert';
 import { leftJoin } from './sql/left-join';
 import { nullValues } from './sql/null-values';
 import { orderByLimit } from './sql/order-by-limit';
 import { selectFrom } from './sql/select-from';
 import { subqueries } from './sql/subqueries';
+import { update } from './sql/update';
 import { where } from './sql/where';
 
 /** Every live lesson, in recommended learning order. Register new lessons here. */
@@ -116,10 +121,15 @@ export const lessons: Lesson[] = [
   orderByLimit,
   distinct,
   aggregates,
+  insert,
+  update,
+  deleteLesson,
   groupByHaving,
   innerJoin,
   leftJoin,
   subqueries,
+  createTable,
+  constraints,
 ];
 
 const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));

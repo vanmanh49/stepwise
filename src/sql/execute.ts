@@ -52,7 +52,7 @@ export type TraceEvent =
 
 export type RunResult = { ok: true; result: QueryResult; statement: SelectStatement } | { ok: false; error: SqlError };
 
-type Trace = (event: TraceEvent) => void;
+export type Trace = (event: TraceEvent) => void;
 
 /** Largest relation a JOIN may build; the sample tables are tiny, so more means a missing condition. */
 export const MAX_ROWS = 2000;
@@ -60,7 +60,7 @@ export const MAX_ROWS = 2000;
 export const MAX_WORK = 200_000;
 
 /** Everything a scope needs except its columns and row. */
-type Env = Omit<Scope, 'columns' | 'row'>;
+export type Env = Omit<Scope, 'columns' | 'row'>;
 
 function tick(env: Env) {
   if (++env.ctx.work > MAX_WORK) {
@@ -73,7 +73,12 @@ function tick(env: Env) {
   }
 }
 
-function scan(db: Dataset, ref: TableRef): Relation {
+/** How a stored number is read: REAL in a REAL column, and also whenever it is not whole (SQLite keeps 2.5 as REAL even in an INTEGER column). */
+export function cellValue(v: number | string | null, type: ColumnType): SqlValue {
+  return typeof v === 'number' && (type === 'REAL' || !Number.isInteger(v)) ? new Real(v) : v;
+}
+
+export function scan(db: Dataset, ref: TableRef): Relation {
   const table = findTable(db, ref.table);
   if (!table) {
     const close = suggest(ref.table, db.tables.map((t) => t.name));
@@ -88,13 +93,13 @@ function scan(db: Dataset, ref: TableRef): Relation {
   return {
     columns: table.columns.map((c) => ({ table: label, name: c.name, type: c.type })),
     rows: table.rows.map((values, i) => ({
-      id: `${table.name}#${i}`,
-      values: values.map((v, c) => (table.columns[c]!.type === 'REAL' && typeof v === 'number' ? new Real(v) : v)),
+      id: table.rowIds?.[i] ?? `${table.name}#${i}`,
+      values: values.map((v, c) => cellValue(v, table.columns[c]!.type)),
     })),
   };
 }
 
-const nullRow = (columns: ColumnRef[]): Row => ({ id: 'probe', values: columns.map(() => null) });
+export const nullRow = (columns: ColumnRef[]): Row => ({ id: 'probe', values: columns.map(() => null) });
 
 /**
  * Evaluates `expr` once against a row of NULLs. Used when a relation is empty, so that
@@ -144,7 +149,7 @@ function join(left: Relation, clause: JoinClause, env: Env, trace?: Trace): Rela
 }
 
 /** Keeps the rows whose condition is true. `scopeOf` decides what a row can see (a source row or a group). */
-function filter(
+export function filter(
   clause: 'WHERE' | 'HAVING',
   condition: Expr,
   input: Relation,

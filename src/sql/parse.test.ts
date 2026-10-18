@@ -121,10 +121,10 @@ describe('parse errors', () => {
   });
 
   it.each([
-    ['INSERT INTO t VALUES (1)', '`INSERT` isn\'t supported here yet. It is covered in a later lesson.', 'insert'],
-    ['UPDATE t SET a = 1', '`UPDATE` isn\'t supported here yet. It is covered in a later lesson.', 'update'],
-    ['DELETE FROM t', '`DELETE` isn\'t supported here yet. It is covered in a later lesson.', 'delete'],
-    ['CREATE TABLE t (a INTEGER)', '`CREATE` isn\'t supported here yet. It is covered in a later lesson.', 'create-table'],
+    ['INSERT INTO t VALUES (1)', 'Only a SELECT query can run here, not INSERT.', undefined],
+    ['UPDATE t SET a = 1', 'Only a SELECT query can run here, not UPDATE.', undefined],
+    ['DELETE FROM t', 'Only a SELECT query can run here, not DELETE.', undefined],
+    ['CREATE TABLE t (a INTEGER)', 'Only a SELECT query can run here, not CREATE.', undefined],
     ['SELECT a FROM t UNION SELECT a FROM u', '`UNION` isn\'t supported here yet. It is covered in a later lesson.', 'set-operations'],
     ['WITH x AS (SELECT 1) SELECT * FROM x', '`WITH` isn\'t supported here yet. It is covered in a later lesson.', 'ctes'],
     ['SELECT COUNT(*) OVER (PARTITION BY a) FROM t', '`OVER` isn\'t supported here yet. It is covered in a later lesson.', 'window-functions'],

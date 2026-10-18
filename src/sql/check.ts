@@ -1,14 +1,22 @@
 import type { Dataset } from './datasets';
-import type { SqlError } from './errors';
+import type { ConstraintInfo, SqlError } from './errors';
 import { runQuery } from './execute';
+import { runScript } from './script';
 import { valueKey, type SqlValue } from './values';
+
+/** What a probe did: returned rows (none for a write that succeeded), broke a constraint, or failed otherwise. */
+export type ProbeOutcome =
+  | { kind: 'rows'; columns: number; keys: string[] }
+  | { kind: 'constraint'; rule: ConstraintInfo['rule']; table: string }
+  | { kind: 'error'; message: string };
 
 export type CheckResult =
   | { status: 'correct' }
   | { status: 'error'; error: SqlError }
   | { status: 'columns'; expected: number; actual: number }
   | { status: 'rows'; missing: number; extra: number }
-  | { status: 'order' };
+  | { status: 'order' }
+  | { status: 'probe'; index: number; probe: string; expected: ProbeOutcome; actual: ProbeOutcome };
 
 const rowKey = (row: SqlValue[]) => row.map(valueKey).join('|');
 
@@ -26,11 +34,55 @@ function surplus(a: Map<string, number>, b: Map<string, number>): number {
 }
 
 /**
+ * Runs `script` on a fresh copy of `db`, then each probe on its own copy of the result.
+ * Returns the script's error when the script itself fails.
+ */
+export function probeOutcomes(db: Dataset, script: string, probes: string[]): ProbeOutcome[] | SqlError {
+  const base = script.trim() === '' ? { ok: true as const, db } : runScript(db, script);
+  if (!base.ok) return base.error;
+  return probes.map((probe): ProbeOutcome => {
+    const run = runScript(base.db, probe);
+    if (!run.ok) {
+      const { error } = run;
+      return error.constraint ? { kind: 'constraint', rule: error.constraint.rule, table: error.constraint.table.toLowerCase() } : { kind: 'error', message: error.message };
+    }
+    const last = run.statements.at(-1)!;
+    return last.result ? { kind: 'rows', columns: last.result.columns.length, keys: last.result.rows.map(rowKey) } : { kind: 'rows', columns: 0, keys: [] };
+  });
+}
+
+/** PRIMARY KEY and UNIQUE refuse a duplicate in the same way, so either answers a "no repeats" probe. */
+const sameRule = (a: ConstraintInfo['rule'], b: ConstraintInfo['rule']) => {
+  const duplicate = (rule: ConstraintInfo['rule']) => rule === 'PRIMARY KEY' || rule === 'UNIQUE';
+  return a === b || (duplicate(a) && duplicate(b));
+};
+
+function sameOutcome(a: ProbeOutcome, b: ProbeOutcome, orderMatters: boolean): boolean {
+  if (a.kind === 'rows' && b.kind === 'rows') {
+    if (a.columns !== b.columns || a.keys.length !== b.keys.length) return false;
+    if (orderMatters) return a.keys.every((k, i) => k === b.keys[i]);
+    return surplus(counts(a.keys), counts(b.keys)) === 0;
+  }
+  if (a.kind === 'constraint' && b.kind === 'constraint') return sameRule(a.rule, b.rule) && a.table === b.table;
+  if (a.kind === 'error' && b.kind === 'error') return a.message === b.message;
+  return false;
+}
+
+/**
  * Compares the learner's query with the exercise's solution by result: column count, then rows
  * as a multiset, then order when it matters. Column names are ignored. Throws if the solution fails,
  * which is a bug in the lesson.
  */
-export function checkExercise(db: Dataset, query: string, exercise: { solution: string; orderMatters: boolean }): CheckResult {
+export function checkExercise(db: Dataset, query: string, exercise: { solution: string; orderMatters: boolean; probes?: string[] }): CheckResult {
+  if (exercise.probes) {
+    const expected = probeOutcomes(db, exercise.solution, exercise.probes);
+    if (!Array.isArray(expected)) throw new Error(`Exercise solution fails: ${expected.message}`);
+    const actual = probeOutcomes(db, query, exercise.probes);
+    if (!Array.isArray(actual)) return { status: 'error', error: actual };
+    const index = expected.findIndex((want, i) => !sameOutcome(want, actual[i]!, exercise.orderMatters));
+    if (index < 0) return { status: 'correct' };
+    return { status: 'probe', index, probe: exercise.probes[index]!, expected: expected[index]!, actual: actual[index]! };
+  }
   const expected = runQuery(db, exercise.solution);
   if (!expected.ok) throw new Error(`Exercise solution fails: ${expected.error.message}`);
   const actual = runQuery(db, query);
@@ -66,6 +118,28 @@ export function describeCheck(result: CheckResult): string {
         ...(result.extra > 0 ? [`${result.extra} extra ${result.extra === 1 ? 'row' : 'rows'}`] : []),
       ];
       return `${parts.join(', ')}.`;
+    }
+    case 'probe': {
+      const { probe, expected, actual } = result;
+      if (expected.kind === 'constraint' && actual.kind === 'rows') {
+        return `\`${probe}\` should fail (${expected.rule}), but your table accepted it.`;
+      }
+      if (expected.kind === 'rows' && actual.kind === 'constraint') {
+        return `\`${probe}\` should succeed, but your table rejected it (${actual.rule} on ${actual.table}).`;
+      }
+      if (expected.kind === 'constraint' && actual.kind === 'constraint') {
+        return `\`${probe}\` should fail with ${expected.rule}, but your table failed it with ${actual.rule}.`;
+      }
+      if (expected.kind === 'rows' && actual.kind === 'rows') {
+        if (expected.columns !== actual.columns) {
+          return `After your script, \`${probe}\` gives ${count(actual.columns, 'column')} instead of ${expected.columns}.`;
+        }
+        const differ = surplus(counts(expected.keys), counts(actual.keys)) + surplus(counts(actual.keys), counts(expected.keys));
+        return differ > 0
+          ? `After your script, \`${probe}\` gives ${count(differ, 'row')} that differ.`
+          : `After your script, \`${probe}\` gives the right rows in the wrong order.`;
+      }
+      return `\`${probe}\` behaves differently after your script.`;
     }
     case 'order':
       return 'Right rows, wrong order.';

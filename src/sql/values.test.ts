@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { suggest } from './errors';
 import {
+  applyAffinity,
   and,
   arithmetic,
   compare,
@@ -102,5 +103,44 @@ describe('suggest', () => {
     expect(suggest('cutomer_id', ['id', 'customer_id'])).toBe('customer_id');
     expect(suggest('NAME', ['name'])).toBe('name');
     expect(suggest('zzz', ['id'])).toBeUndefined();
+  });
+});
+
+describe('applyAffinity', () => {
+  it.each([
+    ['5', 5],
+    [' 5 ', 5],
+    ['2.5', 2.5],
+    ['1e2', 100],
+    ['abc', 'abc'],
+    ['5abc', '5abc'],
+    ['', ''],
+    [new Real(3), 3],
+    [new Real(2.5), 2.5],
+    [7, 7],
+    [null, null],
+  ] as const)('INTEGER stores %o as %o', (value, stored) => {
+    expect(applyAffinity(value, 'INTEGER')).toBe(stored);
+  });
+
+  it.each([
+    [5, 5],
+    ['2.5', 2.5],
+    ['3', 3],
+    ['x', 'x'],
+    [new Real(1.5), 1.5],
+    [null, null],
+  ] as const)('REAL stores %o as %o', (value, stored) => {
+    expect(applyAffinity(value, 'REAL')).toBe(stored);
+  });
+
+  it.each([
+    [5, '5'],
+    [new Real(2.5), '2.5'],
+    [new Real(3), '3.0'],
+    ['a', 'a'],
+    [null, null],
+  ] as const)('TEXT stores %o as %o', (value, stored) => {
+    expect(applyAffinity(value, 'TEXT')).toBe(stored);
   });
 });

@@ -178,3 +178,34 @@ describe('SQLite loader', () => {
     expect(sqlite.query('SELECT price FROM products WHERE 0')).toEqual({ columns: ['price'], rows: [] });
   });
 });
+
+describe('declared constraints', () => {
+  it('match the spec', () => {
+    const shop = (n: string) => findTable(datasets.shop, n)!;
+    const school = (n: string) => findTable(datasets.school, n)!;
+    const pk = (t: DatasetTable) => t.columns.filter((c) => c.primaryKey).map((c) => c.name);
+    const notNull = (t: DatasetTable) => t.columns.filter((c) => c.notNull).map((c) => c.name);
+    expect(pk(shop('customers'))).toEqual(['id']);
+    expect(pk(shop('products'))).toEqual(['id']);
+    expect(pk(shop('orders'))).toEqual(['id']);
+    expect(notNull(shop('customers'))).toEqual(['name']);
+    expect(notNull(shop('products'))).toEqual(['name', 'price']);
+    expect(shop('orders').columns.find((c) => c.name === 'customer_id')?.references).toEqual({ table: 'customers', column: 'id' });
+    expect(shop('order_items').primaryKey).toEqual(['order_id', 'product_id']);
+    expect(shop('order_items').columns.find((c) => c.name === 'quantity')?.check).toBe('quantity > 0');
+    expect(pk(school('students'))).toEqual(['id']);
+    expect(pk(school('courses'))).toEqual(['id']);
+    expect(notNull(school('students'))).toEqual(['name']);
+    expect(notNull(school('courses'))).toEqual(['title']);
+    expect(school('students').columns.find((c) => c.name === 'email')?.unique).toBe(true);
+    expect(school('enrollments').primaryKey).toEqual(['student_id', 'course_id']);
+    expect(school('enrollments').columns.find((c) => c.name === 'course_id')?.references).toEqual({ table: 'courses', column: 'id' });
+  });
+
+  it.each(Object.values(datasets).map((db) => [db.id, db] as const))('hold for every row of %s in SQLite', async (_id, db) => {
+    const sqlite = await openSqlite(db);
+    expect(sqlite.query('PRAGMA foreign_key_check').rows).toEqual([]);
+    expect(sqlite.query('PRAGMA foreign_keys').rows).toEqual([[1]]);
+    sqlite.close();
+  });
+});

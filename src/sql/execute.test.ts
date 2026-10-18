@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { datasets, findTable } from './datasets';
+import { cloneDataset, datasets, findTable } from './datasets';
 import { runQuery, type QueryResult, type TraceEvent, executeSelect } from './execute';
 import { parseQuery } from './parse';
 import { Real, toPlain } from './values';
@@ -198,5 +198,25 @@ describe('executeSelect trace', () => {
       'customers#7',
       'customers#9',
     ]);
+  });
+});
+
+describe('runQuery over a changed copy of a dataset', () => {
+  it('uses the stored row ids', () => {
+    const db = cloneDataset(datasets.shop);
+    findTable(db, 'customers')!.rowIds![0] = 'customers+99';
+    const events: TraceEvent[] = [];
+    const parsed = parseQuery('SELECT name FROM customers');
+    if (!parsed.ok) throw new Error('parse');
+    executeSelect(db, parsed.statement, (e) => events.push(e));
+    const scan = events.find((e) => e.kind === 'scan');
+    expect(scan?.kind === 'scan' && scan.relation.rows[0]!.id).toBe('customers+99');
+  });
+
+  it('treats a non-integer number in an INTEGER column as REAL', () => {
+    const db = cloneDataset(datasets.shop);
+    findTable(db, 'customers')!.rows[0]![0] = 2.5;
+    const result = runQuery(db, 'SELECT id / 2 FROM customers WHERE name = \'Ana\'');
+    expect(result.ok && result.result.rows[0]![0]).toEqual(new Real(1.25));
   });
 });

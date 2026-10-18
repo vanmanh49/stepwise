@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkExercise, describeCheck } from './check';
+import { checkExercise, describeCheck, probeOutcomes } from './check';
 import { datasets } from './datasets';
 import { SqlError } from './errors';
 
@@ -66,5 +66,60 @@ describe('describeCheck', () => {
     expect(describeCheck({ status: 'rows', missing: 1, extra: 0 })).toBe('1 row missing.');
     expect(describeCheck({ status: 'rows', missing: 0, extra: 3 })).toBe('3 extra rows.');
     expect(describeCheck({ status: 'order' })).toBe('Right rows, wrong order.');
+  });
+});
+
+describe('checkExercise with probes', () => {
+  const school = datasets.school;
+  const update = {
+    solution: "UPDATE orders SET status = 'shipped' WHERE status = 'pending'",
+    orderMatters: false,
+    probes: ['SELECT id, status FROM orders'],
+  };
+  const members = {
+    solution: 'CREATE TABLE members (id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE)',
+    orderMatters: false,
+    probes: [
+      'INSERT INTO members (id, email) VALUES (1, NULL)',
+      "INSERT INTO members (id, email) VALUES (1, 'a@b.c'), (2, 'a@b.c')",
+      "INSERT INTO members (id, email) VALUES (5, 'ok@b.c'); SELECT * FROM members",
+    ],
+  };
+
+  it('accepts a script that leaves the same data behind', () => {
+    expect(checkExercise(shop, "UPDATE orders SET status = 'shipped' WHERE status IN ('pending')", update)).toEqual({ status: 'correct' });
+  });
+
+  it('names the probe that differs', () => {
+    const result = checkExercise(shop, "UPDATE orders SET status = 'shipped'", update);
+    expect(result).toMatchObject({ status: 'probe', index: 0, probe: 'SELECT id, status FROM orders' });
+    expect(describeCheck(result)).toBe('After your script, `SELECT id, status FROM orders` gives 4 rows that differ.');
+  });
+
+  it('judges a CREATE TABLE by how the table behaves, not how it is written', () => {
+    expect(checkExercise(school, members.solution, members)).toEqual({ status: 'correct' });
+    expect(checkExercise(school, 'CREATE TABLE members (id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL)', members)).toEqual({ status: 'correct' });
+  });
+
+  it('explains a rule that should have failed', () => {
+    const result = checkExercise(school, 'CREATE TABLE members (id INTEGER PRIMARY KEY, email TEXT UNIQUE)', members);
+    expect(describeCheck(result)).toBe('`INSERT INTO members (id, email) VALUES (1, NULL)` should fail (NOT NULL), but your table accepted it.');
+  });
+
+  it('explains a rule that should not have failed', () => {
+    const result = checkExercise(school, "CREATE TABLE members (id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE CHECK (email <> 'ok@b.c'))", members);
+    expect(result).toMatchObject({ status: 'probe', index: 2 });
+    expect(describeCheck(result)).toBe(
+      "`INSERT INTO members (id, email) VALUES (5, 'ok@b.c'); SELECT * FROM members` should succeed, but your table rejected it (CHECK on members).",
+    );
+  });
+
+  it('reports an error in the learner script', () => {
+    expect(checkExercise(shop, 'UPDATE orders SET nope = 1', update).status).toBe('error');
+  });
+
+  it('gives each probe its own copy of the data', () => {
+    const outcomes = probeOutcomes(school, members.solution, [members.probes[2]!, members.probes[2]!]);
+    expect(Array.isArray(outcomes) && outcomes[0]).toEqual(Array.isArray(outcomes) && outcomes[1]);
   });
 });

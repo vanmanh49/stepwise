@@ -109,6 +109,8 @@ export interface SqlTable {
   /** "orders", "after WHERE", "result". */
   label: string;
   columns: string[];
+  /** One short constraint badge per column, such as "PK" or "NOT NULL"; empty strings for none. */
+  columnNotes?: string[];
   rows: SqlRow[];
 }
 

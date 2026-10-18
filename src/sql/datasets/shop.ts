@@ -8,8 +8,8 @@ export const shop: Dataset = {
     {
       name: 'customers',
       columns: [
-        { name: 'id', type: 'INTEGER' },
-        { name: 'name', type: 'TEXT' },
+        { name: 'id', type: 'INTEGER', primaryKey: true },
+        { name: 'name', type: 'TEXT', notNull: true },
         { name: 'city', type: 'TEXT' },
         { name: 'joined', type: 'TEXT' },
       ],
@@ -29,10 +29,10 @@ export const shop: Dataset = {
     {
       name: 'products',
       columns: [
-        { name: 'id', type: 'INTEGER' },
-        { name: 'name', type: 'TEXT' },
+        { name: 'id', type: 'INTEGER', primaryKey: true },
+        { name: 'name', type: 'TEXT', notNull: true },
         { name: 'category', type: 'TEXT' },
-        { name: 'price', type: 'REAL' },
+        { name: 'price', type: 'REAL', notNull: true },
       ],
       rows: [
         [1, 'SQL Basics', 'Books', 19.5],
@@ -49,8 +49,8 @@ export const shop: Dataset = {
     {
       name: 'orders',
       columns: [
-        { name: 'id', type: 'INTEGER' },
-        { name: 'customer_id', type: 'INTEGER' },
+        { name: 'id', type: 'INTEGER', primaryKey: true },
+        { name: 'customer_id', type: 'INTEGER', references: { table: 'customers', column: 'id' } },
         { name: 'ordered_on', type: 'TEXT' },
         { name: 'status', type: 'TEXT' },
       ],
@@ -72,10 +72,11 @@ export const shop: Dataset = {
     {
       name: 'order_items',
       columns: [
-        { name: 'order_id', type: 'INTEGER' },
-        { name: 'product_id', type: 'INTEGER' },
-        { name: 'quantity', type: 'INTEGER' },
+        { name: 'order_id', type: 'INTEGER', references: { table: 'orders', column: 'id' } },
+        { name: 'product_id', type: 'INTEGER', references: { table: 'products', column: 'id' } },
+        { name: 'quantity', type: 'INTEGER', check: 'quantity > 0' },
       ],
+      primaryKey: ['order_id', 'product_id'],
       rows: [
         [1, 1, 2],
         [1, 4, 1],

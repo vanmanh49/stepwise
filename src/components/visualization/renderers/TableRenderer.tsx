@@ -4,6 +4,7 @@ import type { SqlRow, SqlTable, TableView } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
 import { visibleRows } from './tableRows';
 import { spring } from './ValueBox';
+import { notesRow } from './tableNotes';
 
 // Literal class names so Tailwind can see them.
 const COLUMNS: Record<number, string> = { 1: '', 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3' };
@@ -57,12 +58,14 @@ function Value({ value }: { value: number | string | null }) {
 
 function Table({ table }: { table: SqlTable }) {
   const { shown, hidden } = visibleRows(table.rows);
+  const notes = notesRow(table);
   const hasNotes = table.rows.some((r) => r.note);
   const hasGroups = table.rows.some((r) => r.group !== undefined);
   return (
     <figure className="card min-w-0 p-3">
       <figcaption className="eyebrow mb-2">{table.label}</figcaption>
-      <div className="overflow-x-auto">
+      {/* relative: the header's screen-reader-only labels are absolutely positioned and would otherwise escape this scroll box and widen the page. */}
+      <div className="relative overflow-x-auto">
         <table className="w-full border-separate border-spacing-y-1 font-mono text-xs sm:text-sm">
           <thead>
             <tr className="text-left text-muted">
@@ -80,6 +83,17 @@ function Table({ table }: { table: SqlTable }) {
                 </th>
               )}
             </tr>
+            {notes && (
+              <tr className="text-left text-muted">
+                <td />
+                {notes.map((note, i) => (
+                  <td key={i} className="whitespace-nowrap px-2 pb-1 font-sans text-[10px] font-semibold uppercase tracking-wide">
+                    {note}
+                  </td>
+                ))}
+                {hasNotes && <td />}
+              </tr>
+            )}
           </thead>
           <tbody>
             {table.rows.length === 0 && (
