@@ -66,4 +66,4 @@
 - [x] Run `npm run bench` again and compare with the baseline.
 - [x] Re-measure the browser freeze on the 4× throttled profile with the production build.
 - [x] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build:pages`.
-- [ ] Final whole-branch review on Opus; then PR and merge.
+- [x] Final whole-branch review on Opus; then PR and merge.
