@@ -58,9 +58,16 @@ export interface SelectStatement {
   having?: Expr;
   orderBy: { expr: Expr; desc: boolean }[];
   limit?: { count: number; offset: number };
+  /**
+   * Later SELECTs joined by set operators, on the first SELECT of a compound. The first
+   * SELECT's orderBy and limit then apply to the whole result.
+   */
+  compound?: { op: SetOp; select: SelectStatement; line: number; selectLine: number; selectColumn: number }[];
   /** First source line of each clause present. */
   lines: Partial<Record<Clause, number>>;
 }
+
+export type SetOp = 'UNION' | 'UNION ALL' | 'INTERSECT' | 'EXCEPT';
 
 /** One statement of a script. Every line is 1-based in the whole script. */
 export type Statement =

@@ -1,4 +1,4 @@
-import { caseParts, type Expr, type JoinClause, type SelectStatement, type TableRef } from './ast';
+import { caseParts, type Expr, type JoinClause, type SelectStatement, type SetOp, type TableRef } from './ast';
 import { findTable, type ColumnType, type Dataset } from './datasets';
 import { asSqlError, SqlError, suggest } from './errors';
 import { evaluate, evaluateTruth, referencedColumns, resolveColumn, type Scope } from './evaluate';
@@ -48,7 +48,11 @@ export type TraceEvent =
   | { kind: 'projected'; relation: Relation }
   | { kind: 'distinct'; input: Relation; removed: string[]; relation: Relation }
   | { kind: 'sorted'; input: Relation; relation: Relation }
-  | { kind: 'limited'; input: Relation; relation: Relation };
+  | { kind: 'limited'; input: Relation; relation: Relation }
+  /** One SELECT of a compound, evaluated on its own; `op` joins it to the result so far. */
+  | { kind: 'compound-side'; index: number; op?: SetOp; relation: Relation }
+  /** Notes are keyed by row id, e.g. "duplicate, dropped". */
+  | { kind: 'combined'; op: SetOp; left: Relation; right: Relation; relation: Relation; notes: Record<string, string> };
 
 export type RunResult = { ok: true; result: QueryResult; statement: SelectStatement } | { ok: false; error: SqlError };
 
@@ -338,6 +342,7 @@ export function executeSelect(
   outer?: Scope,
   correlation?: { used: boolean },
 ): QueryResult {
+  if (stmt.compound?.length) return executeCompound(db, stmt, trace, outer, correlation);
   const env: Env = { outer, db, ctx: outer?.ctx ?? { cache: new Map(), work: 0 }, ...(correlation && { correlation }) };
   let relation: Relation = { columns: [], rows: [{ id: 'one', values: [] }] };
   if (stmt.from) {
@@ -501,6 +506,100 @@ export function executeSelect(
   }
 
   return { columns: cols.map((c) => c.name), rows: projected.rows.map((row) => row.values) };
+}
+
+const rowKey = (row: Row) => row.values.map(valueKey).join('|');
+
+/** Combines two relations with a set operator; `notes` explains what happened to each input row. */
+function combine(op: SetOp, left: Relation, right: Relation): { relation: Relation; notes: Record<string, string> } {
+  const notes: Record<string, string> = {};
+  const rightKeys = new Set(right.rows.map(rowKey));
+  const seen = new Set<string>();
+  const rows: Row[] = [];
+  const keepOnce = (row: Row, note: string) => {
+    const key = rowKey(row);
+    if (seen.has(key)) {
+      notes[row.id] = 'duplicate, dropped';
+      return;
+    }
+    seen.add(key);
+    rows.push(row);
+    notes[row.id] = note;
+  };
+  if (op === 'UNION ALL') {
+    for (const row of [...left.rows, ...right.rows]) {
+      rows.push(row);
+      notes[row.id] = 'kept';
+    }
+  } else if (op === 'UNION') {
+    for (const row of [...left.rows, ...right.rows]) keepOnce(row, 'kept');
+  } else {
+    for (const row of left.rows) {
+      const inRight = rightKeys.has(rowKey(row));
+      if (op === 'INTERSECT' ? inRight : !inRight) keepOnce(row, op === 'INTERSECT' ? 'in both' : 'kept');
+      else notes[row.id] = op === 'INTERSECT' ? 'only in left' : 'also in right, removed';
+    }
+  }
+  return { relation: { columns: left.columns, rows }, notes };
+}
+
+/** A UNION, INTERSECT or EXCEPT: each SELECT on its own, combined left to right, then sorted and limited as a whole. */
+function executeCompound(db: Dataset, stmt: SelectStatement, trace?: Trace, outer?: Scope, correlation?: { used: boolean }): QueryResult {
+  const sides = [{ ...stmt, compound: undefined, orderBy: [], limit: undefined } as SelectStatement, ...stmt.compound!.map((c) => c.select)];
+  const results = sides.map((side) => executeSelect(db, side, undefined, outer, correlation));
+  const width = results[0]!.columns.length;
+  stmt.compound!.forEach((part, i) => {
+    const count = results[i + 1]!.columns.length;
+    if (count !== width) {
+      throw new SqlError(
+        `Each SELECT in a UNION must return the same number of columns: the first returns ${width}, this one returns ${count}.`,
+        'syntax',
+        part.selectLine,
+        part.selectColumn,
+      );
+    }
+  });
+  const toRelation = (result: QueryResult, side: number): Relation => ({
+    columns: results[0]!.columns.map((name) => ({ name })),
+    rows: result.rows.map((values, i) => ({ id: `select${side + 1}#${i}`, values })),
+  });
+  let relation = toRelation(results[0]!, 0);
+  trace?.({ kind: 'compound-side', index: 0, relation });
+  stmt.compound!.forEach((part, i) => {
+    const right = toRelation(results[i + 1]!, i + 1);
+    trace?.({ kind: 'compound-side', index: i + 1, op: part.op, relation: right });
+    const { relation: next, notes } = combine(part.op, relation, right);
+    trace?.({ kind: 'combined', op: part.op, left: relation, right, relation: next, notes });
+    relation = next;
+  });
+
+  if (stmt.orderBy.length > 0) {
+    const names = results[0]!.columns.map((c) => c.toLowerCase());
+    const indexes = stmt.orderBy.map(({ expr }) => {
+      if (expr.type === 'literal' && typeof expr.value === 'number' && Number.isInteger(expr.value) && expr.value >= 1 && expr.value <= width) {
+        return expr.value - 1;
+      }
+      const i = expr.type === 'column' && expr.table === undefined ? names.indexOf(expr.name.toLowerCase()) : -1;
+      if (i < 0) throw new SqlError('ORDER BY after UNION can only name a result column or its position.', 'syntax', expr.line, expr.column);
+      return i;
+    });
+    const input = relation;
+    const rows = [...relation.rows].sort((a, b) => {
+      for (let k = 0; k < indexes.length; k++) {
+        const c = compareValues(a.values[indexes[k]!]!, b.values[indexes[k]!]!);
+        if (c !== 0) return stmt.orderBy[k]!.desc ? -c : c;
+      }
+      return 0;
+    });
+    relation = { columns: relation.columns, rows };
+    trace?.({ kind: 'sorted', input, relation });
+  }
+  if (stmt.limit) {
+    const input = relation;
+    relation = { columns: relation.columns, rows: relation.rows.slice(stmt.limit.offset, stmt.limit.offset + stmt.limit.count) };
+    trace?.({ kind: 'limited', input, relation });
+  }
+  return { columns: results[0]!.columns, rows: relation.rows.map((r) => r.values) };
 }
 
 /** Parses and runs a query. Never throws. */

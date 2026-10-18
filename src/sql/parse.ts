@@ -1,4 +1,4 @@
-import { caseParts, type AggregateFn, type Expr, type JoinClause, type SelectItem, type SelectStatement, type Statement, type TableRef } from './ast';
+import { caseParts, type AggregateFn, type Expr, type JoinClause, type SelectItem, type SelectStatement, type SetOp, type Statement, type TableRef } from './ast';
 import { asSqlError, SqlError } from './errors';
 import type { ColumnDef, ColumnType, TableSchema } from './schema';
 import { tokenize, type Token } from './tokenize';
@@ -23,9 +23,6 @@ const COMPARISONS = new Set(['=', '<>', '!=', '<', '<=', '>', '>=']);
 const LATER: Record<string, string | undefined> = {
   ALTER: undefined,
   WITH: 'ctes',
-  UNION: 'set-operations',
-  INTERSECT: 'set-operations',
-  EXCEPT: 'set-operations',
   OVER: 'window-functions',
   EXISTS: undefined,
 };
@@ -120,7 +117,8 @@ class Parser {
     return statement;
   }
 
-  select(): SelectStatement {
+  /** One SELECT up to HAVING: the part each side of a UNION has. ORDER BY and LIMIT belong to the whole query. */
+  private selectCore(): SelectStatement {
     const lines: SelectStatement['lines'] = {};
     const selectToken = this.expectKeyword('SELECT');
     lines.SELECT = selectToken.line;
@@ -197,6 +195,30 @@ class Parser {
       having = this.expr();
     }
 
+    return {
+      distinct,
+      columns,
+      ...(from && { from }),
+      joins,
+      ...(where && { where }),
+      groupBy,
+      ...(having && { having }),
+      orderBy: [],
+      lines,
+    };
+  }
+
+  select(): SelectStatement {
+    const statement = this.selectCore();
+    const lines = statement.lines;
+    const compound: NonNullable<SelectStatement['compound']> = [];
+    while (this.isKeyword('UNION', 'INTERSECT', 'EXCEPT')) {
+      const opToken = this.next();
+      const op: SetOp = opToken.value === 'UNION' && this.acceptKeyword('ALL') ? 'UNION ALL' : (opToken.value as SetOp);
+      const at = this.token;
+      compound.push({ op, select: this.selectCore(), line: opToken.line, selectLine: at.line, selectColumn: at.column });
+    }
+
     const orderBy: SelectStatement['orderBy'] = [];
     if (this.isKeyword('ORDER')) {
       lines['ORDER BY'] = this.next().line;
@@ -219,18 +241,10 @@ class Parser {
       limit = { count, offset };
     }
 
-    return {
-      distinct,
-      columns,
-      ...(from && { from }),
-      joins,
-      ...(where && { where }),
-      groupBy,
-      ...(having && { having }),
-      orderBy,
-      ...(limit && { limit }),
-      lines,
-    };
+    if (this.isKeyword('UNION', 'INTERSECT', 'EXCEPT')) {
+      throw new SqlError('ORDER BY and LIMIT go after the last SELECT of a UNION.', 'syntax', this.token.line, this.token.column);
+    }
+    return { ...statement, ...(compound.length > 0 && { compound }), orderBy, ...(limit && { limit }), lines };
   }
 
   private wholeNumber(clause: string): number {
