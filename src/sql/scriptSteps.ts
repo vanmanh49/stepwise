@@ -1,4 +1,4 @@
-import type { SessionsView, SqlRow, SqlTable, Step, TableView } from '../types/visualization';
+import type { SessionsView, SqlRow, SqlTable, Step, TableView, View } from '../types/visualization';
 import { LOGICAL_ORDER, type Statement } from './ast';
 import { cloneDataset, type Dataset } from './datasets';
 import { SqlError } from './errors';
@@ -696,6 +696,15 @@ export function scriptSteps(db: Dataset, sql: string): ScriptStepsResult {
     return { ok: false, error: new SqlError(message, error.kind, error.line, error.column, error.topic), steps };
   }
   return { ok: true, steps, result };
+}
+
+/** A step's view of any kind, such as a two-session timeline, for lesson quizzes. Throws if the script fails to run. */
+export function scriptStepView(db: Dataset, sql: string, index: number): View {
+  const result = scriptSteps(db, sql);
+  if (!result.ok) throw new Error(`${result.error.message} in: ${sql}`);
+  const step = result.steps.at(index);
+  if (!step) throw new Error(`No step ${index} in: ${sql}`);
+  return step.view;
 }
 
 /** A step's view, for lesson quizzes. A negative index counts from the end. Throws if the script fails to run. */
