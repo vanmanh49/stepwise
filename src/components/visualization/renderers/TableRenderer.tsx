@@ -9,13 +9,13 @@ import { notesRow } from './tableNotes';
 // Literal class names so Tailwind can see them.
 const COLUMNS: Record<number, string> = { 1: '', 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3' };
 
-function ClauseStrip({ clauses, current }: { clauses: string[]; current?: string }) {
+export function ClauseStrip({ clauses, current }: { clauses: string[]; current?: string }) {
   return (
     <ol aria-label="Clauses in running order" className="flex flex-wrap items-center gap-1.5">
       {clauses.map((clause, i) => {
         const active = clause === current;
         return (
-          <li key={clause} className="flex items-center gap-1.5">
+          <li key={`${i}-${clause}`} className="flex items-center gap-1.5">
             {i > 0 && (
               <span aria-hidden className="text-muted">
                 →
