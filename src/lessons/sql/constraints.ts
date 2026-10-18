@@ -1,19 +1,11 @@
 import { datasets } from '../../sql/datasets';
 import { scriptViewAt } from '../../sql/scriptSteps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query =
   "CREATE TABLE members (id INTEGER PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id), email TEXT UNIQUE, age INTEGER CHECK (age >= 16));\nINSERT INTO members (student_id, email, age) VALUES (1, 'mai@club.vn', 18);\nINSERT INTO members (student_id, email, age) VALUES (2, 'mai@club.vn', 19);";
 
-export const constraints: Lesson = {
-  id: 'constraints',
-  title: 'Constraints',
-  category: 'sql',
-  difficulty: 'intermediate',
-  group: 'Modifying data',
-  description: 'Rules that every row must follow: PRIMARY KEY, NOT NULL, UNIQUE, CHECK and FOREIGN KEY.',
-  keywords: ['constraint', 'primary key', 'not null', 'unique', 'check', 'foreign key', 'references', 'data integrity'],
-  prerequisites: ['create-table'],
+const content: LessonContent = {
   overview:
     'Constraints are rules written into a table’s design. The database checks them on every INSERT and UPDATE and refuses any change that would break one. They stop bad data at the door instead of leaving every program to remember the rules.',
   concept: [
@@ -144,3 +136,5 @@ export const constraints: Lesson = {
     'REFERENCES keeps rows pointing at real rows in another table.',
   ],
 };
+
+export default content;

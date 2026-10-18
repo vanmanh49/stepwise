@@ -1,19 +1,11 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query =
   'WITH dept_pay AS (\n  SELECT department_id, AVG(salary) AS avg_salary\n  FROM employees\n  GROUP BY department_id\n)\nSELECT e.name, e.salary, d.avg_salary\nFROM employees e\nJOIN dept_pay d ON d.department_id = e.department_id\nWHERE e.salary > d.avg_salary;';
 
-export const ctes: Lesson = {
-  id: 'ctes',
-  title: 'Common Table Expressions',
-  category: 'sql',
-  difficulty: 'advanced',
-  group: 'Advanced querying',
-  description: 'Name a query with WITH and use it like a table, so a long query reads as a series of steps.',
-  keywords: ['with', 'cte', 'common table expression', 'named subquery', 'temporary result', 'readable query', 'with clause'],
-  prerequisites: ['subqueries', 'group-by-having'],
+const content: LessonContent = {
   overview:
     'A common table expression, or CTE, gives a query a name. WITH dept_pay AS (SELECT …) runs the inner query, and the main query that follows can read dept_pay as if it were a table. It turns one tangled query into a series of named steps.',
   concept: [
@@ -131,3 +123,5 @@ export const ctes: Lesson = {
     'A CTE exists only while its statement runs.',
   ],
 };
+
+export default content;

@@ -1,19 +1,11 @@
 import { heapSortCode, heapSortSteps } from '../../algorithms/sorting/heap';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 import type { Step } from '../../types/visualization';
 
 const sample = heapSortSteps([4, 10, 3, 5, 1, 8]);
 const heapBuilt = sample.find((s: Step) => s.title.startsWith('The max-heap is built'))!;
 
-export const heapSort: Lesson = {
-  id: 'heap-sort',
-  title: 'Heap Sort',
-  category: 'algorithms',
-  difficulty: 'intermediate',
-  group: 'Sorting',
-  description: 'Turn the array into a heap, then repeatedly move the largest value to the end.',
-  keywords: ['sorting', 'heap', 'max heap', 'sift down', 'heapify', 'in-place', 'n log n'],
-  prerequisites: ['heap', 'selection-sort'],
+const content: LessonContent = {
   overview:
     'Heap sort sorts an array by first arranging it as a max-heap, which puts the largest value at the front. It then swaps that value to the end, shrinks the heap by one, repairs it, and repeats. It runs in O(n log n) in every case and needs no extra memory.',
   concept: [
@@ -31,13 +23,6 @@ export const heapSort: Lesson = {
   ],
   visualization: { kind: 'sort', initial: [4, 10, 3, 5, 1, 8], generate: heapSortSteps },
   code: heapSortCode,
-  complexity: {
-    rows: [{ label: 'Heap Sort', best: 'O(n log n)', average: 'O(n log n)', worst: 'O(n log n)' }],
-    space: 'O(1)',
-    note: 'Building the heap takes O(n). Then each of the n rounds does one sift-down along a path of at most log₂ n levels. Unlike quick sort there is no bad input, and unlike merge sort there is no extra buffer.',
-    curves: ['nlogn', 'n2'],
-  },
-  compareWith: ['merge-sort', 'quick-sort', 'selection-sort'],
   prosCons: {
     pros: ['Guaranteed O(n log n), with no worst-case input', 'Sorts in place: O(1) extra memory', 'No recursion needed'],
     cons: ['Not stable: equal values can change order', 'Slower than quick sort in practice, because it jumps around in memory', 'Does not benefit from input that is already nearly sorted'],
@@ -114,3 +99,5 @@ export const heapSort: Lesson = {
     'It is not stable and is usually a little slower than quick sort.',
   ],
 };
+
+export default content;

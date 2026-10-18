@@ -1,17 +1,9 @@
 import { gridPathsCode, gridPathsSteps } from '../../algorithms/dp/gridPaths';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const example = { rows: '3', cols: '4', blocked: 'none' };
 
-export const gridDp: Lesson = {
-  id: 'grid-dp',
-  title: 'Grid DP',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Dynamic Programming',
-  description: 'Count the routes across a grid, moving only right or down, by adding up the ways to reach each square.',
-  keywords: ['unique paths', 'grid paths', 'lattice paths', 'dynamic programming', '2d dp', 'obstacles', 'robot paths'],
-  prerequisites: ['fibonacci-dp'],
+const content: LessonContent = {
   overview:
     'Many DP problems live on a grid. In this one, a robot starts in the top-left corner and may only move right or down. How many different routes lead to the bottom-right corner, possibly avoiding blocked squares? Each square’s count is simply the sum of the counts of the square above and the square to the left.',
   concept: [
@@ -42,13 +34,6 @@ export const gridDp: Lesson = {
     generate: gridPathsSteps,
   },
   code: gridPathsCode,
-  complexity: {
-    rows: [{ label: 'Grid paths (DP)', best: 'O(rows × cols)', average: 'O(rows × cols)', worst: 'O(rows × cols)' }],
-    space: 'O(rows × cols)',
-    note: 'One addition per square. Only the previous row is ever read, so the memory can shrink to one row.',
-    curves: ['n2'],
-  },
-  compareWith: ['lcs'],
   prosCons: {
     pros: ['Counts an exponential number of routes in quadratic time', 'Obstacles fit in naturally as zeros', 'The same pattern solves many grid problems'],
     cons: ['Needs a table as large as the grid (or one row)', 'Only works when moves never go back up or left'],
@@ -110,3 +95,5 @@ export const gridDp: Lesson = {
     'It counts exponentially many routes in O(rows × cols) time.',
   ],
 };
+
+export default content;

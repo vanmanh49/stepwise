@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'SELECT title, credits\nFROM courses\nWHERE credits > (SELECT AVG(credits) FROM courses);';
 
-export const subqueries: Lesson = {
-  id: 'subqueries',
-  title: 'Subqueries',
-  category: 'sql',
-  difficulty: 'intermediate',
-  group: 'Subqueries',
-  description: 'Use the result of one query inside another.',
-  keywords: ['subquery', 'nested query', 'in', 'not in', 'scalar subquery', 'correlated subquery'],
-  prerequisites: ['where', 'aggregates'],
+const content: LessonContent = {
   overview:
     'A subquery is a query in parentheses inside another query. It answers a smaller question first, such as "what is the average number of credits?", and the outer query uses that answer, such as "courses with more credits than that".',
   concept: [
@@ -122,3 +114,5 @@ export const subqueries: Lesson = {
     'Beware NOT IN when the list can contain NULL.',
   ],
 };
+
+export default content;

@@ -1,15 +1,7 @@
 import { insertionSortCode, insertionSortSteps } from '../../algorithms/sorting/insertion';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const insertionSort: Lesson = {
-  id: 'insertion-sort',
-  title: 'Insertion Sort',
-  category: 'algorithms',
-  difficulty: 'beginner',
-  group: 'Sorting',
-  description: 'Take one value at a time and slide it into place among the values already sorted.',
-  keywords: ['sorting', 'key', 'shift', 'in-place', 'stable', 'adaptive', 'nearly sorted'],
-  prerequisites: ['array', 'bubble-sort'],
+const content: LessonContent = {
   overview:
     'Insertion sort builds the sorted list one value at a time. It takes the next unsorted value, called the key, and shifts larger sorted values to the right until the key drops into its correct position. On data that is already nearly sorted it is very fast.',
   concept: [
@@ -27,13 +19,6 @@ export const insertionSort: Lesson = {
   ],
   visualization: { kind: 'sort', initial: [12, 31, 25, 8, 32, 17], generate: insertionSortSteps },
   code: insertionSortCode,
-  complexity: {
-    rows: [{ label: 'Insertion Sort', best: 'O(n)', average: 'O(n²)', worst: 'O(n²)' }],
-    space: 'O(1)',
-    note: 'Sorted input is the best case: each key is compared once and stays put, so n − 1 comparisons in total. Reverse-sorted input is the worst case: every key travels all the way to the front, about n²/2 shifts.',
-    curves: ['n', 'n2'],
-  },
-  compareWith: ['bubble-sort', 'selection-sort', 'merge-sort', 'quick-sort'],
   prosCons: {
     pros: ['Very fast on small or nearly sorted lists', 'Stable and in place', 'Can sort data as it arrives, one value at a time', 'Fewer writes than bubble sort'],
     cons: ['O(n²) on large, randomly ordered lists', 'Each insert may shift many values'],
@@ -104,3 +89,5 @@ export const insertionSort: Lesson = {
     'Real-world sorts use it for small sublists.',
   ],
 };
+
+export default content;

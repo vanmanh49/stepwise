@@ -1,17 +1,9 @@
 import { lisCode, lisSteps } from '../../algorithms/dp/lis';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const example = [10, 9, 2, 5, 3, 7, 101, 18];
 
-export const lis: Lesson = {
-  id: 'lis',
-  title: 'Longest Increasing Subsequence',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Dynamic Programming',
-  description: 'Find the longest run of values that keep rising, picked from a list in order, with gaps allowed.',
-  keywords: ['lis', 'increasing subsequence', 'dynamic programming', 'predecessor', 'patience sorting', 'sequence'],
-  prerequisites: ['fibonacci-dp'],
+const content: LessonContent = {
   overview:
     'Given a list of numbers, the longest increasing subsequence (LIS) is the longest selection of values, kept in their original order, where each value is larger than the one before. Values may be skipped. Dynamic programming finds it by working out, for every position, the longest increasing run that ends exactly there.',
   concept: [
@@ -29,13 +21,6 @@ export const lis: Lesson = {
   ],
   visualization: { kind: 'sort', initial: example, generate: lisSteps },
   code: lisCode,
-  complexity: {
-    rows: [{ label: 'LIS (O(n²) DP)', best: 'O(n²)', average: 'O(n²)', worst: 'O(n²)' }],
-    space: 'O(n)',
-    note: 'Every position is compared with every earlier one. A binary-search version (patience sorting) brings this down to O(n log n).',
-    curves: ['n2'],
-  },
-  compareWith: ['lcs'],
   prosCons: {
     pros: ['Simple table with one entry per position', 'Recovers the subsequence, not just its length', 'Easy to adapt, for example to non-decreasing runs'],
     cons: ['O(n²) is slow for long lists', 'The faster O(n log n) version is harder to understand'],
@@ -97,3 +82,5 @@ export const lis: Lesson = {
     'This method is O(n²); a binary-search version reaches O(n log n).',
   ],
 };
+
+export default content;

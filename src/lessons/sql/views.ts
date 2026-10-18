@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { scriptViewAt } from '../../sql/scriptSteps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'CREATE VIEW dept_pay AS\nSELECT department_id, SUM(salary) AS total\nFROM employees\nGROUP BY department_id;\nSELECT * FROM dept_pay;';
 
-export const views: Lesson = {
-  id: 'views',
-  title: 'Views',
-  category: 'sql',
-  difficulty: 'advanced',
-  group: 'Database internals',
-  description: 'Save a query under a name and read it like a table, always up to date.',
-  keywords: ['create view', 'drop view', 'virtual table', 'stored query', 'saved query', 'view'],
-  prerequisites: ['ctes', 'create-table'],
+const content: LessonContent = {
   overview:
     'A view is a query with a name. CREATE VIEW stores the query, not its rows; whenever the view is read, the query runs on the tables as they are at that moment. Views let you name a useful result once and use it everywhere, like a CTE that lasts beyond one statement.',
   concept: [
@@ -131,3 +123,5 @@ export const views: Lesson = {
     'Views are read-only here; DROP VIEW removes only the query.',
   ],
 };
+
+export default content;

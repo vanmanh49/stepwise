@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = "SELECT name, city\nFROM customers\nWHERE city = 'Hanoi' OR city IS NULL;";
 
-export const nullValues: Lesson = {
-  id: 'null-values',
-  title: 'NULL and three-valued logic',
-  category: 'sql',
-  difficulty: 'beginner',
-  group: 'Querying',
-  description: 'Why a missing value is neither equal nor unequal to anything.',
-  keywords: ['null', 'is null', 'is not null', 'unknown', 'three-valued logic', 'missing value'],
-  prerequisites: ['where'],
+const content: LessonContent = {
   overview:
     'NULL means "no value": a customer whose city was never recorded. It is not zero and not an empty string. Any comparison with NULL gives a third answer, unknown, and WHERE only keeps rows where the answer is true.',
   concept: [
@@ -119,3 +111,5 @@ export const nullValues: Lesson = {
     'SQLite sorts NULL first in ascending order; PostgreSQL puts it last, so check your database.',
   ],
 };
+
+export default content;

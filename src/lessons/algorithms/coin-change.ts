@@ -1,17 +1,9 @@
 import { coinChangeCode, coinChangeSteps } from '../../algorithms/dp/coinChange';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const fails = { coins: '1, 3, 4', amount: '6' };
 
-export const coinChange: Lesson = {
-  id: 'coin-change',
-  title: 'Coin Change',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Dynamic Programming',
-  description: 'Pay an amount with the fewest coins, for any set of coins, by solving every smaller amount first.',
-  keywords: ['minimum coins', 'making change', 'dynamic programming', 'unbounded knapsack', 'dp table', 'greedy fails'],
-  prerequisites: ['fibonacci-dp', 'greedy'],
+const content: LessonContent = {
   overview:
     'The coin change problem asks for the fewest coins that add up to an amount, when each coin value can be used as often as you like. Taking the largest coin first works for everyday coins but fails for others. Dynamic programming always finds the best answer by working out the fewest coins for every amount from 0 up to the target.',
   concept: [
@@ -41,13 +33,6 @@ export const coinChange: Lesson = {
     generate: coinChangeSteps,
   },
   code: coinChangeCode,
-  complexity: {
-    rows: [{ label: 'Coin change (DP)', best: 'O(n × amount)', average: 'O(n × amount)', worst: 'O(n × amount)' }],
-    space: 'O(amount)',
-    note: 'n is the number of coin values. Every amount up to the target tries every coin once.',
-    curves: ['n2'],
-  },
-  compareWith: ['greedy', 'knapsack'],
   prosCons: {
     pros: ['Always finds the fewest coins, for any coin set', 'Detects impossible amounts', 'Simple one-dimensional table'],
     cons: ['Slower than greedy', 'The table grows with the amount, so huge amounts are costly', 'Works with whole-number amounts only'],
@@ -114,3 +99,5 @@ export const coinChange: Lesson = {
     'Unlike greedy, it is correct for every coin set, in O(n × amount) time.',
   ],
 };
+
+export default content;

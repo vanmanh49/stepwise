@@ -1,16 +1,8 @@
 import { aStarCode, aStarSteps } from '../../algorithms/graph/aStar';
 import { openGraph, wallGraph } from '../../algorithms/graph/graphs';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const aStar: Lesson = {
-  id: 'a-star',
-  title: 'A*',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Advanced Algorithms',
-  description: 'Find a shortest path to one goal faster than Dijkstra, by steering toward the goal with a distance estimate.',
-  keywords: ['a star', 'a-star search', 'heuristic', 'pathfinding', 'shortest path', 'f = g + h', 'game ai'],
-  prerequisites: ['dijkstra'],
+const content: LessonContent = {
   overview:
     'A* finds a shortest path from a start to one specific goal. It works like Dijkstra’s algorithm, but instead of expanding the node closest to the start, it expands the node with the lowest f = g + h: the cost so far plus an estimate of the cost still to go. A good estimate pulls the search toward the goal, so far fewer nodes are explored.',
   concept: [
@@ -28,13 +20,6 @@ export const aStar: Lesson = {
   ],
   visualization: { kind: 'graph', graphs: [wallGraph, openGraph], needsStart: true, needsGoal: true, generate: aStarSteps },
   code: aStarCode,
-  complexity: {
-    rows: [{ label: 'A* with a binary heap', best: 'O(d)', average: 'O(E log V)', worst: 'O(E log V)' }],
-    space: 'O(V)',
-    note: 'In the worst case, with an uninformative heuristic, A* explores as much as Dijkstra. With a good heuristic it expands only nodes near the best path; d is the number of edges on that path.',
-    curves: ['nlogn'],
-  },
-  compareWith: ['dijkstra', 'bfs'],
   prosCons: {
     pros: ['Usually explores far fewer nodes than Dijkstra', 'Still finds a shortest path with an admissible heuristic', 'Easy to tune by choosing the heuristic'],
     cons: ['Needs a good heuristic, such as positions on a map', 'Finds the path to one goal only', 'Keeps every open node in memory, which can be large'],
@@ -95,3 +80,5 @@ export const aStar: Lesson = {
     'A good heuristic makes A* explore far fewer nodes than Dijkstra.',
   ],
 };
+
+export default content;

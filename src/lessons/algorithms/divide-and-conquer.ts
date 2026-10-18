@@ -1,15 +1,7 @@
 import { maxSubarrayCode, maxSubarraySteps } from '../../algorithms/recursion/maxSubarray';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const divideAndConquer: Lesson = {
-  id: 'divide-and-conquer',
-  title: 'Divide and Conquer',
-  category: 'algorithms',
-  difficulty: 'intermediate',
-  group: 'Recursion',
-  description: 'Split a problem in half, solve each half the same way, and combine the answers. Shown on the maximum subarray problem.',
-  keywords: ['split', 'combine', 'maximum subarray', 'recursion', 'merge sort', 'master theorem', 'crossing sum'],
-  prerequisites: ['recursion-fundamentals', 'merge-sort'],
+const content: LessonContent = {
   overview:
     'Divide and conquer breaks a problem into smaller pieces of the same kind, solves each piece recursively, and combines the piece answers into the full answer. This lesson applies it to the maximum subarray problem: find the run of consecutive numbers with the largest sum.',
   concept: [
@@ -27,13 +19,6 @@ export const divideAndConquer: Lesson = {
   ],
   visualization: { kind: 'sort', initial: [-2, 1, -3, 4, -1, 2, 1, -5, 4], randomMin: -20, randomMax: 20, generate: maxSubarraySteps },
   code: maxSubarrayCode,
-  complexity: {
-    rows: [{ label: 'Maximum subarray (divide and conquer)', best: 'O(n log n)', average: 'O(n log n)', worst: 'O(n log n)' }],
-    space: 'O(log n)',
-    note: 'Each level of the call tree scans every value once for the crossing runs, and halving gives about log n levels. The space is the recursion depth.',
-    curves: ['nlogn'],
-  },
-  compareWith: ['merge-sort'],
   prosCons: {
     pros: ['Turns a big problem into small, identical ones', 'Often beats the obvious O(n²) approach', 'Halves can be solved in parallel'],
     cons: ['Recursion adds overhead and stack use', 'The combine step can be the tricky part', 'Sometimes a clever single pass is even faster (Kadane’s algorithm solves this problem in O(n))'],
@@ -95,3 +80,5 @@ export const divideAndConquer: Lesson = {
     'Linear work per level and log n levels give O(n log n).',
   ],
 };
+
+export default content;

@@ -1,17 +1,9 @@
 import { bellmanFordCode, bellmanFordSteps } from '../../algorithms/graph/bellmanFord';
 import { negativeCycleGraph, negativeGraph, weightedGraph } from '../../algorithms/graph/graphs';
 import { graphView } from '../../algorithms/graph/view';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const bellmanFord: Lesson = {
-  id: 'bellman-ford',
-  title: 'Bellman-Ford',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Shortest Path',
-  description: 'Shortest paths that still work when some edges have negative weights.',
-  keywords: ['shortest path', 'negative weight', 'negative cycle', 'relaxation', 'weighted graph', 'distance'],
-  prerequisites: ['graph', 'dijkstra'],
+const content: LessonContent = {
   overview:
     'Bellman-Ford finds the shortest path from one node to every other node, like Dijkstra, but it also handles edges with negative weights. It does so by checking every edge again and again until nothing improves. It can also tell you when no answer exists because the graph contains a negative cycle.',
   concept: [
@@ -34,13 +26,6 @@ export const bellmanFord: Lesson = {
     generate: bellmanFordSteps,
   },
   code: bellmanFordCode,
-  complexity: {
-    rows: [{ label: 'Bellman-Ford', best: 'O(E)', average: 'O(V × E)', worst: 'O(V × E)' }],
-    space: 'O(V)',
-    note: 'Each pass looks at all E edges and there are up to V − 1 passes. The best case is a graph that settles after the first pass, thanks to the early exit. This is much slower than Dijkstra, so Bellman-Ford is used only when negative weights make it necessary.',
-    curves: ['n', 'n2'],
-  },
-  compareWith: ['dijkstra', 'bfs'],
   prosCons: {
     pros: ['Handles negative edge weights', 'Detects negative cycles', 'Very simple: one loop inside another, no priority queue'],
     cons: ['Much slower than Dijkstra: O(V × E)', 'Wasteful when all weights are non-negative'],
@@ -112,3 +97,5 @@ export const bellmanFord: Lesson = {
     'It costs O(V × E), so use it only when negative weights are possible.',
   ],
 };
+
+export default content;

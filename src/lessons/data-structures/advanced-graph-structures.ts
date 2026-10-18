@@ -1,14 +1,7 @@
 import { graphRepsStructure } from '../../data-structures/graphReps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const advancedGraphStructures: Lesson = {
-  id: 'advanced-graph-structures',
-  title: 'Graph Representations',
-  category: 'data-structures',
-  difficulty: 'advanced',
-  description: 'Adjacency matrix, adjacency list and edge list side by side: what each costs and when to use it.',
-  keywords: ['adjacency matrix', 'adjacency list', 'edge list', 'graph representation', 'dense graph', 'sparse graph', 'graph storage', 'advanced graph structures'],
-  prerequisites: ['graph'],
+const content: LessonContent = {
   overview:
     'The same graph can be stored in different ways, and the choice decides how fast each question is. An adjacency matrix answers "is there an edge?" in one step but uses n² cells. An adjacency list stores only real edges and lists a node\'s neighbours quickly. An edge list is the most compact, but has to be scanned for almost everything. This lesson shows all three for one graph, side by side.',
   concept: [
@@ -25,18 +18,6 @@ export const advancedGraphStructures: Lesson = {
   ],
   visualization: { kind: 'structure', structure: graphRepsStructure },
   code: graphRepsStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Has edge (matrix / list / edge list)', best: 'O(1)', average: 'O(1) / O(degree) / O(E)', worst: 'O(1) / O(n) / O(E)' },
-      { label: 'Neighbours (matrix / list / edge list)', best: 'O(n)', average: 'O(n) / O(degree) / O(E)', worst: 'O(n) / O(n) / O(E)' },
-      { label: 'Add edge (all three)', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Memory (matrix / list / edge list)', best: 'O(n²)', average: 'O(n²) / O(n + E) / O(E)', worst: 'O(n²) / O(n + E) / O(E)' },
-    ],
-    space: 'O(n²) for a matrix; O(n + E) for lists; O(E) for an edge list',
-    note: 'n is the number of nodes and E the number of edges. A social network with a million people and a few hundred friends each would need a trillion matrix cells, but only a few hundred million list entries.',
-    curves: ['1', 'n', 'n2'],
-  },
-  compareWith: ['graph'],
   prosCons: {
     pros: ['Matrix: O(1) edge checks and very simple code', 'Lists: memory grows with the real edges, and neighbours come for free', 'Edge list: the smallest and easiest to sort or stream'],
     cons: ['Matrix: n² memory and O(n) to list neighbours', 'Lists: an edge check scans a list', 'Edge list: nearly every question scans all edges'],
@@ -98,3 +79,5 @@ export const advancedGraphStructures: Lesson = {
     'Choose by density and by the question you ask most often.',
   ],
 };
+
+export default content;

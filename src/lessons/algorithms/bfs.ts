@@ -1,16 +1,8 @@
 import { bfsCode, bfsSteps } from '../../algorithms/graph/bfs';
 import { directedGraph, islandGraph, simpleGraph } from '../../algorithms/graph/graphs';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const bfs: Lesson = {
-  id: 'bfs',
-  title: 'Breadth-First Search (BFS)',
-  category: 'algorithms',
-  difficulty: 'intermediate',
-  group: 'Graph Algorithms',
-  description: 'Explore a graph level by level, nearest nodes first.',
-  keywords: ['bfs', 'breadth first', 'traversal', 'queue', 'shortest path', 'level order', 'unweighted'],
-  prerequisites: ['graph', 'queue'],
+const content: LessonContent = {
   overview:
     'Breadth-first search visits every node reachable from a starting node, in order of distance. It explores all nodes one edge away, then all nodes two edges away, and so on. Because of that order, the first time BFS reaches a node it has found the path with the fewest edges.',
   concept: [
@@ -27,13 +19,6 @@ export const bfs: Lesson = {
   ],
   visualization: { kind: 'graph', graphs: [simpleGraph, islandGraph, directedGraph], needsStart: true, generate: bfsSteps },
   code: bfsCode,
-  complexity: {
-    rows: [{ label: 'BFS', best: 'O(V + E)', average: 'O(V + E)', worst: 'O(V + E)' }],
-    space: 'O(V)',
-    note: 'V is the number of nodes and E the number of edges. Every node enters the queue once and every edge is looked at once (twice if undirected), so the work is proportional to the size of the graph. The queue and visited set can hold up to V nodes.',
-    curves: ['n'],
-  },
-  compareWith: ['dfs', 'dijkstra'],
   prosCons: {
     pros: ['Finds the path with the fewest edges', 'Visits nodes in order of distance from the start', 'Simple, iterative, no recursion depth problems'],
     cons: ['The queue can grow large on wide graphs', 'Ignores edge weights, so it does not find the cheapest path in a weighted graph'],
@@ -95,3 +80,5 @@ export const bfs: Lesson = {
     'It runs in O(V + E) time and O(V) space.',
   ],
 };
+
+export default content;

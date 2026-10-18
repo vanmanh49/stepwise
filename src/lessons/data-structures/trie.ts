@@ -1,14 +1,7 @@
 import { trieStructure } from '../../data-structures/trie';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const trie: Lesson = {
-  id: 'trie',
-  title: 'Trie',
-  category: 'data-structures',
-  difficulty: 'intermediate',
-  description: 'A tree of letters where words that start the same way share a path.',
-  keywords: ['prefix tree', 'digital tree', 'autocomplete', 'prefix', 'starts with', 'dictionary', 'word search', 'spell check'],
-  prerequisites: ['binary-tree', 'string'],
+const content: LessonContent = {
   overview:
     'A trie (said "try") stores words as paths of letters from a root. Words that start the same way share the same first nodes, so "car", "cart" and "cat" share "c" and "a". Looking up a word takes one step per letter, however many words are stored, and finding every word with a given beginning is just exploring one subtree.',
   concept: [
@@ -24,18 +17,6 @@ export const trie: Lesson = {
   ],
   visualization: { kind: 'structure', structure: trieStructure },
   code: trieStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Insert', best: 'O(L)', average: 'O(L)', worst: 'O(L)' },
-      { label: 'Search', best: 'O(1)', average: 'O(L)', worst: 'O(L)' },
-      { label: 'Starts with', best: 'O(1)', average: 'O(L)', worst: 'O(L)' },
-      { label: 'Delete', best: 'O(L)', average: 'O(L)', worst: 'O(L)' },
-    ],
-    space: 'O(total letters)',
-    note: 'L is the length of the word, not the number of words: one step per letter. A search can stop at the first letter with no child, which is the O(1) best case. Space is at most one node per letter of every word, less when words share prefixes.',
-    curves: ['1', 'n'],
-  },
-  compareWith: ['hash-table', 'binary-search-tree'],
   prosCons: {
     pros: ['Lookups cost one step per letter, independent of how many words are stored', 'Prefix queries and autocomplete come for free', 'Words come out in alphabetical order when the trie is walked'],
     cons: ['Uses more memory than a hash table: one node per letter, each with a map of children', 'Only works for keys made of a sequence of symbols, such as strings', 'Slower than a hash table for plain exact-match lookups in practice'],
@@ -97,3 +78,5 @@ export const trie: Lesson = {
     'Prefix queries such as autocomplete are a trie\'s main strength.',
   ],
 };
+
+export default content;

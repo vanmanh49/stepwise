@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'SELECT e.name, m.name AS manager\nFROM employees e\nLEFT JOIN employees m ON m.id = e.manager_id;';
 
-export const selfJoin: Lesson = {
-  id: 'self-join',
-  title: 'Self Join',
-  category: 'sql',
-  difficulty: 'intermediate',
-  group: 'Joins',
-  description: 'Join a table to itself to connect rows of the same kind, such as employees and their managers.',
-  keywords: ['self join', 'same table', 'alias', 'manager', 'hierarchy', 'pairs', 'compare rows'],
-  prerequisites: ['inner-join', 'left-join'],
+const content: LessonContent = {
   overview:
     'A self join joins a table to itself. You list the table twice with two different aliases, and the database treats them as two copies. It is how you connect rows to other rows of the same table, such as each employee to the employee who manages them.',
   concept: [
@@ -129,3 +121,5 @@ export const selfJoin: Lesson = {
     'a.id < b.id lists each pair once and never pairs a row with itself.',
   ],
 };
+
+export default content;

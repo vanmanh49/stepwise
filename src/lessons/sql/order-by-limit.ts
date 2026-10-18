@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'SELECT name, price\nFROM products\nORDER BY price DESC\nLIMIT 3;';
 
-export const orderByLimit: Lesson = {
-  id: 'order-by-limit',
-  title: 'Sorting and LIMIT',
-  category: 'sql',
-  difficulty: 'beginner',
-  group: 'Querying',
-  description: 'Put rows in order and keep only the first few.',
-  keywords: ['order by', 'sort', 'asc', 'desc', 'limit', 'offset', 'top n', 'pagination'],
-  prerequisites: ['where'],
+const content: LessonContent = {
   overview:
     'ORDER BY sorts the result, and LIMIT keeps only the first rows of it. Together they answer questions like "the three most expensive products" or "page 2 of the order history".',
   concept: [
@@ -127,3 +119,5 @@ export const orderByLimit: Lesson = {
     'Standard SQL writes LIMIT as FETCH FIRST n ROWS ONLY, which PostgreSQL also accepts.',
   ],
 };
+
+export default content;

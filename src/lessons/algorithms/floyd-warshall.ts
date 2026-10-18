@@ -1,16 +1,8 @@
 import { floydWarshallCode, floydWarshallSteps } from '../../algorithms/graph/floydWarshall';
 import { allPairsGraph, allPairsNegativeGraph } from '../../algorithms/graph/graphs';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const floydWarshall: Lesson = {
-  id: 'floyd-warshall',
-  title: 'Floyd-Warshall',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Shortest Path',
-  description: 'Find the shortest distance between every pair of nodes at once, by letting each node in turn act as a stopover.',
-  keywords: ['all pairs shortest path', 'apsp', 'distance matrix', 'dynamic programming', 'negative weights', 'transitive closure'],
-  prerequisites: ['dijkstra'],
+const content: LessonContent = {
   overview:
     'Floyd-Warshall computes the shortest distance between every pair of nodes in a weighted graph. It keeps a table of best-known distances and improves it in rounds: in round k, any path may also pass through node k. After every node has had its round, the table holds all shortest distances. It handles negative edges, as long as there is no negative cycle.',
   concept: [
@@ -27,13 +19,6 @@ export const floydWarshall: Lesson = {
   ],
   visualization: { kind: 'graph', graphs: [allPairsGraph, allPairsNegativeGraph], needsStart: false, generate: floydWarshallSteps },
   code: floydWarshallCode,
-  complexity: {
-    rows: [{ label: 'Floyd-Warshall', best: 'O(V³)', average: 'O(V³)', worst: 'O(V³)' }],
-    space: 'O(V²)',
-    note: 'Three nested loops over V nodes, every time. V³ grows faster than the n² curve it is grouped with on the Big O page: doubling the nodes makes it eight times slower.',
-    curves: ['n2'],
-  },
-  compareWith: ['dijkstra', 'bellman-ford'],
   prosCons: {
     pros: ['Answers every pair in one run', 'Handles negative edge weights', 'Detects negative cycles', 'Tiny, loop-only code'],
     cons: ['O(V³) time, too slow for large graphs', 'O(V²) memory for the table', 'Wasteful if you only need distances from one node'],
@@ -95,3 +80,5 @@ export const floydWarshall: Lesson = {
     'It handles negative edges and reveals negative cycles through negative dist[v][v].',
   ],
 };
+
+export default content;

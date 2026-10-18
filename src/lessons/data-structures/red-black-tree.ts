@@ -1,14 +1,7 @@
 import { redBlackStructure } from '../../data-structures/redBlack';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const redBlackTree: Lesson = {
-  id: 'red-black-tree',
-  title: 'Red-Black Tree',
-  category: 'data-structures',
-  difficulty: 'advanced',
-  description: 'A self-balancing BST that colours nodes red or black and fixes the colours after each change.',
-  keywords: ['red black', 'rb tree', 'self-balancing', 'balanced bst', 'recolour', 'rotation', 'double black', 'black height', 'treemap'],
-  prerequisites: ['binary-search-tree'],
+const content: LessonContent = {
   overview:
     'A red-black tree is a binary search tree where every node is coloured red or black. A few colour rules make sure no path from the root is more than twice as long as any other, so the tree stays about log n tall. After an insert or delete, the tree repairs the colours with recolouring and at most a few rotations. Many standard libraries use it for their sorted maps and sets.',
   concept: [
@@ -26,17 +19,6 @@ export const redBlackTree: Lesson = {
   ],
   visualization: { kind: 'structure', structure: redBlackStructure },
   code: redBlackStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Search', best: 'O(1)', average: 'O(log n)', worst: 'O(log n)' },
-      { label: 'Insert', best: 'O(log n)', average: 'O(log n)', worst: 'O(log n)' },
-      { label: 'Delete', best: 'O(log n)', average: 'O(log n)', worst: 'O(log n)' },
-    ],
-    space: 'O(n)',
-    note: 'The colour rules keep the height under 2 × log₂ n. Recolouring can move up the tree, but rotations are few: at most 2 for an insert and 3 for a delete. Each node stores one extra bit, its colour.',
-    curves: ['log'],
-  },
-  compareWith: ['avl-tree', 'binary-search-tree'],
   prosCons: {
     pros: ['Guaranteed O(log n) search, insert and delete', 'Few rotations per change, so updates are cheap', 'Only one extra bit of memory per node'],
     cons: ['Slightly taller than an AVL tree, so lookups can be a little slower', 'The delete fix-up has many cases and is easy to get wrong', 'Harder to understand than a plain BST'],
@@ -101,3 +83,5 @@ export const redBlackTree: Lesson = {
     'Delete fixes a "double black" by looking at the sibling, with four cases and their mirrors.',
   ],
 };
+
+export default content;

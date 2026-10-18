@@ -1,14 +1,14 @@
 import { Link } from 'react-router';
 import { getLesson, lessonPath } from '../../lessons/registry';
-import type { Lesson } from '../../types/lesson';
+import type { LessonMeta } from '../../types/lesson';
 
 /** The lesson's own complexity rows, followed by related lessons for comparison. */
-export function ComplexityTable({ lesson }: { lesson: Lesson }) {
+export function ComplexityTable({ lesson }: { lesson: LessonMeta }) {
   const complexity = lesson.complexity;
   if (!complexity) return null;
   const compared = (lesson.compareWith ?? [])
     .map(getLesson)
-    .filter((other): other is Lesson => other?.complexity !== undefined && other.category === lesson.category);
+    .filter((other): other is LessonMeta => other?.complexity !== undefined && other.category === lesson.category);
   const isAlgorithm = lesson.category === 'algorithms';
 
   return (

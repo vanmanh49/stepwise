@@ -1,14 +1,7 @@
 import { hashTableStructure } from '../../data-structures/hashTable';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const hashTable: Lesson = {
-  id: 'hash-table',
-  title: 'Hash Table',
-  category: 'data-structures',
-  difficulty: 'beginner',
-  description: 'Turns each key into a bucket number, so lookups go straight to the right place.',
-  keywords: ['hash map', 'hashmap', 'dictionary', 'map', 'hash function', 'collision', 'chaining', 'load factor', 'rehash', 'bucket'],
-  prerequisites: ['array', 'linked-list'],
+const content: LessonContent = {
   overview:
     'A hash table stores key–value pairs and finds a key without searching through everything. A hash function turns the key into a number, and that number picks a bucket in an array. To look the key up later, you hash it again and go straight to the same bucket.',
   concept: [
@@ -25,18 +18,6 @@ export const hashTable: Lesson = {
   ],
   visualization: { kind: 'structure', structure: hashTableStructure },
   code: hashTableStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Put', best: 'O(1)', average: 'O(1)', worst: 'O(n)' },
-      { label: 'Get', best: 'O(1)', average: 'O(1)', worst: 'O(n)' },
-      { label: 'Remove', best: 'O(1)', average: 'O(1)', worst: 'O(n)' },
-      { label: 'Resize', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-    ],
-    space: 'O(n)',
-    note: 'With a good hash function and a bounded load factor, each chain holds about one entry, so operations are O(1) on average. If every key collided into one bucket, the chain would be a list of n entries: O(n). A resize costs O(n), but it happens rarely enough that a put is still O(1) on average (amortised).',
-    curves: ['1', 'n'],
-  },
-  compareWith: ['array', 'binary-search-tree'],
   prosCons: {
     pros: ['O(1) average put, get and remove', 'Works with any key that can be hashed, such as strings', 'Simple to use: most languages have one built in'],
     cons: ['No order: you cannot list keys sorted or find the next larger key', 'A bad hash function or many collisions make it O(n)', 'Resizing makes an occasional put slow'],
@@ -102,3 +83,5 @@ export const hashTable: Lesson = {
     'Hash tables have no order; use a balanced tree when you need sorted keys or ranges.',
   ],
 };
+
+export default content;

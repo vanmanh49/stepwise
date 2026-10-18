@@ -1,16 +1,8 @@
 import { directedGraph, sccGraph } from '../../algorithms/graph/graphs';
 import { sccCode, sccSteps } from '../../algorithms/graph/scc';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const advancedGraphAlgorithms: Lesson = {
-  id: 'advanced-graph-algorithms',
-  title: 'Advanced Graph Algorithms',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Advanced Algorithms',
-  description: 'Split a directed graph into strongly connected components with Kosaraju’s two depth-first passes.',
-  keywords: ['strongly connected components', 'scc', 'kosaraju', 'directed graph', 'reverse graph', 'finish order', 'condensation'],
-  prerequisites: ['dfs', 'topological-sort'],
+const content: LessonContent = {
   overview:
     'This lesson covers strongly connected components (SCCs) and Kosaraju’s algorithm for finding them. In a directed graph, two nodes are strongly connected when each can reach the other. Kosaraju finds every such group with two depth-first searches: one on the graph to get a finish order, and one on the graph with every edge reversed.',
   concept: [
@@ -28,13 +20,6 @@ export const advancedGraphAlgorithms: Lesson = {
   ],
   visualization: { kind: 'graph', graphs: [sccGraph, directedGraph], needsStart: false, generate: sccSteps },
   code: sccCode,
-  complexity: {
-    rows: [{ label: 'Kosaraju', best: 'O(V + E)', average: 'O(V + E)', worst: 'O(V + E)' }],
-    space: 'O(V + E)',
-    note: 'Two depth-first searches and one pass to reverse the edges, each touching every node and edge once.',
-    curves: ['n'],
-  },
-  compareWith: ['topological-sort'],
   prosCons: {
     pros: ['Linear time', 'Built from plain DFS, easy to reason about', 'Gives components in topological order of the condensed graph'],
     cons: ['Needs two passes and a reversed copy of the graph', 'Recursive DFS can overflow the call stack on huge graphs', 'Tarjan’s algorithm does it in one pass'],
@@ -95,3 +80,5 @@ export const advancedGraphAlgorithms: Lesson = {
     'It runs in O(V + E) time.',
   ],
 };
+
+export default content;

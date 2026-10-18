@@ -1,19 +1,11 @@
 import { datasets } from '../../sql/datasets';
 import { scriptViewAt } from '../../sql/scriptSteps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query =
   "CREATE TABLE clubs (id INTEGER PRIMARY KEY, name TEXT, founded INTEGER);\nINSERT INTO clubs (name, founded) VALUES ('Chess', 2019), ('Drama', 2021);\nSELECT * FROM clubs;";
 
-export const createTable: Lesson = {
-  id: 'create-table',
-  title: 'CREATE TABLE',
-  category: 'sql',
-  difficulty: 'intermediate',
-  group: 'Modifying data',
-  description: 'Design a new table: its columns, their types, defaults and an id that numbers itself.',
-  keywords: ['create table', 'schema', 'column type', 'integer', 'text', 'real', 'default', 'primary key', 'drop table'],
-  prerequisites: ['insert'],
+const content: LessonContent = {
   overview:
     'CREATE TABLE makes a new, empty table. You give it a name and list its columns, each with a type such as INTEGER, REAL or TEXT, and optionally a default value or a rule. DROP TABLE removes a table and all its rows.',
   concept: [
@@ -133,3 +125,5 @@ export const createTable: Lesson = {
     'DROP TABLE removes a table and its rows.',
   ],
 };
+
+export default content;

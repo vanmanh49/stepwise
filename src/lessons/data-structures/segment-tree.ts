@@ -1,14 +1,7 @@
 import { segmentTreeStructure } from '../../data-structures/segmentTree';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const segmentTree: Lesson = {
-  id: 'segment-tree',
-  title: 'Segment Tree',
-  category: 'data-structures',
-  difficulty: 'advanced',
-  description: 'A tree of range sums that answers "sum from i to j" and handles updates in O(log n).',
-  keywords: ['range query', 'range sum', 'interval tree', 'point update', 'range minimum', 'rmq', 'segment'],
-  prerequisites: ['binary-tree', 'prefix-sum'],
+const content: LessonContent = {
   overview:
     'A segment tree answers questions about ranges of an array, such as "what is the sum from position 2 to 6?", while the array keeps changing. Each node stores the answer for one segment of the array: the root covers everything, its children cover each half, and so on down to single positions. A query combines a few stored answers, and an update fixes one path. Both take O(log n).',
   concept: [
@@ -26,17 +19,6 @@ export const segmentTree: Lesson = {
   ],
   visualization: { kind: 'structure', structure: segmentTreeStructure },
   code: segmentTreeStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Range sum', best: 'O(1)', average: 'O(log n)', worst: 'O(log n)' },
-      { label: 'Update', best: 'O(log n)', average: 'O(log n)', worst: 'O(log n)' },
-      { label: 'Build', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-    ],
-    space: 'O(n)',
-    note: 'The tree is about log₂ n levels tall. A query uses at most about two nodes per level, and an update changes one node per level. The tree has about 2n nodes, stored in an array of size 4n in practice.',
-    curves: ['log', 'n'],
-  },
-  compareWith: ['fenwick-tree', 'prefix-sum'],
   prosCons: {
     pros: ['Range queries and updates both in O(log n)', 'Works for sum, min, max, gcd and other combinable operations', 'Can be extended to update whole ranges at once (lazy propagation)'],
     cons: ['More code and memory than a Fenwick tree', 'Overkill when the array never changes (a prefix-sum array is simpler)', 'Recursive code is easy to get off by one'],
@@ -98,3 +80,5 @@ export const segmentTree: Lesson = {
     'It works for any operation that combines two halves, such as sum, min or max.',
   ],
 };
+
+export default content;

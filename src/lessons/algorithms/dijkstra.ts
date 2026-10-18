@@ -1,16 +1,8 @@
 import { dijkstraCode, dijkstraSteps } from '../../algorithms/graph/dijkstra';
 import { directedGraph, islandGraph, weightedGraph } from '../../algorithms/graph/graphs';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const dijkstra: Lesson = {
-  id: 'dijkstra',
-  title: "Dijkstra's Algorithm",
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Shortest Path',
-  description: 'Find the cheapest route from one node to every other node in a weighted graph.',
-  keywords: ['dijkstra', 'shortest path', 'weighted graph', 'priority queue', 'greedy', 'relaxation', 'distance'],
-  prerequisites: ['graph', 'bfs', 'heap'],
+const content: LessonContent = {
   overview:
     "Dijkstra's algorithm finds the shortest path from a start node to every other node when edges have different costs. It repeatedly picks the closest node that is not finished yet, locks in its distance, and checks whether going through it gives a shorter route to its neighbours.",
   concept: [
@@ -29,16 +21,6 @@ export const dijkstra: Lesson = {
   ],
   visualization: { kind: 'graph', graphs: [weightedGraph, directedGraph, islandGraph], needsStart: true, generate: dijkstraSteps },
   code: dijkstraCode,
-  complexity: {
-    rows: [
-      { label: 'Dijkstra (simple scan, as shown)', best: 'O(V²)', average: 'O(V²)', worst: 'O(V²)' },
-      { label: 'Dijkstra (binary heap)', best: 'O((V + E) log V)', average: 'O((V + E) log V)', worst: 'O((V + E) log V)' },
-    ],
-    space: 'O(V)',
-    note: 'The code in this lesson finds the closest node by scanning all nodes, which is easy to read and costs O(V²). Real implementations keep unvisited nodes in a min-heap (priority queue), so finding the closest node takes O(log V) instead of O(V).',
-    curves: ['nlogn', 'n2'],
-  },
-  compareWith: ['bfs', 'dfs'],
   prosCons: {
     pros: ['Finds true shortest paths in weighted graphs', 'Computes distances to all nodes in one run', 'Efficient with a priority queue'],
     cons: ['Gives wrong answers if any edge weight is negative', 'Explores in all directions, even away from the target', 'More complex than BFS'],
@@ -110,3 +92,5 @@ export const dijkstra: Lesson = {
     'It does not work with negative edge weights.',
   ],
 };
+
+export default content;

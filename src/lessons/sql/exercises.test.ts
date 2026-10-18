@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { checkExercise, describeCheck } from '../../sql/check';
 import { datasets, type DatasetId } from '../../sql/datasets';
 import type { Lesson, SqlExercise } from '../../types/lesson';
-import { constraints } from './constraints';
-import { deleteLesson } from './delete';
+import { fullLesson } from '../all.testutil';
+
+const constraints = fullLesson('constraints');
+const deleteLesson = fullLesson('delete');
 
 function exercise(lesson: Lesson, id: string): { db: (typeof datasets)[DatasetId]; exercise: SqlExercise } {
   const config = lesson.visualization;

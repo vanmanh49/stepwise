@@ -1,14 +1,7 @@
 import { queueStructure } from '../../data-structures/queue';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const queue: Lesson = {
-  id: 'queue',
-  title: 'Queue',
-  category: 'data-structures',
-  difficulty: 'beginner',
-  description: 'First in, first out: join at the rear, leave from the front.',
-  keywords: ['fifo', 'enqueue', 'dequeue', 'front', 'rear', 'line', 'buffer'],
-  prerequisites: ['array', 'stack'],
+const content: LessonContent = {
   overview:
     'A queue is a collection where items leave in the same order they arrived. You enqueue at the rear and dequeue from the front, exactly like a line at a shop. Whoever has waited longest is served next.',
   concept: [
@@ -24,18 +17,6 @@ export const queue: Lesson = {
   ],
   visualization: { kind: 'structure', structure: queueStructure },
   code: queueStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Enqueue', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Dequeue', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Peek', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Search for a value', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
-    ],
-    space: 'O(n)',
-    note: 'These costs assume a linked list or circular buffer. The short array version shown in the code uses shift(), which is O(n) because it moves every remaining item forward.',
-    curves: ['1'],
-  },
-  compareWith: ['stack'],
   prosCons: {
     pros: ['Preserves arrival order', 'Enqueue and dequeue are O(1) with the right implementation', 'Decouples whoever produces work from whoever handles it'],
     cons: ['Only the front item is reachable', 'A naive array implementation makes dequeue O(n)'],
@@ -102,3 +83,5 @@ export const queue: Lesson = {
     'Queues are the engine behind schedulers, buffers and breadth-first search.',
   ],
 };
+
+export default content;

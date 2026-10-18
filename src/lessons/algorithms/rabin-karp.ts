@@ -1,17 +1,9 @@
 import { rabinKarpCode, rabinKarpSteps } from '../../algorithms/strings/rabinKarp';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const example = { text: 'GEEKS FOR GEEKS', pattern: 'GEEK' };
 
-export const rabinKarp: Lesson = {
-  id: 'rabin-karp',
-  title: 'Rabin-Karp',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Advanced Algorithms',
-  description: 'Find a pattern by comparing hashes of each text window, updating the hash in constant time as the window slides.',
-  keywords: ['rolling hash', 'string matching', 'pattern search', 'hashing', 'hash collision', 'fingerprint', 'plagiarism detection'],
-  prerequisites: ['string'],
+const content: LessonContent = {
   overview:
     'Rabin-Karp searches for a pattern by turning strings into numbers. It hashes the pattern once, then slides a window of the same length along the text, updating the window’s hash in constant time with a rolling hash. Only when the two hashes are equal does it compare the actual characters.',
   concept: [
@@ -41,13 +33,6 @@ export const rabinKarp: Lesson = {
     generate: rabinKarpSteps,
   },
   code: rabinKarpCode,
-  complexity: {
-    rows: [{ label: 'Rabin-Karp', best: 'O(n + m)', average: 'O(n + m)', worst: 'O(n × m)' }],
-    space: 'O(1)',
-    note: 'Rolling the hash makes each window O(1). In the worst case, every window collides and must be checked character by character, which is O(n × m); a good hash makes that extremely unlikely.',
-    curves: ['n', 'n2'],
-  },
-  compareWith: ['kmp'],
   prosCons: {
     pros: ['Simple to implement', 'Fast on average', 'Extends naturally to searching for many patterns of the same length at once'],
     cons: ['Hash collisions force extra character checks', 'Worst case is O(n × m)', 'Needs care with modular arithmetic'],
@@ -119,3 +104,5 @@ export const rabinKarp: Lesson = {
     'It is O(n + m) on average and O(n × m) in the worst case.',
   ],
 };
+
+export default content;

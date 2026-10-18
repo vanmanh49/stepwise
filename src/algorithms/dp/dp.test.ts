@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GridView, Step } from '../../types/visualization';
-import { getLesson } from '../../lessons/registry';
+import { fullLesson } from '../../lessons/all.testutil';
 import { greedyCoins } from '../greedy/coins';
 import { coinChange, coinChangeCode, coinChangeSteps } from './coinChange';
 import { fibonacciDp, fibonacciDpCode, fibonacciDpSteps } from './fibonacci';
@@ -61,7 +61,7 @@ describe('Fibonacci DP', () => {
   it('the lesson quiz counts the memo hits of fibMemo(6) correctly', () => {
     const hits = fibonacciDpSteps({ n: '6', method: 'memo' }).filter((s) => s.title.endsWith('is already in the memo')).length;
     expect(hits).toBe(3);
-    const question = getLesson('fibonacci-dp')!.quiz.find((q) => q.prompt.includes('fibMemo(6)'))!;
+    const question = fullLesson('fibonacci-dp').quiz.find((q) => q.prompt.includes('fibMemo(6)'))!;
     expect(question.explanation).toContain(`${hits} memo hits`);
   });
 

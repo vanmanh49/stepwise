@@ -1,14 +1,7 @@
 import { heapStructure } from '../../data-structures/heap';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const heap: Lesson = {
-  id: 'heap',
-  title: 'Heap',
-  category: 'data-structures',
-  difficulty: 'intermediate',
-  description: 'A tree packed into an array that always keeps the largest value on top.',
-  keywords: ['binary heap', 'max heap', 'min heap', 'priority queue', 'sift up', 'sift down', 'heapify'],
-  prerequisites: ['array', 'binary-tree'],
+const content: LessonContent = {
   overview:
     'A heap is a tree with a single, relaxed rule: every parent is at least as large as its children (a max-heap). That is enough to guarantee the largest value is always at the root, ready to be read instantly. The tree is stored in a plain array with no pointers at all.',
   concept: [
@@ -26,19 +19,6 @@ export const heap: Lesson = {
   ],
   visualization: { kind: 'structure', structure: heapStructure },
   code: heapStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Peek at max', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Insert', best: 'O(1)', average: 'O(1)', worst: 'O(log n)' },
-      { label: 'Extract max', best: 'O(1)', average: 'O(log n)', worst: 'O(log n)' },
-      { label: 'Build from n values', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Search for a value', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
-    ],
-    space: 'O(n)',
-    note: 'Sifting follows one path between root and leaf. A complete tree with n items has about log₂ n levels, so a heap of 1,000,000 items needs at most 20 swaps per operation.',
-    curves: ['1', 'log'],
-  },
-  compareWith: ['binary-search-tree'],
   prosCons: {
     pros: ['The largest (or smallest) value is available in O(1)', 'Insert and extract are O(log n), guaranteed', 'Stored in one array: compact and no pointers'],
     cons: ['Finding an arbitrary value takes O(n)', 'Does not keep the data fully sorted', 'Only one end is fast: a max-heap cannot give the minimum quickly'],
@@ -110,3 +90,5 @@ export const heap: Lesson = {
     'A heap is the standard way to build a priority queue.',
   ],
 };
+
+export default content;

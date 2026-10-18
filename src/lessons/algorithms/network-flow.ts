@@ -1,16 +1,8 @@
 import { flowNetwork } from '../../algorithms/graph/graphs';
 import { networkFlowCode, networkFlowSteps } from '../../algorithms/graph/networkFlow';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const networkFlow: Lesson = {
-  id: 'network-flow',
-  title: 'Network Flow',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Advanced Algorithms',
-  description: 'Push as much as possible from a source to a sink through edges with limited capacity.',
-  keywords: ['maximum flow', 'max flow', 'edmonds-karp', 'ford-fulkerson', 'min cut', 'augmenting path', 'residual graph'],
-  prerequisites: ['bfs'],
+const content: LessonContent = {
   overview:
     'A flow network is a directed graph whose edges have capacities, like pipes that can carry only so much water. The maximum flow problem asks how much can travel from a source S to a sink T at once. Edmonds-Karp answers it by repeatedly finding a path with spare room, using breadth-first search, and pushing as much as that path allows.',
   concept: [
@@ -28,13 +20,6 @@ export const networkFlow: Lesson = {
   ],
   visualization: { kind: 'graph', graphs: [flowNetwork], needsStart: false, generate: networkFlowSteps },
   code: networkFlowCode,
-  complexity: {
-    rows: [{ label: 'Edmonds-Karp', best: 'O(V × E²)', average: 'O(V × E²)', worst: 'O(V × E²)' }],
-    space: 'O(V + E)',
-    note: 'Choosing the shortest augmenting path bounds the number of rounds by O(V × E), each a BFS costing O(E). The real cost grows faster than the n² curve it is grouped with, but in practice far fewer rounds are needed.',
-    curves: ['n2'],
-  },
-  compareWith: ['bfs'],
   prosCons: {
     pros: ['Always finds the maximum flow', 'Running time does not depend on the capacity values', 'Also yields a minimum cut'],
     cons: ['Slower than modern algorithms such as Dinic’s on large graphs', 'Needs integer or rational capacities to be sure it stops', 'The residual graph idea takes time to grasp'],
@@ -100,3 +85,5 @@ export const networkFlow: Lesson = {
     'At the end, the maximum flow equals the capacity of a minimum cut.',
   ],
 };
+
+export default content;

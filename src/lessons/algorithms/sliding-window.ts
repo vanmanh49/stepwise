@@ -1,15 +1,7 @@
 import { slidingWindowCode, slidingWindowSteps } from '../../algorithms/techniques/slidingWindow';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const slidingWindow: Lesson = {
-  id: 'sliding-window',
-  title: 'Sliding Window',
-  category: 'algorithms',
-  difficulty: 'beginner',
-  group: 'Basic Techniques',
-  description: 'Move a fixed-size window across a list, updating the answer instead of recomputing it.',
-  keywords: ['window', 'subarray', 'consecutive', 'moving sum', 'moving average', 'technique', 'pattern'],
-  prerequisites: ['array', 'two-pointers'],
+const content: LessonContent = {
   overview:
     'A sliding window looks at a run of neighbouring values and moves along the list one position at a time. Because two neighbouring windows share almost all of their values, the result for the next window can be updated from the previous one instead of being recalculated. This lesson finds the k neighbouring values with the largest sum.',
   concept: [
@@ -36,13 +28,6 @@ export const slidingWindow: Lesson = {
     generate: slidingWindowSteps,
   },
   code: slidingWindowCode,
-  complexity: {
-    rows: [{ label: 'Sliding Window (fixed size)', best: 'O(n)', average: 'O(n)', worst: 'O(n)' }],
-    space: 'O(1)',
-    note: 'Each value is added once when it enters the window and subtracted once when it leaves: about 2n operations whatever k is. Recomputing every window from scratch costs O(n × k), which for a wide window approaches O(n²).',
-    curves: ['n', 'n2'],
-  },
-  compareWith: ['two-pointers', 'prefix-sum'],
   prosCons: {
     pros: ['One pass over the data', 'Cost does not depend on the window size', 'No extra memory'],
     cons: ['Only works on runs of neighbouring values, not arbitrary selections', 'The update rule must be reversible: removing a value has to be as easy as adding one'],
@@ -109,3 +94,5 @@ export const slidingWindow: Lesson = {
     'It applies to contiguous runs only.',
   ],
 };
+
+export default content;

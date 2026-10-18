@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, CircleCheck, Menu } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, use, useCallback, useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { BigOChart } from '../components/bigo/BigOChart';
 import { CodePanel } from '../components/code/CodePanel';
@@ -22,9 +22,9 @@ import { Quiz } from '../components/quiz/Quiz';
 import { Exercises } from '../components/sql/Exercises';
 import { Variables } from '../components/visualization/Explanation';
 import { LessonVisualization } from '../components/visualization/inputs/LessonVisualization';
-import { adjacentLessons, getLesson, lessonPath } from '../lessons/registry';
+import { adjacentLessons, getLesson, lessonPath, loadLesson } from '../lessons/registry';
 import { useProgress } from '../store/progress';
-import type { Category, Lesson } from '../types/lesson';
+import type { Category, Lesson, LessonMeta } from '../types/lesson';
 import type { Step } from '../types/visualization';
 import NotFound from './NotFound';
 
@@ -300,5 +300,15 @@ export default function LessonPage({ category }: { category: Category }) {
   if (!lesson) return <NotFound />;
   if (lesson.category !== category) return <Navigate to={lessonPath(lesson)} replace />;
   // The key resets inputs, playback and quiz state when moving between lessons.
-  return <LessonContent key={lesson.id} lesson={lesson} />;
+  return (
+    <Suspense key={lesson.id} fallback={<p className="px-6 py-24 text-center text-muted">Loading…</p>}>
+      <LoadedLesson meta={lesson} />
+    </Suspense>
+  );
+}
+
+/** Suspends until the lesson's content has loaded; loadLesson returns the same promise per id. */
+function LoadedLesson({ meta }: { meta: LessonMeta }) {
+  const lesson = use(loadLesson(meta.id));
+  return <LessonContent lesson={lesson} />;
 }

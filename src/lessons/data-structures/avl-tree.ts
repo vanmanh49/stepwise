@@ -1,14 +1,7 @@
 import { avlStructure } from '../../data-structures/avl';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const avlTree: Lesson = {
-  id: 'avl-tree',
-  title: 'AVL Tree',
-  category: 'data-structures',
-  difficulty: 'advanced',
-  description: 'A binary search tree that rotates itself back into balance after every change.',
-  keywords: ['avl', 'self-balancing', 'balanced bst', 'rotation', 'balance factor', 'height', 'left rotation', 'right rotation'],
-  prerequisites: ['binary-search-tree'],
+const content: LessonContent = {
   overview:
     'An AVL tree is a binary search tree that never gets lopsided. Every node tracks how tall its two subtrees are, and after each insert or delete the tree checks the nodes on the way back up. When one side becomes two levels taller than the other, a rotation fixes it. The tree stays about log n tall, so search, insert and delete are always O(log n).',
   concept: [
@@ -26,17 +19,6 @@ export const avlTree: Lesson = {
   ],
   visualization: { kind: 'structure', structure: avlStructure },
   code: avlStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Search', best: 'O(1)', average: 'O(log n)', worst: 'O(log n)' },
-      { label: 'Insert', best: 'O(log n)', average: 'O(log n)', worst: 'O(log n)' },
-      { label: 'Delete', best: 'O(log n)', average: 'O(log n)', worst: 'O(log n)' },
-    ],
-    space: 'O(n)',
-    note: 'The balance rule keeps the height below about 1.44 × log₂ n, so every operation walks a short path. A rotation only changes a few pointers, O(1). An insert needs at most one fix (one or two rotations); a delete may rotate at every level, which is still O(log n).',
-    curves: ['log'],
-  },
-  compareWith: ['binary-search-tree', 'red-black-tree'],
   prosCons: {
     pros: ['Guaranteed O(log n) search, insert and delete', 'More strictly balanced than a red-black tree, so lookups are slightly faster', 'Keeps values in sorted order'],
     cons: ['More rotations on insert and delete than a red-black tree', 'Each node stores a height', 'More code than a plain BST'],
@@ -97,3 +79,5 @@ export const avlTree: Lesson = {
     'The tree stays about log n tall, so every operation is O(log n), even in the worst case.',
   ],
 };
+
+export default content;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lessons } from '../lessons/registry';
+import { allLessons } from '../lessons/all.testutil';
 import type { StructureDef, StructureOp } from '../types/lesson';
 import { deepFreeze, int, pick, rng } from './random.testutil';
 
@@ -15,7 +15,7 @@ function inputs(op: StructureOp<unknown>, r: () => number) {
   return { args, words };
 }
 
-const structures = lessons.flatMap((l) => (l.visualization.kind === 'structure' ? [[l.id, l.visualization.structure, l.code] as const] : []));
+const structures = allLessons.flatMap((l) => (l.visualization.kind === 'structure' ? [[l.id, l.visualization.structure, l.code] as const] : []));
 
 describe.each(structures)('structure %s', (_id, def: StructureDef<unknown>, code) => {
   const lines = code.split('\n').length;

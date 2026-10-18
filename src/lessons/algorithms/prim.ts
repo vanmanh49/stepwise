@@ -1,16 +1,8 @@
 import { islandGraph, weightedGraph } from '../../algorithms/graph/graphs';
 import { primCode, primSteps } from '../../algorithms/graph/prim';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const prim: Lesson = {
-  id: 'prim',
-  title: 'Prim',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Minimum Spanning Tree',
-  description: 'Grow a minimum spanning tree outward from one node, always by the cheapest edge.',
-  keywords: ['minimum spanning tree', 'mst', 'greedy', 'priority queue', 'weighted graph', 'cut'],
-  prerequisites: ['graph', 'priority-queue'],
+const content: LessonContent = {
   overview:
     "Prim's algorithm builds a minimum spanning tree by starting from a single node and growing outward. At each step it looks at every edge that leads from the tree to a node outside it, and adds the cheapest one. It reaches the same total weight as Kruskal by a different route.",
   concept: [
@@ -28,16 +20,6 @@ export const prim: Lesson = {
   ],
   visualization: { kind: 'graph', graphs: [weightedGraph, islandGraph], needsStart: true, generate: primSteps },
   code: primCode,
-  complexity: {
-    rows: [
-      { label: 'Prim (binary heap)', best: 'O(E log V)', average: 'O(E log V)', worst: 'O(E log V)' },
-      { label: 'Prim (edge scan, as shown)', best: 'O(V × E)', average: 'O(V × E)', worst: 'O(V × E)' },
-    ],
-    space: 'O(V)',
-    note: 'The version in this lesson rescans all E edges for each of the V nodes it adds: simple but slow. Keeping the crossing edges in a priority queue means each edge is pushed and popped at most once, at O(log V) each.',
-    curves: ['nlogn', 'n2'],
-  },
-  compareWith: ['kruskal', 'dijkstra'],
   prosCons: {
     pros: ['Never needs a loop check or a disjoint set', 'Efficient on dense graphs', 'Can start producing the tree before all edges are known, as long as neighbours can be listed'],
     cons: ['Only spans the part of the graph connected to the start node', 'Needs a priority queue to be efficient', 'Slightly more bookkeeping than Kruskal on sparse graphs'],
@@ -109,3 +91,5 @@ export const prim: Lesson = {
     'With a priority queue it runs in O(E log V).',
   ],
 };
+
+export default content;

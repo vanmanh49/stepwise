@@ -1,6 +1,6 @@
 import { datasets } from '../../sql/datasets';
 import { scriptStepView } from '../../sql/scriptSteps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 import type { SessionsView } from '../../types/visualization';
 
 const readTwice = (level: string) =>
@@ -19,15 +19,7 @@ const query = readTwice('READ COMMITTED');
 
 const dirtyTables = scriptStepView(datasets.bank, dirtyRead, 4) as SessionsView;
 
-export const isolationLevels: Lesson = {
-  id: 'isolation-levels',
-  title: 'Isolation Levels',
-  category: 'sql',
-  difficulty: 'advanced',
-  group: 'Database internals',
-  description: 'See what two transactions running at once can do to each other, and how each isolation level prevents it.',
-  keywords: ['isolation level', 'read uncommitted', 'read committed', 'repeatable read', 'serializable', 'dirty read', 'non-repeatable read', 'phantom', 'lost update', 'locks', 'deadlock', 'concurrency'],
-  prerequisites: ['transactions'],
+const content: LessonContent = {
   overview:
     'When two transactions run at the same time, one can see the other’s half-finished work, or change rows the other is still using. Isolation levels say how much of that is allowed. READ UNCOMMITTED allows the most; SERIALIZABLE makes the transactions behave as if they ran one after the other. Here, two sessions A and B take turns, and you can watch each anomaly happen or be prevented.',
   concept: [
@@ -133,3 +125,5 @@ export const isolationLevels: Lesson = {
     'SET TRANSACTION ISOLATION LEVEL chooses the level before BEGIN.',
   ],
 };
+
+export default content;

@@ -1,14 +1,7 @@
 import { arrayStructure } from '../../data-structures/array';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const array: Lesson = {
-  id: 'array',
-  title: 'Array',
-  category: 'data-structures',
-  difficulty: 'beginner',
-  description: 'Values stored side by side, each reachable instantly by its index.',
-  keywords: ['list', 'index', 'contiguous', 'dynamic array', 'vector'],
-  prerequisites: [],
+const content: LessonContent = {
   overview:
     'An array stores values in a row of numbered slots. Because the slots sit next to each other in memory, the computer can jump straight to any index, but adding or removing a value in the middle means moving its neighbours.',
   concept: [
@@ -25,18 +18,6 @@ export const array: Lesson = {
   ],
   visualization: { kind: 'structure', structure: arrayStructure },
   code: arrayStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Access by index', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Update by index', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Search (unsorted)', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Insert / delete at end', best: 'O(1)', average: 'O(1)', worst: 'O(n)' },
-      { label: 'Insert / delete in middle', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
-    ],
-    space: 'O(n)',
-    note: 'Reading is instant, but inserting or deleting anywhere except the end moves up to n values. Appending is O(1) on average; the rare O(n) happens when a dynamic array runs out of room and copies itself into a bigger block.',
-    curves: ['1', 'n'],
-  },
   prosCons: {
     pros: ['Instant access to any position', 'Compact: no extra memory per value', 'Fast to loop over because neighbours sit together in memory'],
     cons: ['Inserting or deleting in the middle is slow', 'Searching unsorted data means checking every slot', 'Growing past capacity requires copying everything'],
@@ -108,3 +89,5 @@ export const array: Lesson = {
     'Choose an array when you read by position far more often than you insert in the middle.',
   ],
 };
+
+export default content;

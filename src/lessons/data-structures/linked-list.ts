@@ -1,14 +1,7 @@
 import { linkedListStructure } from '../../data-structures/linkedList';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const linkedList: Lesson = {
-  id: 'linked-list',
-  title: 'Linked List',
-  category: 'data-structures',
-  difficulty: 'beginner',
-  description: 'Nodes chained together by pointers, cheap to grow at the ends.',
-  keywords: ['node', 'pointer', 'head', 'tail', 'singly linked', 'next'],
-  prerequisites: ['array'],
+const content: LessonContent = {
   overview:
     'A linked list stores each value in its own node, and every node remembers where the next one is. Nothing has to sit side by side, so adding or removing a node only changes a pointer or two. The trade-off is that you can no longer jump to a position: you have to walk there from the head.',
   concept: [
@@ -25,19 +18,6 @@ export const linkedList: Lesson = {
   ],
   visualization: { kind: 'structure', structure: linkedListStructure },
   code: linkedListStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Access by position', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Search', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Insert at head', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Insert at tail (no tail pointer)', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Delete (after finding the node)', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-    ],
-    space: 'O(n)',
-    note: 'Changing the list is cheap once you are standing at the right node; getting to that node is the slow part. Each node also stores a pointer, so a linked list uses more memory than an array of the same values.',
-    curves: ['1', 'n'],
-  },
-  compareWith: ['array'],
   prosCons: {
     pros: ['O(1) insert and delete at the head', 'Grows and shrinks one node at a time, no copying', 'No shifting of other values'],
     cons: ['No direct access by index', 'Extra memory for a pointer in every node', 'Slower to loop over than an array because nodes are scattered in memory'],
@@ -104,3 +84,5 @@ export const linkedList: Lesson = {
     'Always handle the empty list and the head node as special cases.',
   ],
 };
+
+export default content;

@@ -1,14 +1,7 @@
 import { stringStructure } from '../../data-structures/string';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const string: Lesson = {
-  id: 'string',
-  title: 'String',
-  category: 'data-structures',
-  difficulty: 'beginner',
-  description: 'Text stored as a row of characters, usually one that cannot be changed in place.',
-  keywords: ['text', 'character', 'char', 'immutable', 'concatenate', 'substring', 'palindrome', 'reverse'],
-  prerequisites: ['array'],
+const content: LessonContent = {
   overview:
     'A string is a sequence of characters stored in order, much like an array whose slots hold letters. Reading a character by position is instant. In most languages a string cannot be modified once it exists, so every change produces a new string.',
   concept: [
@@ -26,19 +19,6 @@ export const string: Lesson = {
   ],
   visualization: { kind: 'text', text: stringStructure },
   code: stringStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Access by index', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Concatenate', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Reverse', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Compare / palindrome check', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Search for a character', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
-    ],
-    space: 'O(n)',
-    note: 'Reading is instant, but anything that produces a new string copies characters, so its cost grows with the length. Building a long string by adding one piece at a time in a loop is O(n²) overall; collecting the pieces in an array and joining once is O(n).',
-    curves: ['1', 'n'],
-  },
-  compareWith: ['array'],
   prosCons: {
     pros: ['Instant access to any character', 'Immutable strings are safe to share and to use as keys', 'Rich built-in operations in every language'],
     cons: ['Every modification copies the string', 'Repeated concatenation in a loop is quietly O(n²)', 'A "character" is not always one slot: emoji and accented letters can take several'],
@@ -106,3 +86,5 @@ export const string: Lesson = {
     'Two pointers moving inward solve reversing and palindrome checks in one pass.',
   ],
 };
+
+export default content;

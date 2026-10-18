@@ -1,14 +1,7 @@
 import { bstStructure } from '../../data-structures/bst';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const binarySearchTree: Lesson = {
-  id: 'binary-search-tree',
-  title: 'Binary Search Tree',
-  category: 'data-structures',
-  difficulty: 'intermediate',
-  description: 'A tree that keeps values ordered so each comparison skips a whole branch.',
-  keywords: ['bst', 'bst operations', 'tree', 'node', 'root', 'leaf', 'inorder', 'subtree', 'insert', 'delete'],
-  prerequisites: ['binary-tree', 'binary-search'],
+const content: LessonContent = {
   overview:
     'A binary search tree (BST) stores values in nodes that each have up to two children. One rule holds everywhere: smaller values go left, larger values go right. That rule lets every comparison throw away an entire branch, so finding, adding and removing values stays fast as the tree grows.',
   concept: [
@@ -26,18 +19,6 @@ export const binarySearchTree: Lesson = {
   ],
   visualization: { kind: 'structure', structure: bstStructure },
   code: bstStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Search', best: 'O(1)', average: 'O(log n)', worst: 'O(n)' },
-      { label: 'Insert', best: 'O(1)', average: 'O(log n)', worst: 'O(n)' },
-      { label: 'Delete', best: 'O(1)', average: 'O(log n)', worst: 'O(n)' },
-      { label: 'Inorder traversal', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-    ],
-    space: 'O(n)',
-    note: 'Each operation walks one path from the root, so its cost is the height of the tree. A balanced tree of 1,000,000 values is only about 20 levels tall. A completely lopsided one is 1,000,000 levels tall, which is the O(n) worst case.',
-    curves: ['log', 'n'],
-  },
-  compareWith: ['array', 'linked-list'],
   prosCons: {
     pros: ['Search, insert and delete are all O(log n) when balanced', 'Keeps values in sorted order at all times', 'Supports range queries and finding the next larger or smaller value'],
     cons: ['Degrades to O(n) if it becomes unbalanced', 'Uses more memory than an array (two pointers per node)', 'Slower than a hash table for plain lookups'],
@@ -99,3 +80,5 @@ export const binarySearchTree: Lesson = {
     'An inorder traversal reads the values in sorted order.',
   ],
 };
+
+export default content;

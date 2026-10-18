@@ -1,15 +1,7 @@
 import { countingSortCode, countingSortSteps } from '../../algorithms/sorting/counting';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const countingSort: Lesson = {
-  id: 'counting-sort',
-  title: 'Counting Sort',
-  category: 'algorithms',
-  difficulty: 'intermediate',
-  group: 'Sorting',
-  description: 'Sort small whole numbers without a single comparison, by counting how often each value appears.',
-  keywords: ['non-comparison sort', 'histogram', 'prefix sum', 'stable sort', 'linear time', 'integer sort'],
-  prerequisites: ['array'],
+const content: LessonContent = {
   overview:
     'Counting sort sorts whole numbers from a small range by counting them. It tallies how many times each value occurs, turns the tallies into positions, and drops every value straight into its place. It never compares two values, which lets it beat the O(n log n) limit of comparison sorts.',
   concept: [
@@ -27,13 +19,6 @@ export const countingSort: Lesson = {
   ],
   visualization: { kind: 'sort', initial: [4, 2, 2, 8, 3, 3, 1], randomMax: 9, generate: countingSortSteps },
   code: countingSortCode,
-  complexity: {
-    rows: [{ label: 'Counting Sort', best: 'O(n + k)', average: 'O(n + k)', worst: 'O(n + k)' }],
-    space: 'O(n + k)',
-    note: 'n is the number of values and k the number of possible values (10 here). Every value is touched a fixed number of times and every counter once, so the cost is linear as long as k stays small.',
-    curves: ['n'],
-  },
-  compareWith: ['radix-sort', 'quick-sort'],
   prosCons: {
     pros: ['Linear time when the range of values is small', 'Stable: equal values keep their order', 'No comparisons, so it beats the O(n log n) comparison-sort limit'],
     cons: ['Needs one counter per possible value', 'Only works for integers or values that map to small integers', 'Needs an extra output array'],
@@ -95,3 +80,5 @@ export const countingSort: Lesson = {
     'It runs in O(n + k) time and needs the range k to be small.',
   ],
 };
+
+export default content;

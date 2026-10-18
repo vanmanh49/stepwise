@@ -1,19 +1,11 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query =
   'WITH RECURSIVE chart(id, name, level) AS (\n  SELECT id, name, 1 FROM employees WHERE manager_id IS NULL\n  UNION ALL\n  SELECT e.id, e.name, c.level + 1\n  FROM employees e\n  JOIN chart c ON e.manager_id = c.id\n)\nSELECT name, level FROM chart;';
 
-export const recursiveCtes: Lesson = {
-  id: 'recursive-ctes',
-  title: 'Recursive CTEs',
-  category: 'sql',
-  difficulty: 'advanced',
-  group: 'Advanced querying',
-  description: 'Let a CTE read its own rows, round after round, to walk trees and chains of any depth.',
-  keywords: ['with recursive', 'recursive cte', 'hierarchy', 'tree', 'org chart', 'ancestors', 'descendants', 'series', 'graph walk'],
-  prerequisites: ['ctes', 'self-join'],
+const content: LessonContent = {
   overview:
     'A recursive CTE refers to itself. It starts from a few rows, the anchor, and then keeps adding the rows it can reach from the rows it found last time, until a round finds nothing new. It answers questions such as "everyone under this manager, at any depth" in one query.',
   concept: [
@@ -129,3 +121,5 @@ export const recursiveCtes: Lesson = {
     'UNION drops rows already found, which also stops cycles.',
   ],
 };
+
+export default content;

@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'SELECT DISTINCT city\nFROM customers;';
 
-export const distinct: Lesson = {
-  id: 'distinct',
-  title: 'DISTINCT',
-  category: 'sql',
-  difficulty: 'beginner',
-  group: 'Querying',
-  description: 'Remove duplicate rows from a result.',
-  keywords: ['distinct', 'unique', 'duplicates', 'dedupe'],
-  prerequisites: ['select-from'],
+const content: LessonContent = {
   overview:
     'DISTINCT removes duplicate rows from a result. Three customers live in Hanoi, but "Which cities do our customers live in?" should list Hanoi once. SELECT DISTINCT does exactly that.',
   concept: [
@@ -112,3 +104,5 @@ export const distinct: Lesson = {
     'It runs after SELECT and before ORDER BY.',
   ],
 };
+
+export default content;

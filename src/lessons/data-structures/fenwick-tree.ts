@@ -1,14 +1,7 @@
 import { fenwickStructure } from '../../data-structures/fenwick';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const fenwickTree: Lesson = {
-  id: 'fenwick-tree',
-  title: 'Fenwick Tree',
-  category: 'data-structures',
-  difficulty: 'advanced',
-  description: 'A clever array of partial sums that gives prefix sums and updates in O(log n) using binary.',
-  keywords: ['binary indexed tree', 'bit', 'fenwick', 'prefix sum', 'range sum', 'lowest set bit', 'i & -i', 'point update'],
-  prerequisites: ['prefix-sum'],
+const content: LessonContent = {
   overview:
     'A Fenwick tree (or binary indexed tree) keeps running sums of an array that keeps changing. It is just one array, the same length as the data, where each entry stores the sum of a block of positions. The size of each block comes from the binary form of its index. Prefix sums and updates both take O(log n), with only a few lines of code.',
   concept: [
@@ -25,17 +18,6 @@ export const fenwickTree: Lesson = {
   ],
   visualization: { kind: 'structure', structure: fenwickStructure },
   code: fenwickStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Prefix sum', best: 'O(1)', average: 'O(log n)', worst: 'O(log n)' },
-      { label: 'Range sum', best: 'O(log n)', average: 'O(log n)', worst: 'O(log n)' },
-      { label: 'Add', best: 'O(1)', average: 'O(log n)', worst: 'O(log n)' },
-    ],
-    space: 'O(n)',
-    note: 'Each step of a prefix sum removes one set bit and each step of an update moves to a higher bit, so both take at most about log₂ n steps. The extra memory is one array of n numbers, half what a segment tree needs.',
-    curves: ['log'],
-  },
-  compareWith: ['segment-tree', 'prefix-sum'],
   prosCons: {
     pros: ['Prefix sums and updates in O(log n)', 'One array and a few lines of code', 'Less memory and faster in practice than a segment tree'],
     cons: ['Works for sums and other invertible operations, not for min or max ranges', 'The bit tricks are hard to read at first', 'Positions must start at 1'],
@@ -97,3 +79,5 @@ export const fenwickTree: Lesson = {
     'It is smaller and simpler than a segment tree, but only for sums and similar operations.',
   ],
 };
+
+export default content;

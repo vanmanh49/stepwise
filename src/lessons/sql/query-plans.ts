@@ -1,19 +1,11 @@
 import { datasets } from '../../sql/datasets';
 import { scriptViewAt } from '../../sql/scriptSteps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query =
   "CREATE INDEX idx_dept ON employees(department_id);\nEXPLAIN QUERY PLAN\nSELECT e.name, d.name\nFROM departments d\nJOIN employees e ON e.department_id = d.id\nWHERE d.name = 'Sales';";
 
-export const queryPlans: Lesson = {
-  id: 'query-plans',
-  title: 'Query Plans',
-  category: 'sql',
-  difficulty: 'advanced',
-  group: 'Database internals',
-  description: 'Ask the database how it will run a query: which tables it scans, which indexes it searches, and where it sorts.',
-  keywords: ['explain', 'explain query plan', 'query plan', 'scan', 'search', 'covering index', 'temp b-tree', 'optimizer', 'performance'],
-  prerequisites: ['indexes', 'inner-join'],
+const content: LessonContent = {
   overview:
     'SQL says what you want, not how to get it; the database decides how. EXPLAIN QUERY PLAN shows that decision without running the query: SCAN when a table is read row by row, SEARCH when an index or the row id jumps to the right rows, and USE TEMP B-TREE when rows must be sorted or grouped afterwards.',
   concept: [
@@ -134,3 +126,5 @@ export const queryPlans: Lesson = {
     'Use the plan to check that an index you add is really used.',
   ],
 };
+
+export default content;

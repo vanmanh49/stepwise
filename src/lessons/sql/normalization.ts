@@ -1,6 +1,6 @@
 import { datasets } from '../../sql/datasets';
 import { scriptViewAt } from '../../sql/scriptSteps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'SELECT teacher, teacher_room, COUNT(*) AS signups\nFROM course_signups\nGROUP BY teacher, teacher_room;';
 
@@ -18,15 +18,7 @@ JOIN students s ON s.name = e.student
 JOIN courses c ON c.code = e.course
 JOIN teachers t ON t.name = c.teacher;`;
 
-export const normalization: Lesson = {
-  id: 'normalization',
-  title: 'Normalization',
-  category: 'sql',
-  difficulty: 'advanced',
-  group: 'Database internals',
-  description: 'Split a table that repeats itself into tables that store each fact once, and join them back when needed.',
-  keywords: ['normalization', 'normal form', '1nf', '2nf', '3nf', 'redundancy', 'update anomaly', 'functional dependency', 'schema design', 'denormalized'],
-  prerequisites: ['many-to-many', 'constraints'],
+const content: LessonContent = {
   overview:
     'course_signups keeps everything in one table, so the same facts are written again and again: a student’s email once per course, a teacher’s room once per sign-up. Repeated facts drift apart, and Ha already has two rooms. Normalization splits the table so that each fact is stored once, in a table about that one thing, linked by keys; a JOIN puts the rows back together.',
   concept: [
@@ -139,3 +131,5 @@ export const normalization: Lesson = {
     'JOINs put the normalized tables back together.',
   ],
 };
+
+export default content;

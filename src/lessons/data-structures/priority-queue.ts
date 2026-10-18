@@ -1,14 +1,7 @@
 import { priorityQueueStructure } from '../../data-structures/priorityQueue';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const priorityQueue: Lesson = {
-  id: 'priority-queue',
-  title: 'Priority Queue',
-  category: 'data-structures',
-  difficulty: 'intermediate',
-  description: 'A queue where the most urgent item leaves first, not the oldest.',
-  keywords: ['min heap', 'heap', 'priority', 'urgent', 'scheduler', 'enqueue', 'dequeue'],
-  prerequisites: ['queue', 'heap'],
+const content: LessonContent = {
   overview:
     'A priority queue hands back items in order of priority instead of order of arrival. You can add an item with any priority at any time, and removing always gives you the most urgent one. It is almost always built on a heap, which makes both operations fast.',
   concept: [
@@ -24,18 +17,6 @@ export const priorityQueue: Lesson = {
   ],
   visualization: { kind: 'structure', structure: priorityQueueStructure },
   code: priorityQueueStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Enqueue', best: 'O(1)', average: 'O(log n)', worst: 'O(log n)' },
-      { label: 'Dequeue', best: 'O(1)', average: 'O(log n)', worst: 'O(log n)' },
-      { label: 'Peek', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Find an arbitrary item', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
-    ],
-    space: 'O(n)',
-    note: 'Both enqueue and dequeue follow a single path between the root and a leaf of the heap, and a heap of n items has about log₂ n levels. With a million items waiting, each operation needs at most about 20 swaps.',
-    curves: ['1', 'log'],
-  },
-  compareWith: ['queue', 'heap'],
   prosCons: {
     pros: ['Always gives the most urgent item in O(1) to read, O(log n) to remove', 'Items can be added in any order at any time', 'Compact: stored in a single array'],
     cons: ['No fast way to find or change an arbitrary item', 'Equal priorities are not guaranteed to keep arrival order', 'Slower than a plain queue when order of arrival is all you need'],
@@ -102,3 +83,5 @@ export const priorityQueue: Lesson = {
     'It powers schedulers, simulations and graph algorithms such as Dijkstra.',
   ],
 };
+
+export default content;

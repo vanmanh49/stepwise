@@ -1,15 +1,7 @@
 import { binarySearchCode, binarySearchSteps } from '../../algorithms/searching/binary';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const binarySearch: Lesson = {
-  id: 'binary-search',
-  title: 'Binary Search',
-  category: 'algorithms',
-  difficulty: 'beginner',
-  group: 'Searching',
-  description: 'Halve a sorted list with every comparison.',
-  keywords: ['sorted', 'halving', 'divide', 'low', 'high', 'mid', 'logarithmic'],
-  prerequisites: ['array', 'linear-search'],
+const content: LessonContent = {
   overview:
     'Binary search finds a value in a sorted list by repeatedly looking at the middle item. If the middle is too small, the target must be to the right; if too large, to the left. Each comparison removes half of what is left, so even a million items need only about 20 checks.',
   concept: [
@@ -33,13 +25,6 @@ export const binarySearch: Lesson = {
     generate: binarySearchSteps,
   },
   code: binarySearchCode,
-  complexity: {
-    rows: [{ label: 'Binary Search', best: 'O(1)', average: 'O(log n)', worst: 'O(log n)' }],
-    space: 'O(1)',
-    note: 'log₂ n is the number of times you can halve n before reaching 1. For 1,000 items that is about 10 checks; for 1,000,000 about 20; for 1,000,000,000 about 30. Doubling the data adds just one more check.',
-    curves: ['log', 'n'],
-  },
-  compareWith: ['linear-search'],
   prosCons: {
     pros: ['Extremely fast on large sorted data', 'No extra memory', 'Its "halve the search space" idea applies to many other problems'],
     cons: ['Requires sorted data', 'Requires direct access by index, so it does not suit linked lists', 'Easy to get the boundaries wrong'],
@@ -111,3 +96,5 @@ export const binarySearch: Lesson = {
     'Be careful with the boundaries: use low <= high, mid + 1 and mid − 1.',
   ],
 };
+
+export default content;

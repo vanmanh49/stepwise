@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'SELECT c.name, o.id\nFROM customers c\nLEFT JOIN orders o ON o.customer_id = c.id;';
 
-export const leftJoin: Lesson = {
-  id: 'left-join',
-  title: 'LEFT JOIN',
-  category: 'sql',
-  difficulty: 'intermediate',
-  group: 'Joins',
-  description: 'Join two tables but keep every row of the first one.',
-  keywords: ['left join', 'left outer join', 'outer join', 'missing', 'unmatched', 'anti join'],
-  prerequisites: ['inner-join', 'null-values'],
+const content: LessonContent = {
   overview:
     'LEFT JOIN works like INNER JOIN, with one difference: every row of the left table appears in the result, even when nothing in the right table matches it. For those rows, the right table’s columns are NULL.',
   concept: [
@@ -125,3 +117,5 @@ export const leftJoin: Lesson = {
     'Conditions on the right table usually belong in ON, not WHERE.',
   ],
 };
+
+export default content;
