@@ -20,7 +20,7 @@ function columnNames(relation: Relation): string[] {
   return relation.columns.map((c) => (qualify && c.table ? `${c.table}.${c.name}` : c.name));
 }
 
-function toTable(label: string, relation: Relation, decorate: (id: string, index: number) => Partial<SqlRow> = () => ({})): SqlTable {
+export function toTable(label: string, relation: Relation, decorate: (id: string, index: number) => Partial<SqlRow> = () => ({})): SqlTable {
   return {
     label,
     columns: columnNames(relation),
@@ -29,23 +29,25 @@ function toTable(label: string, relation: Relation, decorate: (id: string, index
 }
 
 /** Column indexes whose names appear among the values a condition read. */
-function focusOf(relation: Relation, values: Record<string, string>): number[] {
+export function focusOf(relation: Relation, values: Record<string, string>): number[] {
   const keys = Object.keys(values).map((k) => k.toLowerCase());
   return relation.columns.flatMap((c, i) =>
     keys.includes(c.name.toLowerCase()) || (c.table && keys.includes(`${c.table}.${c.name}`.toLowerCase())) ? [i] : [],
   );
 }
 
-interface Draft {
+export interface Draft {
   step: Omit<Step, 'view'>;
   /** Built only for steps that survive summarising: a long run must not copy the table thousands of times. */
   view: () => TableView;
   /** Row checks of one clause share a group, so long runs can be summarised. */
   group?: string;
   kept?: boolean;
+  /** Never dropped when a long run is cut to fit, such as a script's statement headers. */
+  pinned?: boolean;
 }
 
-function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
+export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
   const clauses = LOGICAL_ORDER.filter((c) => stmt.lines[c] !== undefined);
   const lineOf = (clause: Clause, fallback?: number) => stmt.lines[clause] ?? fallback ?? stmt.lines.SELECT ?? 1;
   const view = (current: Clause | undefined, tables: SqlTable[]): TableView => ({
@@ -281,13 +283,18 @@ function summarise(drafts: Draft[], limit: number): Draft[] {
 }
 
 /** Chooses the drafts to show within MAX_STEPS, then builds only their views. */
-function fit(drafts: Draft[]): Step[] {
+export function fit(drafts: Draft[]): Step[] {
   const build = (kept: Draft[]) => kept.map((d) => ({ ...d.step, view: d.view() }));
   if (drafts.length <= MAX_STEPS) return build(drafts);
   for (let limit = FIRST_CHECKS; ; limit = Math.max(1, Math.floor(limit / 2))) {
     const kept = summarise(drafts, limit);
     if (kept.length <= MAX_STEPS) return build(kept);
-    if (limit === 1) return build([...kept.slice(0, MAX_STEPS - 1), kept.at(-1)!]);
+    if (limit === 1) {
+      // Last resort: keep pinned drafts and the final one, and fill the rest from the start.
+      const must = new Set([...kept.filter((d) => d.pinned), kept.at(-1)!]);
+      let room = MAX_STEPS - must.size;
+      return build(kept.filter((d) => must.has(d) || (room-- > 0)));
+    }
   }
 }
 
