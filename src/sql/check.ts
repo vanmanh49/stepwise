@@ -49,7 +49,10 @@ export function probeOutcomes(db: Dataset, script: string, probes: string[]): Pr
       return error.constraint ? { kind: 'constraint', rule: error.constraint.rule, table: error.constraint.table.toLowerCase() } : { kind: 'error', message: error.message };
     }
     const last = run.statements.at(-1)!;
-    return last.result ? { kind: 'rows', columns: last.result.columns.length, keys: last.result.rows.map(rowKey) } : { kind: 'rows', columns: 0, keys: [] };
+    if (!last.result) return { kind: 'rows', columns: 0, keys: [] };
+    // A plan names the index it uses; any name the learner chose is as good as the solution's.
+    const rows = last.kind === 'explain' ? last.result.rows.map((row) => row.map((v) => (typeof v === 'string' ? v.replace(/INDEX \S+/, 'INDEX ?') : v))) : last.result.rows;
+    return { kind: 'rows', columns: last.result.columns.length, keys: rows.map(rowKey) };
   });
 }
 
