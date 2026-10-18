@@ -63,6 +63,7 @@ import { selectFrom } from './sql/select-from';
 import { subqueries } from './sql/subqueries';
 import { update } from './sql/update';
 import { where } from './sql/where';
+import { setOperations } from './sql/set-operations';
 import { caseExpressions } from './sql/case-expressions';
 import { manyToMany } from './sql/many-to-many';
 import { selfJoin } from './sql/self-join';
@@ -136,6 +137,7 @@ export const lessons: Lesson[] = [
   createTable,
   constraints,
   caseExpressions,
+  setOperations,
 ];
 
 const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));

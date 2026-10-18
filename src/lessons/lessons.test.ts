@@ -76,6 +76,7 @@ const EXPECTED_IDS = [
   'create-table',
   'constraints',
   'case-expressions',
+  'set-operations',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -110,7 +111,7 @@ describe('lesson registry', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
     expect(lessonsIn('algorithms')).toHaveLength(39);
-    expect(lessonsIn('sql')).toHaveLength(18);
+    expect(lessonsIn('sql')).toHaveLength(19);
   });
 
   it('links previous and next lessons within a category', () => {
