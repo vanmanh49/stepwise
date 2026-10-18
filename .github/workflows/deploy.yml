@@ -32,6 +32,8 @@ jobs:
       - run: npm test
       # Builds under /stepwise/ and copies index.html to 404.html so deep links work.
       - run: npm run build:pages
+      # Fails if first-load JavaScript passes its budget or lesson content leaks into it.
+      - run: npm run check:bundle
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
