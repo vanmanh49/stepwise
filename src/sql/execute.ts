@@ -3,7 +3,9 @@ import { findTable, findView, type ColumnType, type Dataset, type ViewDef } from
 import { asSqlError, SqlError, suggest } from './errors';
 import { aggregateValues, evaluate, evaluateTruth, referencedColumns, resolveColumn, windowKey, type ExecContext, type Scope } from './evaluate';
 import { parseQuery } from './parse';
-import { compare, compareValues, formatValue, Real, toNumber, valueKey, type SqlValue, type Truth } from './values';
+import { buildBTree, searchBTree, type BTree, type BTreeEntry } from './btree';
+import { planSelect, type AccessPath } from './plan';
+import { applyAffinity, compare, compareValues, formatValue, Real, toNumber, valueKey, type SqlValue, type Truth } from './values';
 
 export interface ColumnRef {
   /** The alias if the query gave one, else the table name. */
@@ -53,6 +55,24 @@ export type TraceEvent =
   | { kind: 'compound-side'; index: number; op?: SetOp; relation: Relation }
   /** Notes are keyed by row id, e.g. "duplicate, dropped". */
   | { kind: 'cte'; name: string; relation: Relation }
+  /**
+   * A table read through a created index: the B-tree, the nodes visited from the root, the leaf
+   * entries looked at, and the rows found (`relation`). `examined` of `total` rows are read.
+   */
+  | {
+      kind: 'index-search';
+      table: string;
+      label: string;
+      index: string;
+      condition: string;
+      tree: BTree;
+      path: string[];
+      scanned: string[];
+      rowids: string[];
+      examined: number;
+      total: number;
+      relation: Relation;
+    }
   /** A view read in FROM or JOIN: its query's rows. */
   | { kind: 'view'; name: string; relation: Relation }
   /** Rows sorted into a window's partitions; `label` names the PARTITION BY. */
@@ -163,7 +183,86 @@ function traceView(env: Env, name: string, relation: Relation, trace?: Trace) {
   if (view) trace({ kind: 'view', name: view.name, relation: { columns: relation.columns.map((c) => ({ ...c, table: view.name })), rows: relation.rows } });
 }
 
-function join(left: Relation, clause: JoinClause, env: Env, trace?: Trace): Relation {
+/** Whether a planned path reads through an index made with CREATE INDEX; only those change how rows are read. */
+const usesCreatedIndex = (path: AccessPath | undefined): path is Extract<AccessPath, { kind: 'search' | 'scan' }> & { index: NonNullable<unknown> } =>
+  path !== undefined && path.kind !== 'rowid' && path.index !== undefined && !path.index.implicit;
+
+/** A table's rows plus the index built over them, for one query. */
+interface Indexed {
+  relation: Relation;
+  tree: BTree;
+  path: Extract<AccessPath, { kind: 'search' | 'scan' }>;
+}
+
+function indexed(env: Env, ref: TableRef, path: Extract<AccessPath, { kind: 'search' | 'scan' }>): Indexed {
+  const relation = scan(env.db, ref, env.ctes, env.ctx);
+  const positions = path.index!.columns.map((c) => relation.columns.findIndex((col) => col.name.toLowerCase() === c.toLowerCase()));
+  const entries: BTreeEntry[] = relation.rows.map((row) => ({ key: positions.map((p) => row.values[p]!), rowid: row.id }));
+  return { relation, tree: buildBTree(entries), path };
+}
+
+/**
+ * The rows an index gives for one search, in index order. Values are converted to the column's
+ * type first, as SQLite compares a column with a value. `scope` supplies values from tables read
+ * earlier in a join.
+ */
+function readIndexed(source: Indexed, scope: Scope, env: Env, trace?: Trace): Relation {
+  const { relation, tree, path } = source;
+  const byId = new Map(relation.rows.map((r) => [r.id, r]));
+  if (path.kind === 'scan') {
+    const order = tree.levels.at(-1)!.flatMap((id) => tree.nodes.get(id)!.entries.map((e) => e.rowid));
+    return { columns: relation.columns, rows: order.map((id) => byId.get(id)!) };
+  }
+  const index = path.index!;
+  const typeOf = (k: number) => relation.columns.find((c) => c.name.toLowerCase() === index.columns[k]!.toLowerCase())?.type ?? 'TEXT';
+  const value = (e: Expr, k: number) => applyAffinity(evaluate(e, scope), typeOf(k));
+  // Every combination of the IN values, in key order, as SQLite reads them.
+  let prefixes: SqlValue[][] = [[]];
+  path.equal.forEach((values, k) => {
+    const sorted = [...new Map(values.map((e) => value(e, k)).map((v) => [valueKey(v), v])).values()].sort(compareValues);
+    prefixes = prefixes.flatMap((p) => sorted.map((v) => [...p, v]));
+  });
+  const k = path.equal.length;
+  const low = path.low && { value: value(path.low.expr, k), inclusive: path.low.inclusive };
+  const high = path.high && { value: value(path.high.expr, k), inclusive: path.high.inclusive };
+  const rowids: string[] = [];
+  const scanned: string[] = [];
+  let visited: string[] = [];
+  for (const equal of prefixes) {
+    const found = searchBTree(tree, { equal, ...(low && { low }), ...(high && { high }) });
+    if (visited.length === 0) visited = found.path;
+    scanned.push(...found.scanned.map((e) => e.rowid));
+    for (const id of found.rowids) {
+      tick(env);
+      if (!rowids.includes(id)) rowids.push(id);
+    }
+  }
+  const rows = rowids.map((id) => byId.get(id)!);
+  const result = { columns: relation.columns, rows };
+  const condition = [
+    ...index.columns.slice(0, k).map((c, i) => (prefixes.length > 1 && path.equal[i]!.length > 1 ? `${c} IN (${path.equal[i]!.map((e) => formatValue(evaluate(e, scope))).join(', ')})` : `${c} = ${formatValue(prefixes[0]![i]!)}`)),
+    ...(low ? [`${index.columns[k]} ${low.inclusive ? '>=' : '>'} ${formatValue(low.value)}`] : []),
+    ...(high ? [`${index.columns[k]} ${high.inclusive ? '<=' : '<'} ${formatValue(high.value)}`] : []),
+  ].join(' AND ');
+  trace?.({
+    kind: 'index-search',
+    table: tableName(env, path.table),
+    label: path.label,
+    index: index.name,
+    condition,
+    tree,
+    path: visited,
+    scanned,
+    rowids,
+    examined: rowids.length,
+    total: relation.rows.length,
+    relation: result,
+  });
+  return result;
+}
+
+function join(left: Relation, clause: JoinClause, env: Env, trace?: Trace, path?: AccessPath): Relation {
+  if (usesCreatedIndex(path) && path.kind === 'search') return indexedJoin(left, clause, env, indexed(env, clause, path), trace);
   const right = scan(env.db, clause, env.ctes, env.ctx);
   traceView(env, clause.table, right, trace);
   trace?.({ kind: 'scan', table: tableName(env, clause.table), relation: right });
@@ -196,6 +295,36 @@ function join(left: Relation, clause: JoinClause, env: Env, trace?: Trace): Rela
     if (!matched && clause.kind === 'left') {
       trace?.({ kind: 'join-unmatched', join: clause, leftRow: l.id });
       add({ id: `${l.id}+null`, values: [...l.values, ...right.columns.map(() => null)] });
+    }
+  }
+  const relation = { columns, rows };
+  trace?.({ kind: 'joined', join: clause, relation });
+  return relation;
+}
+
+/** A join whose inner table is searched through an index once per outer row, testing only the rows found. */
+function indexedJoin(left: Relation, clause: JoinClause, env: Env, source: Indexed, trace?: Trace): Relation {
+  const right = source.relation;
+  trace?.({ kind: 'scan', table: tableName(env, clause.table), relation: right });
+  const columns = [...left.columns, ...right.columns];
+  if (left.rows.length === 0 || right.rows.length === 0) probe(clause.on, { columns, rows: [] }, env);
+  const rows: Row[] = [];
+  for (const l of left.rows) {
+    const candidates = readIndexed(source, { columns: left.columns, row: l, ...env }, env, trace);
+    let matched = false;
+    for (const r of candidates.rows) {
+      tick(env);
+      const row = { id: `${l.id}+${r.id}`, values: [...l.values, ...r.values] };
+      const outcome = evaluateTruth(clause.on, { columns, row, ...env });
+      trace?.({ kind: 'join-test', join: clause, left, right, leftRow: l.id, rightRow: r.id, outcome });
+      if (outcome) {
+        matched = true;
+        rows.push(row);
+      }
+    }
+    if (!matched && clause.kind === 'left') {
+      trace?.({ kind: 'join-unmatched', join: clause, leftRow: l.id });
+      rows.push({ id: `${l.id}+null`, values: [...l.values, ...right.columns.map(() => null)] });
     }
   }
   const relation = { columns, rows };
@@ -581,15 +710,25 @@ export function executeSelect(
     ...(correlation && { correlation }),
     ...(inScope && { ctes: inScope }),
   };
+  // Planning only matters when an index made with CREATE INDEX could be used.
+  const paths = db.indexes?.length && stmt.from ? planSelect(db, stmt).paths : undefined;
+  const pathOf = (ref: TableRef) => paths?.get((ref.alias ?? ref.table).toLowerCase());
   let relation: Relation = { columns: [], rows: [{ id: 'one', values: [] }] };
   if (stmt.from) {
-    relation = scan(db, stmt.from, env.ctes, env.ctx);
-    traceView(env, stmt.from.table, relation, trace);
-    trace?.({ kind: 'scan', table: tableName(env, stmt.from.table), relation });
+    const path = pathOf(stmt.from);
+    if (usesCreatedIndex(path)) {
+      const source = indexed(env, stmt.from, path);
+      trace?.({ kind: 'scan', table: tableName(env, stmt.from.table), relation: source.relation });
+      relation = readIndexed(source, { columns: [], row: { id: 'one', values: [] }, ...env }, env, trace);
+    } else {
+      relation = scan(db, stmt.from, env.ctes, env.ctx);
+      traceView(env, stmt.from.table, relation, trace);
+      trace?.({ kind: 'scan', table: tableName(env, stmt.from.table), relation });
+    }
   }
   for (const clause of stmt.joins) {
     rejectAggregate(clause.on, (fn) => `Aggregates like ${fn} can't be used in JOIN … ON.`);
-    relation = join(relation, clause, env, trace);
+    relation = join(relation, clause, env, trace, pathOf(clause));
   }
 
   const source = relation;

@@ -50,6 +50,16 @@ describe('planSelect', () => {
     ]);
   });
 
+  it('plans a recursive CTE as a setup and a step that reads the rows found so far', () => {
+    expect(details(datasets.company, 'WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 5) SELECT x FROM n')).toEqual([
+      'CO-ROUTINE n',
+      'SETUP',
+      'RECURSIVE STEP',
+      'SCAN n',
+      'SCAN n',
+    ]);
+  });
+
   it('ignores OR and expressions over the column', () => {
     expect(details(company, 'SELECT name FROM employees WHERE salary > 5000 OR id = 1')).toEqual(['SCAN employees']);
     expect(details(company, 'SELECT name FROM employees WHERE salary * 2 > 5000')).toEqual(['SCAN employees']);

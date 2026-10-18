@@ -40,7 +40,8 @@ interface Term {
   value: Expr;
 }
 
-type Named = { name: string; columns?: string[]; query: SelectStatement; recursive?: Cte };
+/** A CTE or view in scope. `rows` marks a recursive CTE inside its own step, where it reads the rows found so far. */
+type Named = { name: string; columns?: string[]; query: SelectStatement; recursive?: Cte; rows?: boolean };
 
 const lower = (s: string) => s.toLowerCase();
 const RANGE_FLIP = { '<': '>', '<=': '>=', '>': '<', '>=': '<=', '=': '=' } as const;
@@ -124,6 +125,7 @@ class Planner {
       const cte = named.get(lower(ref.table));
       const view = cte ? undefined : findView(this.db, ref.table);
       const body = cte ?? (view && { name: view.name, ...(view.columns && { columns: view.columns }), query: view.query });
+      if (cte?.rows) return { ...base, columns: this.outputNames(cte, named) };
       if (body) return { ...base, columns: this.outputNames(body, named), body: body.query, ...(body.recursive && { recursive: body.recursive }) };
       const table = findTable(this.db, ref.table);
       if (!table) return { ...base, columns: [] };
@@ -169,7 +171,9 @@ class Planner {
       if (s.recursive) {
         const [anchor, ...rest] = [{ ...s.body, compound: undefined } as SelectStatement, ...(s.body.compound ?? []).map((c) => c.select)];
         this.core(anchor!, this.add(at, 'SETUP'), named, outer);
-        for (const step of rest) this.core(step, this.add(at, 'RECURSIVE STEP'), named, outer);
+        const key = lower(s.ref.table);
+        const inStep = new Map(named).set(key, { ...named.get(key)!, rows: true });
+        for (const step of rest) this.core(step, this.add(at, 'RECURSIVE STEP'), inStep, outer);
       } else {
         this.select(s.body, at, named, []);
       }
@@ -185,7 +189,12 @@ class Planner {
         paths.set(lower(s.label), { kind: 'scan', label: s.label, table: s.ref.table, covering: false });
         return;
       }
-      if (!s.table) return;
+      if (!s.table) {
+        // A recursive CTE inside its own step, or an unknown name (the executor reports it).
+        this.add(parent, `SCAN ${s.label}`);
+        paths.set(lower(s.label), { kind: 'scan', label: s.label, table: s.ref.table, covering: false });
+        return;
+      }
       const known = new Set([...sources.slice(0, i), ...outer].map((k) => lower(k.label)));
       const pool = s.left ? andTerms(s.on) : [...whereTerms, ...innerOn];
       const terms = pool.flatMap((t) => this.termsFor(t, s, all, known));
