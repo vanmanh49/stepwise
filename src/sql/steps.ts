@@ -48,7 +48,15 @@ export interface Draft {
 }
 
 export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[] {
-  const clauses = LOGICAL_ORDER.filter((c) => stmt.lines[c] !== undefined);
+  // A compound shows its SELECTs and operators in the order they are written.
+  const clauses: Clause[] = stmt.compound?.length
+    ? [
+        'SELECT',
+        ...stmt.compound.flatMap((c): Clause[] => [c.op, 'SELECT']),
+        ...(stmt.orderBy.length > 0 ? (['ORDER BY'] as const) : []),
+        ...(stmt.limit ? (['LIMIT'] as const) : []),
+      ]
+    : LOGICAL_ORDER.filter((c) => stmt.lines[c] !== undefined);
   const lineOf = (clause: Clause, fallback?: number) => stmt.lines[clause] ?? fallback ?? stmt.lines.SELECT ?? 1;
   const view = (current: Clause | undefined, tables: SqlTable[]): TableView => ({
     kind: 'table',
@@ -69,6 +77,7 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
   let workingLabel = '';
   let lastScan = '';
   let scans = 0;
+  let combines = 0;
   const tableNames = [stmt.from?.table, ...stmt.joins.map((j) => j.table)].flatMap((t) => (t ? [t.toLowerCase()] : []));
   const repeated = new Set(tableNames.filter((t, i) => tableNames.indexOf(t) !== i));
   let joinIndex = -1;
@@ -104,6 +113,50 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
           title: `FROM ${event.table}: start with all ${rows(event.relation.rows.length)}`,
           why: 'FROM picks the table the query reads. Every later clause works on these rows.',
         }, () => [toTable(label, event.relation)]);
+        break;
+      }
+
+      case 'compound-side': {
+        const n = stmt.compound!.length + 1;
+        const name = event.index === 0 ? 'Left SELECT' : n === 2 ? 'Right SELECT' : `SELECT ${event.index + 1}`;
+        const line = event.index === 0 ? lineOf('SELECT') : stmt.compound![event.index - 1]!.selectLine;
+        if (event.index === 0) {
+          push(undefined, {
+            title: 'Run the query',
+            why: `Each SELECT runs on its own first. Then their rows are combined from left to right: ${clauses.join(' → ')}.`,
+          }, () => [], {}, line);
+        }
+        push('SELECT', {
+          title: `${name}: ${rows(event.relation.rows.length)}`,
+          why: event.index === 0 ? 'The first SELECT runs as a normal query.' : 'The next SELECT runs on its own, with the same number of columns.',
+        }, () => [toTable(name, event.relation)], {}, line);
+        break;
+      }
+
+      case 'combined': {
+        combines++;
+        const part = stmt.compound![combines - 1]!;
+        const dropped = Object.values(event.notes).filter((n) => n === 'duplicate, dropped').length;
+        const role = (note?: string) =>
+          note === undefined ? {} : ({ role: note === 'kept' || note === 'in both' ? 'found' : 'discarded', note } as Partial<SqlRow>);
+        const title = {
+          UNION: `UNION: ${rows(event.relation.rows.length)}, ${dropped} ${dropped === 1 ? 'duplicate' : 'duplicates'} dropped`,
+          'UNION ALL': `UNION ALL: all ${rows(event.relation.rows.length)} kept`,
+          INTERSECT: `INTERSECT: ${rows(event.relation.rows.length)} in both`,
+          EXCEPT: `EXCEPT: ${rows(event.relation.rows.length)} left after removing those on the right`,
+        }[event.op];
+        const why = {
+          UNION: 'UNION puts the rows of both sides together and keeps one copy of each repeated row.',
+          'UNION ALL': 'UNION ALL puts the rows of both sides together and keeps every row, repeats included.',
+          INTERSECT: 'INTERSECT keeps the rows that appear on both sides, once each.',
+          EXCEPT: 'EXCEPT keeps the rows of the left side that do not appear on the right, once each.',
+        }[event.op];
+        lastRelation = event.relation;
+        push(event.op, { title, why }, () => [
+          toTable(combines === 1 ? 'left' : 'result so far', event.left, (id) => role(event.notes[id])),
+          toTable('right', event.right, (id) => role(event.notes[id])),
+          toTable('combined', event.relation, () => ({ role: 'found' })),
+        ], {}, part.line);
         break;
       }
 

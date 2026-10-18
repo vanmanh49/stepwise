@@ -58,3 +58,41 @@ describe('self join labels', () => {
     expect(join.title).toContain('e (employees) row');
   });
 });
+
+describe('set operation steps', () => {
+  const shipped = "SELECT customer_id FROM orders WHERE status = 'shipped'";
+  const pending = "SELECT customer_id FROM orders WHERE status = 'pending'";
+
+  it('shows each side, then combines them', () => {
+    const sql = `${shipped}\nUNION\n${pending}\nORDER BY 1;`;
+    const list = steps(sql);
+    expectWellFormed(list, sql);
+    const titles = list.map((s) => s.title);
+    expect(titles.some((t) => /^Left SELECT: \d+ rows$/.test(t))).toBe(true);
+    expect(titles.some((t) => /^Right SELECT: \d+ rows$/.test(t))).toBe(true);
+    const combine = list.find((s) => view(s).current === 'UNION')!;
+    expect(combine.codeLine).toBe(2);
+    expect(view(combine).clauses).toEqual(['SELECT', 'UNION', 'SELECT', 'ORDER BY']);
+    const [left, right, result] = view(combine).tables;
+    expect([left, right, result].every(Boolean)).toBe(true);
+    const notes = [...left!.rows, ...right!.rows].map((r) => r.note);
+    expect(notes).toContain('duplicate, dropped');
+    expect(notes).toContain('kept');
+  });
+
+  it('marks rows in both for INTERSECT and removed rows for EXCEPT', () => {
+    const intersect = steps(`${shipped}\nINTERSECT\n${pending}`).find((s) => view(s).current === 'INTERSECT')!;
+    const left = view(intersect).tables[0]!.rows;
+    expect(left.filter((r) => r.note === 'in both').every((r) => r.role === 'found')).toBe(true);
+    expect(left.some((r) => r.note === 'only in left' && r.role === 'discarded')).toBe(true);
+    const except = steps(`${shipped}\nEXCEPT\n${pending}`).find((s) => view(s).current === 'EXCEPT')!;
+    expect(view(except).tables[0]!.rows.some((r) => r.note === 'also in right, removed' && r.role === 'discarded')).toBe(true);
+  });
+
+  it('combines three SELECTs in two steps', () => {
+    const sql = 'SELECT id FROM customers WHERE id <= 3\nUNION\nSELECT id FROM customers WHERE id = 5\nEXCEPT\nSELECT id FROM customers WHERE id = 2';
+    const list = steps(sql);
+    expectWellFormed(list, sql);
+    expect(list.filter((s) => ['UNION', 'EXCEPT'].includes(view(s).current ?? '')).length).toBe(2);
+  });
+});

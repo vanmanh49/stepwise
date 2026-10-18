@@ -42,7 +42,7 @@ export function caseParts(expr: Extract<Expr, { type: 'case' }>): Expr[] {
   return [...(expr.operand ? [expr.operand] : []), ...expr.whens.flatMap((w) => [w.when, w.then]), ...(expr.else ? [expr.else] : [])];
 }
 
-export type Clause = 'FROM' | 'JOIN' | 'WHERE' | 'GROUP BY' | 'HAVING' | 'SELECT' | 'DISTINCT' | 'ORDER BY' | 'LIMIT';
+export type Clause = 'FROM' | 'JOIN' | 'WHERE' | 'GROUP BY' | 'HAVING' | 'SELECT' | 'DISTINCT' | 'ORDER BY' | 'LIMIT' | 'WITH' | 'WINDOW' | SetOp;
 
 /** The order SQL evaluates clauses in, which is also the order steps are shown. */
 export const LOGICAL_ORDER: Clause[] = ['FROM', 'JOIN', 'WHERE', 'GROUP BY', 'HAVING', 'SELECT', 'DISTINCT', 'ORDER BY', 'LIMIT'];
