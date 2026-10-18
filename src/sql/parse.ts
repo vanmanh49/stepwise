@@ -1,4 +1,4 @@
-import { caseParts, windowParts, type AggregateFn, type Expr, type JoinClause, type SelectItem, type Cte, type SelectStatement, type SetOp, type Statement, type WindowFn, type TableRef } from './ast';
+import { caseParts, windowParts, type AggregateFn, type Expr, type JoinClause, type SelectItem, type Cte, type SelectStatement, type IsolationLevel, type SetOp, type Statement, type WindowFn, type TableRef } from './ast';
 import { asSqlError, SqlError } from './errors';
 import type { ColumnDef, ColumnType, TableSchema } from './schema';
 import { tokenize, type Token } from './tokenize';
@@ -335,11 +335,29 @@ class Parser {
       if (statements.length === MAX_STATEMENTS) {
         throw new SqlError(`Scripts are limited to ${MAX_STATEMENTS} statements.`, 'limit', this.token.line, this.token.column);
       }
-      statements.push(this.scriptStatement());
+      const session = this.sessionPrefix();
+      const statement = this.scriptStatement();
+      statements.push(session ? { ...statement, session } : statement);
       if (!this.atEnd() && !this.isPunct(';')) this.fail('`;` or the end of the statement');
     }
     if (statements.length === 0) throw new SqlError('Write a statement to run.', 'syntax', 1, 1);
+    const prefixed = statements.filter((s) => s.session).length;
+    if (prefixed > 0 && prefixed < statements.length) {
+      const first = statements.find((s) => !s.session)!;
+      throw new SqlError('Start every statement with A: or B:, or none of them.', 'syntax', first.line, 1);
+    }
     return statements;
+  }
+
+  /** `A:` or `B:` before a statement in a two-session script. */
+  private sessionPrefix(): 'A' | 'B' | undefined {
+    const t = this.token;
+    if (t.kind !== 'identifier' || !(this.peek().kind === 'punct' && this.peek().value === ':')) return undefined;
+    const name = t.value.toUpperCase();
+    if (name !== 'A' && name !== 'B') throw new SqlError('Sessions are called A and B.', 'syntax', t.line, t.column);
+    this.next();
+    this.next();
+    return name;
   }
 
   private scriptStatement(): Statement {
@@ -361,11 +379,69 @@ class Parser {
     if (this.isKeyword('CREATE')) return this.create();
     if (this.isKeyword('DROP')) return this.drop();
     if (this.isKeyword('ALTER')) throw unsupported('ALTER TABLE', t);
-    for (const word of ['BEGIN', 'COMMIT', 'ROLLBACK', 'SAVEPOINT', 'END']) {
-      if (this.isWord(word)) throw unsupported(word, t, 'transactions');
+    if (this.isWord('EXPLAIN')) {
+      this.next();
+      if (!this.acceptWord('QUERY')) throw new SqlError('Only EXPLAIN QUERY PLAN is supported here.', 'unsupported', t.line, t.column);
+      this.expectWord('PLAN');
+      if (!this.isKeyword('SELECT', 'WITH')) this.fail('SELECT after EXPLAIN QUERY PLAN');
+      const inner = this.scriptStatement();
+      if (inner.kind !== 'select') this.fail('SELECT after EXPLAIN QUERY PLAN');
+      return { kind: 'explain', select: inner.select, line: t.line };
     }
+    if (this.isKeyword('SET')) return this.setIsolation();
+    const transaction = this.transaction();
+    if (transaction) return transaction;
     if (t.kind === 'keyword' && t.value in LATER) throw unsupported(t.value, t, LATER[t.value]);
     return this.fail('a statement such as SELECT, INSERT, UPDATE or DELETE');
+  }
+
+  /** BEGIN, COMMIT/END, ROLLBACK [TO s], SAVEPOINT s, RELEASE s; undefined when the statement is none of these. */
+  private transaction(): Statement | undefined {
+    const t = this.token;
+    const at = { line: t.line, column: t.column };
+    const savepointName = () => {
+      this.acceptWord('SAVEPOINT');
+      return this.identifier('a savepoint name').value;
+    };
+    if (this.acceptWord('BEGIN')) {
+      for (const mode of ['DEFERRED', 'IMMEDIATE', 'EXCLUSIVE']) this.acceptWord(mode);
+      this.acceptWord('TRANSACTION');
+      return { kind: 'transaction', action: 'begin', ...at };
+    }
+    if (this.acceptWord('COMMIT') || this.acceptWord('END')) {
+      this.acceptWord('TRANSACTION');
+      return { kind: 'transaction', action: 'commit', ...at };
+    }
+    if (this.acceptWord('ROLLBACK')) {
+      this.acceptWord('TRANSACTION');
+      if (this.acceptWord('TO')) return { kind: 'transaction', action: 'rollback-to', name: savepointName(), ...at };
+      return { kind: 'transaction', action: 'rollback', ...at };
+    }
+    if (this.acceptWord('SAVEPOINT')) return { kind: 'transaction', action: 'savepoint', name: this.identifier('a savepoint name').value, ...at };
+    if (this.acceptWord('RELEASE')) return { kind: 'transaction', action: 'release', name: savepointName(), ...at };
+    return undefined;
+  }
+
+  /** SET TRANSACTION ISOLATION LEVEL …, for two-session scripts. */
+  private setIsolation(): Statement {
+    const start = this.expectKeyword('SET');
+    this.expectWord('TRANSACTION');
+    this.expectWord('ISOLATION');
+    this.expectWord('LEVEL');
+    const t = this.token;
+    let level: IsolationLevel | undefined;
+    if (this.acceptWord('SERIALIZABLE')) level = 'SERIALIZABLE';
+    else if (this.acceptWord('REPEATABLE')) {
+      this.expectWord('READ');
+      level = 'REPEATABLE READ';
+    } else if (this.acceptWord('READ')) {
+      if (this.acceptWord('COMMITTED')) level = 'READ COMMITTED';
+      else if (this.acceptWord('UNCOMMITTED')) level = 'READ UNCOMMITTED';
+    }
+    if (!level) {
+      throw new SqlError('The isolation level is READ UNCOMMITTED, READ COMMITTED, REPEATABLE READ or SERIALIZABLE.', 'syntax', t.line, t.column);
+    }
+    return { kind: 'set-isolation', level, line: start.line, column: start.column };
   }
 
   /** Clauses SQLite allows after a write that this interpreter does not run. */
@@ -468,23 +544,57 @@ class Parser {
 
   private drop(): Statement {
     const start = this.expectKeyword('DROP');
-    if (this.isWord('INDEX')) throw unsupported('DROP INDEX', start, 'indexes');
-    if (this.isWord('VIEW')) throw unsupported('DROP VIEW', start, 'views');
-    this.expectKeyword('TABLE');
+    const what = this.acceptWord('INDEX') ? 'index' : this.acceptWord('VIEW') ? 'view' : (this.expectKeyword('TABLE'), 'table');
     let ifExists = false;
     if (this.acceptWord('IF')) {
       this.expectKeyword('EXISTS');
       ifExists = true;
     }
-    const name = this.identifier('a table name');
-    return { kind: 'drop', table: name.value, ifExists, line: start.line, column: name.column };
+    const name = this.identifier(`a ${what} name`);
+    const at = { ifExists, line: start.line, column: name.column };
+    if (what === 'index') return { kind: 'drop-index', name: name.value, ...at };
+    if (what === 'view') return { kind: 'drop-view', name: name.value, ...at };
+    return { kind: 'drop', table: name.value, ...at };
+  }
+
+  private ifNotExists(): boolean {
+    if (!this.acceptWord('IF')) return false;
+    this.expectKeyword('NOT');
+    this.expectKeyword('EXISTS');
+    return true;
+  }
+
+  private createIndex(start: Token): Statement {
+    const unique = this.acceptWord('UNIQUE');
+    this.expectWord('INDEX');
+    const ifNotExists = this.ifNotExists();
+    const name = this.identifier('an index name');
+    this.expectKeyword('ON');
+    const table = this.identifier('a table name').value;
+    const columns = this.nameList('a column name');
+    if (this.isKeyword('WHERE')) throw unsupported('partial indexes (CREATE INDEX … WHERE)', this.token);
+    return { kind: 'create-index', name: name.value, table, columns, unique, ifNotExists, line: start.line, column: name.column };
+  }
+
+  private createView(start: Token): Statement {
+    this.expectWord('VIEW');
+    const ifNotExists = this.ifNotExists();
+    const name = this.identifier('a view name');
+    const columns = this.isPunct('(') ? this.nameList('a column name') : undefined;
+    this.expectKeyword('AS');
+    const first = this.token;
+    if (!this.isKeyword('SELECT', 'WITH')) this.fail('SELECT after AS');
+    const inner = this.scriptStatement();
+    if (inner.kind !== 'select') this.fail('SELECT after AS');
+    const sql = this.sql.slice(first.start, this.tokens[this.pos - 1]!.end);
+    return { kind: 'create-view', name: name.value, ...(columns && { columns }), query: inner.select, sql, ifNotExists, line: start.line, column: name.column };
   }
 
   private create(): Statement {
     const start = this.expectKeyword('CREATE');
     if (this.isWord('TEMP') || this.isWord('TEMPORARY')) throw unsupported('CREATE TEMP TABLE', this.token);
-    if (this.isWord('INDEX') || this.isWord('UNIQUE')) throw unsupported('CREATE INDEX', start, 'indexes');
-    if (this.isWord('VIEW')) throw unsupported('CREATE VIEW', start, 'views');
+    if (this.isWord('INDEX') || this.isWord('UNIQUE')) return this.createIndex(start);
+    if (this.isWord('VIEW')) return this.createView(start);
     if (this.isWord('TRIGGER')) throw unsupported('CREATE TRIGGER', start);
     this.expectKeyword('TABLE');
     if (this.isWord('IF')) throw unsupported('IF NOT EXISTS', this.token);

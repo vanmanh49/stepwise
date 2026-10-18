@@ -97,8 +97,17 @@ export interface Cte {
 
 export type SetOp = 'UNION' | 'UNION ALL' | 'INTERSECT' | 'EXCEPT';
 
-/** One statement of a script. Every line is 1-based in the whole script. */
-export type Statement =
+export type IsolationLevel = 'READ UNCOMMITTED' | 'READ COMMITTED' | 'REPEATABLE READ' | 'SERIALIZABLE';
+
+export type TransactionAction = 'begin' | 'commit' | 'rollback' | 'savepoint' | 'release' | 'rollback-to';
+
+/**
+ * One statement of a script. Every line is 1-based in the whole script. `session` is set in a
+ * two-session script, where each statement starts with A: or B:.
+ */
+export type Statement = StatementBody & { session?: 'A' | 'B' };
+
+type StatementBody =
   | { kind: 'select'; select: SelectStatement; line: number }
   | {
       kind: 'insert';
@@ -122,6 +131,14 @@ export type Statement =
   | { kind: 'delete'; table: TableRef; where?: Expr; with?: Cte[]; line: number; lines: { DELETE: number; WHERE?: number } }
   /** `checks` holds every CHECK condition as parsed, so its columns can be checked against the new table. */
   | { kind: 'create'; schema: TableSchema; checks: Expr[]; line: number; column: number }
-  | { kind: 'drop'; table: string; ifExists: boolean; line: number; column: number };
+  | { kind: 'drop'; table: string; ifExists: boolean; line: number; column: number }
+  | { kind: 'create-index'; name: string; table: string; columns: string[]; unique: boolean; ifNotExists: boolean; line: number; column: number }
+  | { kind: 'drop-index'; name: string; ifExists: boolean; line: number; column: number }
+  /** `sql` is the SELECT's text, shown in the schema panel. */
+  | { kind: 'create-view'; name: string; columns?: string[]; query: SelectStatement; sql: string; ifNotExists: boolean; line: number; column: number }
+  | { kind: 'drop-view'; name: string; ifExists: boolean; line: number; column: number }
+  | { kind: 'explain'; select: SelectStatement; line: number }
+  | { kind: 'transaction'; action: TransactionAction; name?: string; line: number; column: number }
+  | { kind: 'set-isolation'; level: IsolationLevel; line: number; column: number };
 
 export type WriteClause = 'INSERT' | 'VALUES' | 'UPDATE' | 'SET' | 'DELETE' | 'CREATE TABLE' | 'DROP TABLE';

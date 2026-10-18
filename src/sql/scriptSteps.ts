@@ -38,7 +38,26 @@ function summary(statement: Statement): string {
       return `CREATE TABLE ${statement.schema.name}`;
     case 'drop':
       return `DROP TABLE ${statement.table}`;
+    case 'create-index':
+      return `CREATE ${statement.unique ? 'UNIQUE ' : ''}INDEX ${statement.name}`;
+    case 'drop-index':
+      return `DROP INDEX ${statement.name}`;
+    case 'create-view':
+      return `CREATE VIEW ${statement.name}`;
+    case 'drop-view':
+      return `DROP VIEW ${statement.name}`;
+    case 'explain':
+      return 'EXPLAIN QUERY PLAN';
+    case 'transaction':
+      return transactionText(statement.action, statement.name);
+    case 'set-isolation':
+      return `SET TRANSACTION ISOLATION LEVEL ${statement.level}`;
   }
+}
+
+function transactionText(action: Extract<Statement, { kind: 'transaction' }>['action'], name?: string): string {
+  const words = { begin: 'BEGIN', commit: 'COMMIT', rollback: 'ROLLBACK', savepoint: 'SAVEPOINT', release: 'RELEASE', 'rollback-to': 'ROLLBACK TO' }[action];
+  return name ? `${words} ${name}` : words;
 }
 
 function clausesOf(statement: Statement): string[] {
@@ -55,6 +74,20 @@ function clausesOf(statement: Statement): string[] {
       return ['CREATE TABLE'];
     case 'drop':
       return ['DROP TABLE'];
+    case 'create-index':
+      return ['CREATE INDEX'];
+    case 'drop-index':
+      return ['DROP INDEX'];
+    case 'create-view':
+      return ['CREATE VIEW'];
+    case 'drop-view':
+      return ['DROP VIEW'];
+    case 'explain':
+      return ['EXPLAIN'];
+    case 'transaction':
+      return [transactionText(statement.action)];
+    case 'set-isolation':
+      return ['SET TRANSACTION'];
   }
 }
 
@@ -76,6 +109,27 @@ function intent(statement: Statement): string {
       return 'CREATE TABLE makes a new, empty table with these columns and rules.';
     case 'drop':
       return 'DROP TABLE removes the table and every row in it.';
+    case 'create-index':
+      return `CREATE INDEX builds a B-tree of ${statement.table}'s ${statement.columns.join(', ')} values, so searches on ${statement.columns.length === 1 ? 'it' : 'them'} can skip most rows.`;
+    case 'drop-index':
+      return 'DROP INDEX removes the index. The table and its rows stay.';
+    case 'create-view':
+      return 'CREATE VIEW stores the query under a name. No rows are copied; the query runs each time the view is read.';
+    case 'drop-view':
+      return 'DROP VIEW removes the stored query. The tables it read are not touched.';
+    case 'explain':
+      return 'EXPLAIN QUERY PLAN shows how the database would run the query, without running it.';
+    case 'transaction':
+      return {
+        begin: 'BEGIN starts a transaction: the changes that follow are pending until COMMIT or ROLLBACK.',
+        commit: 'COMMIT keeps every pending change of the transaction.',
+        rollback: 'ROLLBACK undoes every change made since BEGIN.',
+        savepoint: 'SAVEPOINT marks a point inside the transaction that you can roll back to.',
+        release: 'RELEASE forgets the savepoint and keeps the changes made since it.',
+        'rollback-to': 'ROLLBACK TO undoes the changes made since the savepoint; the transaction stays open.',
+      }[statement.action];
+    case 'set-isolation':
+      return 'SET TRANSACTION sets how much this session sees of the other session’s work.';
   }
 }
 
@@ -124,7 +178,8 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
       tables: tables(),
     });
     const known = (name: string) => latest.get(name.toLowerCase()) ?? before.get(name.toLowerCase());
-    const target = statement.kind === 'select' ? undefined : statement.kind === 'create' ? undefined : statement.kind === 'drop' ? statement.table : statement.table.table;
+    const target =
+      statement.kind === 'insert' || statement.kind === 'update' || statement.kind === 'delete' ? statement.table.table : statement.kind === 'drop' ? statement.table : undefined;
     const targetInfo = target ? known(target) : undefined;
 
     drafts.push({

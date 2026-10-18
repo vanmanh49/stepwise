@@ -268,6 +268,14 @@ export function executeStatement(db: Dataset, statement: Statement, emit?: Emit)
         return { affected: 0 };
       case 'drop':
         return { affected: drop(db, statement, emit) };
+      case 'create-index':
+      case 'drop-index':
+      case 'create-view':
+      case 'drop-view':
+      case 'explain':
+      case 'transaction':
+      case 'set-isolation':
+        throw new SqlError(`\`${statement.kind}\` isn't supported here yet.`, 'unsupported', statement.line, 1);
       default: {
         const before = structuredClone(db.tables);
         const affected = statement.kind === 'insert' ? insert(db, statement, emit) : statement.kind === 'update' ? update(db, statement, emit) : remove(db, statement, emit);
