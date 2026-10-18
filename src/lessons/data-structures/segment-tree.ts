@@ -1,0 +1,100 @@
+import { segmentTreeStructure } from '../../data-structures/segmentTree';
+import type { Lesson } from '../../types/lesson';
+
+export const segmentTree: Lesson = {
+  id: 'segment-tree',
+  title: 'Segment Tree',
+  category: 'data-structures',
+  difficulty: 'advanced',
+  description: 'A tree of range sums that answers "sum from i to j" and handles updates in O(log n).',
+  keywords: ['range query', 'range sum', 'interval tree', 'point update', 'range minimum', 'rmq', 'segment'],
+  prerequisites: ['binary-tree', 'prefix-sum'],
+  overview:
+    'A segment tree answers questions about ranges of an array, such as "what is the sum from position 2 to 6?", while the array keeps changing. Each node stores the answer for one segment of the array: the root covers everything, its children cover each half, and so on down to single positions. A query combines a few stored answers, and an update fixes one path. Both take O(log n).',
+  concept: [
+    'A prefix-sum array answers range sums in O(1), but changing one value means rebuilding it in O(n). Looping over the range handles changes instantly but costs O(n) per query. A segment tree sits in between: O(log n) for both.',
+    'The tree splits the array in half again and again. A node covering positions lo to hi stores their sum; its left child covers lo to mid and its right child mid + 1 to hi. The leaves are the single positions.',
+    'Any range can be built from O(log n) whole nodes. A query walks down from the root: nodes fully inside the range are used as they are, nodes outside are skipped, and only nodes that overlap partly are split further.',
+  ],
+  howItWorks: [
+    'Build: each leaf holds one value; each other node holds the sum of its two children.',
+    'Query(l, r) at a node: if it is completely outside l..r, it adds 0 and is skipped.',
+    'If it is completely inside l..r, its stored sum is used whole and the walk stops there.',
+    'If it overlaps partly, ask both children and add their answers.',
+    'Update(i, value): walk down to the leaf for position i, set it, then recompute every node on the way back up.',
+    'The same shape works for minimum, maximum or any operation that combines two halves.',
+  ],
+  visualization: { kind: 'structure', structure: segmentTreeStructure },
+  code: segmentTreeStructure.code,
+  complexity: {
+    rows: [
+      { label: 'Range sum', best: 'O(1)', average: 'O(log n)', worst: 'O(log n)' },
+      { label: 'Update', best: 'O(log n)', average: 'O(log n)', worst: 'O(log n)' },
+      { label: 'Build', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
+    ],
+    space: 'O(n)',
+    note: 'The tree is about log₂ n levels tall. A query uses at most about two nodes per level, and an update changes one node per level. The tree has about 2n nodes, stored in an array of size 4n in practice.',
+    curves: ['log', 'n'],
+  },
+  compareWith: ['prefix-sum'],
+  prosCons: {
+    pros: ['Range queries and updates both in O(log n)', 'Works for sum, min, max, gcd and other combinable operations', 'Can be extended to update whole ranges at once (lazy propagation)'],
+    cons: ['More code and memory than a Fenwick tree', 'Overkill when the array never changes (a prefix-sum array is simpler)', 'Recursive code is easy to get off by one'],
+    useWhen: ['The array changes and you also query ranges often', 'You need range minimum or maximum, not just sums', 'You need to update whole ranges at once'],
+    avoidWhen: ['The data never changes (use prefix sums)', 'You only need prefix sums with point updates (a Fenwick tree is shorter)'],
+  },
+  applications: [
+    'Live leaderboards and dashboards that sum or find the minimum over time windows',
+    'Competitive programming range-query problems',
+    'Computational geometry, such as counting overlapping intervals',
+    'Databases and games that query regions of changing data',
+  ],
+  commonMistakes: [
+    'Mixing up the "no overlap" and "fully inside" conditions, which double counts or misses values.',
+    'Making the tree array too small. A safe size is 4n.',
+    'Updating the leaf but forgetting to recompute the nodes above it.',
+    'Using a segment tree on data that never changes, where a prefix-sum array is simpler and faster.',
+  ],
+  quiz: [
+    {
+      id: 'q1',
+      type: 'predict-next',
+      prompt: 'You ask for the sum of positions 4 to 7. Which node answers it alone?',
+      view: segmentTreeStructure.view([5, 3, 7, 9, 6, 4, 1, 2]),
+      options: ['The node for 4–7', 'The root, 0–7', 'The leaves 4, 5, 6 and 7', 'The nodes 4–5 and 6–7'],
+      answer: 0,
+      explanation: 'The root overlaps partly and splits. Its left child 0–3 is outside and is skipped; its right child 4–7 is exactly the range, so its sum, 13, is the answer.',
+    },
+    {
+      id: 'q2',
+      type: 'complexity',
+      prompt: 'What does a range-sum query on a segment tree over n values cost?',
+      options: ['O(log n)', 'O(1)', 'O(n)', 'O(n log n)'],
+      answer: 0,
+      explanation: 'At each level of the tree, at most about two nodes are partly inside the range, and the tree has about log₂ n levels.',
+    },
+    {
+      id: 'q3',
+      type: 'multiple-choice',
+      prompt: 'A query reaches a node whose range lies completely inside the query range. What happens?',
+      options: ['Its stored sum is added and its children are not visited', 'Both of its children are visited', 'It is skipped'],
+      answer: 0,
+      explanation: 'The node already stores the sum of exactly those positions, so going further down would only repeat the work.',
+    },
+    {
+      id: 'q4',
+      type: 'code',
+      prompt: 'After this update on an 8-value tree, how many nodes change their sum?',
+      code: `update(1, 0, 7, 5, 10); // a[5] = 10`,
+      options: ['4', '1', '8', '15'],
+      answer: 0,
+      explanation: 'Only the nodes covering position 5 change: 0–7, 4–7, 4–5 and the leaf 5. That is one node per level.',
+    },
+  ],
+  summary: [
+    'A segment tree stores the answer for each half, quarter and so on of an array.',
+    'A range query combines O(log n) stored answers: use nodes fully inside, skip nodes outside, split the rest.',
+    'A point update changes one node per level, so it is O(log n) too.',
+    'It works for any operation that combines two halves, such as sum, min or max.',
+  ],
+};

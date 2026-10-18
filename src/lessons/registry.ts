@@ -39,6 +39,7 @@ import { treeTraversal } from './algorithms/tree-traversal';
 import { twoPointers } from './algorithms/two-pointers';
 import { unionFind } from './algorithms/union-find';
 import { array } from './data-structures/array';
+import { segmentTree } from './data-structures/segment-tree';
 import { disjointSet } from './data-structures/disjoint-set';
 import { redBlackTree } from './data-structures/red-black-tree';
 import { avlTree } from './data-structures/avl-tree';
@@ -99,6 +100,7 @@ export const lessons: Lesson[] = [
   avlTree,
   redBlackTree,
   disjointSet,
+  segmentTree,
   linearSearch,
   binarySearch,
   bubbleSort,
