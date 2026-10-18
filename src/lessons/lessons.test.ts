@@ -27,6 +27,7 @@ const EXPECTED_IDS = [
   'disjoint-set',
   'segment-tree',
   'fenwick-tree',
+  'b-tree',
   'linear-search',
   'binary-search',
   'bubble-sort',
@@ -127,7 +128,7 @@ function defaultSteps(lesson: Lesson): Step[] {
 describe('lesson registry', () => {
   it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
-    expect(lessonsIn('data-structures')).toHaveLength(17);
+    expect(lessonsIn('data-structures')).toHaveLength(18);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
   });
