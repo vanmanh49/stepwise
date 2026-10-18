@@ -1,5 +1,5 @@
 import { caseParts, windowParts, type Cte, type Expr, type JoinClause, type SelectStatement, type SetOp, type TableRef } from './ast';
-import { findTable, type ColumnType, type Dataset } from './datasets';
+import { findTable, findView, type ColumnType, type Dataset, type ViewDef } from './datasets';
 import { asSqlError, SqlError, suggest } from './errors';
 import { aggregateValues, evaluate, evaluateTruth, referencedColumns, resolveColumn, windowKey, type ExecContext, type Scope } from './evaluate';
 import { parseQuery } from './parse';
@@ -53,6 +53,8 @@ export type TraceEvent =
   | { kind: 'compound-side'; index: number; op?: SetOp; relation: Relation }
   /** Notes are keyed by row id, e.g. "duplicate, dropped". */
   | { kind: 'cte'; name: string; relation: Relation }
+  /** A view read in FROM or JOIN: its query's rows. */
+  | { kind: 'view'; name: string; relation: Relation }
   /** Rows sorted into a window's partitions; `label` names the PARTITION BY. */
   | { kind: 'window-partitions'; input: Relation; partitions: string[][]; label: string }
   /** One row's window values; `relation` builds the rows in partition order with the window columns filled so far. */
@@ -102,15 +104,31 @@ export function cellValue(v: number | string | null, type: ColumnType): SqlValue
   return typeof v === 'number' && (type === 'REAL' || !Number.isInteger(v)) ? new Real(v) : v;
 }
 
-export function scan(db: Dataset, ref: TableRef, ctes?: ReadonlyMap<string, Relation>): Relation {
+/**
+ * Runs a view's query; its rows work like a table's for this query. A view can't refer to itself,
+ * even through another view: CREATE VIEW runs its query, so everything it reads must exist already.
+ */
+export function viewRelation(db: Dataset, view: ViewDef, ctx?: ExecContext): Relation {
+  const result = executeSelect(db, view.query, undefined, undefined, undefined, undefined, ctx);
+  const names = view.columns ?? result.columns;
+  return { columns: names.map((name) => ({ table: view.name, name })), rows: result.rows.map((values, i) => ({ id: `${view.name}#${i}`, values })) };
+}
+
+export function scan(db: Dataset, ref: TableRef, ctes?: ReadonlyMap<string, Relation>, ctx?: ExecContext): Relation {
   const cte = ctes?.get(ref.table.toLowerCase());
   if (cte) {
     const label = ref.alias ?? ref.table;
     return { columns: cte.columns.map((c) => ({ ...c, table: label })), rows: cte.rows };
   }
   const table = findTable(db, ref.table);
+  const view = table ? undefined : findView(db, ref.table);
+  if (view) {
+    const relation = viewRelation(db, view, ctx);
+    const label = ref.alias ?? view.name;
+    return { columns: relation.columns.map((c) => ({ ...c, table: label })), rows: relation.rows };
+  }
   if (!table) {
-    const close = suggest(ref.table, [...db.tables.map((t) => t.name), ...(ctes ? [...ctes.keys()] : [])]);
+    const close = suggest(ref.table, [...db.tables.map((t) => t.name), ...(db.views ?? []).map((v) => v.name), ...(ctes ? [...ctes.keys()] : [])]);
     throw new SqlError(
       `No table \`${ref.table}\`.` + (close ? ` Did you mean \`${close}\`?` : ''),
       'name',
@@ -138,8 +156,16 @@ function probe(expr: Expr, relation: Relation, env: Env) {
   evaluate(expr, { columns: relation.columns, row: nullRow(relation.columns), ...env });
 }
 
+/** A view read in FROM or JOIN gets its own step, as a CTE does. */
+function traceView(env: Env, name: string, relation: Relation, trace?: Trace) {
+  if (!trace || env.ctes?.has(name.toLowerCase()) || findTable(env.db, name)) return;
+  const view = findView(env.db, name);
+  if (view) trace({ kind: 'view', name: view.name, relation: { columns: relation.columns.map((c) => ({ ...c, table: view.name })), rows: relation.rows } });
+}
+
 function join(left: Relation, clause: JoinClause, env: Env, trace?: Trace): Relation {
-  const right = scan(env.db, clause, env.ctes);
+  const right = scan(env.db, clause, env.ctes, env.ctx);
+  traceView(env, clause.table, right, trace);
   trace?.({ kind: 'scan', table: tableName(env, clause.table), relation: right });
   const columns = [...left.columns, ...right.columns];
   if (left.rows.length === 0 || right.rows.length === 0) probe(clause.on, { columns, rows: [] }, env);
@@ -557,7 +583,8 @@ export function executeSelect(
   };
   let relation: Relation = { columns: [], rows: [{ id: 'one', values: [] }] };
   if (stmt.from) {
-    relation = scan(db, stmt.from, env.ctes);
+    relation = scan(db, stmt.from, env.ctes, env.ctx);
+    traceView(env, stmt.from.table, relation, trace);
     trace?.({ kind: 'scan', table: tableName(env, stmt.from.table), relation });
   }
   for (const clause of stmt.joins) {

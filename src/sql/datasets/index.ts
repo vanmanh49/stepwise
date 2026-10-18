@@ -42,6 +42,11 @@ export function findTable(db: Dataset, name: string): DatasetTable | undefined {
   return db.tables.find((t) => t.name.toLowerCase() === wanted);
 }
 
+export function findView(db: Dataset, name: string): ViewDef | undefined {
+  const wanted = name.toLowerCase();
+  return db.views?.find((v) => v.name.toLowerCase() === wanted);
+}
+
 /** A table's indexes: SQLite's implicit ones first, then those made with CREATE INDEX, in creation order. */
 export function indexesOf(db: Dataset, table: string): IndexDef[] {
   const schema = findTable(db, table);
