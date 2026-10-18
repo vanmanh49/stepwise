@@ -58,6 +58,7 @@ import { nullValues } from './sql/null-values';
 import { orderByLimit } from './sql/order-by-limit';
 import { selectFrom } from './sql/select-from';
 import { subqueries } from './sql/subqueries';
+import { update } from './sql/update';
 import { where } from './sql/where';
 
 /** Every live lesson, in recommended learning order. Register new lessons here. */
@@ -118,6 +119,7 @@ export const lessons: Lesson[] = [
   distinct,
   aggregates,
   insert,
+  update,
   groupByHaving,
   innerJoin,
   leftJoin,

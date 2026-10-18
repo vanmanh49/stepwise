@@ -65,6 +65,7 @@ const EXPECTED_IDS = [
   'distinct',
   'aggregates',
   'insert',
+  'update',
   'group-by-having',
   'inner-join',
   'left-join',
@@ -103,7 +104,7 @@ describe('lesson registry', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
     expect(lessonsIn('algorithms')).toHaveLength(39);
-    expect(lessonsIn('sql')).toHaveLength(11);
+    expect(lessonsIn('sql')).toHaveLength(12);
   });
 
   it('links previous and next lessons within a category', () => {
