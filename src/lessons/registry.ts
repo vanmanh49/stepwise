@@ -63,6 +63,7 @@ import { selectFrom } from './sql/select-from';
 import { subqueries } from './sql/subqueries';
 import { update } from './sql/update';
 import { where } from './sql/where';
+import { queryPlans } from './sql/query-plans';
 import { indexes } from './sql/indexes';
 import { views } from './sql/views';
 import { windowFunctions } from './sql/window-functions';
@@ -148,6 +149,7 @@ export const lessons: Lesson[] = [
   windowFunctions,
   views,
   indexes,
+  queryPlans,
 ];
 
 const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));
