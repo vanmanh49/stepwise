@@ -83,10 +83,28 @@ function matches(ref: ColumnRef, expr: { table?: string; name: string }): boolea
   return sameName(ref.name, expr.name) && (expr.table === undefined || (ref.table !== undefined && sameName(ref.table, expr.table)));
 }
 
+const matchCache = new WeakMap<readonly ColumnRef[], WeakMap<object, readonly number[]>>();
+
+/**
+ * The indexes of the columns a reference matches. A query checks the same references against
+ * the same column list on every row, so each answer is worked out once: column lists are never
+ * changed after they are built, and matching depends only on names.
+ */
+export function matchingColumns(columns: readonly ColumnRef[], expr: { table?: string; name: string }): readonly number[] {
+  let byExpr = matchCache.get(columns);
+  if (!byExpr) matchCache.set(columns, (byExpr = new WeakMap()));
+  let found = byExpr.get(expr);
+  if (!found) {
+    found = columns.flatMap((ref, index) => (matches(ref, expr) ? [index] : []));
+    byExpr.set(expr, found);
+  }
+  return found;
+}
+
 /** Finds the scope and index a column reference points to, searching outward. */
 export function resolveColumn(expr: Extract<Expr, { type: 'column' }>, scope: Scope): { scope: Scope; index: number } {
   for (let s: Scope | undefined = scope; s; s = s.outer) {
-    const found = s.columns.flatMap((ref, index) => (matches(ref, expr) ? [index] : []));
+    const found = matchingColumns(s.columns, expr);
     if (found.length === 1) return { scope: s, index: found[0]! };
     if (found.length > 1) {
       const tables = [...new Set(found.map((i) => s.columns[i]!.table ?? '?'))];
