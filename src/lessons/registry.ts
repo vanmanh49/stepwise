@@ -49,6 +49,7 @@ import { queue } from './data-structures/queue';
 import { stack } from './data-structures/stack';
 import { string } from './data-structures/string';
 import { aggregates } from './sql/aggregates';
+import { deleteLesson } from './sql/delete';
 import { distinct } from './sql/distinct';
 import { groupByHaving } from './sql/group-by-having';
 import { innerJoin } from './sql/inner-join';
@@ -120,6 +121,7 @@ export const lessons: Lesson[] = [
   aggregates,
   insert,
   update,
+  deleteLesson,
   groupByHaving,
   innerJoin,
   leftJoin,
