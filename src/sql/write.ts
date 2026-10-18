@@ -4,6 +4,7 @@ import { findTable, type Dataset, type DatasetTable } from './datasets';
 import { ConstraintError, SqlError, suggest } from './errors';
 import { evaluate } from './evaluate';
 import { executeSelect, filter, nullRow, scan, type Env, type QueryResult, type Relation, type Row, type TraceEvent } from './execute';
+import { firstNode } from './parse';
 import { isRowidAlias, type TableSchema } from './schema';
 import { applyAffinity, valueKey, type SqlValue } from './values';
 
@@ -197,6 +198,25 @@ function create(db: Dataset, st: Extract<Statement, { kind: 'create' }>, emit?: 
     ...(schema.unique ?? []).flat(),
     ...(schema.foreignKeys ?? []).flatMap((f) => f.columns),
   ];
+  for (const check of st.checks) {
+    const unknown = firstNode(
+      check,
+      (e) => e.type === 'column' && ((e.table !== undefined && e.table.toLowerCase() !== schema.name.toLowerCase()) || !seen.has(e.name.toLowerCase())),
+    );
+    if (unknown && unknown.type === 'column') {
+      throw new SqlError(`No column \`${unknown.name}\` in ${schema.name}.`, 'name', unknown.line, unknown.column);
+    }
+  }
+  for (const fk of schema.foreignKeys ?? []) {
+    if (fk.columns.length !== fk.refColumns.length) {
+      throw new SqlError(
+        `FOREIGN KEY (${fk.columns.join(', ')}) lists ${fk.columns.length} columns but REFERENCES ${fk.table} lists ${fk.refColumns.length}.`,
+        'syntax',
+        st.line,
+        st.column,
+      );
+    }
+  }
   for (const name of listed) {
     if (!seen.has(name.toLowerCase())) throw new SqlError(`No column \`${name}\` in ${schema.name}.`, 'name', st.line, st.column);
   }

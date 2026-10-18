@@ -181,6 +181,29 @@ describe('constraints', () => {
     expect(rows(result, 'customers')).toEqual(findTable(shop, 'customers')!.rows);
   });
 
+  it('explains a foreign key that names a missing or non-key parent column', () => {
+    const missing = failed('CREATE TABLE m (sid INTEGER REFERENCES students(nope));\nINSERT INTO m VALUES (1)', school);
+    expect(missing.failedIndex).toBe(1);
+    expect(missing.error.message).toBe('Foreign key mismatch: m.sid refers to students.nope, which is not a PRIMARY KEY or UNIQUE column.');
+    const notKey = failed('CREATE TABLE m (y INTEGER REFERENCES students(year));\nINSERT INTO m VALUES (1)', school);
+    expect(notKey.error.message).toContain('students.year, which is not a PRIMARY KEY or UNIQUE column');
+    expect(ok('CREATE TABLE m (e TEXT REFERENCES students(email));\nINSERT INTO m VALUES (NULL)', school).ok).toBe(true);
+  });
+
+  it('refuses a CHECK that names an unknown column when the table is created', () => {
+    const { error, failedIndex } = failed('SELECT id FROM students;\nCREATE TABLE m (a INTEGER,\n  b INTEGER CHECK (nope > 0));\nINSERT INTO m VALUES (1, 1)', school);
+    expect(failedIndex).toBe(1);
+    expect(error.kind).toBe('name');
+    expect(error.message).toBe('No column `nope` in m.');
+    expect([error.line, error.column]).toEqual([3, 20]);
+  });
+
+  it('refuses a foreign key whose column counts differ', () => {
+    const { error, failedIndex } = failed('CREATE TABLE m (a INTEGER, b INTEGER, FOREIGN KEY (a, b) REFERENCES students(id))', school);
+    expect(failedIndex).toBe(0);
+    expect(error.message).toBe('FOREIGN KEY (a, b) lists 2 columns but REFERENCES students lists 1.');
+  });
+
   it('allows deleting the children first, then the parent', () => {
     const result = ok(
       'DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE customer_id = 1);\nDELETE FROM orders WHERE customer_id = 1;\nDELETE FROM customers WHERE id = 1',

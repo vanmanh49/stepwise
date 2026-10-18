@@ -111,5 +111,9 @@ export const scriptCorpus: Entry[] = [
   school("CREATE TABLE members (id INTEGER PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id), age INTEGER CHECK (age >= 16)); INSERT INTO members (student_id, age) VALUES (1, 15)"),
   school('CREATE TABLE members (id INTEGER PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id)); INSERT INTO members (student_id) VALUES (42)'),
   school('CREATE TABLE members (id INTEGER PRIMARY KEY, student_id INTEGER NOT NULL REFERENCES students(id)); INSERT INTO members (student_id) VALUES (NULL)'),
+  school('SELECT id FROM students; CREATE TABLE m (a INTEGER, b INTEGER CHECK (nope > 0)); INSERT INTO m VALUES (1, 1)'),
+  school('CREATE TABLE m (sid INTEGER REFERENCES students(nope)); INSERT INTO m VALUES (1)'),
+  school('CREATE TABLE m (y INTEGER REFERENCES students(year)); INSERT INTO m VALUES (1)'),
+  school('CREATE TABLE m (a INTEGER, b INTEGER, FOREIGN KEY (a, b) REFERENCES students(id))'),
   school("UPDATE courses SET credits = credits + 1 WHERE title LIKE 'D%'; SELECT title, credits FROM courses"),
 ];

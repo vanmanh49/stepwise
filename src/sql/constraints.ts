@@ -1,6 +1,6 @@
 import type { Expr } from './ast';
 import { findTable, type Dataset, type DatasetTable } from './datasets';
-import { ConstraintError, type ConstraintInfo } from './errors';
+import { ConstraintError, SqlError, type ConstraintInfo } from './errors';
 import { evaluateTruth } from './evaluate';
 import { cellValue } from './execute';
 import { parseExpression } from './parse';
@@ -102,6 +102,14 @@ function foreignKeys(table: DatasetTable): ForeignKey[] {
   ];
 }
 
+const sameNames = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((name) => b.some((other) => other.toLowerCase() === name.toLowerCase()));
+
+/** Whether `columns` are the table's primary key or one of its UNIQUE keys, which a foreign key must refer to. */
+function isKey(table: DatasetTable, columns: string[]): boolean {
+  return keys(table).some((key) => sameNames(key.columns, columns));
+}
+
 /**
  * Checks every foreign key at the end of a statement, as SQLite does for immediate constraints.
  * `before` is the database before the statement, to tell a new child row without a parent
@@ -113,6 +121,15 @@ export function checkForeignKeys(db: Dataset, before: DatasetTable[], line: numb
       const childColumns = fk.columns.map((name) => index(child, name));
       const parent = findTable(db, fk.table);
       const parentColumns = parent ? fk.refColumns.map((name) => index(parent, name)) : [];
+      const hasValues = child.rows.some((row) => childColumns.every((i) => row[i] !== null));
+      if (parent && hasValues && (parentColumns.includes(-1) || !isKey(parent, fk.refColumns))) {
+        throw new SqlError(
+          `Foreign key mismatch: ${showColumns(child.name, fk.columns)} refers to ${showColumns(parent.name, fk.refColumns)}, which is not a PRIMARY KEY or UNIQUE column.`,
+          'name',
+          line,
+          1,
+        );
+      }
       const parentKeys = new Set(
         parent ? parent.rows.map((row) => keyOf(parentColumns.map((i) => row[i]!))) : [],
       );

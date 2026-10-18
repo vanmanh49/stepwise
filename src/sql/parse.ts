@@ -446,15 +446,16 @@ class Parser {
     const name = this.identifier('a table name');
     if (this.isKeyword('AS')) throw unsupported('CREATE TABLE … AS', this.token);
     const schema: TableSchema = { name: name.value, columns: [] };
+    const checks: Expr[] = [];
     this.expectPunct('(');
     do {
       if (schema.columns.length > 0 || schema.primaryKey || schema.unique || schema.checks || schema.foreignKeys) this.next();
-      if (['CONSTRAINT', 'PRIMARY', 'UNIQUE', 'CHECK', 'FOREIGN'].some((w) => this.isWord(w))) this.tableConstraint(schema);
+      if (['CONSTRAINT', 'PRIMARY', 'UNIQUE', 'CHECK', 'FOREIGN'].some((w) => this.isWord(w))) this.tableConstraint(schema, checks);
       else if (schema.primaryKey || schema.unique || schema.checks || schema.foreignKeys) this.fail('a table constraint, after the columns');
-      else schema.columns.push(this.columnDef());
+      else schema.columns.push(this.columnDef(checks));
     } while (this.isPunct(','));
     this.expectPunct(')');
-    return { kind: 'create', schema, line: start.line, column: start.column };
+    return { kind: 'create', schema, checks, line: start.line, column: start.column };
   }
 
   private columnType(name: Token): ColumnType {
@@ -470,7 +471,7 @@ class Parser {
     return type as ColumnType;
   }
 
-  private columnDef(): ColumnDef {
+  private columnDef(checks: Expr[]): ColumnDef {
     const name = this.identifier('a column name');
     const column: ColumnDef = { name: name.value, type: this.columnType(name) };
     for (;;) {
@@ -487,7 +488,7 @@ class Parser {
         // An explicit NULL means "may be NULL", the default.
       } else if (this.acceptWord('UNIQUE')) column.unique = true;
       else if (this.acceptWord('DEFAULT')) column.default = this.defaultValue();
-      else if (this.acceptWord('CHECK')) column.check = this.checkCondition();
+      else if (this.acceptWord('CHECK')) column.check = this.checkCondition(checks);
       else if (this.acceptWord('REFERENCES')) {
         const table = this.identifier('a table name').value;
         const [refColumn, ...more] = this.nameList('a column name');
@@ -501,7 +502,7 @@ class Parser {
     return column;
   }
 
-  private tableConstraint(schema: TableSchema): void {
+  private tableConstraint(schema: TableSchema, checks: Expr[]): void {
     if (this.acceptWord('CONSTRAINT')) this.identifier('a constraint name');
     if (this.acceptWord('PRIMARY')) {
       this.expectWord('KEY');
@@ -509,7 +510,7 @@ class Parser {
     } else if (this.acceptWord('UNIQUE')) {
       (schema.unique ??= []).push(this.nameList('a column name'));
     } else if (this.acceptWord('CHECK')) {
-      (schema.checks ??= []).push(this.checkCondition());
+      (schema.checks ??= []).push(this.checkCondition(checks));
     } else if (this.acceptWord('FOREIGN')) {
       this.expectWord('KEY');
       const columns = this.nameList('a column name');
@@ -545,14 +546,15 @@ class Parser {
     throw unsupported('DEFAULT with an expression', t);
   }
 
-  /** A CHECK condition, kept as text. It may only read the row's own columns. */
-  private checkCondition(): string {
+  /** A CHECK condition, kept as text and collected in `checks`. It may only read the row's own columns. */
+  private checkCondition(checks: Expr[]): string {
     this.expectPunct('(');
     const start = this.token;
     const condition = this.expr();
     this.expectPunct(')');
     const found = firstNode(condition, (e) => e.type === 'subquery' || e.type === 'inSubquery' || e.type === 'aggregate');
     if (found) throw unsupported(found.type === 'aggregate' ? 'aggregates in CHECK' : 'subqueries in CHECK', start);
+    checks.push(condition);
     return condition.text;
   }
 
@@ -762,7 +764,7 @@ export function parseQuery(sql: string): ParseResult {
 }
 
 /** The first node of `expr`, itself included, for which `test` holds. */
-function firstNode(expr: Expr, test: (e: Expr) => boolean): Expr | undefined {
+export function firstNode(expr: Expr, test: (e: Expr) => boolean): Expr | undefined {
   if (test(expr)) return expr;
   const children: Expr[] = [];
   switch (expr.type) {

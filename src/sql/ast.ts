@@ -75,7 +75,8 @@ export type Statement =
       lines: { UPDATE: number; SET: number; WHERE?: number };
     }
   | { kind: 'delete'; table: TableRef; where?: Expr; line: number; lines: { DELETE: number; WHERE?: number } }
-  | { kind: 'create'; schema: TableSchema; line: number; column: number }
+  /** `checks` holds every CHECK condition as parsed, so its columns can be checked against the new table. */
+  | { kind: 'create'; schema: TableSchema; checks: Expr[]; line: number; column: number }
   | { kind: 'drop'; table: string; ifExists: boolean; line: number; column: number };
 
 export type WriteClause = 'INSERT' | 'VALUES' | 'UPDATE' | 'SET' | 'DELETE' | 'CREATE TABLE' | 'DROP TABLE';
