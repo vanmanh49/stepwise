@@ -41,7 +41,7 @@ describe('buildBTree', () => {
   it('builds 12 entries into 3 levels', () => {
     const tree = buildBTree(entries(salaries));
     expect(tree.levels).toHaveLength(3);
-    expect(leafKeys(tree)).toEqual([...salaries].sort((a, b) => a - b));
+    expect(leafKeys(tree)).toEqual(salaries.toSorted((a, b) => a - b));
     checkShape(tree);
   });
 

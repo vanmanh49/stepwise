@@ -19,7 +19,7 @@ export const knapsackCode = `function knapsack(weights: number[], values: number
 const LINE = { init: 3, skip: 6, take: 8, done: 12 };
 
 function fill(weights: number[], values: number[], capacity: number): number[][] {
-  const dp = [new Array<number>(capacity + 1).fill(0)];
+  const dp = [Array.from({ length: capacity + 1 }, () => 0)];
   weights.forEach((w, k) => {
     const prev = dp[k]!;
     dp.push(prev.map((skip, c) => (w <= c ? Math.max(skip, prev[c - w]! + values[k]!) : skip)));

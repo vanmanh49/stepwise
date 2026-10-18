@@ -62,7 +62,7 @@ export function dijkstraSteps(g: Graph, start: string): Step[] {
   const parent: Record<string, string> = {};
 
   const view = (extraEdges: Record<string, Role> = {}) => {
-    const waiting = [...unvisited].filter((id) => dist[id] !== Infinity).sort((a, b) => dist[a]! - dist[b]!);
+    const waiting = [...unvisited].filter((id) => dist[id] !== Infinity).toSorted((a, b) => dist[a]! - dist[b]!);
     return graphView(
       g,
       { ...roles },

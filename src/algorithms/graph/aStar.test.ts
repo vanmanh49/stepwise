@@ -68,7 +68,7 @@ describe('aStarSteps', () => {
     const steps = aStarSteps(wallGraph, 'A', 'L');
     const view = steps[steps.length - 1]!.view;
     const onPath = view.kind === 'graph' ? view.nodes.filter((n) => n.role === 'found').map((n) => n.id) : [];
-    expect(onPath.sort()).toEqual([...aStar(wallGraph, 'A', 'L')!.path].sort());
+    expect(onPath.toSorted()).toEqual([...aStar(wallGraph, 'A', 'L')!.path].toSorted());
   });
 
   it('uses the last node as the goal when none is given', () => {

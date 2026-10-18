@@ -4,7 +4,7 @@ import type { SqlRow, SqlTable, TableView } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
 import { BTreeRenderer } from './BTreeRenderer';
 import { visibleRows } from './tableRows';
-import { spring } from './ValueBox';
+import { spring } from './spring';
 import { notesRow } from './tableNotes';
 
 // Literal class names so Tailwind can see them.

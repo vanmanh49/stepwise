@@ -1,7 +1,8 @@
 import { LayoutGroup, motion } from 'motion/react';
 import { useId } from 'react';
 import type { ArrayView, Cell } from '../../../types/visualization';
-import { CELL_WIDTH, PointerChip, ValueBox, spring } from './ValueBox';
+import { CELL_WIDTH, PointerChip, ValueBox } from './ValueBox';
+import { spring } from './spring';
 
 function Cells({ cells }: { cells: Cell[] }) {
   return (

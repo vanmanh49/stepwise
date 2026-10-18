@@ -182,7 +182,7 @@ export const segmentTreeStructure: StructureDef = {
           variables: { i, value },
           view: view(next, { ...roles, [idOf(i, i)]: 'found' }, { [i]: 'found' }),
         });
-        for (const [plo, phi] of path.reverse()) {
+        for (const [plo, phi] of path.toReversed()) {
           roles[idOf(plo, phi)] = 'found';
           steps.push({
             title: `Recompute ${range(plo, phi)} = ${sum(next, plo, phi)}`,

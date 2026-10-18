@@ -50,7 +50,7 @@ describe('checkExercise', () => {
   });
 
   it('throws when the solution itself fails', () => {
-    expect(() => checkExercise(shop, 'SELECT 1 FROM t', exercise('SELECT nope FROM products'))).toThrow();
+    expect(() => checkExercise(shop, 'SELECT 1 FROM t', exercise('SELECT nope FROM products'))).toThrow('Exercise solution fails');
   });
 });
 
@@ -125,17 +125,17 @@ describe('checkExercise with probes', () => {
 });
 
 describe('EXPLAIN QUERY PLAN probes', () => {
-  const exercise = {
+  const probeExercise = {
     solution: 'CREATE INDEX idx_hired ON employees(hired);',
     orderMatters: false,
     probes: ["EXPLAIN QUERY PLAN SELECT name FROM employees WHERE hired > '2020-01-01'"],
   };
 
   it('accept an index with any name', () => {
-    expect(checkExercise(datasets.company, 'CREATE INDEX h ON employees (hired)', exercise)).toEqual({ status: 'correct' });
+    expect(checkExercise(datasets.company, 'CREATE INDEX h ON employees (hired)', probeExercise)).toEqual({ status: 'correct' });
   });
 
   it('still reject a plan that reads every row', () => {
-    expect(checkExercise(datasets.company, 'CREATE INDEX s ON employees (salary)', exercise).status).toBe('probe');
+    expect(checkExercise(datasets.company, 'CREATE INDEX s ON employees (salary)', probeExercise).status).toBe('probe');
   });
 });

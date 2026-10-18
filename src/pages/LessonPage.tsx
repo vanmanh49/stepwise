@@ -15,7 +15,8 @@ import {
   TradeOffs,
 } from '../components/lesson/LessonSections';
 import { PrerequisiteNotice } from '../components/lesson/PrerequisiteNotice';
-import { CATEGORY_TITLE, CourseSidebar } from '../components/navigation/CourseSidebar';
+import { CourseSidebar } from '../components/navigation/CourseSidebar';
+import { CATEGORY_TITLE } from '../lessons/labels';
 import { Drawer } from '../components/navigation/Drawer';
 import { Quiz } from '../components/quiz/Quiz';
 import { Exercises } from '../components/sql/Exercises';

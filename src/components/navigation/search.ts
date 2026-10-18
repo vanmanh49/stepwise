@@ -46,7 +46,7 @@ export function searchTopics(query: string, topics: SearchItem[]): SearchItem[] 
   });
 
   return scored
-    .sort(
+    .toSorted(
       (a, b) =>
         a.score - b.score || Number(b.item.path !== undefined) - Number(a.item.path !== undefined) || a.order - b.order,
     )

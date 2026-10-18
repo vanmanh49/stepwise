@@ -217,14 +217,14 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
     });
 
     // A SELECT's own events make its steps; a transaction event after it (the end-of-script rollback) is handled below.
-    let events = segment.events;
+    let pendingEvents = segment.events;
     if (statement.kind === 'select') {
       if (index !== failedIndex) drafts.push(...buildDrafts(statement.select, segment.events.filter((e) => e.kind !== 'transaction') as TraceEvent[]));
-      events = segment.events.filter((e) => e.kind === 'transaction');
+      pendingEvents = segment.events.filter((e) => e.kind === 'transaction');
     }
 
     let inserted = 0;
-    for (const event of events) {
+    for (const event of pendingEvents) {
       switch (event.kind) {
         case 'filter-test': {
           const where = statement.kind === 'update' || statement.kind === 'delete' ? statement.where! : undefined;
@@ -453,8 +453,8 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
               const other = new Map((side === 'after' ? t.before : t.after)?.rows.map((r) => [r.id, JSON.stringify(r.values)]) ?? []);
               return [sqlTable(t.name, shown, known(t.name)?.schema, (id) => decorate({ id }, other.get(id) !== JSON.stringify(shown.rows.find((r) => r.id === id)!.values)))];
             });
-          const kept = marked((_, changed) => (changed ? { role: 'found', note: 'kept' } : {}), 'after');
-          const undone = marked((_, changed) => (changed ? { role: 'discarded', note: 'undone' } : {}), 'before');
+          const kept = marked((_, isChanged) => (isChanged ? { role: 'found', note: 'kept' } : {}), 'after');
+          const undone = marked((_, isChanged) => (isChanged ? { role: 'discarded', note: 'undone' } : {}), 'before');
           const name = event.name ?? '';
           const titleFor: Record<typeof event.action, string> = {
             begin: 'BEGIN: changes are now pending',
@@ -559,7 +559,7 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
   }
 
   if (result.ok && changed.length > 0) {
-    const lastSelect = [...result.statements].reverse().find((s) => s.kind === 'select');
+    const lastSelect = result.statements.toReversed().find((s) => s.kind === 'select');
     const finalDb = result.db;
     const finalTables = changed.slice(0, lastSelect?.result ? 2 : 3).flatMap((name) => {
       const table = finalDb.tables.find((t) => t.name === name);

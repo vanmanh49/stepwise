@@ -16,7 +16,7 @@ export function BTreeRenderer({ view }: { view: BTreeView }) {
     if (el && el.scrollWidth > el.clientWidth) el.scrollTo({ left: Math.max(0, focus - el.clientWidth / 2), behavior: 'smooth' });
   }, [focus]);
   const at = new Map(layout.nodes.map((n) => [n.id, n]));
-  const leaves = view.nodes.filter((n) => n.leaf).map((n) => at.get(n.id)!).sort((a, b) => a.x - b.x);
+  const leaves = view.nodes.filter((n) => n.leaf).map((n) => at.get(n.id)!).toSorted((a, b) => a.x - b.x);
   const width = layout.width + PAD * 2;
   const height = layout.height + PAD * 2;
   const leafCount = view.nodes.filter((n) => n.leaf).length;

@@ -14,6 +14,7 @@ const lastBuckets = (steps: Step[]) => steps.at(-1)!.view as BucketsView;
 
 describe('hashOf', () => {
   it('mixes in one character at a time, taking the remainder each time', () => {
+    // oxlint-disable-next-line oxc/erasing-op -- starts from 0, written out to mirror the hash formula
     const manual = (((((0 * 31 + 99) % 8) * 31 + 97) % 8) * 31 + 116) % 8;
     expect(hashOf('cat', 8)).toBe(manual);
     expect(hashOf('cat', 8)).toBe(6);

@@ -46,7 +46,7 @@ function board(n: number, cols: number[], marks: Record<string, Role> = {}): Gri
     colLabels: Array.from({ length: n }, (_, c) => String(c)),
     rows: Array.from({ length: n }, (_, r) => ({
       label: `row ${r}`,
-      cells: Array.from({ length: n }, (_, c): Cell => {
+      cells: Array.from({ length: n }, (_cell, c): Cell => {
         const queen = cols[r] === c;
         const mark = marks[`${r},${c}`];
         return { id: `r${r}c${c}`, value: queen ? QUEEN : mark === 'discarded' ? '×' : '', role: mark ?? (queen ? 'found' : 'default') };

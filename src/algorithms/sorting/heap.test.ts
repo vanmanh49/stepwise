@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Step } from '../../types/visualization';
 import { heapSort, heapSortCode, heapSortSteps } from './heap';
 
-const ascending = (values: number[]) => [...values].sort((a, b) => a - b);
+const ascending = (values: number[]) => values.toSorted((a, b) => a - b);
 const items = (step: Step) => (step.view.kind === 'heap' ? step.view.items : []);
 
 function seeded(count: number): number[] {
@@ -47,8 +47,8 @@ describe('heapSortSteps', () => {
   });
 
   it('keeps every item identity', () => {
-    const initial = items(steps[0]!).map((c) => c.id).sort();
-    for (const step of steps) expect(items(step).map((c) => c.id).sort()).toEqual(initial);
+    const initial = items(steps[0]!).map((c) => c.id).toSorted();
+    for (const step of steps) expect(items(step).map((c) => c.id).toSorted()).toEqual(initial);
   });
 
   it('never un-sorts an item that reached its final place', () => {

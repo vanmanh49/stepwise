@@ -13,7 +13,7 @@ export function neighbours(g: Graph, id: string): { id: string; weight: number }
     if (edge.from === id) result.push({ id: edge.to, weight });
     else if (!g.directed && edge.to === id) result.push({ id: edge.from, weight });
   }
-  return result.sort((a, b) => a.id.localeCompare(b.id));
+  return result.toSorted((a, b) => a.id.localeCompare(b.id));
 }
 
 export function hasNode(g: Graph, id: string): boolean {

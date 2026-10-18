@@ -61,7 +61,7 @@ describe('topologicalSort', () => {
 
   it.each([courseGraph, buildGraph])('puts every prerequisite first in $name', (g) => {
     const order = topologicalSort(g)!;
-    expect([...order].sort()).toEqual(g.nodes.map((n) => n.id).sort());
+    expect(order.toSorted()).toEqual(g.nodes.map((n) => n.id).toSorted());
     for (const edge of g.edges) expect(order.indexOf(edge.from)).toBeLessThan(order.indexOf(edge.to));
   });
 

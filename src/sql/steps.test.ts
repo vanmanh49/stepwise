@@ -112,6 +112,6 @@ describe('viewAt', () => {
   });
 
   it('throws for invalid SQL', () => {
-    expect(() => viewAt(shop, 'SELECT', 0)).toThrow();
+    expect(() => viewAt(shop, 'SELECT', 0)).toThrow('in: SELECT');
   });
 });

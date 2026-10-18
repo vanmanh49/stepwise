@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import type { StackView } from '../../../types/visualization';
-import { ValueBox, spring } from './ValueBox';
+import { ValueBox } from './ValueBox';
+import { spring } from './spring';
 
 export function StackRenderer({ view }: { view: StackView }) {
   const top = view.items.length - 1;
@@ -8,7 +9,7 @@ export function StackRenderer({ view }: { view: StackView }) {
     <div className="flex flex-col items-center">
       <div className="flex min-h-[15rem] flex-col justify-end gap-1.5 border-x-2 border-b-2 border-border px-3 pb-3 pt-6 [border-radius:0_0_18px_18px]">
         <AnimatePresence mode="popLayout" initial={false}>
-          {[...view.items].reverse().map((item, i) => {
+          {view.items.toReversed().map((item, i) => {
             const index = view.items.length - 1 - i;
             return (
               <motion.div

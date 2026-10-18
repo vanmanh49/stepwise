@@ -138,7 +138,7 @@ describe('step order matches the algorithm', () => {
 
     const dist = dijkstra(g, start);
     const order = activeOrder(dijkstraSteps(g, start)).map((id) => dist[id]!);
-    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(order).toEqual(order.toSorted((a, b) => a - b));
   });
 
   it('ends with the final distances in the table', () => {

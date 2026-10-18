@@ -52,8 +52,8 @@ describe('reverse', () => {
 
   it('keeps every character identity while swapping', () => {
     const { steps } = run('reverse', 'ABCDE');
-    const initial = cells(steps[0]!).map((c) => c.id).sort();
-    for (const step of steps) expect(cells(step).map((c) => c.id).sort()).toEqual(initial);
+    const initial = cells(steps[0]!).map((c) => c.id).toSorted();
+    for (const step of steps) expect(cells(step).map((c) => c.id).toSorted()).toEqual(initial);
   });
 });
 

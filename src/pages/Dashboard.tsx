@@ -1,7 +1,7 @@
 import { ArrowRight, CircleCheck, Flame } from 'lucide-react';
 import { useEffect } from 'react';
 import { Link } from 'react-router';
-import { CATEGORY_TITLE } from '../components/navigation/CourseSidebar';
+import { CATEGORY_TITLE } from '../lessons/labels';
 import { ProgressBar } from '../components/progress/ProgressBar';
 import { getLesson, lessonPath, lessons, lessonsIn } from '../lessons/registry';
 import { computeStreak, percent, useProgress } from '../store/progress';

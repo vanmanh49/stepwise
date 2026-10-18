@@ -51,7 +51,7 @@ function kosaraju(g: Graph): string[][] {
     group.push(v);
     for (const w of neighbours(reversed, v)) if (!assigned.has(w.id)) collect(w.id, group);
   };
-  for (const v of [...finished].reverse()) {
+  for (const v of finished.toReversed()) {
     if (assigned.has(v)) continue;
     const group: string[] = [];
     collect(v, group);
@@ -63,8 +63,8 @@ function kosaraju(g: Graph): string[][] {
 /** Each component sorted, components ordered by their first node. */
 export function stronglyConnectedComponents(g: Graph): string[][] {
   return kosaraju(g)
-    .map((group) => [...group].sort())
-    .sort((a, b) => a[0]!.localeCompare(b[0]!));
+    .map((group) => group.toSorted())
+    .toSorted((a, b) => a[0]!.localeCompare(b[0]!));
 }
 
 export function sccSteps(g: Graph, _start?: string): Step[] {
@@ -119,7 +119,7 @@ export function sccSteps(g: Graph, _start?: string): Step[] {
   };
   for (const v of g.nodes) if (!seen.has(v.id)) visit(v.id);
 
-  const order = [...finished].reverse();
+  const order = finished.toReversed();
   steps.push({
     title: 'Reverse every edge',
     why: `Reversing the edges keeps each strongly connected component intact, but cuts the one-way links between components. Pass 2 takes nodes in reverse finish order: ${order.map(name).join(', ')}.`,

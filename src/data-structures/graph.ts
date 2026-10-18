@@ -32,7 +32,7 @@ export function adjacencySteps(g: Graph, start: string): Step[] {
       table: {
         columns: ['Neighbours'],
         rows: Object.fromEntries(
-          g.nodes.map((n) => [n.label, [[...lists[n.id]!].sort().map(name).join(', ') || '—']]),
+          g.nodes.map((n) => [n.label, [[...lists[n.id]!].toSorted().map(name).join(', ') || '—']]),
         ),
       },
     });

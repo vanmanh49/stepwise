@@ -63,7 +63,7 @@ export function BigOChart({ compact = false, highlight, size: controlledSize, on
       const atTop = label.x < PAD.left + PLOT_W - 1;
       return { c, atTop, x: atTop ? label.x + 6 : PAD.left + PLOT_W + 8, y: atTop ? PAD.top + 10 : label.y };
     })
-    .sort((a, b) => b.y - a.y);
+    .toSorted((a, b) => b.y - a.y);
   let floor = Infinity;
   for (const label of labels) {
     if (label.atTop) continue;

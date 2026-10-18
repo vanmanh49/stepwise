@@ -31,7 +31,7 @@ describe('aggregates', () => {
     const r = run(
       'SELECT COUNT(*), COUNT(city), COUNT(DISTINCT city), SUM(id), AVG(id), MIN(name), MAX(name) FROM customers',
     );
-    const names = customers.map((c) => c[1] as string).sort();
+    const names = customers.map((c) => c[1] as string).toSorted();
     expect(plain(r)).toEqual([[10, 8, 4, 55, 5.5, names[0], names.at(-1)]]);
   });
 
@@ -192,7 +192,7 @@ describe('grouping trace', () => {
     executeSelect(shop, parsed.statement, (e) => events.push(e));
     const grouped = events.find((e) => e.kind === 'grouped');
     if (grouped?.kind !== 'grouped') throw new Error('no grouped event');
-    expect(grouped.groups.flatMap((g) => g.rowIds).sort()).toEqual(products.map((_, i) => `products#${i}`).sort());
+    expect(grouped.groups.flatMap((g) => g.rowIds).toSorted()).toEqual(products.map((_, i) => `products#${i}`).toSorted());
     expect(grouped.relation.rows.map((r) => r.id)).toEqual(['group#1', 'group#2', 'group#3']);
     const having = events.filter((e) => e.kind === 'filter-test');
     expect(having).toHaveLength(3);

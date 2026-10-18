@@ -149,7 +149,7 @@ describe('window steps', () => {
     const partition = list.find((s) => view(s).current === 'WINDOW' && /partitions/.test(s.title))!;
     const groups = view(partition).tables[0]!.rows.map((r) => r.group);
     expect(new Set(groups).size).toBe(4);
-    expect(groups).toEqual([...groups].sort((a, b) => a! - b!));
+    expect(groups).toEqual(groups.toSorted((a, b) => a! - b!));
   });
 
   it('explains ties and marks the tied row', () => {

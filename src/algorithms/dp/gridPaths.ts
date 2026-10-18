@@ -26,7 +26,7 @@ export const WALL_PRESET = (rows: number, cols: number): [number, number][] => {
 
 function fill(rows: number, cols: number, blocked: [number, number][]): number[][] {
   const isBlocked = new Set(blocked.map(([r, c]) => at(r, c)));
-  const dp = Array.from({ length: rows }, () => new Array<number>(cols).fill(0));
+  const dp = Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0));
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       if (isBlocked.has(at(r, c))) dp[r]![c] = 0;

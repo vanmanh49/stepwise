@@ -21,12 +21,12 @@ export const topologicalSortCode = `function topologicalSort(graph: Graph): stri
 }`;
 
 // Edges are always read as from → to here: a dependency has a direction even if the graph is drawn without arrows.
-const sortedIds = (g: Graph) => g.nodes.map((n) => n.id).sort((a, b) => a.localeCompare(b));
+const sortedIds = (g: Graph) => g.nodes.map((n) => n.id).toSorted((a, b) => a.localeCompare(b));
 const outgoing = (g: Graph, id: string) =>
   g.edges
     .filter((e) => e.from === id)
     .map((e) => e.to)
-    .sort((a, b) => a.localeCompare(b));
+    .toSorted((a, b) => a.localeCompare(b));
 
 function inDegrees(g: Graph): Record<string, number> {
   const degree: Record<string, number> = Object.fromEntries(g.nodes.map((n) => [n.id, 0]));

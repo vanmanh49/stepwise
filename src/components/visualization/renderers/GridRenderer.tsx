@@ -3,7 +3,7 @@ import { useId } from 'react';
 import type { Cell, GridView } from '../../../types/visualization';
 import { ROLE_META } from '../roles';
 import { gridCellStyle } from './gridCellStyle';
-import { spring } from './ValueBox';
+import { spring } from './spring';
 
 // Fixed cell geometry so arrows can be drawn from row and column indexes alone.
 const CELL = 44;

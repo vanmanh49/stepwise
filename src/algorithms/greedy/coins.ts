@@ -15,7 +15,7 @@ export const greedyCoinsCode = `function greedyCoins(coins: number[], amount: nu
 }`;
 
 export function greedyCoins(coins: number[], amount: number): number[] | null {
-  const sorted = [...coins].sort((a, b) => b - a);
+  const sorted = coins.toSorted((a, b) => b - a);
   const taken: number[] = [];
   let remaining = amount;
   for (const coin of sorted) {
@@ -43,7 +43,7 @@ export function greedyCoinsSteps(values: Record<string, string>): Step[] {
   if (!coinsRead.ok) return refusal('Check the coins', coinsRead.why, empty);
   if (!amountRead.ok) return refusal('Check the amount', amountRead.why, empty);
 
-  const coins = [...coinsRead.value].sort((a, b) => b - a);
+  const coins = coinsRead.value.toSorted((a, b) => b - a);
   const amount = amountRead.value;
   const taken: number[] = [];
   let remaining = amount;

@@ -30,7 +30,7 @@ export function binarySearch(sorted: number[], target: number): number {
 export function prepareSearchInput(values: number[], needsSorted: boolean): { values: number[]; wasSorted: boolean } {
   const isAscending = values.every((v, i) => i === 0 || values[i - 1]! <= v);
   if (!needsSorted || isAscending) return { values, wasSorted: false };
-  return { values: [...values].sort((a, b) => a - b), wasSorted: true };
+  return { values: values.toSorted((a, b) => a - b), wasSorted: true };
 }
 
 export function binarySearchSteps(sorted: number[], target: number): Step[] {

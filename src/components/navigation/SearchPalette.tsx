@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, Boxes, CornerDownLeft, Database, Search, Workflow, X } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { CATEGORY_TITLE } from './CourseSidebar';
+import { CATEGORY_TITLE } from '../../lessons/labels';
 import { searchIndex, searchTopics } from './search';
 
 const SUGGESTED = ['binary-search', 'bubble-sort', 'binary-search-tree', 'bfs', 'dijkstra'];

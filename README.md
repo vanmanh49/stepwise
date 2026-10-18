@@ -26,7 +26,7 @@ Every lesson has a visualization you control: play, pause, step forward and back
 
 ## Tech stack
 
-React 19, TypeScript (strict), Vite, Tailwind CSS v4, React Router, Motion, Lucide icons, Zustand, Vitest.
+React 19, TypeScript (strict), Vite, Tailwind CSS v4, React Router, Motion, Lucide icons, Zustand, Vitest, Oxlint.
 
 ## Getting started
 
@@ -48,6 +48,7 @@ Then open the URL that Vite prints (normally http://localhost:5173).
 | `npm run preview` | Serve the production build locally |
 | `npm test` | Run the unit tests once |
 | `npm run typecheck` | Type-check without building |
+| `npm run lint` | Lint with [Oxlint](https://oxc.rs) (config in `.oxlintrc.json`); warnings count as failures |
 | `npm run build:pages` | Build for GitHub Pages under `/stepwise/` |
 
 The app uses client-side routing. When deploying the `dist/` folder, configure the host to serve `index.html` for unknown paths.

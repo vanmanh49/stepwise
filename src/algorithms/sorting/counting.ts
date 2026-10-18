@@ -18,10 +18,10 @@ export const countingSortCode = `function countingSort(arr: number[]): number[] 
 const DIGITS = 10;
 
 export function countingSort(values: number[]): number[] {
-  const count = new Array<number>(DIGITS).fill(0);
+  const count = Array.from({ length: DIGITS }, () => 0);
   for (const v of values) count[v]!++;
   for (let d = 1; d < DIGITS; d++) count[d]! += count[d - 1]!;
-  const out = new Array<number>(values.length);
+  const out = Array.from({ length: values.length }, () => 0);
   for (let i = values.length - 1; i >= 0; i--) {
     const v = values[i]!;
     count[v]!--;
@@ -53,7 +53,7 @@ export function countingSortSteps(values: number[]): Step[] {
     ];
   }
 
-  const count = new Array<number>(DIGITS).fill(0);
+  const count = Array.from({ length: DIGITS }, () => 0);
   const steps: Step[] = [
     {
       title: 'Start with ten empty counters',

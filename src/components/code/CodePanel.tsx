@@ -40,6 +40,7 @@ export function CodePanel({ code, activeLine, label = 'TypeScript' }: { code: st
     if (top < box.scrollTop || top + line.offsetHeight > box.scrollTop + box.clientHeight) {
       box.scrollTo({ top: top - box.clientHeight / 2 + line.offsetHeight / 2 });
     }
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- the ref moves to the new line, so scroll when it changes
   }, [activeLine]);
 
   return (

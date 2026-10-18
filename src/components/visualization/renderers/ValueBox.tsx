@@ -33,5 +33,3 @@ export function PointerChip({ name }: { name: string }) {
     </span>
   );
 }
-
-export const spring = { type: 'spring', stiffness: 520, damping: 40 } as const;

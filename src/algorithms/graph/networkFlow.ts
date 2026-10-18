@@ -40,7 +40,7 @@ function hops(g: Graph, flow: Flow, id: string): Hop[] {
     if (e.to === id && f > 0) result.push({ from: id, to: e.from, spare: f, backward: true });
   }
   // Forward hops first, then by node id, so every run takes the same path.
-  return result.sort((a, b) => Number(a.backward) - Number(b.backward) || a.to.localeCompare(b.to));
+  return result.toSorted((a, b) => Number(a.backward) - Number(b.backward) || a.to.localeCompare(b.to));
 }
 
 /** Breadth-first search for the augmenting path with the fewest edges. */

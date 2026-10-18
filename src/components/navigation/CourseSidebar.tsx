@@ -1,17 +1,11 @@
 import { Circle, CircleCheck } from 'lucide-react';
 import { Link } from 'react-router';
 import { DIFFICULTIES, topicsIn } from '../../lessons/curriculum';
+import { CATEGORY_TITLE, difficultyLabel } from '../../lessons/labels';
 import { getLesson, lessonPath, lessonsIn } from '../../lessons/registry';
 import { percent, useProgress } from '../../store/progress';
 import type { Category } from '../../types/lesson';
-import { difficultyLabel } from '../lesson/DifficultyBadge';
 import { ProgressBar } from '../progress/ProgressBar';
-
-export const CATEGORY_TITLE: Record<Category, string> = {
-  'data-structures': 'Data Structures',
-  algorithms: 'Algorithms',
-  sql: 'SQL',
-};
 
 export function CourseSidebar({ category, activeId }: { category: Category; activeId?: string }) {
   const completed = useProgress((s) => s.completed);

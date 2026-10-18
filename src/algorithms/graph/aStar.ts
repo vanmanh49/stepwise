@@ -43,7 +43,7 @@ interface Search {
 /** Open nodes in expansion order: lowest f, then nearer the goal, then smaller id, so runs are repeatable. */
 function byF(g: Graph, search: Search, goal: string): string[] {
   const f = (id: string) => search.cost[id]! + heuristic(g, id, goal);
-  return [...search.open].sort((a, b) => f(a) - f(b) || heuristic(g, a, goal) - heuristic(g, b, goal) || a.localeCompare(b));
+  return [...search.open].toSorted((a, b) => f(a) - f(b) || heuristic(g, a, goal) - heuristic(g, b, goal) || a.localeCompare(b));
 }
 
 function lowestF(g: Graph, search: Search, goal: string): string {
