@@ -1,4 +1,5 @@
 import type { Dataset } from '../../sql/datasets';
+import { columnNotes } from '../../sql/schema';
 
 const PEEK_ROWS = 5;
 
@@ -14,7 +15,12 @@ export function SchemaPanel({ dataset }: { dataset: Dataset }) {
               {table.name} <span className="font-sans font-normal text-muted">· {table.rows.length} rows</span>
             </summary>
             <p className="mt-2 font-mono text-xs leading-relaxed text-muted">
-              {table.columns.map((c) => `${c.name} ${c.type}`).join(', ')}
+              {table.columns
+                .map((c, i) => {
+                  const note = columnNotes(table)[i];
+                  return `${c.name} ${c.type}${note ? ` (${note})` : ''}`;
+                })
+                .join(', ')}
             </p>
             <div className="mt-2 overflow-x-auto">
               <table className="w-full font-mono text-xs">

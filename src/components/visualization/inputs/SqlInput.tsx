@@ -1,10 +1,10 @@
 import { Play, RotateCcw } from 'lucide-react';
-import { useId, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useId, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { datasets } from '../../../sql/datasets';
 import { MAX_QUERY_LENGTH } from '../../../sql/parse';
-import { querySteps } from '../../../sql/steps';
+import { parseScript } from '../../../sql/parse';
+import { scriptSteps } from '../../../sql/scriptSteps';
 import type { VisualizationConfig } from '../../../types/lesson';
-import type { Step } from '../../../types/visualization';
 import { SchemaPanel } from '../../sql/SchemaPanel';
 import { Visualizer } from '../Visualizer';
 import type { StepListener } from './LessonVisualization';
@@ -18,20 +18,30 @@ export const isRunShortcut = (event: KeyboardEvent) => event.key === 'Enter' && 
 export function SqlInput({ config, onStep }: { config: SqlConfig; code: string; onStep?: StepListener }) {
   const id = useId();
   const dataset = datasets[config.dataset];
+  // Lessons about changing data open with a script; the wording follows.
+  const isScript = useMemo(() => {
+    const parsed = parseScript(config.initialQuery);
+    return parsed.ok && parsed.statements.some((s) => s.kind !== 'select');
+  }, [config.initialQuery]);
   const [draft, setDraft] = useState(config.initialQuery);
   const [ran, setRan] = useState(() => {
-    const first = querySteps(dataset, config.initialQuery);
-    return { query: config.initialQuery, steps: first.ok ? first.steps : ([] as Step[]) };
+    const first = scriptSteps(dataset, config.initialQuery);
+    return { query: config.initialQuery, steps: first.steps };
   });
   const [error, setError] = useState<string>();
   const [autoPlay, setAutoPlay] = useState(false);
 
   const run = (query: string) => {
     setDraft(query);
-    const result = querySteps(dataset, query);
+    const result = scriptSteps(dataset, query);
     if (!result.ok) {
       const { message, line, column } = result.error;
       setError(`${message} (line ${line}, col ${column})`);
+      // Statements that ran before the failing one stay visible.
+      if (result.steps.length > 0) {
+        setRan({ query, steps: result.steps });
+        setAutoPlay(false);
+      }
       return;
     }
     setError(undefined);
@@ -55,7 +65,7 @@ export function SqlInput({ config, onStep }: { config: SqlConfig; code: string; 
         <div className="flex flex-col gap-4">
           <form onSubmit={submit} className="flex flex-col gap-2">
             <label htmlFor={`${id}-query`} className="eyebrow">
-              Your query
+              {isScript ? 'Your script' : 'Your query'}
             </label>
             <textarea
               id={`${id}-query`}
@@ -81,7 +91,9 @@ export function SqlInput({ config, onStep }: { config: SqlConfig; code: string; 
               </p>
             ) : (
               <p id={`${id}-help`} className="text-sm text-muted">
-                Press Run or Ctrl+Enter (⌘+Enter on macOS) to step through your query.
+                {isScript
+                  ? 'Separate statements with ;. Each run starts from a fresh copy of the data. Press Run or Ctrl+Enter (⌘+Enter on macOS).'
+                  : 'Press Run or Ctrl+Enter (⌘+Enter on macOS) to step through your query.'}
               </p>
             )}
             <div className="flex flex-wrap gap-2">
