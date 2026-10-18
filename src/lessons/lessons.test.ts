@@ -21,6 +21,7 @@ const EXPECTED_IDS = [
   'heap',
   'priority-queue',
   'graph',
+  'trie',
   'linear-search',
   'binary-search',
   'bubble-sort',
@@ -121,7 +122,7 @@ function defaultSteps(lesson: Lesson): Step[] {
 describe('lesson registry', () => {
   it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
-    expect(lessonsIn('data-structures')).toHaveLength(11);
+    expect(lessonsIn('data-structures')).toHaveLength(12);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
   });
@@ -129,7 +130,7 @@ describe('lesson registry', () => {
   it('links previous and next lessons within a category', () => {
     expect(adjacentLessons('array').prev).toBeUndefined();
     expect(adjacentLessons('array').next?.id).toBe('string');
-    expect(adjacentLessons('graph').next).toBeUndefined();
+    expect(adjacentLessons('graph').next?.id).toBe('trie');
     expect(adjacentLessons('linear-search').prev).toBeUndefined();
     expect(adjacentLessons('prim').next?.id).toBe('fibonacci-dp');
     expect(adjacentLessons('unknown')).toEqual({});
