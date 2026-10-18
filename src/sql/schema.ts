@@ -24,6 +24,15 @@ export interface TableSchema {
   foreignKeys?: { columns: string[]; table: string; refColumns: string[] }[];
 }
 
+/** An index on one table. `implicit` ones come from PRIMARY KEY and UNIQUE, as SQLite makes them. */
+export interface IndexDef {
+  name: string;
+  table: string;
+  columns: string[];
+  unique: boolean;
+  implicit: boolean;
+}
+
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 /**
@@ -86,4 +95,20 @@ export function createTableSql(table: TableSchema): string {
     ...(table.foreignKeys ?? []).map((f) => `FOREIGN KEY (${f.columns.join(', ')}) REFERENCES ${f.table}(${f.refColumns.join(', ')})`),
   ];
   return `CREATE TABLE ${table.name} (${[...columns, ...constraints].join(', ')})`;
+}
+
+/**
+ * SQLite's automatic indexes (sqlite_autoindex_<table>_<n>) for a non-INTEGER PRIMARY KEY and
+ * each UNIQUE constraint, numbered as SQLite does: column constraints first, then table ones.
+ */
+export function implicitIndexes(table: TableSchema): IndexDef[] {
+  const rowid = isRowidAlias(table);
+  const keys: string[][] = [];
+  for (const column of table.columns) {
+    if (column.primaryKey && !same(column.name, rowid ?? '')) keys.push([column.name]);
+    if (column.unique) keys.push([column.name]);
+  }
+  if (table.primaryKey && !(table.primaryKey.length === 1 && same(table.primaryKey[0]!, rowid ?? ''))) keys.push(table.primaryKey);
+  for (const unique of table.unique ?? []) keys.push(unique);
+  return keys.map((columns, i) => ({ name: `sqlite_autoindex_${table.name}_${i + 1}`, table: table.name, columns, unique: true, implicit: true }));
 }
