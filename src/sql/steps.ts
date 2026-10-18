@@ -1,4 +1,4 @@
-import type { BTreeView, Role, SqlRow, SqlTable, Step, TableView } from '../types/visualization';
+import type { BTreeView, Role, SessionsView, SqlRow, SqlTable, Step, TableView } from '../types/visualization';
 import { LOGICAL_ORDER, type Clause, type SelectStatement } from './ast';
 import type { BTree } from './btree';
 import type { Dataset } from './datasets';
@@ -65,7 +65,7 @@ export function focusOf(relation: Relation, values: Record<string, string>): num
 export interface Draft {
   step: Omit<Step, 'view'>;
   /** Built only for steps that survive summarising: a long run must not copy the table thousands of times. */
-  view: () => TableView;
+  view: () => TableView | SessionsView;
   /** Row checks of one clause share a group, so long runs can be summarised. */
   group?: string;
   kept?: boolean;

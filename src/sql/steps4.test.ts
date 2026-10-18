@@ -86,3 +86,65 @@ describe('view steps', () => {
     expect((read.view as TableView).tables[0]!.rows).toHaveLength(4);
   });
 });
+
+describe('transaction steps', () => {
+  const debit = 'UPDATE accounts SET balance = balance - 100 WHERE id = 1';
+  const credit = 'UPDATE accounts SET balance = balance + 100 WHERE id = 2';
+  const bank = datasets.bank;
+
+  it('marks changes as pending until COMMIT keeps them', () => {
+    const s = steps(`BEGIN;\n${debit};\n${credit};\nCOMMIT`, bank);
+    for (const t of ['BEGIN: changes are now pending', 'Pending: 1 change since BEGIN, not saved until COMMIT', 'Pending: 2 changes since BEGIN, not saved until COMMIT', 'COMMIT: 2 changes kept']) {
+      expect(titles(s)).toContain(t);
+    }
+    const pending = find(s, 'Pending: 2 changes since BEGIN, not saved until COMMIT').view as TableView;
+    expect(pending.tables[0]!.rows.filter((r) => r.note === 'pending' && r.role === 'frontier')).toHaveLength(2);
+  });
+
+  it('shows ROLLBACK, savepoints and the end of the script undoing changes', () => {
+    expect(titles(steps(`BEGIN;\n${debit};\n${credit};\nROLLBACK`, bank))).toContain('ROLLBACK: 2 changes undone');
+    const saved = titles(steps(`BEGIN;\n${debit};\nSAVEPOINT half;\n${credit};\nROLLBACK TO half;\nCOMMIT`, bank));
+    expect(saved).toContain('SAVEPOINT half: a point to roll back to');
+    expect(saved).toContain('ROLLBACK TO half: 1 change undone');
+    expect(saved).toContain('COMMIT: 1 change kept');
+    expect(titles(steps(`BEGIN;\n${debit}`, bank))).toContain('The script ended inside a transaction, so its changes are undone.');
+  });
+
+  it('explains that a failure inside a transaction undoes only that statement', () => {
+    const s = steps(`BEGIN;\n${debit};\nUPDATE accounts SET balance = -1 WHERE id = 2;\nCOMMIT`, bank);
+    expect(find(s, 'The statement is undone').why).toContain('the transaction is still open');
+    expect(titles(s)).toContain('COMMIT: 1 change kept');
+    const error = steps(`BEGIN;\nBEGIN;\nCOMMIT`, bank);
+    expect(titles(error)).toContain('Error: A transaction is already open.');
+  });
+});
+
+describe('two-session steps', () => {
+  const script = (level: string) => `A: SET TRANSACTION ISOLATION LEVEL ${level};
+A: BEGIN;
+A: SELECT balance FROM accounts WHERE id = 1;
+B: UPDATE accounts SET balance = 400 WHERE id = 1;
+A: SELECT balance FROM accounts WHERE id = 1;
+A: COMMIT`;
+
+  it('steps through each session’s statements with what each one sees', () => {
+    const s = steps(script('READ COMMITTED'), datasets.bank);
+    expect(s[0]!.title).toBe('Two sessions, A and B');
+    expect(s[0]!.view.kind).toBe('sessions');
+    expect(titles(s)).toContain('A: SELECT balance FROM accounts WHERE id = 1 → 500');
+    expect(titles(s)).toContain('B: UPDATE accounts SET balance = 400 WHERE id = 1');
+    expect(titles(s)).toContain('A: SELECT balance FROM accounts WHERE id = 1 → 400 — non-repeatable read');
+    const view = find(s, 'B: UPDATE accounts SET balance = 400 WHERE id = 1').view;
+    if (view.kind !== 'sessions') throw new Error('sessions view expected');
+    expect(view.rows.map((r) => r.status)).toEqual(['ran', 'ran', 'ran', 'ran', 'next', 'next']);
+    expect(view.rows[3]!.active).toBe(true);
+    expect(view.tables.map((t) => t.label)).toEqual(['A sees accounts', 'B sees accounts']);
+  });
+
+  it('shows a statement waiting for a lock and going on later', () => {
+    const t = titles(steps(script('REPEATABLE READ'), datasets.bank));
+    expect(t).toContain('B waits: UPDATE accounts SET balance = 400 WHERE id = 1 needs a lock A holds');
+    expect(t).toContain('B goes on: UPDATE accounts SET balance = 400 WHERE id = 1');
+    expect(t.indexOf('B goes on: UPDATE accounts SET balance = 400 WHERE id = 1')).toBeGreaterThan(t.indexOf('A: COMMIT'));
+  });
+});
