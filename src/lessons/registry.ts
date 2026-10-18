@@ -63,6 +63,7 @@ import { selectFrom } from './sql/select-from';
 import { subqueries } from './sql/subqueries';
 import { update } from './sql/update';
 import { where } from './sql/where';
+import { normalization } from './sql/normalization';
 import { isolationLevels } from './sql/isolation-levels';
 import { transactions } from './sql/transactions';
 import { queryPlans } from './sql/query-plans';
@@ -154,6 +155,7 @@ export const lessons: Lesson[] = [
   queryPlans,
   transactions,
   isolationLevels,
+  normalization,
 ];
 
 const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));

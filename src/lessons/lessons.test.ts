@@ -85,6 +85,7 @@ const EXPECTED_IDS = [
   'query-plans',
   'transactions',
   'isolation-levels',
+  'normalization',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -119,7 +120,7 @@ describe('lesson registry', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
     expect(lessonsIn('algorithms')).toHaveLength(39);
-    expect(lessonsIn('sql')).toHaveLength(27);
+    expect(lessonsIn('sql')).toHaveLength(28);
   });
 
   it('links previous and next lessons within a category', () => {
