@@ -3,6 +3,7 @@ import { cloneDataset, findTable, type Dataset } from './datasets';
 import { asSqlError, ConstraintError, SqlError } from './errors';
 import type { QueryResult, Relation } from './execute';
 import { parseScript } from './parse';
+import { isSessionsScript, runSessions } from './sessions';
 import { executeStatement, relationOf, type Emit, type WriteEvent } from './write';
 
 export interface StatementOutcome {
@@ -65,6 +66,7 @@ export function runScript(db: Dataset, sql: string, emit?: Emit): ScriptResult {
   const work = cloneDataset(db);
   const parsed = parseScript(sql);
   if (!parsed.ok) return { ok: false, error: parsed.error, db: work, statements: [], failedIndex: -1 };
+  if (isSessionsScript(parsed.statements)) return runSessions(work, parsed.statements, emit);
   const statements: StatementOutcome[] = [];
   const total = parsed.statements.length;
   const frames: Frame[] = [];

@@ -6,6 +6,7 @@ import { Real } from './values';
 
 export const MAX_QUERY_LENGTH = 2000;
 export const MAX_STATEMENTS = 10;
+export const MAX_SESSION_STATEMENTS = 40;
 /** Deeper nesting is never needed and could overflow the call stack. */
 const MAX_DEPTH = 100;
 
@@ -332,8 +333,12 @@ class Parser {
     for (;;) {
       while (this.isPunct(';')) this.next();
       if (this.atEnd()) break;
-      if (statements.length === MAX_STATEMENTS) {
-        throw new SqlError(`Scripts are limited to ${MAX_STATEMENTS} statements.`, 'limit', this.token.line, this.token.column);
+      // Two-session scripts interleave two transactions, so they may be longer.
+      if (statements[0]?.session ? statements.length === MAX_SESSION_STATEMENTS : statements.length === MAX_STATEMENTS) {
+        const message = statements[0]?.session
+          ? `Two-session scripts are limited to ${MAX_SESSION_STATEMENTS} statements.`
+          : `Scripts are limited to ${MAX_STATEMENTS} statements.`;
+        throw new SqlError(message, 'limit', this.token.line, this.token.column);
       }
       const session = this.sessionPrefix();
       const statement = this.scriptStatement();

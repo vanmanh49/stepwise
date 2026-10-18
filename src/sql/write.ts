@@ -6,6 +6,7 @@ import { evaluate } from './evaluate';
 import { bindCtes, executeSelect, filter, nullRow, scan, type Env, type QueryResult, type Relation, type Row, type TraceEvent } from './execute';
 import { firstNode } from './parse';
 import { planSelect, type PlanEntry } from './plan';
+import type { SessionEvent } from './sessions';
 import { formatLiteral, isRowidAlias, type TableSchema } from './schema';
 import { applyAffinity, valueKey, type SqlValue } from './values';
 
@@ -27,6 +28,7 @@ export type WriteEvent =
   | { kind: 'index-created' | 'index-dropped'; index: IndexDef }
   | { kind: 'view-created' | 'view-dropped'; view: ViewDef }
   | { kind: 'explained'; entries: PlanEntry[] }
+  | SessionEvent
   /** `tables` lists the tables whose rows changed: since BEGIN or the savepoint, or what was undone. */
   | {
       kind: 'transaction';

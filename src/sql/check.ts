@@ -1,7 +1,9 @@
 import type { Dataset } from './datasets';
-import type { ConstraintInfo, SqlError } from './errors';
-import { runQuery } from './execute';
+import { SqlError, type ConstraintInfo } from './errors';
+import { runQuery, type QueryResult } from './execute';
+import { parseScript } from './parse';
 import { runScript } from './script';
+import { isSessionsScript } from './sessions';
 import { valueKey, type SqlValue } from './values';
 
 /** What a probe did: returned rows (none for a write that succeeded), broke a constraint, or failed otherwise. */
@@ -69,6 +71,20 @@ function sameOutcome(a: ProbeOutcome, b: ProbeOutcome, orderMatters: boolean): b
 }
 
 /**
+ * The rows a query returns. A two-session script returns the rows of its last SELECT that ran,
+ * so an exercise can ask what a session ends up seeing.
+ */
+function finalResult(db: Dataset, sql: string): { ok: true; result: QueryResult } | { ok: false; error: SqlError } {
+  const parsed = parseScript(sql);
+  if (!parsed.ok || !isSessionsScript(parsed.statements)) return runQuery(db, sql);
+  const run = runScript(db, sql);
+  if (!run.ok) return run;
+  const last = [...run.statements].reverse().find((s) => s.kind === 'select' && s.result && !s.error);
+  if (!last) return { ok: false, error: new SqlError('This script has no SELECT that ran.', 'syntax', 1, 1) };
+  return { ok: true, result: last.result! };
+}
+
+/**
  * Compares the learner's query with the exercise's solution by result: column count, then rows
  * as a multiset, then order when it matters. Column names are ignored. Throws if the solution fails,
  * which is a bug in the lesson.
@@ -83,9 +99,9 @@ export function checkExercise(db: Dataset, query: string, exercise: { solution: 
     if (index < 0) return { status: 'correct' };
     return { status: 'probe', index, probe: exercise.probes[index]!, expected: expected[index]!, actual: actual[index]! };
   }
-  const expected = runQuery(db, exercise.solution);
+  const expected = finalResult(db, exercise.solution);
   if (!expected.ok) throw new Error(`Exercise solution fails: ${expected.error.message}`);
-  const actual = runQuery(db, query);
+  const actual = finalResult(db, query);
   if (!actual.ok) return { status: 'error', error: actual.error };
 
   const want = expected.result;
