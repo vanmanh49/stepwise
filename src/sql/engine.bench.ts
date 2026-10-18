@@ -16,10 +16,12 @@ test('execute only', async ({ bench }) => {
   // Time the real work, not an early error.
   for (const sql of Object.values(queries)) expect(runQuery(company, sql).ok, sql).toBe(true);
   expect(runQuery(company, budget)).toMatchObject({ ok: false, error: { kind: 'limit' } });
-  await bench.compare(
-    ...Object.entries(queries).map(([name, sql]) => bench(name, () => void runQuery(company, sql))),
-    bench('query that hits the work budget', { iterations: 5 }, () => void runQuery(company, budget)),
-  );
+  await bench.compare(...Object.entries(queries).map(([name, sql]) => bench(name, () => void runQuery(company, sql))));
+});
+
+test('execute a query that hits the work budget', async ({ bench }) => {
+  // Each run takes hundreds of milliseconds, so a few are enough.
+  await bench('query that hits the work budget', () => void runQuery(company, budget)).run({ iterations: 5 });
 });
 
 test('execute and build steps', async ({ bench }) => {
