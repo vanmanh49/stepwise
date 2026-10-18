@@ -39,6 +39,7 @@ import { treeTraversal } from './algorithms/tree-traversal';
 import { twoPointers } from './algorithms/two-pointers';
 import { unionFind } from './algorithms/union-find';
 import { array } from './data-structures/array';
+import { hashTable } from './data-structures/hash-table';
 import { binarySearchTree } from './data-structures/binary-search-tree';
 import { binaryTree } from './data-structures/binary-tree';
 import { graph } from './data-structures/graph';
@@ -84,6 +85,7 @@ export const lessons: Lesson[] = [
   linkedList,
   stack,
   queue,
+  hashTable,
   binaryTree,
   binarySearchTree,
   heap,

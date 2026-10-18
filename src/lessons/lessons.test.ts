@@ -15,6 +15,7 @@ const EXPECTED_IDS = [
   'linked-list',
   'stack',
   'queue',
+  'hash-table',
   'binary-tree',
   'binary-search-tree',
   'heap',
@@ -120,7 +121,7 @@ function defaultSteps(lesson: Lesson): Step[] {
 describe('lesson registry', () => {
   it('contains every lesson in learning order', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
-    expect(lessonsIn('data-structures')).toHaveLength(10);
+    expect(lessonsIn('data-structures')).toHaveLength(11);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
   });
