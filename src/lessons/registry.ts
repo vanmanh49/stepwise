@@ -63,6 +63,7 @@ import { selectFrom } from './sql/select-from';
 import { subqueries } from './sql/subqueries';
 import { update } from './sql/update';
 import { where } from './sql/where';
+import { manyToMany } from './sql/many-to-many';
 import { selfJoin } from './sql/self-join';
 
 /** Every live lesson, in recommended learning order. Register new lessons here. */
@@ -130,6 +131,7 @@ export const lessons: Lesson[] = [
   leftJoin,
   subqueries,
   selfJoin,
+  manyToMany,
   createTable,
   constraints,
 ];
