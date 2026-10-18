@@ -1,6 +1,8 @@
+import { bank } from './bank';
 import { company } from './company';
 import { school } from './school';
 import { shop } from './shop';
+import { signups } from './signups';
 
 import type { SelectStatement } from '../ast';
 import { implicitIndexes, type IndexDef, type TableSchema } from '../schema';
@@ -13,7 +15,7 @@ export interface DatasetTable extends TableSchema {
   rowIds?: string[];
 }
 
-export type DatasetId = 'shop' | 'school' | 'company';
+export type DatasetId = 'shop' | 'school' | 'company' | 'bank' | 'signups';
 
 /** A read-only sample database. Tables hold at most 20 rows. */
 export interface Dataset {
@@ -33,7 +35,7 @@ export interface ViewDef {
   query: SelectStatement;
 }
 
-export const datasets: Record<DatasetId, Dataset> = { shop, school, company };
+export const datasets: Record<DatasetId, Dataset> = { shop, school, company, bank, signups };
 
 export function findTable(db: Dataset, name: string): DatasetTable | undefined {
   const wanted = name.toLowerCase();
