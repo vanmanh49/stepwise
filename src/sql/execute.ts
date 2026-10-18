@@ -53,6 +53,8 @@ export type TraceEvent =
   | { kind: 'compound-side'; index: number; op?: SetOp; relation: Relation }
   /** Notes are keyed by row id, e.g. "duplicate, dropped". */
   | { kind: 'cte'; name: string; relation: Relation }
+  /** Round 0 is the anchor; the last round adds no rows. */
+  | { kind: 'recursion-round'; name: string; round: number; read: Relation; added: Relation; total: Relation }
   | { kind: 'combined'; op: SetOp; left: Relation; right: Relation; relation: Relation; notes: Record<string, string> };
 
 export type RunResult = { ok: true; result: QueryResult; statement: SelectStatement } | { ok: false; error: SqlError };
@@ -368,7 +370,9 @@ export function bindCtes(
   for (const cte of ctes) {
     if (refersTo(cte.query, cte.name)) {
       if (!cte.recursive) throw new SqlError('Add RECURSIVE to let a CTE refer to itself.', 'syntax', cte.line, cte.column);
-      bound.set(cte.name.toLowerCase(), recursiveCte(db, cte, bound, outer, trace));
+      const relation = recursiveCte(db, cte, bound, outer, trace);
+      bound.set(cte.name.toLowerCase(), relation);
+      trace?.({ kind: 'cte', name: cte.name, relation });
       continue;
     }
     const result = executeSelect(db, cte.query, undefined, outer, undefined, bound);
@@ -391,9 +395,64 @@ function cteRelation(cte: Cte, columns: string[], rows: Row[]): Relation {
   return { columns: (cte.columns ?? columns).map((name) => ({ table: cte.name, name })), rows };
 }
 
-/** Placeholder until WITH RECURSIVE is supported. */
-function recursiveCte(_db: Dataset, cte: Cte, _bound: Map<string, Relation>, _outer?: Scope, _trace?: Trace): Relation {
-  throw new SqlError('`WITH RECURSIVE` isn\'t supported here yet.', 'unsupported', cte.line, cte.column);
+/** Most rounds and rows a recursive CTE may produce, so a recursion without an end cannot freeze the page. */
+export const MAX_ROUNDS = 100;
+export const MAX_RECURSIVE_ROWS = 1000;
+
+/**
+ * WITH RECURSIVE name AS (anchor UNION [ALL] step): the anchor runs once, then the step runs
+ * again and again on the rows the previous round added, until a round adds nothing. With UNION,
+ * rows already found are not added again, which also ends cycles.
+ */
+function recursiveCte(db: Dataset, cte: Cte, bound: Map<string, Relation>, outer?: Scope, trace?: Trace): Relation {
+  const parts = cte.query.compound ?? [];
+  const anchor = { ...cte.query, compound: undefined, orderBy: [], limit: undefined } as SelectStatement;
+  const step = parts[0]?.select;
+  const references = (s: SelectStatement) =>
+    [s.from?.table, ...s.joins.map((j) => j.table)].filter((t) => t?.toLowerCase() === cte.name.toLowerCase()).length;
+  if (parts.length !== 1 || !step || refersTo(anchor, cte.name) || references(step) !== 1 || (step.compound ?? []).length > 0) {
+    throw new SqlError('A recursive CTE must refer to itself exactly once, in FROM or JOIN.', 'syntax', cte.line, cte.column);
+  }
+  const op = parts[0]!.op;
+  if (op !== 'UNION' && op !== 'UNION ALL') {
+    throw new SqlError('A recursive CTE joins its two SELECTs with UNION or UNION ALL.', 'syntax', parts[0]!.line, 1);
+  }
+
+  const anchorResult = executeSelect(db, anchor, undefined, outer, undefined, bound);
+  const columns = cte.columns ?? anchorResult.columns;
+  const all: Row[] = [];
+  const seen = new Set<string>();
+  const add = (values: SqlValue[]): Row | undefined => {
+    const key = values.map(valueKey).join('|');
+    if (op === 'UNION' && seen.has(key)) return undefined;
+    seen.add(key);
+    const row = { id: `${cte.name}#${all.length}`, values };
+    all.push(row);
+    return row;
+  };
+  const relationOf = (rows: Row[]) => cteRelation(cte, columns, rows);
+  const guard = () => new SqlError('This recursion never stops on its own. Add a condition that ends it, such as WHERE n < 10.', 'limit', cte.line, cte.column);
+
+  let working = anchorResult.rows.flatMap((values) => add(values) ?? []);
+  trace?.({ kind: 'recursion-round', name: cte.name, round: 0, read: relationOf([]), added: relationOf(working), total: relationOf([...all]) });
+  for (let round = 1; working.length > 0; round++) {
+    if (round > MAX_ROUNDS) throw guard();
+    const scope = new Map(bound).set(cte.name.toLowerCase(), relationOf(working));
+    const result = executeSelect(db, step, undefined, outer, undefined, scope);
+    if (result.columns.length !== columns.length) {
+      throw new SqlError(
+        `Each SELECT in a UNION must return the same number of columns: the first returns ${columns.length}, this one returns ${result.columns.length}.`,
+        'syntax',
+        parts[0]!.selectLine,
+        parts[0]!.selectColumn,
+      );
+    }
+    const read = working;
+    working = result.rows.flatMap((values) => add(values) ?? []);
+    if (all.length > MAX_RECURSIVE_ROWS) throw guard();
+    trace?.({ kind: 'recursion-round', name: cte.name, round, read: relationOf(read), added: relationOf(working), total: relationOf([...all]) });
+  }
+  return relationOf(all);
 }
 
 export function executeSelect(

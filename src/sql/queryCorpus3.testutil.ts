@@ -59,4 +59,17 @@ export const corpus3: Entry[] = [
   shop("WITH busy AS (SELECT customer_id, COUNT(*) AS n FROM orders GROUP BY customer_id HAVING COUNT(*) > 1) SELECT c.name, b.n FROM customers c JOIN busy b ON b.customer_id = c.id"),
   school('WITH graded AS (SELECT * FROM enrollments WHERE grade IS NOT NULL) SELECT student_id, AVG(grade) FROM graded GROUP BY student_id'),
   company('WITH x AS (SELECT 7 / 2 AS i, 7.0 / 2 AS r) SELECT i, r, i * 2, r * 2 FROM x'),
+  // Recursive CTEs
+  shop('WITH RECURSIVE n (x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 10) SELECT x FROM n', true),
+  shop('WITH RECURSIVE n (x) AS (SELECT 1 UNION SELECT x + 1 FROM n WHERE x < 5) SELECT SUM(x) FROM n'),
+  shop('WITH RECURSIVE f (n, fact) AS (SELECT 1, 1 UNION ALL SELECT n + 1, fact * (n + 1) FROM f WHERE n < 6) SELECT * FROM f'),
+  company('WITH RECURSIVE chain (id, name, level) AS (SELECT id, name, 1 FROM employees WHERE manager_id IS NULL UNION ALL SELECT e.id, e.name, c.level + 1 FROM employees e JOIN chain c ON e.manager_id = c.id) SELECT name, level FROM chain'),
+  company("WITH RECURSIVE up (id, name, manager_id) AS (SELECT id, name, manager_id FROM employees WHERE name = 'Bao' UNION ALL SELECT e.id, e.name, e.manager_id FROM employees e JOIN up ON e.id = up.manager_id) SELECT name FROM up"),
+  company("WITH RECURSIVE under (id) AS (SELECT id FROM employees WHERE name = 'Minh' UNION ALL SELECT e.id FROM employees e JOIN under u ON e.manager_id = u.id) SELECT e.name FROM employees e JOIN under u ON u.id = e.id WHERE e.name <> 'Minh'"),
+  company('WITH RECURSIVE chain (id, level) AS (SELECT id, 1 FROM employees WHERE manager_id IS NULL UNION ALL SELECT e.id, c.level + 1 FROM employees e JOIN chain c ON e.manager_id = c.id) SELECT level, COUNT(*) FROM chain GROUP BY level'),
+  company('WITH RECURSIVE chain (id, path) AS (SELECT id, name FROM employees WHERE manager_id IS NULL UNION ALL SELECT e.id, c.path FROM employees e JOIN chain c ON e.manager_id = c.id) SELECT COUNT(DISTINCT path) FROM chain'),
+  company('WITH RECURSIVE d (n) AS (SELECT 1 UNION ALL SELECT n * 2 FROM d WHERE n < 500) SELECT MAX(n), COUNT(*) FROM d'),
+  company('WITH RECURSIVE chain (id) AS (SELECT id FROM employees WHERE id = 2 UNION SELECT e.id FROM employees e JOIN chain c ON e.manager_id = c.id OR e.id = c.id) SELECT COUNT(*) FROM chain'),
+  school('WITH RECURSIVE y (n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM y WHERE n < 4) SELECT n, (SELECT COUNT(*) FROM students WHERE year = n) FROM y'),
+  company('WITH RECURSIVE n (x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 3), m AS (SELECT x * 10 AS y FROM n) SELECT * FROM m'),
 ];

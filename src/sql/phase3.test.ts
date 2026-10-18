@@ -206,3 +206,48 @@ describe('CTEs', () => {
     expect(ins.ok && findTable(ins.db, 'employees')!.rows.at(-1)).toEqual([13, 'Tam', null, null, 3000, null]);
   });
 });
+
+describe('recursive CTEs', () => {
+  const company = datasets.company;
+  const GUARD = 'This recursion never stops on its own. Add a condition that ends it, such as WHERE n < 10.';
+
+  it('counts from 1 to 10', () => {
+    expect(rows('WITH RECURSIVE n (x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 10) SELECT x FROM n').map((r) => r[0])).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ]);
+  });
+
+  it('walks down the org chart with levels', () => {
+    const sql =
+      'WITH RECURSIVE chain (id, name, level) AS (SELECT id, name, 1 FROM employees WHERE manager_id IS NULL UNION ALL SELECT e.id, e.name, c.level + 1 FROM employees e JOIN chain c ON e.manager_id = c.id) SELECT name, level FROM chain ORDER BY level, name';
+    expect(rows(sql, company)).toEqual([
+      ['Lan', 1], ['Hoa', 2], ['Minh', 2], ['Thu', 2], ['Linh', 3], ['Quang', 3], ['Tuan', 3], ['Vy', 3], ['Khoa', 4], ['Mai', 4], ['Nam', 4], ['Bao', 5],
+    ]);
+  });
+
+  it('walks up from Bao to Lan', () => {
+    const sql =
+      "WITH RECURSIVE up (id, name, manager_id) AS (SELECT id, name, manager_id FROM employees WHERE name = 'Bao' UNION ALL SELECT e.id, e.name, e.manager_id FROM employees e JOIN up ON e.id = up.manager_id) SELECT name FROM up";
+    expect(rows(sql, company).map((r) => r[0])).toEqual(['Bao', 'Khoa', 'Tuan', 'Minh', 'Lan']);
+  });
+
+  it('stops at a cycle with UNION, and hits the guard with UNION ALL', () => {
+    const setup = 'CREATE TABLE edges (a INTEGER, b INTEGER);\nINSERT INTO edges VALUES (1, 2), (2, 3), (3, 1);\n';
+    const union = runScript(company, `${setup}WITH RECURSIVE r (n) AS (SELECT 1 UNION SELECT b FROM edges JOIN r ON a = n) SELECT n FROM r`);
+    expect(union.ok && union.statements.at(-1)!.result!.rows).toEqual([[1], [2], [3]]);
+    const all = runScript(company, `${setup}WITH RECURSIVE r (n) AS (SELECT 1 UNION ALL SELECT b FROM edges JOIN r ON a = n) SELECT n FROM r`);
+    expect(!all.ok && all.error.message).toBe(GUARD);
+  });
+
+  it('stops a recursion that never ends', () => {
+    const e = error('WITH RECURSIVE n (x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n) SELECT * FROM n');
+    expect(e.kind).toBe('limit');
+    expect(e.message).toBe(GUARD);
+  });
+
+  it('needs the step to refer to the CTE exactly once', () => {
+    expect(error('WITH RECURSIVE n (x) AS (SELECT 1 UNION ALL SELECT a.x FROM n a JOIN n b ON a.x = b.x) SELECT * FROM n').message).toBe(
+      'A recursive CTE must refer to itself exactly once, in FROM or JOIN.',
+    );
+  });
+});
