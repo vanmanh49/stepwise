@@ -18,7 +18,7 @@ export const constraints: Lesson = {
     'Constraints are rules written into a table’s design. The database checks them on every INSERT and UPDATE and refuses any change that would break one. They stop bad data at the door instead of leaving every program to remember the rules.',
   concept: [
     'Imagine a club register. Every member needs a student number, no two members may share an email, members must be at least 16, and the student number must belong to a real student. Constraints write exactly these rules into the table.',
-    'NOT NULL means a column must always have a value. UNIQUE means no two rows may have the same value in it (NULLs do not count as equal, so several NULLs are allowed). PRIMARY KEY marks the column, or group of columns, that identifies each row: it is unique, and in SQLite an INTEGER PRIMARY KEY also numbers itself.',
+    'NOT NULL means a column must always have a value. UNIQUE means no two rows may have the same value in it (NULLs do not count as equal, so several NULLs are allowed). PRIMARY KEY marks the column, or group of columns, that identifies each row: it is unique, and in SQLite an INTEGER PRIMARY KEY also numbers itself. One SQLite quirk: any other PRIMARY KEY still allows NULL, unlike most databases, so add NOT NULL to it when every row needs a key.',
     'CHECK (condition) refuses a row when the condition is false, such as CHECK (age >= 16). A NULL age makes the condition unknown, and unknown passes, so pair CHECK with NOT NULL when the value is required.',
     'REFERENCES other(column), a foreign key, says a value must exist in another table: student_id REFERENCES students(id) refuses a member whose student does not exist, and refuses deleting a student who still has members. When any rule fails, the whole statement is undone.',
   ],
@@ -61,7 +61,7 @@ export const constraints: Lesson = {
         probes: [
           'INSERT INTO members (email) VALUES (NULL)',
           "INSERT INTO members (email) VALUES ('a@club.vn'), ('a@club.vn')",
-          "INSERT INTO members (email) VALUES ('a@club.vn'), ('b@club.vn'); SELECT email FROM members",
+          "INSERT INTO members (email) VALUES ('a@club.vn'), ('b@club.vn'); SELECT id, email FROM members",
         ],
         hint: 'Put NOT NULL and UNIQUE after the email column’s type.',
       },

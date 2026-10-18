@@ -46,7 +46,7 @@ export const deleteLesson: Lesson = {
         prompt: 'Delete the items of every cancelled order.',
         solution: "DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE status = 'cancelled');",
         orderMatters: false,
-        probes: ['SELECT * FROM order_items'],
+        probes: ['SELECT * FROM order_items', 'SELECT id, status FROM orders'],
         hint: 'Find the cancelled orders’ ids with a subquery, then use WHERE order_id IN (…).',
       },
       {

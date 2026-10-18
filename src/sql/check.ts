@@ -51,13 +51,19 @@ export function probeOutcomes(db: Dataset, script: string, probes: string[]): Pr
   });
 }
 
+/** PRIMARY KEY and UNIQUE refuse a duplicate in the same way, so either answers a "no repeats" probe. */
+const sameRule = (a: ConstraintInfo['rule'], b: ConstraintInfo['rule']) => {
+  const duplicate = (rule: ConstraintInfo['rule']) => rule === 'PRIMARY KEY' || rule === 'UNIQUE';
+  return a === b || (duplicate(a) && duplicate(b));
+};
+
 function sameOutcome(a: ProbeOutcome, b: ProbeOutcome, orderMatters: boolean): boolean {
   if (a.kind === 'rows' && b.kind === 'rows') {
     if (a.columns !== b.columns || a.keys.length !== b.keys.length) return false;
     if (orderMatters) return a.keys.every((k, i) => k === b.keys[i]);
     return surplus(counts(a.keys), counts(b.keys)) === 0;
   }
-  if (a.kind === 'constraint' && b.kind === 'constraint') return a.rule === b.rule && a.table === b.table;
+  if (a.kind === 'constraint' && b.kind === 'constraint') return sameRule(a.rule, b.rule) && a.table === b.table;
   if (a.kind === 'error' && b.kind === 'error') return a.message === b.message;
   return false;
 }
@@ -120,6 +126,9 @@ export function describeCheck(result: CheckResult): string {
       }
       if (expected.kind === 'rows' && actual.kind === 'constraint') {
         return `\`${probe}\` should succeed, but your table rejected it (${actual.rule} on ${actual.table}).`;
+      }
+      if (expected.kind === 'constraint' && actual.kind === 'constraint') {
+        return `\`${probe}\` should fail with ${expected.rule}, but your table failed it with ${actual.rule}.`;
       }
       if (expected.kind === 'rows' && actual.kind === 'rows') {
         if (expected.columns !== actual.columns) {
