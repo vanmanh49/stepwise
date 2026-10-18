@@ -3,7 +3,7 @@ import { findTable, type ColumnType, type Dataset } from './datasets';
 import { asSqlError, SqlError, suggest } from './errors';
 import { aggregateValues, evaluate, evaluateTruth, referencedColumns, resolveColumn, windowKey, type Scope } from './evaluate';
 import { parseQuery } from './parse';
-import { compareValues, Real, toNumber, valueKey, type SqlValue, type Truth } from './values';
+import { compare, compareValues, Real, toNumber, valueKey, type SqlValue, type Truth } from './values';
 
 export interface ColumnRef {
   /** The alias if the query gave one, else the table name. */
@@ -53,6 +53,8 @@ export type TraceEvent =
   | { kind: 'compound-side'; index: number; op?: SetOp; relation: Relation }
   /** Notes are keyed by row id, e.g. "duplicate, dropped". */
   | { kind: 'cte'; name: string; relation: Relation }
+  /** Which branch of a SELECT column's CASE one row took. */
+  | { kind: 'case-row'; input: Relation; row: string; branch: string; value: SqlValue; values: Record<string, string> }
   /** Round 0 is the anchor; the last round adds no rows. */
   | { kind: 'recursion-round'; name: string; round: number; read: Relation; added: Relation; total: Relation }
   | { kind: 'combined'; op: SetOp; left: Relation; right: Relation; relation: Relation; notes: Record<string, string> };
@@ -584,6 +586,29 @@ export function executeSelect(
   }
   if (rows.length === 0) for (const c of cols) if (c.expr) evaluate(c.expr, empty);
   const scopeById = new Map(rows.map((row) => [row.id, scopeOf(row)]));
+  if (trace && !grouped) {
+    let firstCase: Extract<Expr, { type: 'case' }> | undefined;
+    for (const c of cols) {
+      if (c.expr) {
+        walk(c.expr, (node) => {
+          if (node.type === 'case') firstCase ??= node;
+        });
+      }
+    }
+    if (firstCase) {
+      for (const row of rows) {
+        const scope = scopeById.get(row.id)!;
+        trace({
+          kind: 'case-row',
+          input: filtered,
+          row: row.id,
+          branch: caseBranch(firstCase, scope),
+          value: evaluate(firstCase, scope),
+          values: referencedColumns(firstCase, scope),
+        });
+      }
+    }
+  }
   let projected: Relation = {
     columns: cols.map((c) => ({ name: c.name })),
     rows: rows.map((row) => {
@@ -652,6 +677,19 @@ export function executeSelect(
   }
 
   return { columns: cols.map((c) => c.name), rows: projected.rows.map((row) => row.values) };
+}
+
+/** Which branch a CASE takes for a row, in words. */
+function caseBranch(expr: Extract<Expr, { type: 'case' }>, scope: Scope): string {
+  const operand = expr.operand ? evaluate(expr.operand, scope) : undefined;
+  for (const { when } of expr.whens) {
+    if (expr.operand) {
+      if (compare('=', operand!, evaluate(when, scope)) === true) return `WHEN ${when.text} matches`;
+    } else if (evaluateTruth(when, scope) === true) {
+      return `WHEN ${when.text} is true`;
+    }
+  }
+  return expr.else ? 'ELSE' : 'no WHEN applies, so NULL';
 }
 
 const rowKey = (row: Row) => row.values.map(valueKey).join('|');

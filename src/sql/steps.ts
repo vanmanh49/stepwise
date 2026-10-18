@@ -4,7 +4,7 @@ import type { Dataset } from './datasets';
 import { asSqlError, type SqlError } from './errors';
 import { executeSelect, type QueryResult, type Relation, type TraceEvent } from './execute';
 import { parseQuery } from './parse';
-import { toPlain, type Truth } from './values';
+import { formatValue, toPlain, type Truth } from './values';
 
 export const MAX_STEPS = 400;
 /** Row checks shown per clause before the rest are summarised, when a run would be too long. */
@@ -68,6 +68,9 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
   let fromLabel = '';
   let workingLabel = '';
   let lastScan = '';
+  let scans = 0;
+  const tableNames = [stmt.from?.table, ...stmt.joins.map((j) => j.table)].flatMap((t) => (t ? [t.toLowerCase()] : []));
+  const repeated = new Set(tableNames.filter((t, i) => tableNames.indexOf(t) !== i));
   let joinIndex = -1;
   let joinLeft: Relation | undefined;
   // Checks of the current clause in order; each step's view reads the checks made so far.
@@ -83,21 +86,41 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
 
   for (const event of events) {
     switch (event.kind) {
-      case 'scan':
-        lastScan = event.table;
+      case 'scan': {
+        // A table that appears more than once (a self join) is labelled by alias: "e (employees)".
+        const ref = scans === 0 ? stmt.from : stmt.joins[scans - 1];
+        scans++;
+        const label = ref?.alias && repeated.has(ref.table.toLowerCase()) ? `${ref.alias} (${event.table})` : event.table;
+        lastScan = label;
         if (drafts.length > 0) break; // a JOIN's table; its pairs show it
-        fromLabel = workingLabel = event.table;
+        fromLabel = workingLabel = label;
         lastRelation = event.relation;
         push(undefined, {
           title: 'Run the query',
           why: `SQL runs the clauses in this order: ${clauses.join(' → ')}.`,
           next: 'FROM picks the table to read.',
-        }, () => [toTable(event.table, event.relation)]);
+        }, () => [toTable(label, event.relation)]);
         push('FROM', {
           title: `FROM ${event.table}: start with all ${rows(event.relation.rows.length)}`,
           why: 'FROM picks the table the query reads. Every later clause works on these rows.',
-        }, () => [toTable(event.table, event.relation)]);
+        }, () => [toTable(label, event.relation)]);
         break;
+      }
+
+      case 'case-row': {
+        const i = event.input.rows.findIndex((r) => r.id === event.row);
+        const shown = typeof event.value === 'string' ? `'${event.value}'` : formatValue(event.value);
+        const read = Object.entries(event.values).map(([k, v]) => `${k} ${v}`).join(', ');
+        const focus = focusOf(event.input, event.values);
+        push('SELECT', {
+          title: `Row ${i + 1}: ${read ? `${read} → ` : ''}${event.branch} → ${shown}`,
+          why: 'CASE tries its WHEN conditions in order and uses the first one that is true. If none is, it uses ELSE, or NULL when there is no ELSE.',
+        }, () => [toTable(workingLabel, event.input, (id) => (id === event.row ? { role: 'active', note: shown, ...(focus.length > 0 && { focus }) } : {}))], {
+          group: 'CASE',
+          kept: true,
+        });
+        break;
+      }
 
       case 'join-test': {
         if (joinLeft !== event.left) {
