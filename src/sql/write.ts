@@ -5,6 +5,7 @@ import { ConstraintError, SqlError, suggest } from './errors';
 import { evaluate } from './evaluate';
 import { bindCtes, executeSelect, filter, nullRow, scan, type Env, type QueryResult, type Relation, type Row, type TraceEvent } from './execute';
 import { firstNode } from './parse';
+import { planSelect, type PlanEntry } from './plan';
 import { formatLiteral, isRowidAlias, type TableSchema } from './schema';
 import { applyAffinity, valueKey, type SqlValue } from './values';
 
@@ -25,6 +26,7 @@ export type WriteEvent =
   | { kind: 'rolled-back'; table: string; relation?: Relation }
   | { kind: 'index-created' | 'index-dropped'; index: IndexDef }
   | { kind: 'view-created' | 'view-dropped'; view: ViewDef }
+  | { kind: 'explained'; entries: PlanEntry[] }
   | TraceEvent;
 
 export type Emit = (event: WriteEvent) => void;
@@ -354,7 +356,12 @@ export function executeStatement(db: Dataset, statement: Statement, emit?: Emit)
       case 'drop-view':
         dropView(db, statement, emit);
         return { affected: 0 };
-      case 'explain':
+      case 'explain': {
+        const { entries } = planSelect(db, statement.select);
+        const result: QueryResult = { columns: ['id', 'parent', 'notused', 'detail'], rows: entries.map((e) => [e.id, e.parent, 0, e.detail]) };
+        emit?.({ kind: 'explained', entries });
+        return { affected: entries.length, result };
+      }
       case 'transaction':
       case 'set-isolation':
         throw new SqlError(`\`${statement.kind}\` isn't supported here yet.`, 'unsupported', statement.line, 1);

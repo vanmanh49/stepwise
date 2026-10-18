@@ -42,6 +42,32 @@ export function caseParts(expr: Extract<Expr, { type: 'case' }>): Expr[] {
   return [...(expr.operand ? [expr.operand] : []), ...expr.whens.flatMap((w) => [w.when, w.then]), ...(expr.else ? [expr.else] : [])];
 }
 
+/** The direct sub-expressions of a node, without entering subqueries. */
+export function exprChildren(expr: Expr): Expr[] {
+  switch (expr.type) {
+    case 'unary':
+    case 'isNull':
+    case 'inSubquery':
+      return [expr.operand];
+    case 'binary':
+      return [expr.left, expr.right];
+    case 'between':
+      return [expr.operand, expr.low, expr.high];
+    case 'like':
+      return [expr.operand, expr.pattern];
+    case 'inList':
+      return [expr.operand, ...expr.items];
+    case 'aggregate':
+      return expr.arg === '*' ? [] : [expr.arg];
+    case 'case':
+      return caseParts(expr);
+    case 'window':
+      return windowParts(expr);
+    default:
+      return [];
+  }
+}
+
 export type Clause = 'FROM' | 'JOIN' | 'WHERE' | 'GROUP BY' | 'HAVING' | 'SELECT' | 'DISTINCT' | 'ORDER BY' | 'LIMIT' | 'WITH' | 'WINDOW' | SetOp;
 
 /** The order SQL evaluates clauses in, which is also the order steps are shown. */
