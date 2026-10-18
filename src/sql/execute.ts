@@ -339,8 +339,11 @@ export function executeSelect(
   correlation?: { used: boolean },
 ): QueryResult {
   const env: Env = { outer, db, ctx: outer?.ctx ?? { cache: new Map(), work: 0 }, ...(correlation && { correlation }) };
-  let relation = scan(db, stmt.from);
-  trace?.({ kind: 'scan', table: findTable(db, stmt.from.table)!.name, relation });
+  let relation: Relation = { columns: [], rows: [{ id: 'one', values: [] }] };
+  if (stmt.from) {
+    relation = scan(db, stmt.from);
+    trace?.({ kind: 'scan', table: findTable(db, stmt.from.table)!.name, relation });
+  }
   for (const clause of stmt.joins) {
     rejectAggregate(clause.on, (fn) => `Aggregates like ${fn} can't be used in JOIN … ON.`);
     relation = join(relation, clause, env, trace);

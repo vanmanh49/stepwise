@@ -37,7 +37,7 @@ describe('parseScript', () => {
   it('parses INSERT … SELECT', () => {
     const insert = only('INSERT INTO t\nSELECT * FROM u', 'insert');
     expect(insert.values).toBeUndefined();
-    expect(insert.select?.from.table).toBe('u');
+    expect(insert.select?.from?.table).toBe('u');
     expect(insert.lines).toEqual({ INSERT: 1, SELECT: 2 });
   });
 

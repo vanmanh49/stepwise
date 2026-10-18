@@ -22,4 +22,9 @@ export const corpus3: Entry[] = [
   school("SELECT name, CASE year WHEN 1 THEN 'first' WHEN 2 THEN 'second' ELSE 'senior' END FROM students"),
   school("SELECT AVG(CASE WHEN grade >= 80 THEN 1.0 ELSE 0 END) FROM enrollments"),
   company("SELECT name, CASE WHEN manager_id IS NULL THEN 'boss' WHEN salary > 5000 THEN 'senior' ELSE 'staff' END FROM employees"),
+  // SELECT without FROM
+  shop("SELECT 1, 'a', NULL"),
+  shop('SELECT 7 / 2, 7.0 / 2, 7 % 3'),
+  shop('SELECT COUNT(*), SUM(5)'),
+  shop("SELECT CASE WHEN 1 > 2 THEN 'x' ELSE 'y' END"),
 ];

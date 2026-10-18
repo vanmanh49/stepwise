@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { datasets } from './datasets';
 import { runQuery } from './execute';
 import { parseQuery } from './parse';
+import { querySteps } from './steps';
 import { toPlain } from './values';
 
 export function rows(sql: string, db = datasets.shop) {
@@ -50,5 +51,36 @@ describe('CASE', () => {
       ['high', 4],
       ['low', 5],
     ]);
+  });
+});
+
+describe('SELECT without FROM', () => {
+  it('returns one row', () => {
+    expect(rows("SELECT 1, 'a'")).toEqual([[1, 'a']]);
+    expect(rows('SELECT 1 + 1 AS two')).toEqual([[2]]);
+  });
+
+  it('can be filtered away', () => {
+    expect(rows('SELECT 1 WHERE 0')).toEqual([]);
+  });
+
+  it('counts its one row', () => {
+    expect(rows('SELECT COUNT(*)')).toEqual([[1]]);
+  });
+
+  it('has no columns to name', () => {
+    expect(error('SELECT x').message).toContain('No column `x`');
+  });
+
+  it('still asks for a comma when two names run together', () => {
+    expect(error('SELECT name city FROM customers').message).toContain('Is a comma missing');
+  });
+
+  it('steps from start to result on line 1', () => {
+    const result = querySteps(datasets.shop, 'SELECT 1 + 1');
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.steps.length).toBeGreaterThanOrEqual(2);
+    expect(result.steps.every((s) => s.codeLine === 1)).toBe(true);
+    expect(result.steps.at(-1)!.title).toBe('Result: 1 row');
   });
 });

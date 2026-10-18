@@ -134,41 +134,44 @@ class Parser {
       columns.push(this.selectItem());
     }
 
-    const hint = this.token.kind === 'identifier' ? ' Is a comma missing, or AS before an alias?' : '';
-    lines.FROM = this.expectKeyword('FROM', hint).line;
-    const from = this.tableRef();
-    if (this.isPunct(',')) {
-      throw new SqlError(
-        "Joining tables with a comma isn't supported here. Use JOIN … ON instead.",
-        'unsupported',
-        this.token.line,
-        this.token.column,
-      );
-    }
-
+    if (this.token.kind === 'identifier') this.fail('FROM', ' Is a comma missing, or AS before an alias?');
+    // Without FROM, the query reads a single row with no columns, as in SQLite.
+    let from: TableRef | undefined;
     const joins: JoinClause[] = [];
-    for (;;) {
-      const start = this.token;
-      if (this.isKeyword('RIGHT', 'FULL', 'CROSS', 'NATURAL')) {
-        throw unsupported(`${start.value} JOIN`, start);
+    if (this.isKeyword('FROM')) {
+      lines.FROM = this.next().line;
+      from = this.tableRef();
+      if (this.isPunct(',')) {
+        throw new SqlError(
+          "Joining tables with a comma isn't supported here. Use JOIN … ON instead.",
+          'unsupported',
+          this.token.line,
+          this.token.column,
+        );
       }
-      let kind: JoinClause['kind'];
-      if (this.acceptKeyword('JOIN')) kind = 'inner';
-      else if (this.isKeyword('INNER')) {
-        this.next();
-        this.expectKeyword('JOIN');
-        kind = 'inner';
-      } else if (this.isKeyword('LEFT')) {
-        this.next();
-        this.acceptKeyword('OUTER');
-        this.expectKeyword('JOIN');
-        kind = 'left';
-      } else break;
-      const ref = this.tableRef();
-      if (this.isKeyword('USING')) throw unsupported('USING', this.token);
-      this.expectKeyword('ON');
-      joins.push({ kind, ...ref, on: this.expr(), line: start.line });
-      lines.JOIN ??= start.line;
+      for (;;) {
+        const start = this.token;
+        if (this.isKeyword('RIGHT', 'FULL', 'CROSS', 'NATURAL')) {
+          throw unsupported(`${start.value} JOIN`, start);
+        }
+        let kind: JoinClause['kind'];
+        if (this.acceptKeyword('JOIN')) kind = 'inner';
+        else if (this.isKeyword('INNER')) {
+          this.next();
+          this.expectKeyword('JOIN');
+          kind = 'inner';
+        } else if (this.isKeyword('LEFT')) {
+          this.next();
+          this.acceptKeyword('OUTER');
+          this.expectKeyword('JOIN');
+          kind = 'left';
+        } else break;
+        const ref = this.tableRef();
+        if (this.isKeyword('USING')) throw unsupported('USING', this.token);
+        this.expectKeyword('ON');
+        joins.push({ kind, ...ref, on: this.expr(), line: start.line });
+        lines.JOIN ??= start.line;
+      }
     }
 
     let where: Expr | undefined;
@@ -219,7 +222,7 @@ class Parser {
     return {
       distinct,
       columns,
-      from,
+      ...(from && { from }),
       joins,
       ...(where && { where }),
       groupBy,

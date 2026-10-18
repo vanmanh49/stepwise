@@ -50,7 +50,8 @@ export interface JoinClause extends TableRef {
 export interface SelectStatement {
   distinct: boolean;
   columns: SelectItem[];
-  from: TableRef;
+  /** Absent for SELECT without FROM, which reads one row with no columns. */
+  from?: TableRef;
   joins: JoinClause[];
   where?: Expr;
   groupBy: Expr[];

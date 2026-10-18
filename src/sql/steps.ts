@@ -74,6 +74,13 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
   let tested: [id: string, outcome: Truth][] = [];
   let lastRelation: Relation | undefined;
 
+  if (!stmt.from) {
+    push(undefined, {
+      title: 'Run the query',
+      why: `Without FROM, the query works on a single row with no columns. Clauses run in this order: ${clauses.join(' → ')}.`,
+    }, () => []);
+  }
+
   for (const event of events) {
     switch (event.kind) {
       case 'scan':
