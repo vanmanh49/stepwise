@@ -1,4 +1,4 @@
-import type { AggregateFn, Expr, JoinClause, SelectItem, SelectStatement, Statement, TableRef } from './ast';
+import { caseParts, type AggregateFn, type Expr, type JoinClause, type SelectItem, type SelectStatement, type Statement, type TableRef } from './ast';
 import { asSqlError, SqlError } from './errors';
 import type { ColumnDef, ColumnType, TableSchema } from './schema';
 import { tokenize, type Token } from './tokenize';
@@ -27,7 +27,6 @@ const LATER: Record<string, string | undefined> = {
   INTERSECT: 'set-operations',
   EXCEPT: 'set-operations',
   OVER: 'window-functions',
-  CASE: 'case-expressions',
   EXISTS: undefined,
 };
 
@@ -694,6 +693,7 @@ class Parser {
         this.next();
         return this.node(t, { type: 'literal', value: t.value });
       case 'keyword':
+        if (t.value === 'CASE') return this.caseExpr();
         if (t.value === 'NULL' || t.value === 'TRUE' || t.value === 'FALSE') {
           this.next();
           return this.node(t, { type: 'literal', value: t.value === 'NULL' ? null : t.value === 'TRUE' ? 1 : 0 });
@@ -725,6 +725,21 @@ class Parser {
       default:
         return this.fail('a value or column');
     }
+  }
+
+  private caseExpr(): Expr {
+    const start = this.expectKeyword('CASE');
+    const operand = this.isKeyword('WHEN') ? undefined : this.expr();
+    const whens: { when: Expr; then: Expr }[] = [];
+    do {
+      this.expectKeyword('WHEN');
+      const when = this.expr();
+      this.expectKeyword('THEN');
+      whens.push({ when, then: this.expr() });
+    } while (this.isKeyword('WHEN'));
+    const otherwise = this.acceptKeyword('ELSE') ? this.expr() : undefined;
+    this.expectKeyword('END');
+    return this.node(start, { type: 'case', ...(operand && { operand }), whens, ...(otherwise && { else: otherwise }) });
   }
 
   private call(): Expr {
@@ -789,6 +804,9 @@ export function firstNode(expr: Expr, test: (e: Expr) => boolean): Expr | undefi
       break;
     case 'aggregate':
       if (expr.arg !== '*') children.push(expr.arg);
+      break;
+    case 'case':
+      children.push(...caseParts(expr));
       break;
   }
   for (const child of children) {

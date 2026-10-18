@@ -128,7 +128,6 @@ describe('parse errors', () => {
     ['SELECT a FROM t UNION SELECT a FROM u', '`UNION` isn\'t supported here yet. It is covered in a later lesson.', 'set-operations'],
     ['WITH x AS (SELECT 1) SELECT * FROM x', '`WITH` isn\'t supported here yet. It is covered in a later lesson.', 'ctes'],
     ['SELECT COUNT(*) OVER (PARTITION BY a) FROM t', '`OVER` isn\'t supported here yet. It is covered in a later lesson.', 'window-functions'],
-    ["SELECT CASE WHEN a THEN 1 END FROM t", '`CASE` isn\'t supported here yet. It is covered in a later lesson.', 'case-expressions'],
     ['SELECT * FROM t RIGHT JOIN u ON t.a = u.a', '`RIGHT JOIN` isn\'t supported here yet.', undefined],
     ['SELECT UPPER(name) FROM t', 'Function `UPPER` isn\'t supported here yet.', undefined],
   ])('explains that %s is unsupported', (sql, message, topic) => {

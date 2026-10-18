@@ -1,4 +1,4 @@
-import type { Expr, SelectStatement } from './ast';
+import { caseParts, type Expr, type SelectStatement } from './ast';
 import type { ColumnType, Dataset } from './datasets';
 import { SqlError, suggest } from './errors';
 import { executeSelect, type ColumnRef, type Row } from './execute';
@@ -203,6 +203,14 @@ export function evaluate(expr: Expr, scope: Scope): SqlValue {
       return runSubquery(expr, scope, 'used as a value')[0] ?? null;
     case 'aggregate':
       return aggregate(expr, scope);
+    case 'case': {
+      const operand = expr.operand ? evaluate(expr.operand, scope) : undefined;
+      for (const { when, then } of expr.whens) {
+        const hit = expr.operand ? compare('=', operand!, evaluate(when, scope)) : evaluateTruth(when, scope);
+        if (hit === true) return evaluate(then, scope);
+      }
+      return expr.else ? evaluate(expr.else, scope) : null;
+    }
   }
 }
 
@@ -276,6 +284,8 @@ export function referencedColumns(expr: Expr, scope: Scope): Record<string, stri
       case 'aggregate':
         values[e.text] = formatValue(evaluate(e, scope));
         return;
+      case 'case':
+        return caseParts(e).forEach(visit);
       default:
         return;
     }

@@ -1,4 +1,4 @@
-import type { Expr, JoinClause, SelectStatement, TableRef } from './ast';
+import { caseParts, type Expr, type JoinClause, type SelectStatement, type TableRef } from './ast';
 import { findTable, type ColumnType, type Dataset } from './datasets';
 import { asSqlError, SqlError, suggest } from './errors';
 import { evaluate, evaluateTruth, referencedColumns, resolveColumn, type Scope } from './evaluate';
@@ -195,6 +195,9 @@ function walk(expr: Expr, visit: (e: Expr, insideAggregate: boolean) => void | f
     case 'aggregate':
       if (expr.arg !== '*') walk(expr.arg, visit, true);
       return;
+    case 'case':
+      children.push(...caseParts(expr));
+      break;
     default:
       return;
   }
@@ -279,6 +282,13 @@ function mapChildren(expr: Expr, f: (e: Expr) => Expr): Expr {
       return { ...expr, operand: f(expr.operand), items: expr.items.map(f) };
     case 'aggregate':
       return expr.arg === '*' ? expr : { ...expr, arg: f(expr.arg) };
+    case 'case':
+      return {
+        ...expr,
+        ...(expr.operand && { operand: f(expr.operand) }),
+        whens: expr.whens.map((w) => ({ when: f(w.when), then: f(w.then) })),
+        ...(expr.else && { else: f(expr.else) }),
+      };
     default:
       return expr;
   }

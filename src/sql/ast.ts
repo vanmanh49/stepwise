@@ -17,7 +17,14 @@ export type Expr = { text: string; line: number; column: number } & (
   | { type: 'inSubquery'; operand: Expr; query: SelectStatement; negated: boolean }
   | { type: 'subquery'; query: SelectStatement }
   | { type: 'aggregate'; fn: AggregateFn; arg: Expr | '*'; distinct: boolean }
+  /** Searched CASE has no operand; simple CASE compares the operand with each WHEN. */
+  | { type: 'case'; operand?: Expr; whens: { when: Expr; then: Expr }[]; else?: Expr }
 );
+
+/** The sub-expressions of a CASE, in evaluation order. */
+export function caseParts(expr: Extract<Expr, { type: 'case' }>): Expr[] {
+  return [...(expr.operand ? [expr.operand] : []), ...expr.whens.flatMap((w) => [w.when, w.then]), ...(expr.else ? [expr.else] : [])];
+}
 
 export type Clause = 'FROM' | 'JOIN' | 'WHERE' | 'GROUP BY' | 'HAVING' | 'SELECT' | 'DISTINCT' | 'ORDER BY' | 'LIMIT';
 
