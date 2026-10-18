@@ -241,10 +241,12 @@ function readIndexed(source: Indexed, scope: Scope, env: Env, trace?: Trace): Re
   }
   const rows = rowids.map((id) => byId.get(id)!);
   const result = { columns: relation.columns, rows };
+  // Values as SQL would write them, so text keeps its quotes.
+  const literal = (v: SqlValue) => (typeof v === 'string' ? `'${v}'` : formatValue(v));
   const condition = [
-    ...index.columns.slice(0, k).map((c, i) => (prefixes.length > 1 && path.equal[i]!.length > 1 ? `${c} IN (${path.equal[i]!.map((e) => formatValue(evaluate(e, scope))).join(', ')})` : `${c} = ${formatValue(prefixes[0]![i]!)}`)),
-    ...(low ? [`${index.columns[k]} ${low.inclusive ? '>=' : '>'} ${formatValue(low.value)}`] : []),
-    ...(high ? [`${index.columns[k]} ${high.inclusive ? '<=' : '<'} ${formatValue(high.value)}`] : []),
+    ...index.columns.slice(0, k).map((c, i) => (prefixes.length > 1 && path.equal[i]!.length > 1 ? `${c} IN (${path.equal[i]!.map((e) => literal(evaluate(e, scope))).join(', ')})` : `${c} = ${literal(prefixes[0]![i]!)}`)),
+    ...(low ? [`${index.columns[k]} ${low.inclusive ? '>=' : '>'} ${literal(low.value)}`] : []),
+    ...(high ? [`${index.columns[k]} ${high.inclusive ? '<=' : '<'} ${literal(high.value)}`] : []),
   ].join(' AND ');
   trace?.({
     kind: 'index-search',

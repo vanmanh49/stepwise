@@ -148,3 +148,9 @@ A: COMMIT`;
     expect(t.indexOf('B goes on: UPDATE accounts SET balance = 400 WHERE id = 1')).toBeGreaterThan(t.indexOf('A: COMMIT'));
   });
 });
+
+describe('search conditions', () => {
+  it('quote text values', () => {
+    expect(titles(steps("CREATE INDEX idx_name ON employees(name);\nSELECT * FROM employees WHERE name = 'Khoa'"))).toContain("Search idx_name for name = 'Khoa'");
+  });
+});

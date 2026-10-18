@@ -290,7 +290,7 @@ function createIndex(db: Dataset, st: Extract<Statement, { kind: 'create-index' 
       const first = seen.get(key);
       if (first !== undefined) {
         const described = index.columns.map((c, k) => `${c} ${formatLiteral(values[k]!)}`).join(', ');
-        throw new SqlError(`Can't create UNIQUE index \`${st.name}\`: rows ${first + 1} and ${i + 1} both have ${described}.`, 'constraint', st.line, st.column);
+        throw new SqlError(`Can't create UNIQUE index \`${st.name}\`: rows ${first + 1} and ${i + 1} both have ${described}.`, 'syntax', st.line, st.column);
       }
       seen.set(key, i);
     });

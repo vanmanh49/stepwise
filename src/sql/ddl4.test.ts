@@ -45,6 +45,13 @@ describe('CREATE INDEX and DROP INDEX', () => {
     expect(ok('CREATE UNIQUE INDEX i ON employees(name)').db.indexes![0]!.unique).toBe(true);
   });
 
+  it('enforces a UNIQUE index on later writes', () => {
+    const unique = 'CREATE UNIQUE INDEX idx_name ON employees(name)';
+    expect(error(`${unique};\nINSERT INTO employees (name, salary) VALUES ('Lan', 100)`)).toMatch(/^UNIQUE failed: employees\.name already has 'Lan'/);
+    expect(error(`${unique};\nUPDATE employees SET name = 'Lan' WHERE id = 2`)).toMatch(/^UNIQUE failed/);
+    expect(ok(`${unique};\nINSERT INTO employees (name, salary) VALUES ('Tam', 100)`).ok).toBe(true);
+  });
+
   it('drops a table’s indexes with the table', () => {
     expect(ok('CREATE TABLE t (x INTEGER); CREATE INDEX i ON t(x); DROP TABLE t').db.indexes).toEqual([]);
   });

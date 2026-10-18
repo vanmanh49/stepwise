@@ -49,6 +49,7 @@ export const scriptCorpus4: Script4[] = [
   company('CREATE INDEX idx_salary ON employees(salary)', 'UPDATE employees SET salary = 9999 WHERE id = 4', 'SELECT name FROM employees WHERE salary >= 9000'),
   company('CREATE INDEX i ON employees(department_id, salary)', "INSERT INTO employees (name, department_id, salary) VALUES ('Tam', 2, 6000)", 'SELECT name FROM employees WHERE department_id = 2 AND salary > 5000'),
   company('CREATE UNIQUE INDEX i ON employees(name)', "INSERT INTO employees (name, salary) VALUES ('Tam', 1)", 'SELECT COUNT(*) FROM employees'),
+  company('BEGIN', 'CREATE UNIQUE INDEX i ON employees(name)', "INSERT INTO employees (name, salary) VALUES ('Lan', 1)", "UPDATE employees SET name = 'Lan' WHERE id = 2", "INSERT INTO employees (name, salary) VALUES ('Tam', 1)", 'COMMIT', 'SELECT COUNT(*) FROM employees'),
   company('CREATE INDEX i ON employees(salary)', 'DROP INDEX i', 'CREATE INDEX i ON employees(hired)', "SELECT name FROM employees WHERE hired > '2021-01-01'"),
   company('BEGIN', 'CREATE INDEX i ON employees(salary)', 'ROLLBACK', 'CREATE INDEX i ON employees(name)', "SELECT id FROM employees WHERE name = 'Bao'"),
   company('CREATE TABLE t (x INTEGER)', 'CREATE INDEX i ON t(x)', 'DROP TABLE t', 'CREATE TABLE t (y TEXT)', 'CREATE INDEX i ON t(y)', 'SELECT COUNT(*) FROM t'),
