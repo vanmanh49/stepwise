@@ -36,7 +36,7 @@ export const segmentTree: Lesson = {
     note: 'The tree is about log₂ n levels tall. A query uses at most about two nodes per level, and an update changes one node per level. The tree has about 2n nodes, stored in an array of size 4n in practice.',
     curves: ['log', 'n'],
   },
-  compareWith: ['prefix-sum'],
+  compareWith: ['fenwick-tree', 'prefix-sum'],
   prosCons: {
     pros: ['Range queries and updates both in O(log n)', 'Works for sum, min, max, gcd and other combinable operations', 'Can be extended to update whole ranges at once (lazy propagation)'],
     cons: ['More code and memory than a Fenwick tree', 'Overkill when the array never changes (a prefix-sum array is simpler)', 'Recursive code is easy to get off by one'],
