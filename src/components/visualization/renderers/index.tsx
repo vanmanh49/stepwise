@@ -13,6 +13,7 @@ import { SessionsRenderer } from './SessionsRenderer';
 import { StackRenderer } from './StackRenderer';
 import { TableRenderer } from './TableRenderer';
 import { TreeRenderer } from './TreeRenderer';
+import { TrieRenderer } from './TrieRenderer';
 
 /** Picks the renderer for a view. Adding a view kind means adding one case here. */
 export function StepView({ view }: { view: View }) {
@@ -39,6 +40,8 @@ export function StepView({ view }: { view: View }) {
       return <CallsRenderer view={view} />;
     case 'buckets':
       return <BucketsRenderer view={view} />;
+    case 'trie':
+      return <TrieRenderer view={view} />;
     case 'btree':
       return <BTreeRenderer view={view} />;
     case 'sessions':

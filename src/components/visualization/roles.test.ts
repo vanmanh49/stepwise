@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BucketsView, CallsView, GridView, PanelsView } from '../../types/visualization';
+import type { BucketsView, CallsView, GridView, PanelsView, TrieView } from '../../types/visualization';
 import { rolesInRun, rolesInView } from './roles';
 
 describe('rolesInView', () => {
@@ -28,6 +28,17 @@ describe('rolesInView', () => {
       rows: [{ cells: [{ id: 'a', value: 1, role: 'active' }, null, { id: 'b', value: 2, role: 'sorted' }] }],
     };
     expect(rolesInView(view)).toEqual(['active', 'sorted']);
+  });
+
+  it('collects roles from trie nodes', () => {
+    const view: TrieView = {
+      kind: 'trie',
+      nodes: [
+        { id: 't:', letter: '', role: 'visited' },
+        { id: 't:a', parent: 't:', letter: 'a', word: 'a', role: 'found' },
+      ],
+    };
+    expect(rolesInView(view)).toEqual(['visited', 'found']);
   });
 
   it('collects roles from call frames in order', () => {
