@@ -52,6 +52,7 @@ import { aggregates } from './sql/aggregates';
 import { distinct } from './sql/distinct';
 import { groupByHaving } from './sql/group-by-having';
 import { innerJoin } from './sql/inner-join';
+import { insert } from './sql/insert';
 import { leftJoin } from './sql/left-join';
 import { nullValues } from './sql/null-values';
 import { orderByLimit } from './sql/order-by-limit';
@@ -116,6 +117,7 @@ export const lessons: Lesson[] = [
   orderByLimit,
   distinct,
   aggregates,
+  insert,
   groupByHaving,
   innerJoin,
   leftJoin,
