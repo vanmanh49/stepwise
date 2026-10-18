@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import type { LessonContent, LessonMeta } from '../types/lesson';
+import type { LessonMeta } from '../types/lesson';
 import { topicsIn } from './curriculum';
 import { createLessonLoader, lessonPath, lessons, lessonsIn, loadLesson } from './registry';
 
@@ -45,18 +45,25 @@ describe('loadLesson', () => {
     await expect(loadLesson('nope')).rejects.toThrow('Unknown lesson: nope');
   });
 
-  it('does not keep a failed load, so trying again loads again', async () => {
+  it('keeps a failed load, so use() gets the same rejected promise and shows the error instead of retrying', async () => {
     const meta = { id: 'x', title: 'X', category: 'algorithms' } as LessonMeta;
     let calls = 0;
     const load = createLessonLoader([meta], {
       './algorithms/x.ts': async () => {
         calls++;
-        if (calls === 1) throw new Error('network down');
-        return { default: { overview: 'ok' } as LessonContent };
+        throw new Error('network down');
       },
     });
-    await expect(load('x')).rejects.toThrow('network down');
-    await expect(load('x')).resolves.toMatchObject({ id: 'x', overview: 'ok' });
-    expect(calls).toBe(2);
+    const first = load('x');
+    await expect(first).rejects.toThrow('network down');
+    expect(load('x')).toBe(first);
+    expect(calls).toBe(1);
+  });
+
+  it('returns the same rejected promise for an unknown id every time', async () => {
+    const load = createLessonLoader([], {});
+    const first = load('nope');
+    expect(load('nope')).toBe(first);
+    await expect(first).rejects.toThrow('Unknown lesson: nope');
   });
 });

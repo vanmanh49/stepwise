@@ -37,27 +37,21 @@ export function lessonPath(lesson: Pick<Lesson, 'category' | 'id'>): string {
 type ContentImporters = Record<string, () => Promise<{ default: LessonContent }>>;
 
 /**
- * Loads a lesson's content and merges it with its metadata. Each id is loaded once; a failed
- * load is forgotten so that trying again (after a network error) imports it again.
+ * Loads a lesson's content and merges it with its metadata. Each id gets one promise, kept even
+ * when it fails: React's use() must see the same promise on every render, or a failed load would
+ * suspend again on a fresh attempt instead of showing its error. Retrying reloads the page.
  */
 export function createLessonLoader(metas: LessonMeta[], importers: ContentImporters): (id: string) => Promise<Lesson> {
   const known = new Map(metas.map((meta) => [meta.id, meta]));
   const loading = new Map<string, Promise<Lesson>>();
   return (id) => {
-    const cached = loading.get(id);
-    if (cached) return cached;
-    const meta = known.get(id);
-    const importer = meta && importers[`.${lessonPath(meta)}.ts`];
-    const promise = importer
-      ? importer().then(
-          (module) => ({ ...meta, ...module.default }),
-          (error: unknown) => {
-            loading.delete(id);
-            throw error;
-          },
-        )
-      : Promise.reject(new Error(`Unknown lesson: ${id}`));
-    if (importer) loading.set(id, promise);
+    let promise = loading.get(id);
+    if (!promise) {
+      const meta = known.get(id);
+      const importer = meta && importers[`.${lessonPath(meta)}.ts`];
+      promise = importer ? importer().then((module) => ({ ...meta, ...module.default })) : Promise.reject(new Error(`Unknown lesson: ${id}`));
+      loading.set(id, promise);
+    }
     return promise;
   };
 }

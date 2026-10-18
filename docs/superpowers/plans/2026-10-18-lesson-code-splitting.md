@@ -43,7 +43,7 @@
 
 `Lesson` keeps its current definition, so nothing else changes in this task.
 
-- [ ] Add the two types; `npm run typecheck` is clean; commit.
+- [x] Add the two types; `npm run typecheck` is clean; commit.
 
 ### Task 2: Move metadata, load content on demand
 
@@ -65,52 +65,52 @@
   - `allLessons: Lesson[]`, eager, in `lessons` order;
   - `fullLesson(id): Lesson`, which throws for unknown ids.
 
-- [ ] **Write `split.test.ts` first:**
+- [x] **Write `split.test.ts` first:**
   - every `lessons` entry has exactly one content module at `./<category>/<id>.ts`, and every content module has a metadata entry;
   - `lessons` order equals the curriculum's order of live topics;
   - the source of each `src/lessons/meta/*.ts` has no `import` lines other than `import type`;
   - `await loadLesson('bubble-sort')` has its metadata fields and its `quiz`, and calling it twice returns the same promise;
   - `loadLesson('nope')` rejects with "Unknown lesson: nope";
   - a load that rejects is not cached: a second call retries. To test this, inject the loader by exporting `createLessonLoader(metas, importers)` from the registry and testing that directly.
-- [ ] Run it; expect failures because the meta modules and `loadLesson` don't exist.
-- [ ] **Generate the metadata modules.** A one-off script in the scratchpad, run through a temporary Vitest file, evaluates the current lessons and writes each category's `LessonMeta[]` as a TypeScript literal (single quotes, unquoted keys, registry order) typed `LessonMeta[]`.
-- [ ] **Rewrite each lesson file.** Another one-off text transform:
+- [x] Run it; expect failures because the meta modules and `loadLesson` don't exist.
+- [x] **Generate the metadata modules.** A one-off script in the scratchpad, run through a temporary Vitest file, evaluates the current lessons and writes each category's `LessonMeta[]` as a TypeScript literal (single quotes, unquoted keys, registry order) typed `LessonMeta[]`.
+- [x] **Rewrite each lesson file.** Another one-off text transform:
   - delete the top-level properties `id`, `title`, `category`, `difficulty`, `group`, `description`, `keywords`, `prerequisites`, `complexity` and `compareWith` (top-level properties are at two-space indent, and each runs until the next one or `};`);
   - turn `export const X: Lesson = {` into `const content: LessonContent = {`, with `export default content;` at the end;
   - change the type import from `Lesson` to `LessonContent`.
 
   Fix any imports that become unused, as reported by typecheck.
-- [ ] **Registry:** build `lessons` from the three meta arrays. `loadLesson` uses `import.meta.glob<{ default: LessonContent }>(['./{data-structures,algorithms,sql}/*.ts', '!./**/*.test.ts'])`, merges content with its metadata, caches the promise per id, and drops the cache entry on rejection.
-- [ ] **Test util and tests:** `allLessons` uses the same glob with `{ eager: true }`. Tests that read content use `allLessons` / `fullLesson` in place of `lessons` / `getLesson`. Tests of order, adjacency and paths keep using the registry.
-- [ ] **Components:** type props that come from the registry as `LessonMeta`. `LessonPage` takes the route's metadata, renders `<Suspense>` around a child that calls `use(loadLesson(id))`, and passes the full lesson to the existing page body.
-- [ ] `npm run typecheck`, `npm test` (every lesson still checked: the same counts as before plus the new tests), and `npm run lint`; commit.
+- [x] **Registry:** build `lessons` from the three meta arrays. `loadLesson` uses `import.meta.glob<{ default: LessonContent }>(['./{data-structures,algorithms,sql}/*.ts', '!./**/*.test.ts'])`, merges content with its metadata, caches the promise per id, and drops the cache entry on rejection.
+- [x] **Test util and tests:** `allLessons` uses the same glob with `{ eager: true }`. Tests that read content use `allLessons` / `fullLesson` in place of `lessons` / `getLesson`. Tests of order, adjacency and paths keep using the registry.
+- [x] **Components:** type props that come from the registry as `LessonMeta`. `LessonPage` takes the route's metadata, renders `<Suspense>` around a child that calls `use(loadLesson(id))`, and passes the full lesson to the existing page body.
+- [x] `npm run typecheck`, `npm test` (every lesson still checked: the same counts as before plus the new tests), and `npm run lint`; commit.
 
 ### Task 3: Lesson page loading state, prefetch, retry
 
 **Files:** `src/pages/LessonPage.tsx`, and a small `LessonLoadBoundary` class in that file, following the `VisualizationBoundary` pattern.
 
-- [ ] **While loading:** show the sidebar plus a header built from metadata (category link, title, difficulty badge), with a muted "Loading lesson…" line where the overview goes. The page is keyed by lesson id, so moving between lessons resets it.
-- [ ] **Prefetch:** once the content has rendered, an effect calls `loadLesson(next.id)` (fire and forget, errors ignored).
-- [ ] **Load failure:** `LessonLoadBoundary` shows "This lesson couldn't load. Check your connection." and a "Try again" button. Retrying resets the boundary; because rejections are not cached, it re-imports.
-- [ ] **Browser check** at desktop and 375px, light and dark:
+- [x] **While loading:** show the sidebar plus a header built from metadata (category link, title, difficulty badge), with a muted "Loading lesson…" line where the overview goes. The page is keyed by lesson id, so moving between lessons resets it.
+- [x] **Prefetch:** once the content has rendered, an effect calls `loadLesson(next.id)` (fire and forget, errors ignored).
+- [x] **Load failure:** `LessonLoadBoundary` shows "This lesson couldn't load. Check your connection." and a "Try again" button. Retrying resets the boundary; because rejections are not cached, it re-imports.
+- [x] **Browser check** at desktop and 375px, light and dark:
   - opening a lesson directly, moving with next and previous, and using the sidebar all work;
   - search opens a lesson;
   - with the network offline, a not-yet-loaded lesson shows the retry message, and after going back online "Try again" loads it.
-- [ ] Commit.
+- [x] Commit.
 
 ### Task 4: First-load budget in CI
 
 **Files:** create `scripts/check-bundle.mjs`; modify `package.json` (`"check:bundle": "node scripts/check-bundle.mjs"`) and `.github/workflows/deploy.yml` (run it after `build:pages`).
 
-- [ ] **The script:**
+- [x] **The script:**
   - reads `dist/index.html`, collects the entry script and its `modulepreload` links (the first-load JavaScript), and sums their sizes;
   - fails if the total is over **600 kB** (target about 470 kB, leaving headroom);
   - fails if any first-load file contains the text of a lesson quiz question (pick a stable one, for example the Bubble Sort lesson's first quiz prompt, read from `src/lessons/algorithms/bubble-sort.ts` at run time).
-- [ ] Check that it fails against the `main` build and passes against this branch. Commit.
+- [x] Check that it fails against the `main` build and passes against this branch. Commit.
 
 ### Task 5: Verify and ship
 
-- [ ] Measure on the 4× CPU / Fast 4G profile, the same as the baseline: JavaScript transferred and LCP for `/`, `/algorithms/bubble-sort` and `/sql/many-to-many`.
-- [ ] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build:pages`, `npm run check:bundle`.
-- [ ] Update the README ("How to add a lesson") and `CLAUDE.md` for the metadata/content split.
-- [ ] Final whole-branch review on Opus; PR; merge.
+- [x] Measure on the 4× CPU / Fast 4G profile, the same as the baseline: JavaScript transferred and LCP for `/`, `/algorithms/bubble-sort` and `/sql/many-to-many`.
+- [x] `npm run lint`, `npm run typecheck`, `npm test`, `npm run build:pages`, `npm run check:bundle`.
+- [x] Update the README ("How to add a lesson") and `CLAUDE.md` for the metadata/content split.
+- [x] Final whole-branch review on Opus; PR; merge.
