@@ -63,6 +63,7 @@ import { selectFrom } from './sql/select-from';
 import { subqueries } from './sql/subqueries';
 import { update } from './sql/update';
 import { where } from './sql/where';
+import { views } from './sql/views';
 import { windowFunctions } from './sql/window-functions';
 import { recursiveCtes } from './sql/recursive-ctes';
 import { ctes } from './sql/ctes';
@@ -144,6 +145,7 @@ export const lessons: Lesson[] = [
   ctes,
   recursiveCtes,
   windowFunctions,
+  views,
 ];
 
 const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));
