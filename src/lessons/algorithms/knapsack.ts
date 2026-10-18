@@ -1,17 +1,9 @@
 import { knapsackCode, knapsackSteps } from '../../algorithms/dp/knapsack';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const example = { weights: '1, 3, 4, 5', values: '1, 4, 5, 7', capacity: '7' };
 
-export const knapsack: Lesson = {
-  id: 'knapsack',
-  title: '0/1 Knapsack',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Dynamic Programming',
-  description: 'Choose which items to pack so their total value is as high as possible without exceeding the weight limit.',
-  keywords: ['knapsack problem', 'dynamic programming', 'dp table', 'take or skip', 'optimization', 'subset selection'],
-  prerequisites: ['fibonacci-dp'],
+const content: LessonContent = {
   overview:
     'In the 0/1 knapsack problem you have items, each with a weight and a value, and a bag that can carry a limited weight. Each item is either taken whole or left behind. Dynamic programming finds the most valuable selection by filling a table: for each item and each capacity, the best value is either the best without that item or that item plus the best for the capacity left over.',
   concept: [
@@ -42,13 +34,6 @@ export const knapsack: Lesson = {
     generate: knapsackSteps,
   },
   code: knapsackCode,
-  complexity: {
-    rows: [{ label: '0/1 knapsack (DP table)', best: 'O(n × C)', average: 'O(n × C)', worst: 'O(n × C)' }],
-    space: 'O(n × C)',
-    note: 'One cell per item and capacity, each filled in constant time. This is fast when the capacity C is small; with huge capacities the table becomes too big.',
-    curves: ['n2'],
-  },
-  compareWith: ['greedy'],
   prosCons: {
     pros: ['Finds the true best selection, unlike greedy rules', 'Far faster than trying all 2ⁿ subsets', 'The table also tells you which items to take'],
     cons: ['Needs a table of size items × capacity', 'Slow when the capacity is a huge number', 'Only works with whole-number weights'],
@@ -110,3 +95,5 @@ export const knapsack: Lesson = {
     'It runs in O(n × C), and walking back through the table recovers the chosen items.',
   ],
 };
+
+export default content;

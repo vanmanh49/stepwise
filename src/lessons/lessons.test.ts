@@ -7,6 +7,7 @@ import { datasets } from '../sql/datasets';
 import type { Lesson } from '../types/lesson';
 import type { Step } from '../types/visualization';
 import { curriculum, roadmap, topicsIn } from './curriculum';
+import { allLessons, fullLesson } from './all.testutil';
 import { adjacentLessons, getLesson, lessonPath, lessons, lessonsIn } from './registry';
 
 const EXPECTED_IDS = [
@@ -149,7 +150,7 @@ describe('lesson registry', () => {
   });
 });
 
-describe.each(lessons.map((l) => [l.id, l] as const))('lesson %s', (_id, lesson) => {
+describe.each(allLessons.map((l) => [l.id, l] as const))('lesson %s', (_id, lesson) => {
   it('references only lessons that exist', () => {
     for (const id of [...lesson.prerequisites, ...(lesson.compareWith ?? [])]) {
       expect(getLesson(id), id).toBeDefined();
@@ -202,7 +203,7 @@ describe.each(lessons.map((l) => [l.id, l] as const))('lesson %s', (_id, lesson)
   });
 });
 
-describe.each(lessonsIn('sql').map((l) => [l.id, l] as const))('SQL lesson %s', (_id, lesson) => {
+describe.each(allLessons.filter((l) => l.category === 'sql').map((l) => [l.id, l] as const))('SQL lesson %s', (_id, lesson) => {
   const config = lesson.visualization;
   if (config.kind !== 'sql') throw new Error(`${lesson.id} must use the sql visualization`);
   const db = datasets[config.dataset];
@@ -301,7 +302,7 @@ describe('curriculum', () => {
   });
 
   it('gives Divide and Conquer random data with negative values, so the best run is not always everything', () => {
-    const config = getLesson('divide-and-conquer')!.visualization;
+    const config = fullLesson('divide-and-conquer').visualization;
     expect(config.kind === 'sort' && (config.randomMin ?? 1)).toBeLessThan(0);
   });
 

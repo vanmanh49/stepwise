@@ -1,14 +1,7 @@
 import { stackStructure } from '../../data-structures/stack';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const stack: Lesson = {
-  id: 'stack',
-  title: 'Stack',
-  category: 'data-structures',
-  difficulty: 'beginner',
-  description: 'Last in, first out: you can only add to and remove from the top.',
-  keywords: ['lifo', 'push', 'pop', 'peek', 'call stack', 'undo'],
-  prerequisites: ['array'],
+const content: LessonContent = {
   overview:
     'A stack is a collection with one rule: the last item you put in is the first one you take out. You can push an item onto the top, pop the top item off, or peek at it. Everything below the top is out of reach until the items above it are gone.',
   concept: [
@@ -24,18 +17,6 @@ export const stack: Lesson = {
   ],
   visualization: { kind: 'structure', structure: stackStructure },
   code: stackStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Push', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Pop', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Peek', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Search for a value', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
-    ],
-    space: 'O(n)',
-    note: 'Every stack operation touches only the top, so its cost never depends on how many items are underneath.',
-    curves: ['1'],
-  },
-  compareWith: ['queue'],
   prosCons: {
     pros: ['Every core operation is O(1)', 'Very simple to implement and reason about', 'Naturally reverses order'],
     cons: ['Only the top item is reachable', 'No searching or random access without emptying it'],
@@ -103,3 +84,5 @@ export const stack: Lesson = {
     'Stacks appear wherever the latest thing must be finished first: function calls, undo, backtracking.',
   ],
 };
+
+export default content;

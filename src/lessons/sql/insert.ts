@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { scriptViewAt } from '../../sql/scriptSteps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = "INSERT INTO customers (id, name, city, joined) VALUES (11, 'Tam', 'Hue', '2024-03-01');\nSELECT * FROM customers WHERE id = 11;";
 
-export const insert: Lesson = {
-  id: 'insert',
-  title: 'INSERT',
-  category: 'sql',
-  difficulty: 'beginner',
-  group: 'Modifying data',
-  description: 'Add new rows to a table, one at a time, several at once, or copied from a query.',
-  keywords: ['insert into', 'values', 'add row', 'new row', 'insert select', 'default', 'autoincrement'],
-  prerequisites: ['select-from'],
+const content: LessonContent = {
   overview:
     'INSERT adds rows to a table. You name the table, optionally list the columns you are filling, and give the values. The database checks every rule of the table as each row goes in, and refuses rows that break one.',
   concept: [
@@ -135,3 +127,5 @@ export const insert: Lesson = {
     'Every constraint is checked, and one failure undoes the statement.',
   ],
 };
+
+export default content;

@@ -1,15 +1,7 @@
 import { recursionCode, recursionSteps } from '../../algorithms/recursion/basics';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const recursionFundamentals: Lesson = {
-  id: 'recursion-fundamentals',
-  title: 'Recursion Fundamentals',
-  category: 'algorithms',
-  difficulty: 'intermediate',
-  group: 'Recursion',
-  description: 'Solve a problem by having a function call itself on a smaller version of it, and watch the call tree grow.',
-  keywords: ['recursive function', 'base case', 'call stack', 'factorial', 'fibonacci', 'recursion tree', 'stack overflow'],
-  prerequisites: ['stack'],
+const content: LessonContent = {
   overview:
     'A recursive function solves a problem by calling itself on a smaller version of the same problem, until it reaches a base case it can answer directly. This lesson steps through factorial, where each call makes one smaller call, and naive Fibonacci, where each call makes two, so you can see both the call stack and how quickly repeated work piles up.',
   concept: [
@@ -39,15 +31,6 @@ export const recursionFundamentals: Lesson = {
     generate: recursionSteps,
   },
   code: recursionCode,
-  complexity: {
-    rows: [
-      { label: 'factorial(n)', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'naive fib(n)', best: 'O(2ⁿ)', average: 'O(2ⁿ)', worst: 'O(2ⁿ)' },
-    ],
-    space: 'O(n)',
-    note: 'Factorial makes one call per value of n. Naive Fibonacci makes two calls per call, so the tree roughly doubles with each step of n. Both use O(n) stack space, since at most n frames wait at once.',
-    curves: ['n', '2n'],
-  },
   prosCons: {
     pros: ['Matches problems that are defined in terms of themselves, such as trees', 'Often much shorter and clearer than a loop', 'The basis of divide and conquer, backtracking and dynamic programming'],
     cons: ['Every waiting call uses stack memory', 'Too deep a recursion overflows the stack', 'Naive recursion can repeat the same work many times'],
@@ -109,3 +92,5 @@ export const recursionFundamentals: Lesson = {
     'Repeated work in the tree is what memoization and dynamic programming remove.',
   ],
 };
+
+export default content;

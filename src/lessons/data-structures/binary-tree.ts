@@ -1,14 +1,7 @@
 import { binaryTreeStructure } from '../../data-structures/binaryTree';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const binaryTree: Lesson = {
-  id: 'binary-tree',
-  title: 'Binary Tree',
-  category: 'data-structures',
-  difficulty: 'intermediate',
-  description: 'Nodes arranged in levels, each with at most two children.',
-  keywords: ['tree', 'node', 'root', 'leaf', 'child', 'parent', 'height', 'depth', 'level order', 'hierarchy'],
-  prerequisites: ['linked-list'],
+const content: LessonContent = {
   overview:
     'A binary tree is a set of nodes where each node points to at most two others, called its left and right children. It starts from a single root and branches downward. Trees are how programs represent anything hierarchical, and they are the foundation for search trees and heaps.',
   concept: [
@@ -26,18 +19,6 @@ export const binaryTree: Lesson = {
   ],
   visualization: { kind: 'structure', structure: binaryTreeStructure },
   code: binaryTreeStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Insert (level order)', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Search (no ordering)', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Height', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Visit every node', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-    ],
-    space: 'O(n)',
-    note: 'Without an ordering rule every operation may need to look at all n nodes. The tree shape pays off once a rule is added: a balanced tree has about log₂ n levels, so anything that follows a single root-to-leaf path takes O(log n).',
-    curves: ['log', 'n'],
-  },
-  compareWith: ['linked-list'],
   prosCons: {
     pros: ['Represents hierarchies naturally', 'A balanced tree is very shallow: about log₂ n levels', 'The base for search trees, heaps, tries and expression trees'],
     cons: ['No fast search without an ordering rule', 'More memory than an array: two pointers per node', 'Can become lopsided and lose its advantage'],
@@ -99,3 +80,5 @@ export const binaryTree: Lesson = {
     'Without an ordering rule, operations are O(n); BSTs and heaps add rules to do better.',
   ],
 };
+
+export default content;

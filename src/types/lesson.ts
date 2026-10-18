@@ -185,6 +185,18 @@ export interface Lesson {
   summary: string[];
 }
 
+/**
+ * What pages need without opening a lesson: kept in src/lessons/meta/ so every page can load it
+ * cheaply. The rest of a lesson (LessonContent) is loaded when the lesson opens.
+ */
+export type LessonMeta = Pick<
+  Lesson,
+  'id' | 'title' | 'category' | 'difficulty' | 'group' | 'description' | 'keywords' | 'prerequisites' | 'complexity' | 'compareWith'
+>;
+
+/** A lesson's text, visualization, code, quiz and summary: the default export of its file. */
+export type LessonContent = Omit<Lesson, keyof LessonMeta>;
+
 export interface Topic {
   id: string;
   title: string;

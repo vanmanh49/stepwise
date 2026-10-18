@@ -1,15 +1,7 @@
 import { linearSearchCode, linearSearchSteps } from '../../algorithms/searching/linear';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const linearSearch: Lesson = {
-  id: 'linear-search',
-  title: 'Linear Search',
-  category: 'algorithms',
-  difficulty: 'beginner',
-  group: 'Searching',
-  description: 'Check every item in order until you find the one you want.',
-  keywords: ['sequential search', 'scan', 'find', 'lookup'],
-  prerequisites: ['array'],
+const content: LessonContent = {
   overview:
     'Linear search is the most direct way to find something: start at the first item and check each one in turn until you find the target or run out of items. It needs no preparation and works on any list, sorted or not.',
   concept: [
@@ -32,13 +24,6 @@ export const linearSearch: Lesson = {
     generate: linearSearchSteps,
   },
   code: linearSearchCode,
-  complexity: {
-    rows: [{ label: 'Linear Search', best: 'O(1)', average: 'O(n)', worst: 'O(n)' }],
-    space: 'O(1)',
-    note: 'Best case: the target is the first item. Worst case: it is last or missing, so all n items are checked. On average about half the items are checked, which is still proportional to n.',
-    curves: ['n'],
-  },
-  compareWith: ['binary-search'],
   prosCons: {
     pros: ['Works on unsorted data', 'Works on any sequence, including linked lists', 'Trivial to write correctly', 'No extra memory'],
     cons: ['Slow on large collections', 'Does the same work every time you search'],
@@ -105,3 +90,5 @@ export const linearSearch: Lesson = {
     'If the data is sorted, binary search is dramatically faster.',
   ],
 };
+
+export default content;

@@ -1,16 +1,8 @@
 import { lcaCode, lcaStructure } from '../../algorithms/tree/lca';
 import { build, treeView } from '../../data-structures/bst';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const lowestCommonAncestor: Lesson = {
-  id: 'lowest-common-ancestor',
-  title: 'Lowest Common Ancestor',
-  category: 'algorithms',
-  difficulty: 'intermediate',
-  group: 'Tree Algorithms',
-  description: 'Find the deepest node that sits above two given nodes, by walking down a binary search tree once.',
-  keywords: ['lca', 'common ancestor', 'binary search tree', 'bst', 'tree query', 'split point'],
-  prerequisites: ['binary-search-tree'],
+const content: LessonContent = {
   overview:
     'The lowest common ancestor (LCA) of two nodes is the deepest node that has both of them below it. In a binary search tree there is a neat shortcut: start at the root and keep moving toward both values. The first node where they would go different ways is the answer.',
   concept: [
@@ -27,13 +19,6 @@ export const lowestCommonAncestor: Lesson = {
   ],
   visualization: { kind: 'structure', structure: lcaStructure },
   code: lcaCode,
-  complexity: {
-    rows: [{ label: 'LCA in a BST', best: 'O(1)', average: 'O(log n)', worst: 'O(n)' }],
-    space: 'O(1)',
-    note: 'The walk follows one path from the root, so it costs the height of the tree: about log n when the tree is balanced, up to n when it has degenerated into a chain.',
-    curves: ['log', 'n'],
-  },
-  compareWith: ['tree-traversal'],
   prosCons: {
     pros: ['One walk from the root, no searching both sides', 'Constant extra memory', 'Very short code'],
     cons: ['Relies on the binary search tree ordering', 'Slow on an unbalanced, chain-like tree'],
@@ -95,3 +80,5 @@ export const lowestCommonAncestor: Lesson = {
     'It costs the height of the tree: O(log n) when balanced.',
   ],
 };
+
+export default content;

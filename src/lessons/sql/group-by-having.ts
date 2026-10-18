@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'SELECT category, COUNT(*), AVG(price)\nFROM products\nGROUP BY category\nHAVING COUNT(*) > 2;';
 
-export const groupByHaving: Lesson = {
-  id: 'group-by-having',
-  title: 'GROUP BY and HAVING',
-  category: 'sql',
-  difficulty: 'intermediate',
-  group: 'Summarising',
-  description: 'One summary row per group, and filters on those summaries.',
-  keywords: ['group by', 'having', 'groups', 'per category', 'aggregate', 'summary'],
-  prerequisites: ['aggregates'],
+const content: LessonContent = {
   overview:
     'GROUP BY splits rows into groups that share a value, and aggregates then summarise each group separately: products per category, orders per customer. HAVING filters those groups, the way WHERE filters rows.',
   concept: [
@@ -125,3 +117,5 @@ export const groupByHaving: Lesson = {
     'NULLs in the grouped column form one group.',
   ],
 };
+
+export default content;

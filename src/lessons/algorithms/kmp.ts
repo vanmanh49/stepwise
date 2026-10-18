@@ -1,17 +1,9 @@
 import { kmpCode, kmpSteps } from '../../algorithms/strings/kmp';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const example = { text: 'ABABDABACDABABCABAB', pattern: 'ABABCABAB' };
 
-export const kmp: Lesson = {
-  id: 'kmp',
-  title: 'KMP',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Advanced Algorithms',
-  description: 'Find a pattern in a text in linear time, without ever re-reading a text character, using a precomputed failure table.',
-  keywords: ['knuth-morris-pratt', 'string matching', 'pattern search', 'failure function', 'prefix function', 'lps array', 'substring search'],
-  prerequisites: ['string'],
+const content: LessonContent = {
   overview:
     'The Knuth-Morris-Pratt (KMP) algorithm finds every place a pattern occurs in a text. A simple search restarts the pattern one position further after each mismatch and re-reads text it has already seen. KMP first studies the pattern itself, building a failure table, and then scans the text once from left to right without ever moving back.',
   concept: [
@@ -41,13 +33,6 @@ export const kmp: Lesson = {
     generate: kmpSteps,
   },
   code: kmpCode,
-  complexity: {
-    rows: [{ label: 'KMP', best: 'O(n + m)', average: 'O(n + m)', worst: 'O(n + m)' }],
-    space: 'O(m)',
-    note: 'n is the text length and m the pattern length. The table costs O(m) to build, and the scan never moves back in the text, so it costs O(n).',
-    curves: ['n'],
-  },
-  compareWith: ['rabin-karp'],
   prosCons: {
     pros: ['Guaranteed linear time, even on worst-case inputs', 'Reads the text strictly left to right, so it works on streams', 'Finds overlapping matches naturally'],
     cons: ['The failure table is tricky to get right', 'For ordinary text, simpler methods are often just as fast in practice'],
@@ -114,3 +99,5 @@ export const kmp: Lesson = {
     'Falling back after a full match finds overlapping occurrences.',
   ],
 };
+
+export default content;

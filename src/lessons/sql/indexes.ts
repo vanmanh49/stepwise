@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { scriptViewAt } from '../../sql/scriptSteps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'CREATE INDEX idx_salary ON employees(salary);\nSELECT name, salary FROM employees\nWHERE salary > 5000;';
 
-export const indexes: Lesson = {
-  id: 'indexes',
-  title: 'Indexes',
-  category: 'sql',
-  difficulty: 'advanced',
-  group: 'Database internals',
-  description: 'Build a B-tree over a column so searches jump to the matching rows instead of reading them all.',
-  keywords: ['create index', 'b-tree', 'btree', 'index', 'unique index', 'composite index', 'lookup', 'performance', 'full table scan'],
-  prerequisites: ['where', 'order-by-limit', 'create-table'],
+const content: LessonContent = {
   overview:
     'Without an index, finding the employees who earn more than 5000 means reading every row. CREATE INDEX builds a B-tree: a sorted, layered structure of the column’s values, each pointing at its row. A search walks down the tree to the first match and reads only the matching rows.',
   concept: [
@@ -125,3 +117,5 @@ export const indexes: Lesson = {
     'Indexes speed up reads but cost space and time on every write.',
   ],
 };
+
+export default content;

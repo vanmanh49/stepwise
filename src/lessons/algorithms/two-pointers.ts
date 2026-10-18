@@ -1,15 +1,7 @@
 import { twoPointersCode, twoPointersSteps } from '../../algorithms/techniques/twoPointers';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const twoPointers: Lesson = {
-  id: 'two-pointers',
-  title: 'Two Pointers',
-  category: 'algorithms',
-  difficulty: 'beginner',
-  group: 'Basic Techniques',
-  description: 'Walk two positions through a list at once to avoid checking every pair.',
-  keywords: ['pair sum', 'two sum', 'sorted', 'left', 'right', 'technique', 'pattern'],
-  prerequisites: ['array', 'binary-search'],
+const content: LessonContent = {
   overview:
     'Two pointers is a technique, not a single algorithm: keep two positions in a list and move them according to a rule. On sorted data it can replace a loop inside a loop with one pass. This lesson uses the classic example of finding two values that add up to a target.',
   concept: [
@@ -41,13 +33,6 @@ export const twoPointers: Lesson = {
     generate: twoPointersSteps,
   },
   code: twoPointersCode,
-  complexity: {
-    rows: [{ label: 'Two Pointers (pair sum)', best: 'O(1)', average: 'O(n)', worst: 'O(n)' }],
-    space: 'O(1)',
-    note: 'Every step moves one pointer inward and they start n − 1 positions apart, so there are at most n − 1 steps. Trying every pair instead takes O(n²). If the data is not sorted yet, sorting first costs O(n log n), which then dominates.',
-    curves: ['n', 'n2'],
-  },
-  compareWith: ['binary-search', 'linear-search'],
   prosCons: {
     pros: ['Turns many O(n²) pair problems into O(n)', 'Needs no extra memory', 'Short and easy to get right once the rule is clear'],
     cons: ['Usually needs sorted data, or some other order to exploit', 'The rule for moving the pointers is different for each problem'],
@@ -119,3 +104,5 @@ export const twoPointers: Lesson = {
     'It depends on the data being sorted.',
   ],
 };
+
+export default content;

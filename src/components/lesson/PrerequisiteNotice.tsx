@@ -2,14 +2,14 @@ import { Lightbulb } from 'lucide-react';
 import { Link } from 'react-router';
 import { getLesson, lessonPath } from '../../lessons/registry';
 import { useProgress } from '../../store/progress';
-import type { Lesson } from '../../types/lesson';
+import type { LessonMeta } from '../../types/lesson';
 
 /** A recommendation, never a lock: learners can always continue. */
-export function PrerequisiteNotice({ lesson }: { lesson: Lesson }) {
+export function PrerequisiteNotice({ lesson }: { lesson: LessonMeta }) {
   const completed = useProgress((s) => s.completed);
   const missing = lesson.prerequisites
     .map(getLesson)
-    .filter((p): p is Lesson => p !== undefined && !completed.includes(p.id));
+    .filter((p): p is LessonMeta => p !== undefined && !completed.includes(p.id));
   if (missing.length === 0) return null;
 
   return (

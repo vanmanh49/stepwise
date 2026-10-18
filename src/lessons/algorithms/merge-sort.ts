@@ -1,20 +1,12 @@
 import { mergeSortCode, mergeSortSteps } from '../../algorithms/sorting/merge';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 import type { Step } from '../../types/visualization';
 
 const sample = mergeSortSteps([3, 8, 2, 5]);
 // The first comparison of the final merge, where both halves are sorted.
 const finalMerge = sample.filter((s: Step) => s.title.startsWith('Compare')).at(-3)!;
 
-export const mergeSort: Lesson = {
-  id: 'merge-sort',
-  title: 'Merge Sort',
-  category: 'algorithms',
-  difficulty: 'intermediate',
-  group: 'Sorting',
-  description: 'Split the list in half, sort each half, then merge the two sorted halves.',
-  keywords: ['sorting', 'divide and conquer', 'recursion', 'merge', 'stable', 'n log n'],
-  prerequisites: ['insertion-sort'],
+const content: LessonContent = {
   overview:
     'Merge sort is a divide-and-conquer algorithm. It keeps splitting the list in half until every piece holds a single value, then merges the pieces back together in sorted order. It takes O(n log n) time no matter how the input is arranged.',
   concept: [
@@ -32,13 +24,6 @@ export const mergeSort: Lesson = {
   ],
   visualization: { kind: 'sort', initial: [38, 27, 43, 3, 9, 82, 10], generate: mergeSortSteps },
   code: mergeSortCode,
-  complexity: {
-    rows: [{ label: 'Merge Sort', best: 'O(n log n)', average: 'O(n log n)', worst: 'O(n log n)' }],
-    space: 'O(n)',
-    note: 'Halving n values down to single values takes log₂ n levels, and each level merges all n values once: n × log n. For 1,000,000 items that is about 20 million steps, where an O(n²) sort needs about a trillion.',
-    curves: ['nlogn', 'n2'],
-  },
-  compareWith: ['quick-sort', 'insertion-sort', 'bubble-sort'],
   prosCons: {
     pros: ['Guaranteed O(n log n), even in the worst case', 'Stable: equal values keep their order', 'Works well on linked lists and on data too large for memory'],
     cons: ['Needs O(n) extra memory', 'Slower than quick sort in practice on arrays, because of the copying', 'Overkill for tiny lists'],
@@ -110,3 +95,5 @@ export const mergeSort: Lesson = {
     'It needs O(n) extra memory.',
   ],
 };
+
+export default content;

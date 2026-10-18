@@ -1,15 +1,7 @@
 import { radixSortCode, radixSortSteps } from '../../algorithms/sorting/radix';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const radixSort: Lesson = {
-  id: 'radix-sort',
-  title: 'Radix Sort',
-  category: 'algorithms',
-  difficulty: 'intermediate',
-  group: 'Sorting',
-  description: 'Sort numbers one digit at a time, from the ones digit up, using ten buckets.',
-  keywords: ['lsd radix sort', 'buckets', 'digits', 'non-comparison sort', 'stable sort', 'linear time'],
-  prerequisites: ['counting-sort'],
+const content: LessonContent = {
   overview:
     'Radix sort sorts whole numbers digit by digit. It drops the values into ten buckets by their ones digit and collects them, then does the same for the tens digit, then the hundreds. Because each pass keeps ties in order, after the last pass the whole list is sorted, without ever comparing two numbers.',
   concept: [
@@ -26,13 +18,6 @@ export const radixSort: Lesson = {
   ],
   visualization: { kind: 'sort', initial: [170, 45, 75, 90, 802, 24, 2, 66], randomMax: 999, generate: radixSortSteps },
   code: radixSortCode,
-  complexity: {
-    rows: [{ label: 'Radix Sort', best: 'O(d × (n + 10))', average: 'O(d × (n + 10))', worst: 'O(d × (n + 10))' }],
-    space: 'O(n)',
-    note: 'd is the number of digits of the largest value. With d fixed (three digits here) the cost grows linearly with n, whatever order the input is in.',
-    curves: ['n'],
-  },
-  compareWith: ['counting-sort', 'quick-sort'],
   prosCons: {
     pros: ['Linear time for fixed-length keys', 'Stable', 'Performance does not depend on the input order'],
     cons: ['Only for integers or fixed-length keys such as strings of equal length', 'Needs extra memory for the buckets', 'Slower than quick sort when keys are long or few'],
@@ -99,3 +84,5 @@ export const radixSort: Lesson = {
     'For keys with few digits it runs in linear time.',
   ],
 };
+
+export default content;

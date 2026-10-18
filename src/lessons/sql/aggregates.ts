@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'SELECT COUNT(*), AVG(price), MAX(price)\nFROM products;';
 
-export const aggregates: Lesson = {
-  id: 'aggregates',
-  title: 'COUNT, SUM, AVG, MIN, MAX',
-  category: 'sql',
-  difficulty: 'beginner',
-  group: 'Summarising',
-  description: 'Summarise many rows into one number.',
-  keywords: ['aggregate', 'count', 'sum', 'avg', 'average', 'min', 'max', 'total'],
-  prerequisites: ['where'],
+const content: LessonContent = {
   overview:
     'Aggregate functions turn many rows into one value: how many products there are, their average price, the most expensive one. A query with aggregates and no GROUP BY returns exactly one row that summarises all the rows WHERE kept.',
   concept: [
@@ -123,3 +115,5 @@ export const aggregates: Lesson = {
     'With no rows, COUNT is 0 and the other aggregates are NULL.',
   ],
 };
+
+export default content;

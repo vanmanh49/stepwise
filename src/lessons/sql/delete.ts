@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { scriptViewAt } from '../../sql/scriptSteps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'DELETE FROM order_items\nWHERE order_id = 3;\nSELECT * FROM order_items;';
 
-export const deleteLesson: Lesson = {
-  id: 'delete',
-  title: 'DELETE',
-  category: 'sql',
-  difficulty: 'beginner',
-  group: 'Modifying data',
-  description: 'Remove rows from a table, choosing them with WHERE, and see how foreign keys protect related rows.',
-  keywords: ['delete from', 'remove row', 'where', 'foreign key', 'truncate', 'clean up'],
-  prerequisites: ['where'],
+const content: LessonContent = {
   overview:
     'DELETE removes rows from a table. WHERE picks which ones; without WHERE, every row goes. A foreign key can stop a DELETE: a row that other rows still refer to cannot be removed until those rows are gone.',
   concept: [
@@ -120,3 +112,5 @@ export const deleteLesson: Lesson = {
     'Foreign keys stop a row being deleted while other rows still refer to it.',
   ],
 };
+
+export default content;

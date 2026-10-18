@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'SELECT s.name, c.title\nFROM students s\nJOIN enrollments e ON e.student_id = s.id\nJOIN courses c ON c.id = e.course_id;';
 
-export const manyToMany: Lesson = {
-  id: 'many-to-many',
-  title: 'Many-to-Many Joins',
-  category: 'sql',
-  difficulty: 'intermediate',
-  group: 'Joins',
-  description: 'Connect two tables through a link table, such as students and courses through enrollments.',
-  keywords: ['many to many', 'junction table', 'link table', 'bridge table', 'join table', 'two joins', 'enrollments'],
-  prerequisites: ['inner-join', 'group-by-having'],
+const content: LessonContent = {
   overview:
     'A student takes many courses, and a course has many students. No single column can hold that, so a third table, the link table, stores one row per pair. A many-to-many query joins all three: from the first table, through the link table, to the second.',
   concept: [
@@ -133,3 +125,5 @@ export const manyToMany: Lesson = {
     'GROUP BY either end counts connections; LEFT JOIN keeps rows with none.',
   ],
 };
+
+export default content;

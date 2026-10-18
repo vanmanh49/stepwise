@@ -1,15 +1,7 @@
 import { selectionSortCode, selectionSortSteps } from '../../algorithms/sorting/selection';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const selectionSort: Lesson = {
-  id: 'selection-sort',
-  title: 'Selection Sort',
-  category: 'algorithms',
-  difficulty: 'beginner',
-  group: 'Sorting',
-  description: 'Repeatedly pick the smallest remaining value and put it next in line.',
-  keywords: ['sorting', 'minimum', 'in-place', 'unstable', 'swap'],
-  prerequisites: ['array', 'bubble-sort'],
+const content: LessonContent = {
   overview:
     'Selection sort splits the list into a sorted part on the left and an unsorted part on the right. Each round it scans the unsorted part for the smallest value and swaps it into the next position. It makes very few swaps, but always the same large number of comparisons.',
   concept: [
@@ -26,13 +18,6 @@ export const selectionSort: Lesson = {
   ],
   visualization: { kind: 'sort', initial: [29, 10, 14, 37, 13, 5], generate: selectionSortSteps },
   code: selectionSortCode,
-  complexity: {
-    rows: [{ label: 'Selection Sort', best: 'O(n²)', average: 'O(n²)', worst: 'O(n²)' }],
-    space: 'O(1)',
-    note: 'The scans look at n − 1, then n − 2, then n − 3 values and so on, about n²/2 comparisons in total, regardless of the starting order. It makes at most n − 1 swaps, though, which is the fewest of the simple sorts.',
-    curves: ['n2'],
-  },
-  compareWith: ['bubble-sort', 'insertion-sort', 'merge-sort', 'quick-sort'],
   prosCons: {
     pros: ['At most n − 1 swaps', 'Simple and predictable: always the same amount of work', 'Sorts in place with no extra memory'],
     cons: ['O(n²) even when the list is already sorted', 'Not stable: the long-distance swap can reorder equal values'],
@@ -98,3 +83,5 @@ export const selectionSort: Lesson = {
     'It sorts in place but is not stable.',
   ],
 };
+
+export default content;

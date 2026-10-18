@@ -1,16 +1,8 @@
 import { dfsCode, dfsSteps } from '../../algorithms/graph/dfs';
 import { directedGraph, islandGraph, simpleGraph } from '../../algorithms/graph/graphs';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const dfs: Lesson = {
-  id: 'dfs',
-  title: 'Depth-First Search (DFS)',
-  category: 'algorithms',
-  difficulty: 'intermediate',
-  group: 'Graph Algorithms',
-  description: 'Follow one path as deep as it goes, then back up and try the next.',
-  keywords: ['dfs', 'depth first', 'traversal', 'stack', 'recursion', 'backtracking', 'cycle detection'],
-  prerequisites: ['graph', 'stack', 'bfs'],
+const content: LessonContent = {
   overview:
     'Depth-first search explores a graph by going as far as possible along one path before backing up. From each node it moves to an unvisited neighbour, and only when a node has no unvisited neighbours left does it return to the previous node and try another direction.',
   concept: [
@@ -27,13 +19,6 @@ export const dfs: Lesson = {
   ],
   visualization: { kind: 'graph', graphs: [simpleGraph, islandGraph, directedGraph], needsStart: true, generate: dfsSteps },
   code: dfsCode,
-  complexity: {
-    rows: [{ label: 'DFS', best: 'O(V + E)', average: 'O(V + E)', worst: 'O(V + E)' }],
-    space: 'O(V)',
-    note: 'Like BFS, each node is visited once and each edge examined once. The memory goes to the visited set and the stack, which can be as deep as the longest path: up to V nodes.',
-    curves: ['n'],
-  },
-  compareWith: ['bfs', 'dijkstra'],
   prosCons: {
     pros: ['Uses little memory on wide graphs: only the current path is stored', 'Natural fit for recursion and backtracking', 'Reveals structure such as cycles and dependency order'],
     cons: ['Does not find shortest paths', 'Deep graphs can overflow the call stack in the recursive form', 'May wander far from the start before checking nearby nodes'],
@@ -100,3 +85,5 @@ export const dfs: Lesson = {
     'It is the basis for backtracking, cycle detection and topological sorting.',
   ],
 };
+
+export default content;

@@ -1,19 +1,11 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query =
   'SELECT name, department_id, salary,\n  RANK() OVER (PARTITION BY department_id ORDER BY salary DESC) AS pay_rank\nFROM employees;';
 
-export const windowFunctions: Lesson = {
-  id: 'window-functions',
-  title: 'Window Functions',
-  category: 'sql',
-  difficulty: 'advanced',
-  group: 'Advanced querying',
-  description: 'Rank rows, keep running totals and look at neighbouring rows, without collapsing rows into groups.',
-  keywords: ['window function', 'over', 'partition by', 'rank', 'dense_rank', 'row_number', 'lag', 'lead', 'running total', 'analytic'],
-  prerequisites: ['group-by-having', 'ctes'],
+const content: LessonContent = {
   overview:
     'A window function computes a value for each row from a set of related rows, its window, and keeps every row in the result. RANK() OVER (PARTITION BY department_id ORDER BY salary DESC) ranks each employee by pay within their own department, while still listing every employee.',
   concept: [
@@ -142,3 +134,5 @@ export const windowFunctions: Lesson = {
     'Aggregates with OVER give running totals and group averages; LAG and LEAD read neighbouring rows.',
   ],
 };
+
+export default content;

@@ -1,19 +1,11 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query =
   "SELECT name, price,\n  CASE\n    WHEN price >= 40 THEN 'premium'\n    WHEN price >= 15 THEN 'standard'\n    ELSE 'budget'\n  END AS tier\nFROM products;";
 
-export const caseExpressions: Lesson = {
-  id: 'case-expressions',
-  title: 'CASE Expressions',
-  category: 'sql',
-  difficulty: 'intermediate',
-  group: 'Advanced querying',
-  description: 'Choose a value row by row with CASE WHEN … THEN … ELSE … END, SQL’s if-then-else.',
-  keywords: ['case when', 'if then else', 'conditional', 'when then', 'else', 'bucket', 'label', 'pivot', 'conditional count'],
-  prerequisites: ['where'],
+const content: LessonContent = {
   overview:
     'CASE is SQL’s if-then-else. For each row it tests its WHEN conditions in order and returns the THEN value of the first one that is true, or the ELSE value when none is. It is an expression, so it can go anywhere a value can: in SELECT, ORDER BY, or inside SUM.',
   concept: [
@@ -128,3 +120,5 @@ export const caseExpressions: Lesson = {
     'CASE works in SELECT, ORDER BY and inside aggregates such as SUM.',
   ],
 };
+
+export default content;

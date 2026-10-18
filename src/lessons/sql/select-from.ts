@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'SELECT name, price\nFROM products;';
 
-export const selectFrom: Lesson = {
-  id: 'select-from',
-  title: 'SELECT and FROM',
-  category: 'sql',
-  difficulty: 'beginner',
-  group: 'Querying',
-  description: 'Read columns from a table: the first query everyone writes.',
-  keywords: ['select', 'from', 'columns', 'alias', 'as', 'star', 'query'],
-  prerequisites: [],
+const content: LessonContent = {
   overview:
     'Every SQL query that reads data starts with two clauses. FROM names the table to read, and SELECT says which columns you want back. Together they turn a whole table into exactly the columns you asked for.',
   concept: [
@@ -128,3 +120,5 @@ export const selectFrom: Lesson = {
     'Without ORDER BY, rows come back in no guaranteed order.',
   ],
 };
+
+export default content;

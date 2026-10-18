@@ -1,19 +1,11 @@
 import { datasets } from '../../sql/datasets';
 import { scriptViewAt } from '../../sql/scriptSteps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query =
   'BEGIN;\nUPDATE accounts SET balance = balance - 100 WHERE id = 1;\nUPDATE accounts SET balance = balance + 100 WHERE id = 2;\nCOMMIT;\nSELECT * FROM accounts;';
 
-export const transactions: Lesson = {
-  id: 'transactions',
-  title: 'Transactions',
-  category: 'sql',
-  difficulty: 'advanced',
-  group: 'Database internals',
-  description: 'Group statements so they all happen or none do: BEGIN, COMMIT, ROLLBACK and savepoints.',
-  keywords: ['transaction', 'begin', 'commit', 'rollback', 'savepoint', 'atomic', 'acid', 'all or nothing', 'undo'],
-  prerequisites: ['update', 'constraints'],
+const content: LessonContent = {
   overview:
     'A transfer takes money from one account and adds it to another: two UPDATEs that must both happen, or neither. A transaction groups them. After BEGIN, changes are pending; COMMIT keeps them all, ROLLBACK undoes them all. Savepoints mark points inside a transaction you can roll back to.',
   concept: [
@@ -132,3 +124,5 @@ export const transactions: Lesson = {
     'SAVEPOINT and ROLLBACK TO undo part of a transaction.',
   ],
 };
+
+export default content;

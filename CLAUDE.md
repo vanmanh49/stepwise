@@ -18,7 +18,7 @@ npm run build                            # typecheck + production build
 npm run build:pages                      # build under /stepwise/ and copy index.html to 404.html
 ```
 
-CI runs `npm run lint`, `npm test` and then `build:pages`. The linter is Oxlint rather than ESLint because typescript-eslint does not support TypeScript 7. Its `correctness` and `suspicious` categories are errors, plus the React hooks rules. A few rules are switched off in `.oxlintrc.json` because they don't fit this code (the automatic JSX runtime, narrowing `{ok}` results inside tests, helpers kept next to their only caller). For a deliberate exception, use `// oxlint-disable-next-line <rule> -- <reason>`.
+CI runs `npm run lint`, `npm test`, `build:pages` and then `check:bundle`. The linter is Oxlint rather than ESLint because typescript-eslint does not support TypeScript 7. Its `correctness` and `suspicious` categories are errors, plus the React hooks rules. A few rules are switched off in `.oxlintrc.json` because they don't fit this code (the automatic JSX runtime, narrowing `{ok}` results inside tests, helpers kept next to their only caller). For a deliberate exception, use `// oxlint-disable-next-line <rule> -- <reason>`.
 
 Every push to `main` deploys to GitHub Pages (`.github/workflows/deploy.yml`), and a failing test blocks the deploy.
 
@@ -28,8 +28,12 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
 
 - **Steps are data.** Each `Step` (`src/types/visualization.ts`) carries a `title`, a `why`, an optional `next`, a 1-based `codeLine` into the lesson's code string, `variables`, and a complete `View` snapshot. The player (`src/engine/`) is a pure reducer that only moves an index. The renderer for a view kind can therefore draw any step on its own.
 - **`View` is a discriminated union** of 15 kinds, including `array`, `tree`, `heap`, `graph`, `table`, `grid`, `panels`, `buckets`, `btree`, `trie`, `calls` and `sessions`. Every element has a `Role`. Role colours, border cues, marks and legend labels are defined only in `components/visualization/roles.ts`, and `rolesInView` there must handle every view kind. Elements keep stable ids across steps, so renderers can animate a value as it moves.
-- **Lessons are data** (`src/lessons/<category>/<id>.ts`, type `Lesson` in `src/types/lesson.ts`).
-  - `registry.ts` lists the live lessons in learning order.
+- **Lessons are data**, in two parts, so pages can list lessons without downloading their content:
+  - **Metadata** (`LessonMeta`: title, keywords, complexity…) lives in `src/lessons/meta/<category>.ts`, in learning order. These modules import only types.
+  - **Content** (`LessonContent`: text, visualization, code, quiz) is the default export of `src/lessons/<category>/<id>.ts`, and the file name is the id.
+  - `registry.ts` serves metadata synchronously (`lessons`, `getLesson`, `lessonsIn`, `adjacentLessons`). `loadLesson(id)` imports the content through `import.meta.glob`, which gives one chunk per lesson. `LessonPage` suspends on it.
+  - Tests that need content use `allLessons` / `fullLesson` from `lessons/all.testutil.ts`.
+  - `npm run check:bundle` (run in CI) fails if the first-load JavaScript passes 600 kB or contains lesson text.
   - `curriculum.ts` lists every topic. A topic becomes a live link only when a lesson with the same id is registered.
   - `lesson.visualization.kind` (`sort`, `search`, `structure`, `text`, `graph`, `form`, `sql`) picks the input component in `components/visualization/inputs/`.
 - **Data structures** (`src/data-structures/`) export a `StructureDef<S>` with `initial`, `view(state)`, `code` and `ops`. `op.run(state, args, words)` returns `{ steps, state }`. It must never mutate `state`, and an operation that cannot run returns a single explanatory step with the state unchanged (`refuse` in `shared.ts`). Arguments are numbers, or words when the arg has `text: true`; they are validated by `parseOpFields`.

@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = "SELECT customer_id FROM orders WHERE status = 'shipped'\nUNION\nSELECT customer_id FROM orders WHERE status = 'pending';";
 
-export const setOperations: Lesson = {
-  id: 'set-operations',
-  title: 'UNION, INTERSECT, EXCEPT',
-  category: 'sql',
-  difficulty: 'intermediate',
-  group: 'Advanced querying',
-  description: 'Combine the results of two SELECTs: everything from both, only what both share, or what one has and the other lacks.',
-  keywords: ['union', 'union all', 'intersect', 'except', 'minus', 'set operations', 'combine queries', 'difference'],
-  prerequisites: ['distinct', 'where'],
+const content: LessonContent = {
   overview:
     'Set operations stack the results of two SELECTs into one. UNION keeps rows that appear in either, INTERSECT keeps rows that appear in both, and EXCEPT keeps rows of the first that are not in the second. Both SELECTs must return the same number of columns.',
   concept: [
@@ -129,3 +121,5 @@ export const setOperations: Lesson = {
     'ORDER BY and LIMIT at the end apply to the combined result.',
   ],
 };
+
+export default content;

@@ -1,17 +1,9 @@
 import { buildGraph, courseGraph, directedGraph } from '../../algorithms/graph/graphs';
 import { topologicalSortCode, topologicalSortSteps } from '../../algorithms/graph/topological';
 import { graphView } from '../../algorithms/graph/view';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const topologicalSort: Lesson = {
-  id: 'topological-sort',
-  title: 'Topological Sort',
-  category: 'algorithms',
-  difficulty: 'intermediate',
-  group: 'Graph Algorithms',
-  description: 'Put the nodes of a dependency graph in an order where every prerequisite comes first.',
-  keywords: ['dag', 'dependency', 'ordering', 'kahn', 'in-degree', 'prerequisite', 'schedule', 'build order'],
-  prerequisites: ['graph', 'bfs'],
+const content: LessonContent = {
   overview:
     'A topological sort arranges the nodes of a directed graph in a line so that every arrow points forward. If an arrow from A to B means "A must happen before B", the result is a valid order in which to do everything. It only works when the graph has no cycles.',
   concept: [
@@ -35,13 +27,6 @@ export const topologicalSort: Lesson = {
     generate: topologicalSortSteps,
   },
   code: topologicalSortCode,
-  complexity: {
-    rows: [{ label: 'Topological Sort (Kahn)', best: 'O(V + E)', average: 'O(V + E)', worst: 'O(V + E)' }],
-    space: 'O(V)',
-    note: 'V is the number of nodes and E the number of arrows. Counting in-degrees looks at every arrow once, and the main loop takes each node once and follows each arrow once. The in-degree table and the ready list hold at most V entries.',
-    curves: ['n'],
-  },
-  compareWith: ['bfs', 'dfs'],
   prosCons: {
     pros: ['Linear time in the size of the graph', 'Detects cycles as a side effect', 'The ready list shows which tasks could run in parallel'],
     cons: ['Only defined for directed graphs without cycles', 'The answer is usually not unique, which can surprise people comparing outputs'],
@@ -108,3 +93,5 @@ export const topologicalSort: Lesson = {
     'There are usually several valid orders.',
   ],
 };
+
+export default content;

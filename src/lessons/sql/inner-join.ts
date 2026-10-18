@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'SELECT o.id, c.name\nFROM orders o\nJOIN customers c ON o.customer_id = c.id;';
 
-export const innerJoin: Lesson = {
-  id: 'inner-join',
-  title: 'INNER JOIN',
-  category: 'sql',
-  difficulty: 'intermediate',
-  group: 'Joins',
-  description: 'Combine rows from two tables that belong together.',
-  keywords: ['join', 'inner join', 'on', 'foreign key', 'combine tables', 'alias'],
-  prerequisites: ['select-from', 'where'],
+const content: LessonContent = {
   overview:
     'Data is split across tables so each fact is stored once: an order stores its customer’s id, not the customer’s name. JOIN puts it back together. It pairs rows from two tables and keeps the pairs where the ON condition is true.',
   concept: [
@@ -115,3 +107,5 @@ export const innerJoin: Lesson = {
     'Use aliases and table prefixes to keep column names unambiguous.',
   ],
 };
+
+export default content;

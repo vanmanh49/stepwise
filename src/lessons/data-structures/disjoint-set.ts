@@ -1,14 +1,7 @@
 import { disjointSetStructure } from '../../data-structures/disjointSet';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const disjointSet: Lesson = {
-  id: 'disjoint-set',
-  title: 'Disjoint Set / Union Find',
-  category: 'data-structures',
-  difficulty: 'advanced',
-  description: 'Keeps track of which items are in the same group, with near-constant time joins and lookups.',
-  keywords: ['union find', 'union-find', 'dsu', 'disjoint set union', 'path compression', 'union by rank', 'connected components', 'merge sets'],
-  prerequisites: ['array'],
+const content: LessonContent = {
   overview:
     'A disjoint set (also called union-find) splits items into groups that never overlap and answers one question fast: are these two items in the same group? It supports two operations: find, which names an item\'s group, and union, which merges two groups. With two simple tricks, both run in practically constant time.',
   concept: [
@@ -26,17 +19,6 @@ export const disjointSet: Lesson = {
   ],
   visualization: { kind: 'structure', structure: disjointSetStructure },
   code: disjointSetStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Find', best: 'O(1)', average: 'O(α(n))', worst: 'O(log n)' },
-      { label: 'Union', best: 'O(1)', average: 'O(α(n))', worst: 'O(log n)' },
-      { label: 'Connected?', best: 'O(1)', average: 'O(α(n))', worst: 'O(log n)' },
-    ],
-    space: 'O(n)',
-    note: 'Union by rank alone keeps every tree at most log₂ n tall, so a single find is O(log n) at worst. Adding path compression flattens the trees as they are used: over many operations the average cost is O(α(n)), the inverse Ackermann function, which is at most 4 for any n you could store.',
-    curves: ['1', 'log'],
-  },
-  compareWith: ['array'],
   prosCons: {
     pros: ['Near-constant time per operation', 'Just two arrays of integers', 'Very little code'],
     cons: ['Cannot split a group once merged', 'Cannot list a group\'s members without scanning everything', 'Items must be numbered 0 to n − 1 (or mapped to numbers)'],
@@ -98,3 +80,5 @@ export const disjointSet: Lesson = {
     'Together they make each operation practically constant time, which is why Kruskal\'s algorithm relies on it.',
   ],
 };
+
+export default content;

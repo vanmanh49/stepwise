@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { viewAt } from '../../sql/steps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = 'SELECT name, price\nFROM products\nWHERE price > 30;';
 
-export const where: Lesson = {
-  id: 'where',
-  title: 'Filtering with WHERE',
-  category: 'sql',
-  difficulty: 'beginner',
-  group: 'Querying',
-  description: 'Keep only the rows that match a condition.',
-  keywords: ['where', 'filter', 'condition', 'and', 'or', 'between', 'like', 'in', 'comparison'],
-  prerequisites: ['select-from'],
+const content: LessonContent = {
   overview:
     'WHERE filters rows. It checks a condition against every row that FROM produced and keeps only the rows where the condition is true. Everything after WHERE sees only the rows it kept.',
   concept: [
@@ -123,3 +115,5 @@ export const where: Lesson = {
     'BETWEEN, IN and LIKE are shortcuts for ranges, lists and text patterns.',
   ],
 };
+
+export default content;

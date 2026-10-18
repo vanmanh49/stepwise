@@ -1,14 +1,7 @@
 import { bTreeStructure } from '../../data-structures/bTree';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const bTree: Lesson = {
-  id: 'b-tree',
-  title: 'B-Tree / B+ Tree',
-  category: 'data-structures',
-  difficulty: 'advanced',
-  description: 'A wide, shallow search tree with many keys per node, built for disks and databases.',
-  keywords: ['b tree', 'b+ tree', 'bplus tree', 'multiway tree', 'database index', 'split', 'merge', 'borrow', 'order', 'disk page'],
-  prerequisites: ['binary-search-tree'],
+const content: LessonContent = {
   overview:
     'A B-tree is a search tree where each node holds several sorted keys and has one more child than it has keys. Because each node branches many ways, the tree is very shallow: a few levels can hold millions of keys. Databases and file systems use B-trees because reading one node costs one disk read, so fewer levels means fewer slow reads.',
   concept: [
@@ -26,17 +19,6 @@ export const bTree: Lesson = {
   ],
   visualization: { kind: 'structure', structure: bTreeStructure },
   code: bTreeStructure.code,
-  complexity: {
-    rows: [
-      { label: 'Search', best: 'O(1)', average: 'O(log n)', worst: 'O(log n)' },
-      { label: 'Insert', best: 'O(log n)', average: 'O(log n)', worst: 'O(log n)' },
-      { label: 'Delete', best: 'O(log n)', average: 'O(log n)', worst: 'O(log n)' },
-    ],
-    space: 'O(n)',
-    note: 'With up to m children per node, the height is about logₘ n. Real databases use nodes of hundreds of keys, so a billion keys fit in 4 or 5 levels. Work inside a node is small compared with reading it from disk.',
-    curves: ['log'],
-  },
-  compareWith: ['binary-search-tree', 'red-black-tree'],
   prosCons: {
     pros: ['Very shallow, so few node reads per operation', 'Always balanced: all leaves at the same depth', 'Keeps keys sorted, so range queries are efficient (especially in a B+ tree)'],
     cons: ['More complex than binary trees, with splits, borrows and merges', 'Nodes may be partly empty, wasting some space', 'For small in-memory data, a balanced binary tree or hash table is simpler'],
@@ -101,3 +83,5 @@ export const bTree: Lesson = {
     'B+ trees keep all data in linked leaves and power most database indexes.',
   ],
 };
+
+export default content;

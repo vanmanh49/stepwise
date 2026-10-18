@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { datasets } from './datasets';
 import { executeSelect, runQuery, type TraceEvent } from './execute';
 import { parseQuery } from './parse';
-import { getLesson } from '../lessons/registry';
+import { fullLesson } from '../lessons/all.testutil';
 import { checkExercise } from './check';
 
 const { company } = datasets;
@@ -89,7 +89,7 @@ describe('window functions inside aggregates', () => {
 
 describe('top-earners exercise', () => {
   it('says how employees without a department count', () => {
-    const lesson = getLesson('window-functions')!;
+    const lesson = fullLesson('window-functions');
     if (lesson.visualization.kind !== 'sql') throw new Error('sql lesson');
     const exercise = lesson.visualization.exercises.find((e) => e.id === 'top-earners')!;
     expect(exercise.prompt).toMatch(/Thu/);

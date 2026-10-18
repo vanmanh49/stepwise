@@ -1,15 +1,7 @@
 import { bubbleSortCode, bubbleSortSteps } from '../../algorithms/sorting/bubble';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const bubbleSort: Lesson = {
-  id: 'bubble-sort',
-  title: 'Bubble Sort',
-  category: 'algorithms',
-  difficulty: 'beginner',
-  group: 'Sorting',
-  description: 'Swap neighbours that are out of order until nothing is left to swap.',
-  keywords: ['sorting', 'swap', 'adjacent', 'pass', 'in-place', 'stable'],
-  prerequisites: ['array'],
+const content: LessonContent = {
   overview:
     'Bubble sort walks through the list comparing each pair of neighbours and swapping them if they are in the wrong order. After each full pass the largest remaining value has "bubbled" to the end. It is slow on large lists, but it is the clearest first look at how sorting works.',
   concept: [
@@ -27,13 +19,6 @@ export const bubbleSort: Lesson = {
   ],
   visualization: { kind: 'sort', initial: [5, 3, 8, 1, 9, 2], generate: bubbleSortSteps },
   code: bubbleSortCode,
-  complexity: {
-    rows: [{ label: 'Bubble Sort', best: 'O(n)', average: 'O(n²)', worst: 'O(n²)' }],
-    space: 'O(1)',
-    note: 'Each pass makes up to n comparisons and there can be up to n passes, giving n × n. Sorting 10 times more items takes about 100 times longer. The best case, O(n), is an already sorted list: one pass with no swaps and the early exit fires.',
-    curves: ['n', 'n2'],
-  },
-  compareWith: ['selection-sort', 'insertion-sort', 'merge-sort', 'quick-sort'],
   prosCons: {
     pros: ['Very easy to understand and implement', 'Sorts in place with no extra memory', 'Stable: equal values keep their original order', 'Detects an already sorted list in one pass'],
     cons: ['O(n²) comparisons and swaps make it impractical for large lists', 'Makes far more swaps than selection sort'],
@@ -99,3 +84,5 @@ export const bubbleSort: Lesson = {
     'It is stable and in place, but too slow for real workloads.',
   ],
 };
+
+export default content;

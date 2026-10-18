@@ -1,16 +1,9 @@
 import { directedGraph, simpleGraph, weightedGraph } from '../../algorithms/graph/graphs';
 import { graphView } from '../../algorithms/graph/view';
 import { adjacencyCode, adjacencySteps } from '../../data-structures/graph';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const graph: Lesson = {
-  id: 'graph',
-  title: 'Graph',
-  category: 'data-structures',
-  difficulty: 'intermediate',
-  description: 'Nodes joined by edges: the structure for anything that is connected.',
-  keywords: ['vertex', 'edge', 'node', 'adjacency list', 'adjacency matrix', 'directed', 'weighted', 'network'],
-  prerequisites: ['array', 'linked-list'],
+const content: LessonContent = {
   overview:
     'A graph is a set of nodes (also called vertices) and the edges that connect them. Unlike a tree, a graph has no root and no rule about shape: any node can connect to any other, and loops are allowed. Road maps, social networks and the web are all graphs.',
   concept: [
@@ -32,17 +25,6 @@ export const graph: Lesson = {
     generate: adjacencySteps,
   },
   code: adjacencyCode,
-  complexity: {
-    rows: [
-      { label: 'Add node', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Add edge', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'List neighbours of a node', best: 'O(1)', average: 'O(degree)', worst: 'O(V)' },
-      { label: 'Check whether an edge exists', best: 'O(1)', average: 'O(degree)', worst: 'O(V)' },
-    ],
-    space: 'O(V + E)',
-    note: 'V is the number of nodes and E the number of edges. "Degree" is how many edges touch one node. An adjacency list only stores edges that exist; an adjacency matrix always uses O(V²) space but checks an edge in O(1).',
-    curves: ['1', 'n'],
-  },
   prosCons: {
     pros: ['Models any kind of relationship', 'Adjacency lists are compact for sparse graphs', 'A huge library of ready-made algorithms applies'],
     cons: ['More complex than linear structures', 'Cycles mean algorithms must track visited nodes', 'Adjacency lists make "is A connected to B?" slower than a matrix'],
@@ -109,3 +91,5 @@ export const graph: Lesson = {
     'BFS, DFS and Dijkstra all work by repeatedly asking for the neighbours of a node.',
   ],
 };
+
+export default content;

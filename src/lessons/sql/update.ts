@@ -1,18 +1,10 @@
 import { datasets } from '../../sql/datasets';
 import { scriptViewAt } from '../../sql/scriptSteps';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const query = "UPDATE customers SET city = 'Hanoi'\nWHERE id = 4;\nSELECT * FROM customers WHERE id = 4;";
 
-export const update: Lesson = {
-  id: 'update',
-  title: 'UPDATE',
-  category: 'sql',
-  difficulty: 'beginner',
-  group: 'Modifying data',
-  description: 'Change values in rows that already exist, choosing the rows with WHERE.',
-  keywords: ['update set', 'change value', 'modify row', 'edit data', 'where', 'bulk update'],
-  prerequisites: ['where'],
+const content: LessonContent = {
   overview:
     'UPDATE changes values in existing rows. SET says which columns get which new values, and WHERE picks the rows to change. Without WHERE, every row of the table is changed.',
   concept: [
@@ -128,3 +120,5 @@ export const update: Lesson = {
     'If any changed row breaks a constraint, the whole UPDATE is undone.',
   ],
 };
+
+export default content;

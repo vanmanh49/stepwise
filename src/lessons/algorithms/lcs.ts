@@ -1,17 +1,9 @@
 import { lcsCode, lcsSteps } from '../../algorithms/dp/lcs';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const example = { a: 'ABCBDAB', b: 'BDCABA' };
 
-export const lcs: Lesson = {
-  id: 'lcs',
-  title: 'Longest Common Subsequence',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Dynamic Programming',
-  description: 'Find the longest sequence of characters that appears in the same order in two strings.',
-  keywords: ['lcs', 'subsequence', 'diff', 'string comparison', 'dynamic programming', '2d table', 'edit distance'],
-  prerequisites: ['fibonacci-dp'],
+const content: LessonContent = {
   overview:
     'A subsequence keeps some characters of a string in their original order, possibly with gaps: "ACE" is a subsequence of "ABCDE". The longest common subsequence (LCS) of two strings is the longest one they share. Dynamic programming finds it with a table comparing every prefix of one string with every prefix of the other.',
   concept: [
@@ -41,13 +33,6 @@ export const lcs: Lesson = {
     generate: lcsSteps,
   },
   code: lcsCode,
-  complexity: {
-    rows: [{ label: 'LCS (DP table)', best: 'O(m × n)', average: 'O(m × n)', worst: 'O(m × n)' }],
-    space: 'O(m × n)',
-    note: 'm and n are the two string lengths; every cell is filled once in constant time. If only the length is needed, two rows of the table are enough.',
-    curves: ['n2'],
-  },
-  compareWith: ['lis'],
   prosCons: {
     pros: ['Exact answer, far faster than trying all subsequences', 'The same table recovers the subsequence itself', 'The basis of diff tools and edit distance'],
     cons: ['Quadratic time and memory in the string lengths', 'Too slow for comparing very long texts character by character'],
@@ -109,3 +94,5 @@ export const lcs: Lesson = {
     'It runs in O(m × n) time and powers diff tools.',
   ],
 };
+
+export default content;

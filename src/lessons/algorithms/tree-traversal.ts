@@ -1,17 +1,9 @@
 import { traversalCode, traversalStructure } from '../../algorithms/tree/traversal';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
 const sampleTree = traversalStructure.view(traversalStructure.initial);
 
-export const treeTraversal: Lesson = {
-  id: 'tree-traversal',
-  title: 'Tree Traversal',
-  category: 'algorithms',
-  difficulty: 'intermediate',
-  group: 'Tree Algorithms',
-  description: 'Four standard orders for visiting every node of a tree exactly once.',
-  keywords: ['preorder', 'inorder', 'postorder', 'level order', 'tree', 'recursion', 'dfs', 'bfs', 'visit'],
-  prerequisites: ['binary-tree', 'stack', 'queue'],
+const content: LessonContent = {
   overview:
     'Traversing a tree means visiting every node once. A list has one obvious order, but a tree branches, so you need a rule for what comes next. There are four standard rules: preorder, inorder, postorder and level order. They visit the same nodes in different sequences, and each sequence is useful for different jobs.',
   concept: [
@@ -29,18 +21,6 @@ export const treeTraversal: Lesson = {
   ],
   visualization: { kind: 'structure', structure: traversalStructure },
   code: traversalCode,
-  complexity: {
-    rows: [
-      { label: 'Preorder', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Inorder', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Postorder', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Level order', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-    ],
-    space: 'O(h) or O(w)',
-    note: 'Every traversal visits each node once, so all four are O(n). Memory differs: the recursive ones keep one call per level on the stack, so they need O(h) where h is the height of the tree. Level order keeps a whole level in its queue, so it needs O(w) where w is the widest level.',
-    curves: ['n'],
-  },
-  compareWith: ['bfs', 'dfs'],
   prosCons: {
     pros: ['Each is a few lines of code', 'Together they cover almost every way a tree needs to be processed', 'All run in linear time'],
     cons: ['Deep, lopsided trees can overflow the call stack in the recursive versions', 'Level order can use a lot of memory on very wide trees', 'Picking the wrong order gives a correct-looking but wrong result'],
@@ -111,3 +91,5 @@ export const treeTraversal: Lesson = {
     'All four take O(n) time; they differ in memory use and in what the order is good for.',
   ],
 };
+
+export default content;

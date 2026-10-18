@@ -1,16 +1,8 @@
 import { cycleGraph, islandGraph } from '../../algorithms/graph/graphs';
 import { unionFindCode, unionFindSteps } from '../../algorithms/graph/unionFind';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const unionFind: Lesson = {
-  id: 'union-find',
-  title: 'Union Find',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Advanced Algorithms',
-  description: 'Count connected groups and spot cycles by merging groups edge by edge, with near-constant-time lookups.',
-  keywords: ['disjoint set', 'dsu', 'connected components', 'cycle detection', 'path compression', 'union by rank'],
-  prerequisites: ['graph', 'kruskal'],
+const content: LessonContent = {
   overview:
     'Union find answers one question very fast: are these two nodes already connected? It keeps every node in a group, represented by a tree whose root names the group. Going through a graph’s edges and merging the groups at both ends counts the connected components, and any edge whose ends are already in the same group closes a cycle.',
   concept: [
@@ -28,16 +20,6 @@ export const unionFind: Lesson = {
   ],
   visualization: { kind: 'graph', graphs: [cycleGraph, islandGraph], needsStart: false, generate: unionFindSteps },
   code: unionFindCode,
-  complexity: {
-    rows: [
-      { label: 'Find or union', best: 'O(1)', average: 'O(α(n))', worst: 'O(log n)' },
-      { label: 'Whole graph', best: 'O(V + E)', average: 'O(V + E α(V))', worst: 'O(V + E log V)' },
-    ],
-    space: 'O(V)',
-    note: 'α is the inverse Ackermann function, which is at most 4 for any number of nodes that fits in the universe, so each operation is constant time in practice. A single operation can take O(log n) before the paths have been compressed.',
-    curves: ['1', 'n'],
-  },
-  compareWith: ['kruskal'],
   prosCons: {
     pros: ['Near-constant time per find and union', 'Works as edges arrive, one at a time', 'Tiny implementation: two arrays and two short functions'],
     cons: ['Cannot split groups apart again', 'Does not give the actual path between two nodes', 'Only for undirected connectivity'],
@@ -104,3 +86,5 @@ export const unionFind: Lesson = {
     'One pass over the edges counts connected components and finds cycle-closing edges.',
   ],
 };
+
+export default content;

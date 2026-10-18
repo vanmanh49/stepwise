@@ -1,15 +1,7 @@
 import { prefixSumCode, prefixSumSteps } from '../../algorithms/techniques/prefixSum';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const prefixSum: Lesson = {
-  id: 'prefix-sum',
-  title: 'Prefix Sum',
-  category: 'algorithms',
-  difficulty: 'beginner',
-  group: 'Basic Techniques',
-  description: 'Store running totals once, then answer any range-sum question with one subtraction.',
-  keywords: ['running total', 'cumulative sum', 'range sum', 'range query', 'precompute', 'technique', 'pattern'],
-  prerequisites: ['array'],
+const content: LessonContent = {
   overview:
     'A prefix sum array stores, at each position, the total of everything before it. Building it takes one pass. After that, the sum of any stretch of the original list is the difference between two stored totals, no matter how long the stretch is.',
   concept: [
@@ -27,17 +19,6 @@ export const prefixSum: Lesson = {
   ],
   visualization: { kind: 'sort', initial: [3, 1, 4, 1, 5, 9, 2], generate: prefixSumSteps },
   code: prefixSumCode,
-  complexity: {
-    rows: [
-      { label: 'Build the prefix array', best: 'O(n)', average: 'O(n)', worst: 'O(n)' },
-      { label: 'Range-sum query', best: 'O(1)', average: 'O(1)', worst: 'O(1)' },
-      { label: 'Update one value', best: 'O(1)', average: 'O(n)', worst: 'O(n)' },
-    ],
-    space: 'O(n)',
-    note: 'Without a prefix array each range sum costs O(n), so q questions cost O(n × q). With it, the total is O(n + q). The weakness is updates: changing one value invalidates every total after it. Fenwick trees and segment trees exist to make both queries and updates O(log n).',
-    curves: ['1', 'n'],
-  },
-  compareWith: ['sliding-window'],
   prosCons: {
     pros: ['Any range sum in O(1) after one O(n) pass', 'Very simple to implement', 'Extends to two dimensions for sums over rectangles'],
     cons: ['Uses O(n) extra memory', 'An update to the list forces a rebuild', 'Works for operations that can be undone by subtraction, such as sum, but not for min or max'],
@@ -104,3 +85,5 @@ export const prefixSum: Lesson = {
     'Updates are expensive, so it suits data that does not change.',
   ],
 };
+
+export default content;

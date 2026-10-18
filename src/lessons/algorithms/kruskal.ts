@@ -1,17 +1,9 @@
 import { islandGraph, weightedGraph } from '../../algorithms/graph/graphs';
 import { kruskalCode, kruskalSteps } from '../../algorithms/graph/kruskal';
 import { graphView } from '../../algorithms/graph/view';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const kruskal: Lesson = {
-  id: 'kruskal',
-  title: 'Kruskal',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Minimum Spanning Tree',
-  description: 'Connect every node as cheaply as possible by taking the cheapest safe edge each time.',
-  keywords: ['minimum spanning tree', 'mst', 'greedy', 'union find', 'disjoint set', 'weighted graph', 'cycle'],
-  prerequisites: ['graph'],
+const content: LessonContent = {
   overview:
     "Kruskal's algorithm finds a minimum spanning tree: the cheapest set of edges that keeps every node of a weighted graph connected. It sorts the edges by weight and takes them one by one, skipping any edge that would form a loop.",
   concept: [
@@ -29,13 +21,6 @@ export const kruskal: Lesson = {
   ],
   visualization: { kind: 'graph', graphs: [weightedGraph, islandGraph], needsStart: false, generate: kruskalSteps },
   code: kruskalCode,
-  complexity: {
-    rows: [{ label: 'Kruskal', best: 'O(E log E)', average: 'O(E log E)', worst: 'O(E log E)' }],
-    space: 'O(V)',
-    note: 'Sorting the E edges dominates the cost. With a proper disjoint set, each "same group?" check and each merge is practically constant time, so the loop over the edges adds almost nothing.',
-    curves: ['nlogn'],
-  },
-  compareWith: ['prim', 'dijkstra'],
   prosCons: {
     pros: ['Simple idea: sort, then take or skip', 'Fast on sparse graphs with few edges', 'Works on disconnected graphs, producing a tree for each part'],
     cons: ['Needs all edges up front, sorted', 'Needs a disjoint-set structure to be efficient', 'Slower than Prim on dense graphs with very many edges'],
@@ -102,3 +87,5 @@ export const kruskal: Lesson = {
     'It runs in O(E log E) and also handles disconnected graphs.',
   ],
 };
+
+export default content;

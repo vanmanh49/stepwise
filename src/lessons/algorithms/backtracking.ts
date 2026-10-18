@@ -1,15 +1,7 @@
 import { nQueensCode, nQueensSteps } from '../../algorithms/recursion/nQueens';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const backtracking: Lesson = {
-  id: 'backtracking',
-  title: 'Backtracking',
-  category: 'algorithms',
-  difficulty: 'intermediate',
-  group: 'Recursion',
-  description: 'Search for a solution one choice at a time, and undo a choice as soon as it leads to a dead end.',
-  keywords: ['n-queens', 'eight queens', 'search', 'pruning', 'constraint satisfaction', 'undo', 'recursion tree'],
-  prerequisites: ['recursion-fundamentals'],
+const content: LessonContent = {
   overview:
     'Backtracking builds a solution step by step, trying one option at each step. When it reaches a point where no option can work, it undoes its most recent choice and tries the next one. This lesson solves the N-Queens puzzle: place N queens on an N × N board so that no two attack each other.',
   concept: [
@@ -36,13 +28,6 @@ export const backtracking: Lesson = {
     generate: nQueensSteps,
   },
   code: nQueensCode,
-  complexity: {
-    rows: [{ label: 'N-Queens backtracking', best: 'O(n²)', average: 'O(n!)', worst: 'O(n!)' }],
-    space: 'O(n)',
-    note: 'Without pruning there are n! ways to put one queen per row and column. Pruning skips most of them, but the worst case still grows factorially, faster even than the 2ⁿ curve it is grouped with.',
-    curves: ['2n'],
-  },
-  compareWith: ['recursion-fundamentals'],
   prosCons: {
     pros: ['Finds a solution, or proves none exists', 'Pruning skips huge parts of the search', 'Needs memory only for the current path'],
     cons: ['Worst case is still exponential or factorial', 'Speed depends heavily on the order choices are tried in', 'Can be slow when constraints are only checked late'],
@@ -104,3 +89,5 @@ export const backtracking: Lesson = {
     'The worst case is still exponential, but pruning makes many puzzles fast in practice.',
   ],
 };
+
+export default content;

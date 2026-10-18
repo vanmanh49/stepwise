@@ -1,15 +1,7 @@
 import { fibonacciDpCode, fibonacciDpSteps } from '../../algorithms/dp/fibonacci';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const fibonacciDp: Lesson = {
-  id: 'fibonacci-dp',
-  title: 'Fibonacci DP',
-  category: 'algorithms',
-  difficulty: 'advanced',
-  group: 'Dynamic Programming',
-  description: 'Turn an exponential recursion into a linear one by remembering answers: memoization and bottom-up tables.',
-  keywords: ['dynamic programming', 'dp', 'memoization', 'tabulation', 'top-down', 'bottom-up', 'overlapping subproblems'],
-  prerequisites: ['recursion-fundamentals'],
+const content: LessonContent = {
   overview:
     'Dynamic programming (DP) solves a problem by combining answers to smaller subproblems and storing each answer so it is computed only once. Fibonacci is the classic first example: naive recursion makes about 2ⁿ calls, while memoization (top-down) or a table (bottom-up) needs only n steps.',
   concept: [
@@ -39,13 +31,6 @@ export const fibonacciDp: Lesson = {
     generate: fibonacciDpSteps,
   },
   code: fibonacciDpCode,
-  complexity: {
-    rows: [{ label: 'Fibonacci with DP', best: 'O(n)', average: 'O(n)', worst: 'O(n)' }],
-    space: 'O(n)',
-    note: 'Each value from 0 to n is computed once. The table version can keep only the last two values and run in O(1) memory.',
-    curves: ['n'],
-  },
-  compareWith: ['recursion-fundamentals'],
   prosCons: {
     pros: ['Turns exponential time into linear time here', 'Memoization is a small change to a recursive solution', 'Tables avoid recursion and stack overflow'],
     cons: ['Uses memory for the stored answers', 'Only helps when subproblems actually repeat', 'Finding the right subproblem takes practice'],
@@ -112,3 +97,5 @@ export const fibonacciDp: Lesson = {
     'DP applies when subproblems overlap and the answer builds on smaller answers.',
   ],
 };
+
+export default content;

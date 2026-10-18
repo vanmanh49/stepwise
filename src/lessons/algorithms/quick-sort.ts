@@ -1,15 +1,7 @@
 import { quickSortCode, quickSortSteps } from '../../algorithms/sorting/quick';
-import type { Lesson } from '../../types/lesson';
+import type { LessonContent } from '../../types/lesson';
 
-export const quickSort: Lesson = {
-  id: 'quick-sort',
-  title: 'Quick Sort',
-  category: 'algorithms',
-  difficulty: 'intermediate',
-  group: 'Sorting',
-  description: 'Pick a pivot, put smaller values on its left and larger on its right, then repeat on each side.',
-  keywords: ['sorting', 'pivot', 'partition', 'divide and conquer', 'recursion', 'in-place', 'lomuto'],
-  prerequisites: ['insertion-sort', 'merge-sort'],
+const content: LessonContent = {
   overview:
     'Quick sort chooses one value as the pivot and rearranges the list so that everything smaller is on its left and everything larger is on its right. The pivot is then in its final position, and the same process is applied to each side. It is usually the fastest general-purpose sort in practice.',
   concept: [
@@ -28,13 +20,6 @@ export const quickSort: Lesson = {
   ],
   visualization: { kind: 'sort', initial: [7, 2, 9, 4, 1, 8, 5], generate: quickSortSteps },
   code: quickSortCode,
-  complexity: {
-    rows: [{ label: 'Quick Sort', best: 'O(n log n)', average: 'O(n log n)', worst: 'O(n²)' }],
-    space: 'O(log n)',
-    note: 'Even splits give log n levels of n work each. The worst case appears when every pivot is the smallest or largest value, for example last-value pivots on already sorted input. The O(log n) space is the recursion stack; it grows to O(n) in that worst case.',
-    curves: ['nlogn', 'n2'],
-  },
-  compareWith: ['merge-sort', 'insertion-sort', 'bubble-sort'],
   prosCons: {
     pros: ['Very fast in practice on arrays', 'Sorts in place: no buffer needed', 'Good use of CPU cache because it works on neighbouring values'],
     cons: ['O(n²) worst case with poor pivot choices', 'Not stable', 'Recursive, so deep recursion is possible on bad input'],
@@ -105,3 +90,5 @@ export const quickSort: Lesson = {
     'It is not stable; random or median-of-three pivots avoid the worst case.',
   ],
 };
+
+export default content;
