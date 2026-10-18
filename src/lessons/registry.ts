@@ -49,6 +49,7 @@ import { queue } from './data-structures/queue';
 import { stack } from './data-structures/stack';
 import { string } from './data-structures/string';
 import { aggregates } from './sql/aggregates';
+import { createTable } from './sql/create-table';
 import { deleteLesson } from './sql/delete';
 import { distinct } from './sql/distinct';
 import { groupByHaving } from './sql/group-by-having';
@@ -126,6 +127,7 @@ export const lessons: Lesson[] = [
   innerJoin,
   leftJoin,
   subqueries,
+  createTable,
 ];
 
 const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));

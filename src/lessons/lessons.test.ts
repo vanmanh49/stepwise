@@ -71,6 +71,7 @@ const EXPECTED_IDS = [
   'inner-join',
   'left-join',
   'subqueries',
+  'create-table',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -105,7 +106,7 @@ describe('lesson registry', () => {
     expect(lessons.map((l) => l.id)).toEqual(EXPECTED_IDS);
     expect(lessonsIn('data-structures')).toHaveLength(10);
     expect(lessonsIn('algorithms')).toHaveLength(39);
-    expect(lessonsIn('sql')).toHaveLength(13);
+    expect(lessonsIn('sql')).toHaveLength(14);
   });
 
   it('links previous and next lessons within a category', () => {
