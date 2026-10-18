@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { curveForNotation } from '../components/bigo/complexities';
-import { checkExercise } from '../sql/check';
+import { checkExercise, probeOutcomes } from '../sql/check';
+import { scriptSteps } from '../sql/scriptSteps';
 import { datasets } from '../sql/datasets';
-import { querySteps } from '../sql/steps';
 import type { Lesson } from '../types/lesson';
 import type { Step } from '../types/visualization';
 import { curriculum, roadmap, topicsIn } from './curriculum';
@@ -90,7 +90,7 @@ function defaultSteps(lesson: Lesson): Step[] {
     case 'form':
       return config.generate(config.presets[0]!.values);
     case 'sql': {
-      const result = querySteps(datasets[config.dataset], config.initialQuery);
+      const result = scriptSteps(datasets[config.dataset], config.initialQuery);
       if (!result.ok) throw new Error(result.error.message);
       return result.steps;
     }
@@ -183,12 +183,15 @@ describe.each(lessonsIn('sql').map((l) => [l.id, l] as const))('SQL lesson %s', 
     expect(lesson.code).toBe(config.initialQuery);
   });
 
-  it('offers examples that run', () => {
+  it('offers examples that run, failing only when their label says so', () => {
     expect(config.examples.length).toBeGreaterThanOrEqual(3);
     expect(config.examples.length).toBeLessThanOrEqual(4);
-    for (const example of config.examples) {
-      const result = querySteps(db, example.query);
-      expect(result.ok, `${example.label}: ${result.ok ? '' : result.error.message}`).toBe(true);
+    for (const example of [{ label: 'opening script', query: config.initialQuery }, ...config.examples]) {
+      const result = scriptSteps(db, example.query);
+      if (!result.ok) throw new Error(`${example.label}: ${result.error.message}`);
+      // An example meant to show a broken rule is labelled "Fails: …"; the opening script may also show one.
+      if (example.label.startsWith('Fails:')) expect(result.result.ok, example.label).toBe(false);
+      else if (example.label !== 'opening script') expect(result.result.ok, example.label).toBe(true);
     }
   });
 
@@ -198,6 +201,16 @@ describe.each(lessonsIn('sql').map((l) => [l.id, l] as const))('SQL lesson %s', 
     expect(new Set(config.exercises.map((e) => e.id)).size).toBe(config.exercises.length);
     for (const exercise of config.exercises) {
       expect(checkExercise(db, exercise.solution, exercise), exercise.id).toEqual({ status: 'correct' });
+    }
+  });
+
+  it('has probes that check something real', () => {
+    for (const exercise of config.exercises.filter((e) => e.probes)) {
+      const outcomes = probeOutcomes(db, exercise.solution, exercise.probes!);
+      if (!Array.isArray(outcomes)) throw new Error(`${exercise.id}: ${outcomes.message}`);
+      expect(outcomes.filter((o) => o.kind === 'error'), exercise.id).toEqual([]);
+      // Doing nothing must never pass.
+      expect(checkExercise(db, '', exercise).status, exercise.id).not.toBe('correct');
     }
   });
 
