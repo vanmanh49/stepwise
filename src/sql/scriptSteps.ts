@@ -6,7 +6,7 @@ import type { Relation, TraceEvent } from './execute';
 import { parseScript } from './parse';
 import { columnNotes, type TableSchema } from './schema';
 import { runScript, type ScriptResult } from './script';
-import { buildDrafts, fit, focusOf, querySteps, toTable, type Draft } from './steps';
+import { btreeView, buildDrafts, fit, focusOf, querySteps, toTable, type Draft } from './steps';
 import { formatValue, toPlain, type SqlValue, type Truth } from './values';
 import { relationOf, type WriteEvent } from './write';
 
@@ -131,6 +131,20 @@ function intent(statement: Statement): string {
     case 'set-isolation':
       return 'SET TRANSACTION sets how much this session sees of the other session’s work.';
   }
+}
+
+/** What one line of EXPLAIN QUERY PLAN means, in plain words. */
+function planMeaning(detail: string): string {
+  if (detail.startsWith('SEARCH') && detail.includes('INTEGER PRIMARY KEY')) return 'The rows are found by their id (the rowid), so only those rows are read.';
+  if (detail.startsWith('SEARCH') && detail.includes('COVERING INDEX')) return 'The index finds the matching values, and it holds every column the query needs, so the table itself is never read.';
+  if (detail.startsWith('SEARCH')) return 'The index finds the matching rows, so only those rows are read from the table. "?" stands for the value being looked for.';
+  if (detail.startsWith('SCAN') && detail.includes('COVERING INDEX')) return 'Every entry of the index is read in order. The index holds every column needed, so the table is never read.';
+  if (detail.startsWith('SCAN') && detail.includes('INDEX')) return 'Every row is read, in the index’s order, which saves sorting them afterwards.';
+  if (detail.startsWith('SCAN')) return 'Every row of the table is read, one after another.';
+  if (detail.startsWith('USE TEMP B-TREE')) return 'The rows are put into a temporary B-tree to sort or group them, because no index gives them in the right order.';
+  if (detail.includes('SUBQUERY')) return detail.startsWith('CORRELATED') ? 'This subquery reads the outer row, so it runs again for every row.' : 'This subquery runs once, and its result is reused.';
+  if (detail.startsWith('CO-ROUTINE') || detail.startsWith('MATERIALIZE')) return 'This CTE or view runs on its own; its rows are then read like a table.';
+  return 'How SQLite groups the parts of this query.';
 }
 
 /** The line a clause of a write statement starts on. */
@@ -351,6 +365,67 @@ function buildScriptDrafts(db: Dataset, statements: Statement[], events: WriteEv
           latest.delete(event.table.toLowerCase());
           const at = changed.indexOf(event.table);
           if (at >= 0) changed.splice(at, 1);
+          break;
+        }
+        case 'index-created': {
+          const schema = known(event.index.table)?.schema;
+          const columns = event.index.columns.join(', ');
+          drafts.push({
+            step: {
+              title: `CREATE INDEX ${event.index.name}: a B-tree of ${event.relation.rows.length} ${columns} ${event.relation.rows.length === 1 ? 'value' : 'values'}`,
+              why: 'The leaves at the bottom hold every value in order, each with the row it comes from. The levels above say which branch holds which values, so a search can skip most of the tree.',
+              codeLine: statement.line,
+            },
+            view: () => ({
+              ...view('CREATE INDEX', () => [sqlTable(event.index.table, event.relation, schema)])(),
+              index: btreeView(`${event.index.name} on ${event.index.table}(${columns})`, event.tree),
+            }),
+          });
+          break;
+        }
+        case 'index-dropped':
+          drafts.push({
+            step: { title: `DROP INDEX ${event.index.name}`, why: 'The index is gone; queries on its columns read every row again. The table is unchanged.', codeLine: statement.line },
+            view: view('DROP INDEX', () => []),
+          });
+          break;
+        case 'view-created':
+        case 'view-dropped': {
+          const created = event.kind === 'view-created';
+          drafts.push({
+            step: {
+              title: `${created ? 'CREATE' : 'DROP'} VIEW ${event.view.name}`,
+              why: created ? 'Only the query is stored, under this name. Each time the view is read, the query runs on the tables as they are then.' : 'The stored query is gone. The tables it read are unchanged.',
+              codeLine: statement.line,
+            },
+            view: view(created ? 'CREATE VIEW' : 'DROP VIEW', () => [
+              { label: `view ${event.view.name}`, columns: ['stored query'], rows: [{ id: 'query', cells: [event.view.sql], role: created ? 'found' : 'discarded' }] },
+            ]),
+          });
+          break;
+        }
+        case 'explained': {
+          const depth = new Map<number, number>([[0, -1]]);
+          for (const entry of event.entries) depth.set(entry.id, depth.get(entry.parent)! + 1);
+          const planTable = (upTo: number) => (): SqlTable[] => [
+            {
+              label: 'query plan',
+              columns: ['id', 'parent', 'detail'],
+              rows: event.entries.slice(0, upTo + 1).map((e, i) => ({
+                id: `plan#${e.id}`,
+                cells: [e.id, e.parent, `${'  '.repeat(depth.get(e.id)!)}${e.detail}`],
+                role: i === upTo ? ('active' as const) : ('default' as const),
+              })),
+            },
+          ];
+          event.entries.forEach((entry, i) => {
+            drafts.push({
+              step: { title: `Plan line ${i + 1}: ${entry.detail}`, why: planMeaning(entry.detail), codeLine: statement.line },
+              view: view('EXPLAIN', planTable(i)),
+              group: `PLAN${index}`,
+              kept: true,
+            });
+          });
           break;
         }
         case 'violation': {

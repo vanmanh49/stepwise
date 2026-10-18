@@ -64,6 +64,8 @@ export type TraceEvent =
       table: string;
       label: string;
       index: string;
+      /** The indexed columns. */
+      columns: string[];
       condition: string;
       tree: BTree;
       path: string[];
@@ -249,6 +251,7 @@ function readIndexed(source: Indexed, scope: Scope, env: Env, trace?: Trace): Re
     table: tableName(env, path.table),
     label: path.label,
     index: index.name,
+    columns: index.columns,
     condition,
     tree,
     path: visited,

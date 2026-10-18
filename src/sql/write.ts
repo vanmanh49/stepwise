@@ -5,6 +5,7 @@ import { ConstraintError, SqlError, suggest } from './errors';
 import { evaluate } from './evaluate';
 import { bindCtes, executeSelect, filter, nullRow, scan, type Env, type QueryResult, type Relation, type Row, type TraceEvent } from './execute';
 import { firstNode } from './parse';
+import { buildBTree, type BTree } from './btree';
 import { planSelect, type PlanEntry } from './plan';
 import type { SessionEvent } from './sessions';
 import { formatLiteral, isRowidAlias, type TableSchema } from './schema';
@@ -25,7 +26,9 @@ export type WriteEvent =
   /** `relation` is the table as it was when the row failed, before the statement is undone. */
   | { kind: 'violation'; error: ConstraintError; table: string; rowId: string; clashWith?: { table: string; rowId: string }; relation: Relation }
   | { kind: 'rolled-back'; table: string; relation?: Relation }
-  | { kind: 'index-created' | 'index-dropped'; index: IndexDef }
+  /** `tree` is the new index built over `relation`, the table's rows. */
+  | { kind: 'index-created'; index: IndexDef; tree: BTree; relation: Relation }
+  | { kind: 'index-dropped'; index: IndexDef }
   | { kind: 'view-created' | 'view-dropped'; view: ViewDef }
   | { kind: 'explained'; entries: PlanEntry[] }
   | SessionEvent
@@ -293,7 +296,11 @@ function createIndex(db: Dataset, st: Extract<Statement, { kind: 'create-index' 
     });
   }
   db.indexes = [...(db.indexes ?? []), index];
-  emit?.({ kind: 'index-created', index });
+  if (emit) {
+    const relation = relationOf(db, table);
+    const tree = buildBTree(relation.rows.map((row) => ({ key: positions.map((p) => row.values[p]!), rowid: row.id })));
+    emit({ kind: 'index-created', index, tree, relation });
+  }
 }
 
 function dropIndex(db: Dataset, st: Extract<Statement, { kind: 'drop-index' }>, emit?: Emit): void {
