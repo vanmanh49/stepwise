@@ -51,6 +51,7 @@ Then open the URL that Vite prints (normally http://localhost:5173).
 | `npm run bench` | Time the SQL engine on heavy queries (`src/sql/engine.bench.ts`) |
 | `npm run lint` | Lint with [Oxlint](https://oxc.rs) (config in `.oxlintrc.json`); warnings count as failures |
 | `npm run build:pages` | Build for GitHub Pages under `/stepwise/` |
+| `npm run check:bundle` | After a build: fail if first-load JavaScript passes 600 kB or contains lesson content |
 
 The app uses client-side routing. When deploying the `dist/` folder, configure the host to serve `index.html` for unknown paths.
 
@@ -71,7 +72,7 @@ src/
   data-structures/   step generators for structure operations
   sql/               SQL interpreter: tokenizer, parser, executor, step generator, exercise checker
     datasets/        the read-only sample databases
-  lessons/           one data file per lesson, the registry and the curriculum
+  lessons/           one content file per lesson, meta/ (metadata per category), the registry and the curriculum
   store/             progress and theme state
   utils/             input parsing
   components/
@@ -120,7 +121,9 @@ Elements carry stable ids, so when a value changes position between two steps th
 A lesson needs a generator and a data file.
 
 1. Write the generator (see the next two sections).
-2. Create `src/lessons/<category>/<id>.ts` exporting a `Lesson` object. Copy an existing lesson as a starting point. Fill in the text, complexity, quiz and a `visualization` config:
+2. A lesson has two parts, so pages can list lessons without downloading them:
+   - **Metadata** (`id`, `title`, `category`, `difficulty`, `group`, `description`, `keywords`, `prerequisites`, `complexity`, `compareWith`): add an entry, in learning order, to `src/lessons/meta/<category>.ts`.
+   - **Content**: create `src/lessons/<category>/<id>.ts` that default-exports a `LessonContent` object (`export default content;`). The file name must be the lesson's id. Copy an existing lesson as a starting point. Fill in the text, quiz and a `visualization` config:
 
    | `kind` | Use for | Provides |
    |---|---|---|
@@ -131,23 +134,23 @@ A lesson needs a generator and a data file.
    | `graph` | graph algorithms | example-graph and start-node pickers |
    | `sql` | SQL lessons | a query editor, "Try" examples, a schema panel and exercises (see below) |
 
-3. Register it in `src/lessons/registry.ts` by adding it to the `lessons` array, in learning order.
+3. There is nothing to register: `src/lessons/registry.ts` builds the lesson list from the metadata and loads each content file on demand, as its own chunk.
 4. Make sure a topic with the same `id` exists in `src/lessons/curriculum.ts`. Planned topics are already listed there; registering a lesson turns "Coming soon" into a link.
 
-Run `npm test`. `lessons.test.ts` checks every registered lesson: references resolve, the quiz is valid, the default visualization runs, and every `codeLine` points inside the lesson's code.
+Run `npm test`. `split.test.ts` checks that every metadata entry has exactly one content file and the reverse. `lessons.test.ts` checks every lesson: references resolve, the quiz is valid, the default visualization runs, and every `codeLine` points inside the lesson's code.
 
 ## How to add a SQL lesson
 
 SQL lessons need no generator: the interpreter in `src/sql/` turns any supported query into steps.
 
-1. Create `src/lessons/sql/<id>.ts`. Leave out `complexity`; SQL lessons have no Big O section. Set `code` to the same string as `visualization.initialQuery`.
+1. Add its metadata to `src/lessons/meta/sql.ts` and leave out `complexity`; SQL lessons have no Big O section. Create the content file `src/lessons/sql/<id>.ts`, and set its `code` to the same string as `visualization.initialQuery`.
 2. Fill in the `sql` config:
    - `dataset`: `'shop'` or `'school'` (see `src/sql/datasets/`)
    - `initialQuery`: shown and run when the lesson opens
    - `examples`: 3–4 `{ label, query }` buttons
    - `exercises`: 2–3 `{ id, prompt, solution, orderMatters, hint? }`. Set `orderMatters` only when the task asks for an order, and break ties in its `ORDER BY` so the order is unique.
 3. For a quiz question that shows a table, use `viewAt(datasets.shop, query, index)` from `src/sql/steps.ts`; a negative index counts from the end.
-4. Register the lesson and check the curriculum entry, as for any lesson.
+4. Check the curriculum entry, as for any lesson.
 
 `lessons.test.ts` runs every example, checks that each exercise's solution passes its own check, and requires a quiz question with a table view.
 
