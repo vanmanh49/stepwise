@@ -40,3 +40,10 @@ export function layoutBTree(view: BTreeView): { nodes: PlacedNode[]; width: numb
   for (const n of nodes) n.x -= left;
   return { nodes, width: Math.max(...nodes.map((n) => n.x + n.width)), height: y(levels.length - 1) + NODE_HEIGHT };
 }
+
+/** Where a narrow screen should scroll to: the node being searched, else the first leaf with a match, else the root. */
+export function focusX(view: BTreeView, layout: { nodes: PlacedNode[] }): number {
+  const target = view.nodes.find((n) => n.role === 'active') ?? view.nodes.find((n) => n.leaf && n.matched.length > 0) ?? view.nodes.find((n) => n.id === view.root);
+  const placed = layout.nodes.find((p) => p.id === target?.id);
+  return placed ? placed.x + placed.width / 2 : 0;
+}

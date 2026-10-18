@@ -184,6 +184,8 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
         const label = `${event.index} on ${event.table}(${event.columns.join(', ')})`;
         const found = new Set(event.rowids);
         const fullTable = lastRelation;
+        // Views are built later, after WHERE has renamed the working table, so keep this step's label.
+        const tableLabel = workingLabel;
         const withIndex = (clause: Clause, step: Omit<Step, 'view' | 'codeLine'>, index: BTreeView, tables: () => SqlTable[], extra: Partial<Draft> = {}) =>
           drafts.push({ step: { ...step, codeLine: lineOf('WHERE', lineOf('FROM')) }, view: () => ({ ...view(clause, tables()), index }), ...extra });
         if (scans > 1) {
@@ -201,7 +203,7 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
           from.step.why = `An index on ${event.columns.join(', ')} lets the database find the rows WHERE wants without reading all ${rows(event.total)}.`;
         }
         const path = (upTo: number) => new Map(event.path.slice(0, upTo + 1).map((id, i) => [id, (i === upTo ? 'active' : 'visited') as Role]));
-        const table = () => (fullTable ? [toTable(workingLabel, fullTable)] : []);
+        const table = () => (fullTable ? [toTable(tableLabel, fullTable)] : []);
         withIndex('FROM', {
           title: `Search ${event.index} for ${event.condition}`,
           why: 'A search starts at the root. Each node’s keys say which branch below holds the values being looked for.',
@@ -219,11 +221,11 @@ export function buildDrafts(stmt: SelectStatement, events: TraceEvent[]): Draft[
         withIndex('FROM', {
           title: `Fetch ${rows(event.rowids.length)} by rowid`,
           why: 'Each leaf entry says where its row is, so only those rows are read from the table.',
-        }, btreeView(label, event.tree, new Map(), found), () => (fullTable ? [toTable(workingLabel, fullTable, (id) => (found.has(id) ? { role: 'found' } : {}))] : []));
+        }, btreeView(label, event.tree, new Map(), found), () => (fullTable ? [toTable(tableLabel, fullTable, (id) => (found.has(id) ? { role: 'found' } : {}))] : []));
         push('FROM', {
           title: `Examined ${event.examined} of ${rows(event.total)}; a full scan reads ${event.total}.`,
           why: 'WHERE still checks each of these rows, but the rows the index ruled out are never read.',
-        }, () => [toTable(workingLabel, event.relation)], {}, lineOf('WHERE', lineOf('FROM')));
+        }, () => [toTable(tableLabel, event.relation)], {}, lineOf('WHERE', lineOf('FROM')));
         lastRelation = event.relation;
         break;
       }

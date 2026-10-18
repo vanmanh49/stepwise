@@ -1,12 +1,20 @@
+import { useEffect, useRef } from 'react';
 import type { BTreeView } from '../../../types/visualization';
 import { roleBorder, roleFill, roleText } from '../roles';
-import { KEY_WIDTH, layoutBTree, NODE_HEIGHT } from './btreeLayout';
+import { focusX, KEY_WIDTH, layoutBTree, NODE_HEIGHT } from './btreeLayout';
 
 const PAD = 10;
 
 /** An index as a B+ tree: the search path is highlighted, matching leaf keys are marked, and leaves link left to right. */
 export function BTreeRenderer({ view }: { view: BTreeView }) {
   const layout = layoutBTree(view);
+  const box = useRef<HTMLDivElement>(null);
+  const focus = PAD + focusX(view, layout);
+  // On a narrow screen the tree scrolls sideways; keep the node being searched in sight.
+  useEffect(() => {
+    const el = box.current;
+    if (el && el.scrollWidth > el.clientWidth) el.scrollTo({ left: Math.max(0, focus - el.clientWidth / 2), behavior: 'smooth' });
+  }, [focus]);
   const at = new Map(layout.nodes.map((n) => [n.id, n]));
   const leaves = view.nodes.filter((n) => n.leaf).map((n) => at.get(n.id)!).sort((a, b) => a.x - b.x);
   const width = layout.width + PAD * 2;
@@ -16,7 +24,7 @@ export function BTreeRenderer({ view }: { view: BTreeView }) {
   return (
     <figure className="flex flex-col gap-1">
       <figcaption className="font-mono text-xs text-muted">{view.label}</figcaption>
-      <div className="overflow-x-auto">
+      <div ref={box} className="overflow-x-auto">
         <svg
           width={width}
           height={height}

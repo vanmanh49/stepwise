@@ -55,6 +55,9 @@ describe('index steps', () => {
     expect(leaves.nodes.reduce((n, node) => n + node.matched.length, 0)).toBe(6);
     const fetched = find(s, 'Fetch 6 rows by rowid').view as TableView;
     expect(fetched.tables[0]!.rows.filter((r) => r.role === 'found')).toHaveLength(6);
+    // Labelled as the table read, not by what later clauses do to it.
+    expect(fetched.tables[0]!.label).toBe('employees');
+    expect((find(s, 'Search idx_salary for salary > 5000').view as TableView).tables[0]!.label).toBe('employees');
   });
 
   it('summarises a join’s searches as one step per outer row', () => {

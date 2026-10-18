@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BTreeView } from '../../../types/visualization';
-import { KEY_WIDTH, layoutBTree } from './btreeLayout';
+import { focusX, KEY_WIDTH, layoutBTree } from './btreeLayout';
 
 const node = (id: string, keys: string[], children: string[] = []) => ({ id, keys, children, leaf: children.length === 0, role: 'default' as const, matched: [] });
 
@@ -31,5 +31,20 @@ describe('layoutBTree', () => {
   it('grows wider with more leaves', () => {
     const wider: BTreeView = { ...view, nodes: [node('r', ['5', '9'], ['a', 'b', 'c']), node('a', ['1']), node('b', ['5']), node('c', ['9'])] };
     expect(layoutBTree(wider).width).toBeGreaterThan(layoutBTree({ ...view, root: 'a', nodes: [node('a', ['1'])] }).width);
+  });
+});
+
+describe('focusX', () => {
+  it('centres on the active node, else the first leaf with a match, else the root', () => {
+    const placed = layoutBTree(view);
+    const centre = (id: string) => {
+      const n = placed.nodes.find((p) => p.id === id)!;
+      return n.x + n.width / 2;
+    };
+    const active = { ...view, nodes: view.nodes.map((n) => (n.id === 'b' ? { ...n, role: 'active' as const } : n)) };
+    expect(focusX(active, placed)).toBe(centre('b'));
+    const matched = { ...view, nodes: view.nodes.map((n) => (n.id === 'a' ? { ...n, matched: [1] } : n)) };
+    expect(focusX(matched, placed)).toBe(centre('a'));
+    expect(focusX(view, placed)).toBe(centre('r'));
   });
 });
