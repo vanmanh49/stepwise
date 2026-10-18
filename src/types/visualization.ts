@@ -123,6 +123,24 @@ export interface TableView {
   current?: string;
   /** 1–3 tables: inputs, then the working or result table. */
   tables: SqlTable[];
+  /** An index being searched, drawn above the tables. */
+  index?: BTreeView;
+}
+
+/** An index drawn as a B+ tree: inner nodes hold separator keys, leaves hold the indexed values, linked left to right. */
+export interface BTreeView {
+  kind: 'btree';
+  /** "idx_salary on employees(salary)". */
+  label: string;
+  root: string;
+  nodes: { id: string; keys: string[]; children: string[]; leaf: boolean; role: Role; matched: number[] }[];
+}
+
+/** A two-session script: each statement in its session's column, then the tables as each session sees them. */
+export interface SessionsView {
+  kind: 'sessions';
+  rows: { session: 'A' | 'B'; text: string; status: 'ran' | 'waiting' | 'resumed' | 'skipped' | 'error' | 'still waiting' | 'next'; anomaly?: string; active: boolean }[];
+  tables: SqlTable[];
 }
 
 /** A labelled 2-D table: DP tables, boards, and text rows aligned with null gaps. */
@@ -166,6 +184,8 @@ export interface PanelsView {
 }
 
 export type View =
+  | BTreeView
+  | SessionsView
   | ArrayView
   | ListView
   | StackView

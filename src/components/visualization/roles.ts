@@ -55,6 +55,10 @@ export function rolesInView(view: View): Role[] {
     case 'graph':
       return [...view.nodes.map((n) => n.role), ...view.edges.map((e) => e.role)];
     case 'table':
+      return [...view.tables.flatMap((t) => t.rows.map((r) => r.role)), ...(view.index ? rolesInView(view.index) : [])];
+    case 'btree':
+      return view.nodes.flatMap((n) => [n.role, ...(n.matched.length > 0 ? ['found' as const] : [])]);
+    case 'sessions':
       return view.tables.flatMap((t) => t.rows.map((r) => r.role));
     case 'grid':
       return view.rows.flatMap((r) => r.cells.flatMap((c) => (c ? [c.role] : [])));
