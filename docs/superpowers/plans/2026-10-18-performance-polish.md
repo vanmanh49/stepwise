@@ -38,7 +38,7 @@
 
 **Produces:** `lessonIdFromPath(pathname: string, base: string): string | undefined`
 
-- [ ] **Tests** (`base` is `/stepwise/` unless stated):
+- [x] **Tests** (`base` is `/stepwise/` unless stated):
   - `/stepwise/algorithms/bubble-sort` gives `bubble-sort`;
   - with base `/`, `/sql/ctes` gives `ctes`;
   - each of these gives `undefined`:
@@ -47,9 +47,9 @@
     - `/stepwise/algorithms/nope` (unknown id);
     - `/stepwise/algorithms/bubble-sort/extra` and `/stepwise/algorithms/bubble-sort/` (extra or trailing segment);
     - `/other/algorithms/bubble-sort` (different base).
-- [ ] Run them; expect a failure because the function isn't exported.
-- [ ] Implement it. In `main.tsx`, before rendering: `const id = lessonIdFromPath(location.pathname, import.meta.env.BASE_URL); if (id) loadLesson(id).catch(() => {});`.
-- [ ] Run the tests, typecheck and lint; commit.
+- [x] Run them; expect a failure because the function isn't exported.
+- [x] Implement it. In `main.tsx`, before rendering: `const id = lessonIdFromPath(location.pathname, import.meta.env.BASE_URL); if (id) loadLesson(id).catch(() => {});`.
+- [x] Run the tests, typecheck and lint; commit.
 
 ### Task 2: Live step store and memoized code colouring
 
@@ -61,32 +61,32 @@
 - `type LiveStep = { step: Step; index: number; total: number }`
 - `useLiveStep`, a Zustand store `{ live?: LiveStep; set(live?: LiveStep): void }`
 
-- [ ] **Tests:** the store starts empty; `set` stores the value; `set(undefined)` clears it.
-- [ ] Run; expect a failure because the module is missing.
-- [ ] **Implement the store.** In `LessonPage`:
+- [x] **Tests:** the store starts empty; `set` stores the value; `set(undefined)` clears it.
+- [x] Run; expect a failure because the module is missing.
+- [x] **Implement the store.** In `LessonPage`:
   - remove the `live` state;
   - `onStep` calls `useLiveStep.getState().set(...)`, a stable function, so nothing re-renders;
   - clear it when the lesson unmounts (not on mount, because the child visualization has already reported step 0 by then);
   - `ContextPanel`'s live part becomes a small `NowRunning` component that reads `useLiveStep((s) => s.live)`.
-- [ ] **`CodePanel`:** `const tinted = useMemo(() => code.split('\n').map(tint), [code])`.
-- [ ] Run the tests, typecheck and lint. In the browser, "Now running" updates while playing, and after moving to another lesson it shows that lesson's "Step 1 / N", never the previous lesson's step. Commit.
+- [x] **`CodePanel`:** `const tinted = useMemo(() => code.split('\n').map(tint), [code])`.
+- [x] Run the tests, typecheck and lint. In the browser, "Now running" updates while playing, and after moving to another lesson it shows that lesson's "Step 1 / N", never the previous lesson's step. Commit.
 
 ### Task 3: Pause the home preview when unseen
 
 **Files:** `src/components/visualization/MiniPlayer.tsx`.
 
-- [ ] **Track three conditions:**
+- [x] **Track three conditions:**
   - `visible`, from an `IntersectionObserver` on the section (threshold 0);
   - `hidden`, from `document.visibilityState`;
   - `userPaused`, set when the button pauses and cleared when it plays.
-- [ ] **Act on them:**
+- [x] **Act on them:**
   - when not visible or hidden, pause;
   - when visible again, the tab is shown, `!userPaused` and not reduced motion, play.
-- [ ] **Browser check:**
+- [x] **Browser check:**
   - the step counter stops while scrolled away and advances again when back;
   - a preview paused with the button stays paused after scrolling away and back;
   - reduced motion still starts paused.
-- [ ] Commit.
+- [x] Commit.
 
 ### Task 4: Load errors, placeholder, naming, wording
 
@@ -94,21 +94,21 @@
 
 **Produces:** `class LessonLoadError extends Error` (exported from the registry); `cause` is the importer's error.
 
-- [ ] **Tests:**
+- [x] **Tests:**
   - an importer failure rejects with a `LessonLoadError` whose `cause` is the original error;
   - an unknown id rejects with a plain `Error`, not a `LessonLoadError`;
   - a failed load still returns the same promise on the next call.
-- [ ] Run; expect a failure because the class doesn't exist.
-- [ ] **Implement:**
+- [x] Run; expect a failure because the class doesn't exist.
+- [x] **Implement:**
   - wrap importer rejections;
   - `LessonLoadBoundary` stores whether the error is a `LessonLoadError` and picks the message: "This lesson couldn't be downloaded." with "Try again", or "Something went wrong while showing this lesson." with "Reload page";
   - add the mobile "Lessons" button and drawer to `LessonPlaceholder`, and `role="status"` on "Loading lesson…";
   - rename the component `LessonContent` to `LessonBody`.
-- [ ] **Browser check:**
+- [x] **Browser check:**
   - offline shows the new message;
   - in a throwaway local build with a lesson that throws during render, not committed, the generic message shows;
   - at 375 px the placeholder's "Lessons" button opens the drawer.
-- [ ] Commit.
+- [x] Commit.
 
 ### Task 5: Bundle check guards
 
@@ -118,7 +118,7 @@
 - `export function checkBundle(dist: string, marker: string, budgetKb = 600): { files: { file: string; size: number }[]; total: number; problems: string[] }`
 - the CLI part runs only when the file is executed directly.
 
-- [ ] **Tests**, each with a temporary fixture `dist`: an `index.html` plus `assets/*.js`.
+- [x] **Tests**, each with a temporary fixture `dist`: an `index.html` plus `assets/*.js`.
   - Passing cases:
     - under budget with the marker only in a lesson chunk passes;
     - `src` before `type` in the entry tag still finds the entry.
@@ -128,10 +128,10 @@
     - no entry script;
     - two entry scripts;
     - the marker in no asset at all.
-- [ ] Run; expect a failure because `checkBundle` isn't exported.
-- [ ] Implement it, then run the tests; `npm run check:bundle` on the real build still passes. Commit.
+- [x] Run; expect a failure because `checkBundle` isn't exported.
+- [x] Implement it, then run the tests; `npm run check:bundle` on the real build still passes. Commit.
 
 ### Task 6: Verify and ship
 
-- [ ] Measure lesson-page LCP and scripting time per step, before (`main`) and after, as the spec describes.
-- [ ] Run all checks, then the final whole-branch review on Opus. Then PR and merge.
+- [x] Measure lesson-page LCP and scripting time per step, before (`main`) and after, as the spec describes.
+- [x] Run all checks, then the final whole-branch review on Opus. Then PR and merge.
