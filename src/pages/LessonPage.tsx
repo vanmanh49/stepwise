@@ -23,6 +23,7 @@ import { Exercises } from '../components/sql/Exercises';
 import { Variables } from '../components/visualization/Explanation';
 import { LessonVisualization } from '../components/visualization/inputs/LessonVisualization';
 import { adjacentLessons, getLesson, lessonPath, loadLesson } from '../lessons/registry';
+import { useLiveStep } from '../store/liveStep';
 import { useProgress } from '../store/progress';
 import type { Category, Lesson, LessonMeta } from '../types/lesson';
 import type { Step } from '../types/visualization';
@@ -48,29 +49,31 @@ function sectionsFor(lesson: Lesson): (readonly [string, string])[] {
   );
 }
 
-interface Live {
-  step: Step;
-  index: number;
-  total: number;
+/** The only part of the page that follows the visualization step by step. */
+function NowRunning() {
+  const live = useLiveStep((s) => s.live);
+  return (
+    <div>
+      <p className="eyebrow">Now running</p>
+      {live ? (
+        <div className="mt-2 space-y-2.5">
+          <p className="font-mono text-xs text-muted">
+            Step {live.index + 1} / {live.total}
+          </p>
+          <p className="font-semibold leading-snug">{live.step.title}</p>
+          <Variables variables={live.step.variables} />
+        </div>
+      ) : (
+        <p className="mt-2 text-muted">Press play to begin.</p>
+      )}
+    </div>
+  );
 }
 
-function ContextPanel({ lesson, live }: { lesson: Lesson; live?: Live }) {
+function ContextPanel({ lesson }: { lesson: Lesson }) {
   return (
     <div className="flex flex-col gap-6 text-sm">
-      <div>
-        <p className="eyebrow">Now running</p>
-        {live ? (
-          <div className="mt-2 space-y-2.5">
-            <p className="font-mono text-xs text-muted">
-              Step {live.index + 1} / {live.total}
-            </p>
-            <p className="font-semibold leading-snug">{live.step.title}</p>
-            <Variables variables={live.step.variables} />
-          </div>
-        ) : (
-          <p className="mt-2 text-muted">Press play to begin.</p>
-        )}
-      </div>
+      <NowRunning />
 
       {lesson.complexity && (
         <div>
@@ -110,7 +113,6 @@ function ContextPanel({ lesson, live }: { lesson: Lesson; live?: Live }) {
 
 function LessonContent({ lesson }: { lesson: Lesson }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [live, setLive] = useState<Live>();
   const visit = useProgress((s) => s.visit);
   const isComplete = useProgress((s) => s.completed.includes(lesson.id));
   const markComplete = useProgress((s) => s.markComplete);
@@ -127,7 +129,12 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
     if (next) loadLesson(next.id).catch(() => {});
   }, [next]);
 
-  const onStep = useCallback((step: Step, index: number, total: number) => setLive({ step, index, total }), []);
+  // Each lesson starts with an empty "Now running" panel; steps go to the store, not this component's state.
+  useEffect(() => {
+    useLiveStep.getState().set(undefined);
+    return () => useLiveStep.getState().set(undefined);
+  }, []);
+  const onStep = useCallback((step: Step, index: number, total: number) => useLiveStep.getState().set({ step, index, total }), []);
 
   return (
     <div className="mx-auto grid max-w-[1400px] gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:py-10 xl:grid-cols-[230px_minmax(0,1fr)_230px]">
@@ -287,7 +294,7 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
       </article>
 
       <aside className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto xl:block">
-        <ContextPanel lesson={lesson} live={live} />
+        <ContextPanel lesson={lesson} />
       </aside>
 
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Lessons">
