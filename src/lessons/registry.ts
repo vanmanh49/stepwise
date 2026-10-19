@@ -34,7 +34,24 @@ export function lessonPath(lesson: Pick<Lesson, 'category' | 'id'>): string {
   return `/${lesson.category}/${lesson.id}`;
 }
 
+/** The lesson an address opens, if it is exactly `<base><category>/<id>` for a live lesson. */
+export function lessonIdFromPath(pathname: string, base: string): string | undefined {
+  if (!pathname.startsWith(base)) return undefined;
+  const [category, id, ...rest] = pathname.slice(base.length).split('/');
+  if (!id || rest.length > 0) return undefined;
+  const lesson = byId.get(id);
+  return lesson?.category === category ? id : undefined;
+}
+
 type ContentImporters = Record<string, () => Promise<{ default: LessonContent }>>;
+
+/** A lesson's content could not be downloaded (as opposed to a bug while showing it). */
+export class LessonLoadError extends Error {
+  constructor(id: string, cause: unknown) {
+    super(`Lesson ${id} could not be downloaded`, { cause });
+    this.name = 'LessonLoadError';
+  }
+}
 
 /**
  * Loads a lesson's content and merges it with its metadata. Each id gets one promise, kept even
@@ -49,7 +66,14 @@ export function createLessonLoader(metas: LessonMeta[], importers: ContentImport
     if (!promise) {
       const meta = known.get(id);
       const importer = meta && importers[`.${lessonPath(meta)}.ts`];
-      promise = importer ? importer().then((module) => ({ ...meta, ...module.default })) : Promise.reject(new Error(`Unknown lesson: ${id}`));
+      promise = importer
+        ? importer().then(
+            (module) => ({ ...meta, ...module.default }),
+            (error: unknown) => {
+              throw new LessonLoadError(id, error);
+            },
+          )
+        : Promise.reject(new Error(`Unknown lesson: ${id}`));
       loading.set(id, promise);
     }
     return promise;

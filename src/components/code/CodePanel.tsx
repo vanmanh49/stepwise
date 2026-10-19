@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 
 const TOKEN =
   /(\/\/.*$)|('[^']*'|"[^"]*"|`[^`]*`)|\b(function|const|let|return|if|else|for|while|of|new|class|private|break|true|false|null|undefined|this)\b|\b(\d+)\b/g;
@@ -30,6 +30,8 @@ function tint(line: string): ReactNode[] {
 export function CodePanel({ code, activeLine, label = 'TypeScript' }: { code: string; activeLine?: number; label?: string }) {
   const container = useRef<HTMLDivElement>(null);
   const active = useRef<HTMLDivElement>(null);
+  // Colouring depends only on the code, not on the active line, so it is done once per listing.
+  const lines = useMemo(() => code.split('\n').map(tint), [code]);
 
   // Scroll inside the panel only; scrollIntoView would also move the page.
   useEffect(() => {
@@ -52,7 +54,7 @@ export function CodePanel({ code, activeLine, label = 'TypeScript' }: { code: st
       <div ref={container} className="max-h-[22rem] overflow-auto py-2" tabIndex={0} role="region" aria-label="Code">
         <pre className="w-max min-w-full font-mono text-[13px] leading-6">
           <code>
-            {code.split('\n').map((line, i) => {
+            {lines.map((line, i) => {
               const isActive = i + 1 === activeLine;
               return (
                 <div
@@ -66,7 +68,7 @@ export function CodePanel({ code, activeLine, label = 'TypeScript' }: { code: st
                   <span aria-hidden className="w-10 shrink-0 select-none pr-3 text-right text-muted/70">
                     {i + 1}
                   </span>
-                  <span className="whitespace-pre">{tint(line)}</span>
+                  <span className="whitespace-pre">{line}</span>
                 </div>
               );
             })}

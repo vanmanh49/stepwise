@@ -22,7 +22,8 @@ import { Quiz } from '../components/quiz/Quiz';
 import { Exercises } from '../components/sql/Exercises';
 import { Variables } from '../components/visualization/Explanation';
 import { LessonVisualization } from '../components/visualization/inputs/LessonVisualization';
-import { adjacentLessons, getLesson, lessonPath, loadLesson } from '../lessons/registry';
+import { adjacentLessons, getLesson, LessonLoadError, lessonPath, loadLesson } from '../lessons/registry';
+import { useLiveStep } from '../store/liveStep';
 import { useProgress } from '../store/progress';
 import type { Category, Lesson, LessonMeta } from '../types/lesson';
 import type { Step } from '../types/visualization';
@@ -48,29 +49,31 @@ function sectionsFor(lesson: Lesson): (readonly [string, string])[] {
   );
 }
 
-interface Live {
-  step: Step;
-  index: number;
-  total: number;
+/** The only part of the page that follows the visualization step by step. */
+function NowRunning() {
+  const live = useLiveStep((s) => s.live);
+  return (
+    <div>
+      <p className="eyebrow">Now running</p>
+      {live ? (
+        <div className="mt-2 space-y-2.5">
+          <p className="font-mono text-xs text-muted">
+            Step {live.index + 1} / {live.total}
+          </p>
+          <p className="font-semibold leading-snug">{live.step.title}</p>
+          <Variables variables={live.step.variables} />
+        </div>
+      ) : (
+        <p className="mt-2 text-muted">Press play to begin.</p>
+      )}
+    </div>
+  );
 }
 
-function ContextPanel({ lesson, live }: { lesson: Lesson; live?: Live }) {
+function ContextPanel({ lesson }: { lesson: Lesson }) {
   return (
     <div className="flex flex-col gap-6 text-sm">
-      <div>
-        <p className="eyebrow">Now running</p>
-        {live ? (
-          <div className="mt-2 space-y-2.5">
-            <p className="font-mono text-xs text-muted">
-              Step {live.index + 1} / {live.total}
-            </p>
-            <p className="font-semibold leading-snug">{live.step.title}</p>
-            <Variables variables={live.step.variables} />
-          </div>
-        ) : (
-          <p className="mt-2 text-muted">Press play to begin.</p>
-        )}
-      </div>
+      <NowRunning />
 
       {lesson.complexity && (
         <div>
@@ -108,9 +111,8 @@ function ContextPanel({ lesson, live }: { lesson: Lesson; live?: Live }) {
   );
 }
 
-function LessonContent({ lesson }: { lesson: Lesson }) {
+function LessonBody({ lesson }: { lesson: Lesson }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [live, setLive] = useState<Live>();
   const visit = useProgress((s) => s.visit);
   const isComplete = useProgress((s) => s.completed.includes(lesson.id));
   const markComplete = useProgress((s) => s.markComplete);
@@ -127,7 +129,10 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
     if (next) loadLesson(next.id).catch(() => {});
   }, [next]);
 
-  const onStep = useCallback((step: Step, index: number, total: number) => setLive({ step, index, total }), []);
+  // Steps go to the store, not this component's state. Clear it only when the lesson goes away: the
+  // visualization (a child, whose effects run first) has already reported step 0 when this mounts.
+  useEffect(() => () => useLiveStep.getState().set(undefined), []);
+  const onStep = useCallback((step: Step, index: number, total: number) => useLiveStep.getState().set({ step, index, total }), []);
 
   return (
     <div className="mx-auto grid max-w-[1400px] gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:py-10 xl:grid-cols-[230px_minmax(0,1fr)_230px]">
@@ -287,7 +292,7 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
       </article>
 
       <aside className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto xl:block">
-        <ContextPanel lesson={lesson} live={live} />
+        <ContextPanel lesson={lesson} />
       </aside>
 
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Lessons">
@@ -307,7 +312,15 @@ export default function LessonPage({ category }: { category: Category }) {
   // The key resets inputs, playback, quiz state and a failed load when moving between lessons.
   return (
     <LessonLoadBoundary key={lesson.id} meta={lesson}>
-      <Suspense fallback={<LessonPlaceholder meta={lesson}><p className="text-lg text-muted">Loading lesson…</p></LessonPlaceholder>}>
+      <Suspense
+        fallback={
+          <LessonPlaceholder meta={lesson}>
+            <p role="status" className="text-lg text-muted">
+              Loading lesson…
+            </p>
+          </LessonPlaceholder>
+        }
+      >
         <LoadedLesson meta={lesson} />
       </Suspense>
     </LessonLoadBoundary>
@@ -316,6 +329,7 @@ export default function LessonPage({ category }: { category: Category }) {
 
 /** The page frame drawn from metadata alone, shown while the lesson's content loads or if it fails. */
 function LessonPlaceholder({ meta, children }: { meta: LessonMeta; children: ReactNode }) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
   useEffect(() => {
     document.title = `${meta.title} — Stepwise`;
   }, [meta]);
@@ -327,6 +341,12 @@ function LessonPlaceholder({ meta, children }: { meta: LessonMeta; children: Rea
       </aside>
       <article className="min-w-0">
         <header className="space-y-4">
+          {/* The same "Lessons" button as the loaded page, so the header doesn't shift when content arrives. */}
+          <div className="flex items-center gap-3 lg:hidden">
+            <button type="button" className="btn" onClick={() => setDrawerOpen(true)}>
+              <Menu size={16} aria-hidden /> Lessons
+            </button>
+          </div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
             <Link to={`/${meta.category}`} className="hover:text-text">
               {CATEGORY_TITLE[meta.category]}
@@ -345,30 +365,39 @@ function LessonPlaceholder({ meta, children }: { meta: LessonMeta; children: Rea
           {children}
         </header>
       </article>
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Lessons">
+        <div onClick={(e) => (e.target as HTMLElement).closest('a') && setDrawerOpen(false)}>
+          <CourseSidebar category={meta.category} activeId={meta.id} />
+        </div>
+      </Drawer>
     </div>
   );
 }
 
-/** Shows a retry message when a lesson's content can't be downloaded, for example while offline. */
-class LessonLoadBoundary extends Component<{ meta: LessonMeta; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
+/**
+ * Catches a lesson that can't be downloaded (for example while offline) or that fails while
+ * showing, and offers a reload. Browsers remember a failed import() of a chunk and won't fetch it
+ * again, so a reload is the only reliable retry.
+ */
+class LessonLoadBoundary extends Component<{ meta: LessonMeta; children: ReactNode }, { failure?: 'download' | 'render' }> {
+  state: { failure?: 'download' | 'render' } = {};
 
-  static getDerivedStateFromError() {
-    return { failed: true };
+  static getDerivedStateFromError(error: unknown) {
+    return { failure: error instanceof LessonLoadError ? 'download' : 'render' };
   }
 
   render() {
-    if (!this.state.failed) return this.props.children;
+    const { failure } = this.state;
+    if (!failure) return this.props.children;
     return (
       <LessonPlaceholder meta={this.props.meta}>
         <div role="alert" className="card flex flex-col items-start gap-3 p-6">
           <p className="flex items-center gap-2 font-medium">
             <TriangleAlert size={18} aria-hidden className="text-danger" />
-            This lesson couldn't load. Check your connection.
+            {failure === 'download' ? "This lesson couldn't be downloaded." : 'Something went wrong while showing this lesson.'}
           </p>
-          {/* Browsers remember a failed import() of a chunk and won't fetch it again, so retry with a reload. */}
           <button type="button" className="btn" onClick={() => window.location.reload()}>
-            Try again
+            {failure === 'download' ? 'Try again' : 'Reload page'}
           </button>
         </div>
       </LessonPlaceholder>
@@ -379,5 +408,5 @@ class LessonLoadBoundary extends Component<{ meta: LessonMeta; children: ReactNo
 /** Suspends until the lesson's content has loaded; loadLesson returns the same promise per id. */
 function LoadedLesson({ meta }: { meta: LessonMeta }) {
   const lesson = use(loadLesson(meta.id));
-  return <LessonContent lesson={lesson} />;
+  return <LessonBody lesson={lesson} />;
 }
