@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { LessonMeta } from '../types/lesson';
 import { topicsIn } from './curriculum';
-import { createLessonLoader, lessonIdFromPath, lessonPath, lessons, lessonsIn, loadLesson } from './registry';
+import { createLessonLoader, LessonLoadError, lessonIdFromPath, lessonPath, lessons, lessonsIn, loadLesson } from './registry';
 
 const contentModules = Object.keys(import.meta.glob(['./{data-structures,algorithms,sql}/*.ts', '!./**/*.test.ts']));
 const metaDir = new URL('./meta/', import.meta.url);
@@ -55,7 +55,7 @@ describe('loadLesson', () => {
       },
     });
     const first = load('x');
-    await expect(first).rejects.toThrow('network down');
+    await expect(first).rejects.toMatchObject({ name: 'LessonLoadError', cause: new Error('network down') });
     expect(load('x')).toBe(first);
     expect(calls).toBe(1);
   });
@@ -86,5 +86,24 @@ describe('lessonIdFromPath', () => {
     ]) {
       expect(lessonIdFromPath(path, '/stepwise/'), path).toBeUndefined();
     }
+  });
+});
+
+describe('LessonLoadError', () => {
+  const meta = { id: 'x', title: 'X', category: 'algorithms' } as LessonMeta;
+
+  it('wraps a failed download and keeps the original as its cause', async () => {
+    const original = new Error('Failed to fetch dynamically imported module');
+    const load = createLessonLoader([meta], { './algorithms/x.ts': () => Promise.reject(original) });
+    const error = await load('x').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(LessonLoadError);
+    expect((error as LessonLoadError).cause).toBe(original);
+    expect(load('x')).toBe(load('x'));
+  });
+
+  it('is not used for an unknown id, which is a plain error', async () => {
+    const error = await createLessonLoader([], {})('nope').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(LessonLoadError);
   });
 });

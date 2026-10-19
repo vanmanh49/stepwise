@@ -45,6 +45,14 @@ export function lessonIdFromPath(pathname: string, base: string): string | undef
 
 type ContentImporters = Record<string, () => Promise<{ default: LessonContent }>>;
 
+/** A lesson's content could not be downloaded (as opposed to a bug while showing it). */
+export class LessonLoadError extends Error {
+  constructor(id: string, cause: unknown) {
+    super(`Lesson ${id} could not be downloaded`, { cause });
+    this.name = 'LessonLoadError';
+  }
+}
+
 /**
  * Loads a lesson's content and merges it with its metadata. Each id gets one promise, kept even
  * when it fails: React's use() must see the same promise on every render, or a failed load would
@@ -58,7 +66,14 @@ export function createLessonLoader(metas: LessonMeta[], importers: ContentImport
     if (!promise) {
       const meta = known.get(id);
       const importer = meta && importers[`.${lessonPath(meta)}.ts`];
-      promise = importer ? importer().then((module) => ({ ...meta, ...module.default })) : Promise.reject(new Error(`Unknown lesson: ${id}`));
+      promise = importer
+        ? importer().then(
+            (module) => ({ ...meta, ...module.default }),
+            (error: unknown) => {
+              throw new LessonLoadError(id, error);
+            },
+          )
+        : Promise.reject(new Error(`Unknown lesson: ${id}`));
       loading.set(id, promise);
     }
     return promise;
