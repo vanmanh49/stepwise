@@ -34,6 +34,15 @@ export function lessonPath(lesson: Pick<Lesson, 'category' | 'id'>): string {
   return `/${lesson.category}/${lesson.id}`;
 }
 
+/** The lesson an address opens, if it is exactly `<base><category>/<id>` for a live lesson. */
+export function lessonIdFromPath(pathname: string, base: string): string | undefined {
+  if (!pathname.startsWith(base)) return undefined;
+  const [category, id, ...rest] = pathname.slice(base.length).split('/');
+  if (!id || rest.length > 0) return undefined;
+  const lesson = byId.get(id);
+  return lesson?.category === category ? id : undefined;
+}
+
 type ContentImporters = Record<string, () => Promise<{ default: LessonContent }>>;
 
 /**

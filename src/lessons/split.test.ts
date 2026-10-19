@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { LessonMeta } from '../types/lesson';
 import { topicsIn } from './curriculum';
-import { createLessonLoader, lessonPath, lessons, lessonsIn, loadLesson } from './registry';
+import { createLessonLoader, lessonIdFromPath, lessonPath, lessons, lessonsIn, loadLesson } from './registry';
 
 const contentModules = Object.keys(import.meta.glob(['./{data-structures,algorithms,sql}/*.ts', '!./**/*.test.ts']));
 const metaDir = new URL('./meta/', import.meta.url);
@@ -65,5 +65,26 @@ describe('loadLesson', () => {
     const first = load('nope');
     expect(load('nope')).toBe(first);
     await expect(first).rejects.toThrow('Unknown lesson: nope');
+  });
+});
+
+describe('lessonIdFromPath', () => {
+  it('finds the lesson in a lesson address', () => {
+    expect(lessonIdFromPath('/stepwise/algorithms/bubble-sort', '/stepwise/')).toBe('bubble-sort');
+    expect(lessonIdFromPath('/sql/ctes', '/')).toBe('ctes');
+  });
+
+  it('finds nothing anywhere else, so no wrong chunk is downloaded', () => {
+    for (const path of [
+      '/stepwise/',
+      '/stepwise/algorithms',
+      '/stepwise/algorithms/array',
+      '/stepwise/algorithms/nope',
+      '/stepwise/algorithms/bubble-sort/extra',
+      '/stepwise/algorithms/bubble-sort/',
+      '/other/algorithms/bubble-sort',
+    ]) {
+      expect(lessonIdFromPath(path, '/stepwise/'), path).toBeUndefined();
+    }
   });
 });
