@@ -22,7 +22,7 @@ Finish the performance work from the review on 2026-10-18 (PRs #14 and #15):
 ### 2. Keep the live step out of the lesson page's state
 
 - `LessonPage` keeps the current step (shown in the right-hand "Now running" panel) in its own `useState`, so every step re-renders the whole page. Instead, the step goes into a tiny store, `src/store/liveStep.ts`. It has the shape `{ step, index, total } | undefined`, with `setLiveStep` and `useLiveStep`, built on Zustand like the other stores.
-- Only the "Now running" panel subscribes to the store. The store is reset when a lesson mounts, so a new lesson never shows the previous lesson's step.
+- Only the "Now running" panel subscribes to the store. The store is cleared when a lesson unmounts, so a new lesson never shows the previous lesson's step. It shows its own "Step 1 / N", as before, because its visualization reports step 0 on mount.
 - `CodePanel` colours its lines once per code string (`useMemo`) instead of on every render.
 
 ### 3. Pause the home preview when it can't be seen
@@ -61,7 +61,7 @@ These run on the production build with the throttled profile, before and after t
   - `checkBundle` against fixture `dist` folders: under budget passes; over budget fails; lesson text in the first load fails; no entry script fails; two entry scripts fail; a marker missing from every asset fails; the entry's attributes in either order work.
 - **Browser** (no DOM test setup, as in earlier phases), at desktop and 375 px, in light and dark:
   - "Now running" updates;
-  - a new lesson starts with "Press play to begin";
+  - a new lesson shows its own "Step 1 / N", never the previous lesson's step;
   - the placeholder's mobile "Lessons" button works;
   - offline shows the new message;
   - a deliberately broken lesson shows the generic error, checked in a throwaway local build only;

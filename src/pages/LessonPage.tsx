@@ -129,11 +129,9 @@ function LessonBody({ lesson }: { lesson: Lesson }) {
     if (next) loadLesson(next.id).catch(() => {});
   }, [next]);
 
-  // Each lesson starts with an empty "Now running" panel; steps go to the store, not this component's state.
-  useEffect(() => {
-    useLiveStep.getState().set(undefined);
-    return () => useLiveStep.getState().set(undefined);
-  }, []);
+  // Steps go to the store, not this component's state. Clear it only when the lesson goes away: the
+  // visualization (a child, whose effects run first) has already reported step 0 when this mounts.
+  useEffect(() => () => useLiveStep.getState().set(undefined), []);
   const onStep = useCallback((step: Step, index: number, total: number) => useLiveStep.getState().set({ step, index, total }), []);
 
   return (

@@ -66,10 +66,10 @@
 - [ ] **Implement the store.** In `LessonPage`:
   - remove the `live` state;
   - `onStep` calls `useLiveStep.getState().set(...)`, a stable function, so nothing re-renders;
-  - clear it in a mount effect, so each lesson starts empty;
+  - clear it when the lesson unmounts (not on mount, because the child visualization has already reported step 0 by then);
   - `ContextPanel`'s live part becomes a small `NowRunning` component that reads `useLiveStep((s) => s.live)`.
 - [ ] **`CodePanel`:** `const tinted = useMemo(() => code.split('\n').map(tint), [code])`.
-- [ ] Run the tests, typecheck and lint. In the browser, "Now running" updates while playing and shows "Press play to begin" after moving to another lesson. Commit.
+- [ ] Run the tests, typecheck and lint. In the browser, "Now running" updates while playing, and after moving to another lesson it shows that lesson's "Step 1 / N", never the previous lesson's step. Commit.
 
 ### Task 3: Pause the home preview when unseen
 
