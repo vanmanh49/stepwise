@@ -1,34 +1,47 @@
 // Fails the build when the JavaScript every page loads first grows past its budget, or when
 // lesson content leaks back into it (lessons should load only when opened). Run after a build.
-import { readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-const BUDGET_KB = 600;
-const dist = process.argv[2] ?? 'dist';
+/**
+ * Checks a built `dist` folder. `marker` is text from a lesson's quiz: it must appear in the build
+ * (proving it is spelled as the build writes it) but in none of the first-load files.
+ * @returns {{ files: { file: string; size: number }[]; total: number; problems: string[] }}
+ */
+export function checkBundle(dist, marker, budgetKb = 600) {
+  const html = readFileSync(join(dist, 'index.html'), 'utf8');
+  const tags = (pattern) => [...html.matchAll(pattern)].map((m) => m[0]);
+  const attr = (tag, name) => new RegExp(`\\b${name}="([^"]+)"`).exec(tag)?.[1];
+  const asset = (url) => join(dist, url.slice(url.indexOf('assets/')));
 
-const html = readFileSync(join(dist, 'index.html'), 'utf8');
-const scripts = [
-  ...html.matchAll(/<script[^>]*type="module"[^>]*src="([^"]+)"/g),
-  ...html.matchAll(/<link[^>]*rel="modulepreload"[^>]*href="([^"]+)"/g),
-].map((m) => join(dist, m[1].slice(m[1].indexOf('assets/'))));
+  const problems = [];
+  const entries = tags(/<script\b[^>]*>/g).filter((tag) => attr(tag, 'type') === 'module' && attr(tag, 'src'));
+  if (entries.length !== 1) problems.push(`expected exactly one entry script, found ${entries.length}`);
+  const preloads = tags(/<link\b[^>]*>/g).filter((tag) => attr(tag, 'rel') === 'modulepreload' && attr(tag, 'href'));
+  const urls = [...entries.map((tag) => attr(tag, 'src')), ...preloads.map((tag) => attr(tag, 'href'))];
 
-// A sentence from a lesson's quiz: lesson text must never be part of the first load.
-const lessonSource = readFileSync('src/lessons/algorithms/bubble-sort.ts', 'utf8');
-const marker = /prompt: '([^'\\]{20,})/.exec(lessonSource)?.[1];
-if (!marker) throw new Error('No quiz prompt found in bubble-sort.ts to check for');
-
-let total = 0;
-const problems = [];
-for (const file of scripts) {
-  const size = statSync(file).size;
-  total += size;
-  console.log(`${(size / 1024).toFixed(1).padStart(8)} kB  ${file}`);
-  if (readFileSync(file, 'utf8').includes(marker)) problems.push(`${file} contains lesson content ("${marker}")`);
+  const files = urls.map((url) => ({ file: asset(url), size: statSync(asset(url)).size }));
+  const total = files.reduce((sum, f) => sum + f.size, 0);
+  if (total > budgetKb * 1024) problems.push(`first-load JavaScript is ${(total / 1024).toFixed(1)} kB, over the ${budgetKb} kB budget`);
+  for (const { file } of files) {
+    if (readFileSync(file, 'utf8').includes(marker)) problems.push(`${file} contains lesson content ("${marker}")`);
+  }
+  const built = readdirSync(join(dist, 'assets')).filter((name) => name.endsWith('.js'));
+  if (!built.some((name) => readFileSync(join(dist, 'assets', name), 'utf8').includes(marker))) {
+    problems.push(`the lesson text "${marker}" was not found in any built file, so the leak check can't work`);
+  }
+  return { files, total, problems };
 }
-console.log(`${(total / 1024).toFixed(1).padStart(8)} kB  first load (budget ${BUDGET_KB} kB)`);
-if (total > BUDGET_KB * 1024) problems.push(`first-load JavaScript is ${(total / 1024).toFixed(1)} kB, over the ${BUDGET_KB} kB budget`);
 
-if (problems.length > 0) {
+// Command line: `node scripts/check-bundle.mjs [dist]`, run from the repository root.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  const lessonSource = readFileSync('src/lessons/algorithms/bubble-sort.ts', 'utf8');
+  const marker = /prompt: '([^'\\]{20,})/.exec(lessonSource)?.[1];
+  if (!marker) throw new Error('No quiz prompt found in bubble-sort.ts to check for');
+  const { files, total, problems } = checkBundle(process.argv[2] ?? 'dist', marker);
+  for (const { file, size } of files) console.log(`${(size / 1024).toFixed(1).padStart(8)} kB  ${file}`);
+  console.log(`${(total / 1024).toFixed(1).padStart(8)} kB  first load (budget 600 kB)`);
   for (const problem of problems) console.error(`check-bundle: ${problem}`);
-  process.exit(1);
+  if (problems.length > 0) process.exit(1);
 }
