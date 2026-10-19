@@ -33,6 +33,8 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
   - **Content** (`LessonContent`: text, visualization, code, quiz) is the default export of `src/lessons/<category>/<id>.ts`, and the file name is the id.
   - `registry.ts` serves metadata synchronously (`lessons`, `getLesson`, `lessonsIn`, `adjacentLessons`). `loadLesson(id)` imports the content through `import.meta.glob`, which gives one chunk per lesson. `LessonPage` suspends on it.
   - Tests that need content use `allLessons` / `fullLesson` from `lessons/all.testutil.ts`.
+  - `main.tsx` starts `loadLesson` from the address (`lessonIdFromPath`) so a lesson opened directly downloads its content alongside the lesson page's code. A failed download rejects with `LessonLoadError`; the page's boundary tells it apart from render errors, and retrying reloads the page (browsers won't refetch a failed chunk).
+  - The visualization's current step goes to `store/liveStep.ts`, read only by the "Now running" panel, so a step doesn't re-render the whole lesson page.
   - `npm run check:bundle` (run in CI) fails if the first-load JavaScript passes 600 kB or contains lesson text.
   - `curriculum.ts` lists every topic. A topic becomes a live link only when a lesson with the same id is registered.
   - `lesson.visualization.kind` (`sort`, `search`, `structure`, `text`, `graph`, `form`, `sql`) picks the input component in `components/visualization/inputs/`.
