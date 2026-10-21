@@ -21,7 +21,7 @@ Finish the performance work from the review on 2026-10-18 (PRs #14 and #15):
 
 ### 2. Keep the live step out of the lesson page's state
 
-- `LessonPage` keeps the current step (shown in the right-hand "Now running" panel) in its own `useState`, so every step re-renders the whole page. Instead, the step goes into a tiny store, `src/store/liveStep.ts`. It has the shape `{ step, index, total } | undefined`, with `setLiveStep` and `useLiveStep`, built on Zustand like the other stores.
+- `LessonPage` keeps the current step (shown in the right-hand "Now running" panel) in its own `useState`, so every step re-renders the whole page. Instead, the step goes into a tiny store, `src/store/liveStep.ts`. It has the shape `{ step, index, total } | undefined`, read and written through the `useLiveStep` hook (`live` and `set`), built on Zustand like the other stores.
 - Only the "Now running" panel subscribes to the store. The store is cleared when a lesson unmounts, so a new lesson never shows the previous lesson's step. It shows its own "Step 1 / N", as before, because its visualization reports step 0 on mount.
 - `CodePanel` colours its lines once per code string (`useMemo`) instead of on every render.
 

@@ -45,13 +45,20 @@ export function lessonIdFromPath(pathname: string, base: string): string | undef
 
 type ContentImporters = Record<string, () => Promise<{ default: LessonContent }>>;
 
-/** A lesson's content could not be downloaded (as opposed to a bug while showing it). */
+/** A lesson's content could not be downloaded (as opposed to a bug while loading or showing it). */
 export class LessonLoadError extends Error {
   constructor(id: string, cause: unknown) {
     super(`Lesson ${id} could not be downloaded`, { cause });
     this.name = 'LessonLoadError';
   }
 }
+
+/**
+ * What Chrome, Firefox and Safari report when a chunk can't be fetched, and what Vite reports when
+ * it can't preload one. Anything else came from running the lesson's own code.
+ */
+const DOWNLOAD_FAILURE = /dynamically imported module|importing a module script failed|unable to preload/i;
+const isDownloadFailure = (error: unknown) => error instanceof Error && DOWNLOAD_FAILURE.test(error.message);
 
 /**
  * Loads a lesson's content and merges it with its metadata. Each id gets one promise, kept even
@@ -70,7 +77,7 @@ export function createLessonLoader(metas: LessonMeta[], importers: ContentImport
         ? importer().then(
             (module) => ({ ...meta, ...module.default }),
             (error: unknown) => {
-              throw new LessonLoadError(id, error);
+              throw isDownloadFailure(error) ? new LessonLoadError(id, error) : error;
             },
           )
         : Promise.reject(new Error(`Unknown lesson: ${id}`));

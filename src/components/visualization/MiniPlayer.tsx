@@ -20,7 +20,8 @@ export function MiniPlayer({ steps, label }: { steps: Step[]; label: string }) {
   useEffect(() => {
     const element = section.current;
     if (!element) return;
-    const observer = new IntersectionObserver(([entry]) => setInView(entry!.isIntersecting));
+    // A batch can hold several changes; the last one is where the preview is now.
+    const observer = new IntersectionObserver((entries) => setInView(entries.at(-1)!.isIntersecting));
     observer.observe(element);
     return () => observer.disconnect();
   }, []);

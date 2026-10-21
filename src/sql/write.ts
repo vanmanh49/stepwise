@@ -164,7 +164,7 @@ function matching(
   where: Extract<Statement, { kind: 'update' }>['where'],
   emit?: Emit,
   ctes?: ReadonlyMap<string, Relation>,
-): { relation: Relation; rows: Row[]; env: Env } {
+): { relation: Relation; rows: readonly Row[]; env: Env } {
   const env = newEnv(db, ctes);
   const relation = scan(db, ref);
   if (!where) return { relation, rows: relation.rows, env };

@@ -51,11 +51,11 @@ describe('loadLesson', () => {
     const load = createLessonLoader([meta], {
       './algorithms/x.ts': async () => {
         calls++;
-        throw new Error('network down');
+        throw new TypeError('Failed to fetch dynamically imported module: https://x/a.js');
       },
     });
     const first = load('x');
-    await expect(first).rejects.toMatchObject({ name: 'LessonLoadError', cause: new Error('network down') });
+    await expect(first).rejects.toMatchObject({ name: 'LessonLoadError' });
     expect(load('x')).toBe(first);
     expect(calls).toBe(1);
   });
@@ -92,13 +92,25 @@ describe('lessonIdFromPath', () => {
 describe('LessonLoadError', () => {
   const meta = { id: 'x', title: 'X', category: 'algorithms' } as LessonMeta;
 
-  it('wraps a failed download and keeps the original as its cause', async () => {
-    const original = new Error('Failed to fetch dynamically imported module');
+  it.each([
+    ['Chrome', new TypeError('Failed to fetch dynamically imported module: https://x/a.js')],
+    ['Firefox', new TypeError('error loading dynamically imported module: https://x/a.js')],
+    ['Safari', new TypeError('Importing a module script failed.')],
+    ['Vite preloading', new Error('Unable to preload CSS for /a.css')],
+  ])('wraps a failed download (%s) and keeps the original as its cause', async (_, original) => {
     const load = createLessonLoader([meta], { './algorithms/x.ts': () => Promise.reject(original) });
     const error = await load('x').catch((e: unknown) => e);
     expect(error).toBeInstanceOf(LessonLoadError);
     expect((error as LessonLoadError).cause).toBe(original);
     expect(load('x')).toBe(load('x'));
+  });
+
+  it('passes on an error thrown by the lesson module itself, so it is not called a download failure', async () => {
+    const original = new ReferenceError('quiz is not defined');
+    const load = createLessonLoader([meta], { './algorithms/x.ts': () => Promise.reject(original) });
+    const first = load('x');
+    await expect(first).rejects.toBe(original);
+    expect(load('x')).toBe(first);
   });
 
   it('is not used for an unknown id, which is a plain error', async () => {

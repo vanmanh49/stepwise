@@ -1,6 +1,6 @@
 // Fails the build when the JavaScript every page loads first grows past its budget, or when
 // lesson content leaks back into it (lessons should load only when opened). Run after a build.
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -12,7 +12,8 @@ import { pathToFileURL } from 'node:url';
 export function checkBundle(dist, marker, budgetKb = 600) {
   const html = readFileSync(join(dist, 'index.html'), 'utf8');
   const tags = (pattern) => [...html.matchAll(pattern)].map((m) => m[0]);
-  const attr = (tag, name) => new RegExp(`\\b${name}="([^"]+)"`).exec(tag)?.[1];
+  // A whole attribute name only, so data-type= doesn't count as type=.
+  const attr = (tag, name) => new RegExp(`\\s${name}="([^"]+)"`).exec(tag)?.[1];
   const asset = (url) => join(dist, url.slice(url.indexOf('assets/')));
 
   const problems = [];
@@ -34,14 +35,16 @@ export function checkBundle(dist, marker, budgetKb = 600) {
   return { files, total, problems };
 }
 
-// Command line: `node scripts/check-bundle.mjs [dist]`, run from the repository root.
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+// Command line: `node scripts/check-bundle.mjs [dist]`, run from the repository root. The real path
+// is compared because import.meta.url resolves symlinks and process.argv[1] doesn't.
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
+  const budgetKb = 600;
   const lessonSource = readFileSync('src/lessons/algorithms/bubble-sort.ts', 'utf8');
   const marker = /prompt: '([^'\\]{20,})/.exec(lessonSource)?.[1];
   if (!marker) throw new Error('No quiz prompt found in bubble-sort.ts to check for');
-  const { files, total, problems } = checkBundle(process.argv[2] ?? 'dist', marker);
+  const { files, total, problems } = checkBundle(process.argv[2] ?? 'dist', marker, budgetKb);
   for (const { file, size } of files) console.log(`${(size / 1024).toFixed(1).padStart(8)} kB  ${file}`);
-  console.log(`${(total / 1024).toFixed(1).padStart(8)} kB  first load (budget 600 kB)`);
+  console.log(`${(total / 1024).toFixed(1).padStart(8)} kB  first load (budget ${budgetKb} kB)`);
   for (const problem of problems) console.error(`check-bundle: ${problem}`);
   if (problems.length > 0) process.exit(1);
 }
