@@ -46,6 +46,8 @@ export function StepView({ view }: { view: View }) {
       return <BTreeRenderer view={view} />;
     case 'sessions':
       return <SessionsRenderer view={view} />;
+    case 'services':
+      return null;
     case 'panels':
       return <PanelsRenderer view={view} renderView={(panel) => <StepView view={panel} />} />;
   }
