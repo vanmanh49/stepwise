@@ -100,6 +100,7 @@ const EXPECTED_IDS = [
   'monolith-vs-microservices',
   'service-boundaries',
   'synchronous-calls',
+  'api-gateway',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -136,7 +137,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
-    expect(lessonsIn('microservices')).toHaveLength(3);
+    expect(lessonsIn('microservices')).toHaveLength(4);
   });
 
   it('links previous and next lessons within a category', () => {

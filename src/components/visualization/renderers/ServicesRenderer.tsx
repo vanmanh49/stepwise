@@ -6,7 +6,8 @@ import { chooseOrientation, HEADER, layoutServices, linkEnds, MARGIN, type Place
 import { spring } from './spring';
 
 const PILL_HEIGHT = 18;
-/** How far along its link a message is drawn once it has arrived. */
+/** Messages are drawn between these points of their link, so a pill never covers the box it leaves or reaches. */
+const DEPARTED_AT = 0.22;
 const ARRIVED_AT = 0.78;
 
 const TYPE_NAME: Record<ServicesView['nodes'][number]['type'], string> = {
@@ -156,8 +157,7 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
           const [a, b] = [boxes.get(message.from), boxes.get(message.to)];
           if (!a || !b) return null;
           const { x1, y1, x2, y2 } = linkEnds(a, b);
-          // An arrived message stops just short of its destination, so it never covers the instance names.
-          const along = Math.min(message.progress, ARRIVED_AT);
+          const along = DEPARTED_AT + (ARRIVED_AT - DEPARTED_AT) * message.progress;
           const x = x1 + (x2 - x1) * along;
           const y = y1 + (y2 - y1) * along;
           const text = narrow ? message.label.replace(/^(GET|POST|PUT|DELETE) /, '') : message.label;

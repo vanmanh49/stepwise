@@ -32,4 +32,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['synchronous', 'request response', 'latency', 'call chain', 'fan-out', 'parallel', 'rpc', 'http', 'slow service'],
     prerequisites: ['service-boundaries'],
   },
+  {
+    id: 'api-gateway',
+    title: 'API Gateway',
+    category: 'microservices',
+    difficulty: 'beginner',
+    group: 'Foundations',
+    description: 'Send requests through one front door that checks tokens and routes each path to its service.',
+    keywords: ['api gateway', 'routing', 'reverse proxy', 'authentication', 'token', '401', '404', 'entry point', 'edge'],
+    prerequisites: ['synchronous-calls'],
+  },
 ];
