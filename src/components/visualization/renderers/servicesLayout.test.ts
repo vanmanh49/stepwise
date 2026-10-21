@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ServicesView } from '../../../types/visualization';
-import { HEADER, INSTANCE_GAP, INSTANCE_HEIGHT, layoutServices, linkEnds, NARROW_WIDTH, PAD, type PlacedBox } from './servicesLayout';
+import { chooseOrientation, HEADER, INSTANCE_GAP, INSTANCE_HEIGHT, layoutServices, linkEnds, NARROW_WIDTH, PAD, type PlacedBox } from './servicesLayout';
 
 type ViewNode = ServicesView['nodes'][number];
 
@@ -54,6 +54,16 @@ describe('layoutServices', () => {
     const { boxes, width } = layoutServices(fourBranches, 'rows');
     expect(width).toBeLessThanOrEqual(NARROW_WIDTH);
     for (const b of boxes) expect(b.x + b.width).toBeLessThanOrEqual(NARROW_WIDTH);
+  });
+});
+
+describe('chooseOrientation', () => {
+  it('keeps columns while they fit at 80% or more, and stacks rows otherwise', () => {
+    const wide = view([node('a', 0), node('b', 1), node('c', 2), node('d', 3), node('e', 4), node('f', 5)]);
+    expect(chooseOrientation(system, 650)).toBe('columns');
+    expect(chooseOrientation(wide, 650)).toBe('rows');
+    expect(chooseOrientation(system, NARROW_WIDTH)).toBe('rows');
+    expect(chooseOrientation(wide, 2000)).toBe('columns');
   });
 });
 

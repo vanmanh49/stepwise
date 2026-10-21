@@ -12,4 +12,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['monolith', 'microservices', 'architecture', 'service', 'process', 'failure isolation', 'network hop', 'deploy'],
     prerequisites: [],
   },
+  {
+    id: 'service-boundaries',
+    title: 'Service Boundaries',
+    category: 'microservices',
+    difficulty: 'beginner',
+    group: 'Foundations',
+    description: 'Split the same shop by layer and by business capability, and count the calls between services.',
+    keywords: ['service boundaries', 'bounded context', 'domain', 'capability', 'layers', 'coupling', 'cohesion', 'chatty'],
+    prerequisites: ['monolith-vs-microservices'],
+  },
 ];

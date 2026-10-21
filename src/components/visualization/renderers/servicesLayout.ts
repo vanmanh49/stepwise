@@ -9,6 +9,10 @@ export const COLUMN_GAP = 64;
 export const ROW_GAP = 20;
 /** The space a phone leaves: 375 px minus a 16 px gutter on each side. */
 export const NARROW_WIDTH = 343;
+/** Room around the diagram for badges and rings. */
+export const MARGIN = 14;
+/** Columns may shrink to this share of their size before the diagram switches to rows. */
+const MIN_SCALE = 0.8;
 
 interface Rect {
   id: string;
@@ -72,6 +76,12 @@ export function layoutServices(view: ServicesView, orientation: 'columns' | 'row
     y += Math.max(...row.map((b) => b.height)) + COLUMN_GAP;
   });
   return { boxes, width, height: Math.max(0, y - COLUMN_GAP) };
+}
+
+/** Columns when they fit the available width at 80% or more of their size; otherwise rows, top to bottom. */
+export function chooseOrientation(view: ServicesView, available: number): 'columns' | 'rows' {
+  const width = layoutServices(view, 'columns').width + 2 * MARGIN;
+  return available >= width * MIN_SCALE ? 'columns' : 'rows';
 }
 
 /** Where a link between two boxes starts and ends: facing side edges, or top and bottom when they share a column. */

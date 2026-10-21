@@ -1,6 +1,6 @@
 import { refusal, type Read } from '../../algorithms/form';
 import type { Step } from '../../types/visualization';
-import type { Call, Link, NodeSpec, Scenario } from '../model';
+import type { Call, Link, NodeSpec, Scenario, SimResult } from '../model';
 import { simulate } from '../sim';
 import { emptyServicesView, traceSteps, type StepOptions } from '../steps';
 
@@ -29,8 +29,22 @@ export const db = (id: string, column: number, columns: string[] = []): NodeSpec
 
 export const link = (from: string, to: string, latencyMs = LINK_MS): Link => ({ from, to, latencyMs });
 
-/** Runs a scenario into steps, or explains in one step why the settings can't run. */
-export function scenarioSteps(read: Read<Scenario>, refusalTitle: string, options: StepOptions): Step[] {
+export const gateway = (routes: { prefix: string; to: string }[], requireToken = false): NodeSpec => ({
+  id: 'gateway',
+  label: 'gateway',
+  type: 'gateway',
+  column: 1,
+  processMs: GATEWAY_MS,
+  routes,
+  requireToken,
+});
+
+/** The service an instance id belongs to: "orders-2" → "orders". */
+export const serviceOf = (id: string) => id.replace(/-\d+$/, '');
+
+/** Runs a scenario into steps, or explains in one step why the settings can't run. Options may depend on the run. */
+export function scenarioSteps(read: Read<Scenario>, refusalTitle: string, options: StepOptions | ((result: SimResult) => StepOptions)): Step[] {
   if (!read.ok) return refusal(refusalTitle, read.why, emptyServicesView());
-  return traceSteps(read.value, simulate(read.value), options);
+  const result = simulate(read.value);
+  return traceSteps(read.value, result, typeof options === 'function' ? options(result) : options);
 }

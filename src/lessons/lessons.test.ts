@@ -98,6 +98,7 @@ const EXPECTED_IDS = [
   'isolation-levels',
   'normalization',
   'monolith-vs-microservices',
+  'service-boundaries',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -134,7 +135,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
-    expect(lessonsIn('microservices')).toHaveLength(1);
+    expect(lessonsIn('microservices')).toHaveLength(2);
   });
 
   it('links previous and next lessons within a category', () => {

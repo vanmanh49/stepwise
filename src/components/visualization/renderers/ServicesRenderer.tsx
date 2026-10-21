@@ -1,11 +1,10 @@
 import { motion } from 'motion/react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import type { Role, ServicesView } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
-import { HEADER, layoutServices, linkEnds, type PlacedBox } from './servicesLayout';
+import { chooseOrientation, HEADER, layoutServices, linkEnds, MARGIN, type PlacedBox } from './servicesLayout';
 import { spring } from './spring';
-import { useNarrow } from './useNarrow';
 
-const MARGIN = 14;
 const PILL_HEIGHT = 18;
 
 const TYPE_NAME: Record<ServicesView['nodes'][number]['type'], string> = {
@@ -95,14 +94,31 @@ function NodeBox({ node, box }: { node: ServicesView['nodes'][number]; box: Plac
 
 /** Services in layout columns (rows on a phone), the messages crossing their links, then each request's progress and a short log. */
 export function ServicesRenderer({ view }: { view: ServicesView }) {
-  const narrow = useNarrow();
+  const box = useRef<HTMLDivElement>(null);
+  const [available, setAvailable] = useState(0);
+  // The Visualizer's stage wraps views in a padded, content-sized box, so measure the stage itself (minus that padding),
+  // before paint and on every resize: wide systems then switch to rows instead of shrinking.
+  useLayoutEffect(() => {
+    const wrapper = box.current?.parentElement;
+    const stage = wrapper?.parentElement;
+    if (!wrapper || !stage) return;
+    const measure = () => {
+      const style = getComputedStyle(wrapper);
+      setAvailable(stage.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, []);
+  const narrow = available > 0 && chooseOrientation(view, available) === 'rows';
   const layout = layoutServices(view, narrow ? 'rows' : 'columns');
   const boxes = new Map(layout.boxes.map((b) => [b.id, b]));
   const width = layout.width + MARGIN * 2;
   const height = layout.height + MARGIN * 2;
 
   return (
-    <div className="flex w-full max-w-full flex-col gap-4">
+    <div ref={box} className="flex w-full max-w-full flex-col gap-4">
       <svg
         width={width}
         height={height}
