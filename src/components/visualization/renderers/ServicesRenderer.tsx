@@ -97,12 +97,12 @@ function NodeBox({ node, box }: { node: ServicesView['nodes'][number]; box: Plac
 
 /** Services in layout columns (rows on a phone), the messages crossing their links, then each request's progress and a short log. */
 export function ServicesRenderer({ view }: { view: ServicesView }) {
-  const box = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   const [available, setAvailable] = useState(0);
   // The Visualizer's stage wraps views in a padded, content-sized box, so measure the stage itself (minus that padding),
   // before paint and on every resize: wide systems then switch to rows instead of shrinking.
   useLayoutEffect(() => {
-    const wrapper = box.current?.parentElement;
+    const wrapper = root.current?.parentElement;
     const stage = wrapper?.parentElement;
     if (!wrapper || !stage) return;
     const measure = () => {
@@ -121,7 +121,7 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
   const height = layout.height + MARGIN * 2;
 
   return (
-    <div ref={box} className="flex w-full max-w-full flex-col gap-4">
+    <div ref={root} className="flex w-full max-w-full flex-col gap-4">
       <svg
         width={width}
         height={height}
