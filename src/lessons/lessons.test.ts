@@ -101,6 +101,7 @@ const EXPECTED_IDS = [
   'service-boundaries',
   'synchronous-calls',
   'api-gateway',
+  'service-discovery',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -137,7 +138,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
-    expect(lessonsIn('microservices')).toHaveLength(4);
+    expect(lessonsIn('microservices')).toHaveLength(5);
   });
 
   it('links previous and next lessons within a category', () => {

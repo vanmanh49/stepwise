@@ -170,7 +170,8 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
     if (registered.has(service)) {
       if (evicted.has(instance)) return 'evicted';
       const last = lastBeat.get(instance);
-      return last === undefined ? undefined : `beat ${now - last} ms ago`;
+      // How long since the registry last heard from it, short enough to fit beside the instance name.
+      return last === undefined ? undefined : `♥ ${now - last} ms`;
     }
     return undefined;
   }

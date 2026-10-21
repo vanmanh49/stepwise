@@ -94,7 +94,7 @@ describe('traceSteps', () => {
     expect(beats.every((st) => st.title === '3 heartbeats reach the registry')).toBe(true);
     expect(steps.some((st) => st.title === 'Orders-1 sends a heartbeat' || st.title === 'orders-1 sends a heartbeat')).toBe(false);
     const withBadges = view(beats[0]!).nodes.find((n) => n.id === 'orders')!.instances!;
-    expect(withBadges.map((i) => i.badge)).toEqual(['beat 0 ms ago', 'beat 0 ms ago', 'beat 0 ms ago']);
+    expect(withBadges.map((i) => i.badge)).toEqual(['♥ 0 ms', '♥ 0 ms', '♥ 0 ms']);
   });
 
   it('lets a lesson override the wording and add variables', () => {

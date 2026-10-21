@@ -64,7 +64,7 @@ function NodeBox({ node, box }: { node: ServicesView['nodes'][number]; box: Plac
         {node.label}
         <title>{`${node.label} (${TYPE_NAME[node.type]})`}</title>
       </text>
-      {!hasInstances && node.label.length * 7.4 + TYPE_NAME[node.type].length * 5.6 + 24 <= box.width && (
+      {!hasInstances && node.label !== TYPE_NAME[node.type] && node.label.length * 7.4 + TYPE_NAME[node.type].length * 5.6 + 24 <= box.width && (
         <text x={box.x + box.width - 8} y={box.y + HEADER / 2 + 1} textAnchor="end" dominantBaseline="central" fill="var(--text-muted)" className="text-[10px]">
           {TYPE_NAME[node.type]}
         </text>
@@ -82,7 +82,7 @@ function NodeBox({ node, box }: { node: ServicesView['nodes'][number]; box: Plac
             <text x={r.x + 6} y={r.y + r.height / 2} dominantBaseline="central" fill={roleText(instance.role)} className="font-mono text-[11px] font-semibold">
               {instance.id}
             </text>
-            {instance.badge && r.width > 100 && (
+            {instance.badge && instance.id.length * 6.8 + instance.badge.length * 5.6 + 18 <= r.width && (
               <text x={r.x + r.width - 6} y={r.y + r.height / 2} textAnchor="end" dominantBaseline="central" fill={roleText(instance.role)} className="font-mono text-[9px]">
                 {instance.badge}
               </text>

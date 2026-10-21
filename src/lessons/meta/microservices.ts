@@ -42,4 +42,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['api gateway', 'routing', 'reverse proxy', 'authentication', 'token', '401', '404', 'entry point', 'edge'],
     prerequisites: ['synchronous-calls'],
   },
+  {
+    id: 'service-discovery',
+    title: 'Service Discovery',
+    category: 'microservices',
+    difficulty: 'beginner',
+    group: 'Foundations',
+    description: 'Instances register and send heartbeats; kill one and watch how long the registry keeps listing it.',
+    keywords: ['service discovery', 'registry', 'heartbeat', 'ttl', 'eviction', 'consul', 'eureka', 'health', 'lookup'],
+    prerequisites: ['api-gateway'],
+  },
 ];
