@@ -1,4 +1,5 @@
 import { MAX_TIME, type Call, type Message, type NodeSpec, type NodeType, type RequestOutcome, type Scenario, type SimResult, type TraceEvent } from './model';
+import { balancer, createDiscovery, gateway, registry } from './behaviours';
 import { EventQueue } from './queue';
 
 type Distribute<T> = T extends unknown ? Omit<T, 't'> : never;
@@ -14,7 +15,7 @@ export interface SimContext {
   requestInfo(id: string): { label: string; path: string; token: boolean };
   /** Sends over the link between the two owners; `onReply` runs when the answer arrives. */
   send(from: string, to: string, message: Pick<Message, 'kind' | 'label'> & { request?: string }, onReply?: (reply: Message) => void): Message;
-  reply(to: Message, ok: boolean, reason?: string): void;
+  reply(to: Message, ok: boolean, reason?: string, result?: string[]): void;
   /** Sends a request on to `to` and passes its answer back to whoever sent `inbound`. */
   forward(from: string, to: string, inbound: Message): void;
   at(time: number, run: () => void): void;
@@ -98,7 +99,7 @@ export function simulate(input: Scenario): SimResult {
       ctx.at(message.arrives, () => deliver(message));
       return message;
     },
-    reply(to, ok, reason) {
+    reply(to, ok, reason, result) {
       const departs = now;
       const message: Message = {
         id: `m${++messages}`,
@@ -112,6 +113,7 @@ export function simulate(input: Scenario): SimResult {
         replyTo: to.id,
         ok,
         ...(reason !== undefined && { reason }),
+        ...(result && { result }),
       };
       ctx.trace({ kind: 'send', message });
       ctx.at(message.arrives, () => deliver(message));
@@ -171,6 +173,7 @@ export function simulate(input: Scenario): SimResult {
   const serviceBehaviour: Behaviour = (_ctx, node) => (message) => {
     if (node.type !== 'service') return;
     const instance = message.to;
+    if (message.kind === 'probe') return ctx.reply(message, true);
     const request = message.request!;
     ctx.trace({ kind: 'handle', node: node.id, instance, request });
     let active = jobs.get(instance);
@@ -238,7 +241,7 @@ export function simulate(input: Scenario): SimResult {
 
   const clientBehaviour: Behaviour = () => () => {};
 
-  const builtIn: Partial<Record<NodeType, Behaviour>> = { client: clientBehaviour, service: serviceBehaviour, db: dbBehaviour };
+  const behaviours: Record<NodeType, Behaviour> = { client: clientBehaviour, service: serviceBehaviour, db: dbBehaviour, gateway, registry, balancer };
 
   // Faults first, so a fault at time t applies before anything else that happens at t.
   for (const fault of scenario.faults) {
@@ -260,10 +263,11 @@ export function simulate(input: Scenario): SimResult {
 
   const receivers = new Map<string, (message: Message) => void>();
   for (const node of scenario.nodes) {
-    const behaviour = builtIn[node.type];
-    if (behaviour) receivers.set(node.id, behaviour(ctx, node));
+    receivers.set(node.id, behaviours[node.type](ctx, node));
   }
 
+  const client = scenario.nodes.find((n) => n.type === 'client');
+  const discover = client && createDiscovery(ctx, client);
   scenario.requests.forEach((spec, index) => {
     const id = `#${index + 1}`;
     const open: OpenRequest = {
@@ -274,19 +278,20 @@ export function simulate(input: Scenario): SimResult {
     };
     requests.set(id, open);
     ctx.at(spec.at, () => {
-      const client = scenario.nodes.find((n) => n.type === 'client')!;
+      if (!client) throw new Error('Scenario has no client');
       open.outcome.hops.push(client.id);
-      const finish = (reply: Message) => {
+      const finish = (ok: boolean, reason?: string) => {
         if (open.done) return;
         open.done = true;
-        open.outcome.status = reply.ok ? 'ok' : 'failed';
+        open.outcome.status = ok ? 'ok' : 'failed';
         open.outcome.ms = now - spec.at;
-        if (!reply.ok && reply.reason) open.outcome.reason = reply.reason;
-        ctx.trace({ kind: 'done', request: id, ok: reply.ok ?? false, ms: open.outcome.ms, ...(open.outcome.reason && { reason: open.outcome.reason }) });
+        if (!ok && reason) open.outcome.reason = reason;
+        ctx.trace({ kind: 'done', request: id, ok, ms: open.outcome.ms, ...(open.outcome.reason && { reason: open.outcome.reason }) });
       };
+      if (discover) return discover(id, finish);
       const target = nodes.get(spec.to)!;
       const to = target.type === 'service' ? target.instances[0]!.id : target.id;
-      ctx.send(client.id, to, { kind: 'request', label: `${spec.label} ${id}`, request: id }, finish);
+      ctx.send(client.id, to, { kind: 'request', label: `${spec.label} ${id}`, request: id }, (reply) => finish(reply.ok ?? false, reply.reason));
     });
   });
 

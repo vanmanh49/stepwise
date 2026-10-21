@@ -91,6 +91,8 @@ export interface Message {
   ok?: boolean;
   /** Failed replies only. */
   reason?: string;
+  /** Replies to a lookup: the registered instances. */
+  result?: string[];
 }
 
 export type TraceEvent = { t: number } & (
