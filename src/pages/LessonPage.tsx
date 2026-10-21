@@ -42,10 +42,25 @@ const SECTIONS = [
   ['summary', 'Summary'],
 ] as const;
 
-/** The page sections a lesson shows: SQL lessons have no complexity and call their code an example query. */
+const CODE_COPY: Record<Category, { title: string; label?: string; intro: string }> = {
+  sql: {
+    title: 'Example query',
+    label: 'SQL',
+    intro: 'The query this lesson starts with. In the visualization above, the highlighted line follows the clause that is running.',
+  },
+  microservices: {
+    title: 'Pseudocode',
+    label: 'Pseudocode',
+    intro: 'The decisions the simulated services make, as short pseudocode. In the visualization above, the highlighted line follows the event that is happening.',
+  },
+  'data-structures': { title: 'Code', intro: 'The full TypeScript implementation. In the visualization above, the highlighted line follows this code as each step runs.' },
+  algorithms: { title: 'Code', intro: 'The full TypeScript implementation. In the visualization above, the highlighted line follows this code as each step runs.' },
+};
+
+/** The page sections a lesson shows: SQL and Microservices lessons have no complexity, and each category names its code. */
 function sectionsFor(lesson: Lesson): (readonly [string, string])[] {
   return SECTIONS.filter(([id]) => id !== 'complexity' || lesson.complexity).map(([id, title]) =>
-    id === 'code' && lesson.category === 'sql' ? ([id, 'Example query'] as const) : ([id, title] as const),
+    id === 'code' ? ([id, CODE_COPY[lesson.category].title] as const) : ([id, title] as const),
   );
 }
 
@@ -183,13 +198,9 @@ function LessonBody({ lesson }: { lesson: Lesson }) {
           <HowItWorks lesson={lesson} />
         </Section>
 
-        <Section id="code" title={lesson.category === 'sql' ? 'Example query' : 'Code'}>
-          <p className="mb-4 max-w-[68ch] text-muted">
-            {lesson.category === 'sql'
-              ? 'The query this lesson starts with. In the visualization above, the highlighted line follows the clause that is running.'
-              : 'The full TypeScript implementation. In the visualization above, the highlighted line follows this code as each step runs.'}
-          </p>
-          <CodePanel code={lesson.code} label={lesson.category === 'sql' ? 'SQL' : undefined} />
+        <Section id="code" title={CODE_COPY[lesson.category].title}>
+          <p className="mb-4 max-w-[68ch] text-muted">{CODE_COPY[lesson.category].intro}</p>
+          <CodePanel code={lesson.code} label={CODE_COPY[lesson.category].label} />
         </Section>
 
         {lesson.complexity && (
@@ -235,7 +246,7 @@ function LessonBody({ lesson }: { lesson: Lesson }) {
               <Exercises lessonId={lesson.id} dataset={lesson.visualization.dataset} exercises={lesson.visualization.exercises} />
             </div>
           )}
-          <Quiz lessonId={lesson.id} questions={lesson.quiz} codeLabel={lesson.category === 'sql' ? 'SQL' : undefined} />
+          <Quiz lessonId={lesson.id} questions={lesson.quiz} codeLabel={CODE_COPY[lesson.category].label} />
         </Section>
 
         <Section id="summary" title="Summary">

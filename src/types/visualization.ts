@@ -191,6 +191,27 @@ export interface BucketsView {
   direction?: 'up' | 'down';
 }
 
+/** A simulated microservice system: nodes in layout columns, the messages crossing its links, and each request's progress. */
+export interface ServicesView {
+  kind: 'services';
+  nodes: {
+    id: string;
+    label: string;
+    type: 'client' | 'gateway' | 'registry' | 'balancer' | 'service' | 'db';
+    column: number;
+    role: Role;
+    badge?: string;
+    instances?: { id: string; role: Role; badge?: string }[];
+  }[];
+  links: { from: string; to: string; role: Role }[];
+  /** Messages in flight at this step, between node ids; progress runs from 0 (just sent) to 1 (arrived). */
+  messages: { id: string; from: string; to: string; label: string; role: Role; progress: number }[];
+  /** label: "GET /orders"; hops: the path taken so far, e.g. "gw → orders-2 → db". */
+  requests: { id: string; label: string; status: 'pending' | 'ok' | 'failed'; hops: string; ms?: number; reason?: string }[];
+  /** The last few events, newest last. */
+  log: string[];
+}
+
 /** Several views shown together in one step. Panels do not nest. */
 export interface PanelsView {
   kind: 'panels';
@@ -212,6 +233,7 @@ export type View =
   | GridView
   | CallsView
   | BucketsView
+  | ServicesView
   | PanelsView;
 
 export interface Step {

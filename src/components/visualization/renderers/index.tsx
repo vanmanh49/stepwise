@@ -9,6 +9,7 @@ import { HeapRenderer } from './HeapRenderer';
 import { ListRenderer } from './ListRenderer';
 import { PanelsRenderer } from './PanelsRenderer';
 import { QueueRenderer } from './QueueRenderer';
+import { ServicesRenderer } from './ServicesRenderer';
 import { SessionsRenderer } from './SessionsRenderer';
 import { StackRenderer } from './StackRenderer';
 import { TableRenderer } from './TableRenderer';
@@ -46,6 +47,8 @@ export function StepView({ view }: { view: View }) {
       return <BTreeRenderer view={view} />;
     case 'sessions':
       return <SessionsRenderer view={view} />;
+    case 'services':
+      return <ServicesRenderer view={view} />;
     case 'panels':
       return <PanelsRenderer view={view} renderView={(panel) => <StepView view={panel} />} />;
   }

@@ -75,6 +75,7 @@ function ProgressSummary() {
           <ProgressBar label="Data Structures" value={percent(done('data-structures'), lessonsIn('data-structures').length)} />
           <ProgressBar label="Algorithms" value={percent(done('algorithms'), lessonsIn('algorithms').length)} />
           <ProgressBar label="SQL" value={percent(done('sql'), lessonsIn('sql').length)} />
+          <ProgressBar label="Microservices" value={percent(done('microservices'), lessonsIn('microservices').length)} />
         </div>
       </div>
     </section>

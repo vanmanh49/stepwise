@@ -114,6 +114,35 @@ export const curriculum: Topic[] = [
     ['isolation-levels', 'Isolation Levels', 'Database internals'],
     ['normalization', 'Normalization', 'Database internals'],
   ]),
+  ...topics('microservices', 'beginner', [
+    ['monolith-vs-microservices', 'Monolith vs Microservices', 'Foundations'],
+    ['service-boundaries', 'Service Boundaries', 'Foundations'],
+    ['synchronous-calls', 'Synchronous Calls', 'Foundations'],
+    ['api-gateway', 'API Gateway', 'Foundations'],
+    ['service-discovery', 'Service Discovery', 'Foundations'],
+    ['load-balancing', 'Load Balancing', 'Foundations'],
+    ['database-per-service', 'Database per Service', 'Foundations'],
+  ]),
+  ...topics('microservices', 'intermediate', [
+    ['timeouts', 'Timeouts', 'Communication & Resilience'],
+    ['retries-backoff', 'Retries with Backoff & Jitter', 'Communication & Resilience'],
+    ['circuit-breaker', 'Circuit Breaker', 'Communication & Resilience'],
+    ['bulkhead', 'Bulkhead', 'Communication & Resilience'],
+    ['rate-limiting', 'Rate Limiting', 'Communication & Resilience'],
+    ['message-queues', 'Message Queues', 'Communication & Resilience'],
+    ['pub-sub', 'Publish/Subscribe & Events', 'Communication & Resilience'],
+    ['idempotency', 'Idempotency & Delivery Guarantees', 'Communication & Resilience'],
+  ]),
+  ...topics('microservices', 'advanced', [
+    ['saga', 'Saga', 'Data & Operations'],
+    ['transactional-outbox', 'Transactional Outbox', 'Data & Operations'],
+    ['cqrs', 'CQRS', 'Data & Operations'],
+    ['event-sourcing', 'Event Sourcing', 'Data & Operations'],
+    ['distributed-tracing', 'Distributed Tracing', 'Data & Operations'],
+    ['deployment-strategies', 'Deployment Strategies', 'Data & Operations'],
+    ['strangler-fig', 'Strangler Fig Migration', 'Data & Operations'],
+    ['service-mesh', 'Sidecar & Service Mesh', 'Data & Operations'],
+  ]),
 ];
 
 export const DIFFICULTIES: Difficulty[] = ['beginner', 'intermediate', 'advanced'];

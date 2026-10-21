@@ -1,13 +1,14 @@
 import type { Category, Lesson, LessonContent, LessonMeta } from '../types/lesson';
 import { algorithmsMeta } from './meta/algorithms';
 import { dataStructuresMeta } from './meta/data-structures';
+import { microservicesMeta } from './meta/microservices';
 import { sqlMeta } from './meta/sql';
 
 /**
  * Every live lesson's metadata, in recommended learning order. Pages read this without loading
  * any lesson; a lesson's content (src/lessons/<category>/<id>.ts) loads when it is opened.
  */
-export const lessons: LessonMeta[] = [...dataStructuresMeta, ...algorithmsMeta, ...sqlMeta];
+export const lessons: LessonMeta[] = [...dataStructuresMeta, ...algorithmsMeta, ...sqlMeta, ...microservicesMeta];
 
 const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));
 
@@ -90,5 +91,5 @@ export function createLessonLoader(metas: LessonMeta[], importers: ContentImport
 /** One chunk per lesson: the bundler splits each matched file into its own lazily loaded module. */
 export const loadLesson = createLessonLoader(
   lessons,
-  import.meta.glob<{ default: LessonContent }>(['./{data-structures,algorithms,sql}/*.ts', '!./**/*.test.ts']),
+  import.meta.glob<{ default: LessonContent }>(['./{data-structures,algorithms,sql,microservices}/*.ts', '!./**/*.test.ts']),
 );

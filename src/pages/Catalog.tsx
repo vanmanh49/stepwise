@@ -14,6 +14,8 @@ const INTRO: Record<Category, string> = {
   algorithms:
     'Step-by-step procedures for searching, sorting and exploring data. Each lesson plays the algorithm on your own input, one decision at a time.',
   sql: 'Ask questions of a database. Each lesson runs your query one clause at a time, so you can see which rows every clause keeps, joins, groups or removes.',
+  microservices:
+    'How a system made of many small services stays fast and keeps working when parts of it fail. Each lesson runs a simulated system on your settings, one message at a time.',
 };
 
 const LEVEL_NOTE = {

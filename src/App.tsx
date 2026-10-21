@@ -22,6 +22,8 @@ export default function App() {
           <Route path="algorithms/:lessonId" element={<LessonPage category="algorithms" />} />
           <Route path="sql" element={<Catalog category="sql" />} />
           <Route path="sql/:lessonId" element={<LessonPage category="sql" />} />
+          <Route path="microservices" element={<Catalog category="microservices" />} />
+          <Route path="microservices/:lessonId" element={<LessonPage category="microservices" />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="big-o" element={<BigO />} />
           <Route path="*" element={<NotFound />} />

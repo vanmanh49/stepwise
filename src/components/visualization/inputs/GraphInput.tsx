@@ -33,7 +33,7 @@ export function GraphInput({ config, code, onStep }: { config: GraphConfig; code
             </label>
             <select
               id={`${id}-graph`}
-              className="field pr-8"
+              className="field"
               value={graph.id}
               onChange={(e) => {
                 const next = config.graphs.find((g) => g.id === e.target.value)!;
@@ -57,7 +57,7 @@ export function GraphInput({ config, code, onStep }: { config: GraphConfig; code
               </label>
               <select
                 id={`${id}-start`}
-                className="field pr-8"
+                className="field"
                 value={start}
                 onChange={(e) => {
                   setStart(e.target.value);
@@ -79,7 +79,7 @@ export function GraphInput({ config, code, onStep }: { config: GraphConfig; code
               </label>
               <select
                 id={`${id}-goal`}
-                className="field pr-8"
+                className="field"
                 value={goal}
                 onChange={(e) => {
                   setGoal(e.target.value);

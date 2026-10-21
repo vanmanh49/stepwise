@@ -1,8 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import type { BucketsView, CallsView, GridView, PanelsView, TrieView } from '../../types/visualization';
+import type { BucketsView, CallsView, GridView, PanelsView, ServicesView, TrieView } from '../../types/visualization';
 import { rolesInRun, rolesInView } from './roles';
 
 describe('rolesInView', () => {
+  it('lists the roles in a services view', () => {
+    const view: ServicesView = {
+      kind: 'services',
+      nodes: [
+        { id: 'client', label: 'Client', type: 'client', column: 0, role: 'default' },
+        { id: 'api', label: 'API', type: 'service', column: 1, role: 'default', instances: [{ id: 'api-1', role: 'active' }, { id: 'api-2', role: 'discarded' }] },
+      ],
+      links: [{ from: 'client', to: 'api', role: 'frontier' }],
+      messages: [{ id: 'm1', from: 'client', to: 'api', label: 'GET / #1', role: 'compare', progress: 0.5 }],
+      requests: [
+        { id: '#1', label: 'GET /', status: 'ok', hops: 'client' },
+        { id: '#2', label: 'GET /', status: 'pending', hops: 'client' },
+        { id: '#3', label: 'GET /', status: 'failed', hops: 'client' },
+      ],
+      log: [],
+    };
+    expect(rolesInView(view)).toEqual(['default', 'default', 'active', 'discarded', 'frontier', 'compare', 'found', 'discarded']);
+  });
+
   it('collects the roles of every row in a table view', () => {
     const view = {
       kind: 'table' as const,

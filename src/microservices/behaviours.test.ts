@@ -1,0 +1,171 @@
+import { describe, expect, it } from 'vitest';
+import { pickInstance } from './behaviours';
+import type { NodeSpec, Scenario, Strategy } from './model';
+import { simulate } from './sim';
+
+const client: Extract<NodeSpec, { type: 'client' }> = { id: 'client', label: 'Client', type: 'client', column: 0 };
+
+function service(id: string, count: number, processMs = 10): NodeSpec {
+  return {
+    id,
+    label: id,
+    type: 'service',
+    column: 2,
+    instances: Array.from({ length: count }, (_, i) => ({ id: `${id}-${i + 1}`, processMs })),
+    calls: [],
+    parallel: false,
+  };
+}
+
+function gatewayScenario(path: string, token: boolean): Scenario {
+  return {
+    nodes: [
+      client,
+      {
+        id: 'gateway',
+        label: 'Gateway',
+        type: 'gateway',
+        column: 1,
+        processMs: 2,
+        requireToken: true,
+        routes: [
+          { prefix: '/orders', to: 'orders' },
+          { prefix: '/orders/archive', to: 'archive' },
+        ],
+      },
+      service('orders', 1),
+      service('archive', 1),
+    ],
+    links: [
+      { from: 'client', to: 'gateway', latencyMs: 5 },
+      { from: 'gateway', to: 'orders', latencyMs: 5 },
+      { from: 'gateway', to: 'archive', latencyMs: 5 },
+    ],
+    requests: [{ label: `GET ${path}`, path, to: 'gateway', at: 0, token }],
+    faults: [],
+  };
+}
+
+function discoveryScenario(instances: number, killAt?: number): Scenario {
+  return {
+    nodes: [
+      { ...client, discovery: { registry: 'registry', service: 'orders' } },
+      { id: 'registry', label: 'Registry', type: 'registry', column: 1, processMs: 2, heartbeatMs: 20, ttlMs: 60, serves: ['orders'] },
+      service('orders', instances),
+    ],
+    links: [
+      { from: 'client', to: 'registry', latencyMs: 5 },
+      { from: 'client', to: 'orders', latencyMs: 5 },
+      { from: 'orders', to: 'registry', latencyMs: 5 },
+    ],
+    requests: Array.from({ length: 10 }, (_, i) => ({ label: 'GET /orders', path: '/orders', to: 'orders', at: 10 + 15 * i })),
+    faults: killAt === undefined ? [] : [{ kind: 'kill', instance: `orders-${Math.min(2, instances)}`, at: killAt }],
+  };
+}
+
+function balancerScenario(strategy: Strategy, options: { slow?: boolean; healthCheckMs?: number; killAt?: number } = {}): Scenario {
+  const api = service('api', 3, 20);
+  if (api.type === 'service' && options.slow) api.instances[0]!.processMs = 120;
+  return {
+    nodes: [
+      client,
+      { id: 'balancer', label: 'Balancer', type: 'balancer', column: 1, processMs: 2, target: 'api', strategy, ...(options.healthCheckMs && { healthCheckMs: options.healthCheckMs }) },
+      api,
+    ],
+    links: [
+      { from: 'client', to: 'balancer', latencyMs: 5 },
+      { from: 'balancer', to: 'api', latencyMs: 5 },
+    ],
+    requests: Array.from({ length: 12 }, (_, i) => ({ label: 'GET /items', path: '/items', to: 'balancer', at: 10 * i })),
+    faults: options.killAt === undefined ? [] : [{ kind: 'kill', instance: 'api-3', at: options.killAt }],
+  };
+}
+
+const servedBy = (s: Scenario) => simulate(s).requests.map((r) => r.hops.at(-1));
+const count = (items: (string | undefined)[], id: string) => items.filter((x) => x === id).length;
+
+describe('gateway', () => {
+  it('routes by the longest matching prefix', () => {
+    expect(simulate(gatewayScenario('/orders/42', true)).requests[0]).toMatchObject({ status: 'ok', hops: ['client', 'gateway', 'orders-1'] });
+    expect(simulate(gatewayScenario('/orders/archive/1', true)).requests[0]!.hops).toEqual(['client', 'gateway', 'archive-1']);
+  });
+
+  it('rejects without a token and with an unknown path, before any backend', () => {
+    expect(simulate(gatewayScenario('/orders/42', false)).requests[0]).toMatchObject({ status: 'failed', reason: '401: no token', hops: ['client', 'gateway'] });
+    expect(simulate(gatewayScenario('/payments/1', true)).requests[0]).toMatchObject({
+      status: 'failed',
+      reason: '404: no route for /payments/1',
+      hops: ['client', 'gateway'],
+    });
+  });
+});
+
+describe('registry', () => {
+  it('evicts an instance once its heartbeats are older than the TTL', () => {
+    // Heartbeats every 20 ms take 5 ms to arrive: orders-2's last one (sent at 40) arrives at 45, and 120 is the first tick more than 60 ms later.
+    const evictions = simulate(discoveryScenario(3, 50)).trace.filter((e) => e.kind === 'evict');
+    expect(evictions).toEqual([{ t: 120, kind: 'evict', registry: 'registry', instance: 'orders-2' }]);
+  });
+
+  it('fails requests sent to a dead instance before eviction, and none after', () => {
+    const { requests } = simulate(discoveryScenario(3, 50));
+    const failed = requests.filter((r) => r.status === 'failed');
+    expect(failed.some((r) => r.reason === 'orders-2 refused the connection')).toBe(true);
+    for (const r of failed) {
+      expect(r.reason).toMatch(/^orders-2 (refused the connection|stopped)$/);
+      expect(r.sentAt).toBeLessThan(120);
+    }
+    expect(requests.filter((r) => r.sentAt >= 120).every((r) => r.status === 'ok')).toBe(true);
+  });
+
+  it('spreads looked-up requests over every registered instance', () => {
+    const served = servedBy(discoveryScenario(3));
+    expect(['orders-1', 'orders-2', 'orders-3'].map((id) => count(served, id))).toEqual([4, 3, 3]);
+  });
+
+  it('fails a request when no instance is registered', () => {
+    const s = discoveryScenario(1, 0);
+    expect(simulate(s).requests[0]).toMatchObject({ status: 'failed', reason: 'no orders instance registered' });
+  });
+});
+
+describe('balancer', () => {
+  it('spreads round robin evenly', () => {
+    const served = servedBy(balancerScenario('round-robin'));
+    expect(['api-1', 'api-2', 'api-3'].map((id) => count(served, id))).toEqual([4, 4, 4]);
+  });
+
+  it('steers least connections away from a slow instance', () => {
+    expect(count(servedBy(balancerScenario('least-connections', { slow: true })), 'api-1')).toBeLessThan(
+      count(servedBy(balancerScenario('round-robin', { slow: true })), 'api-1'),
+    );
+  });
+
+  it('picks the same instances for the same seed', () => {
+    expect(servedBy(balancerScenario('random'))).toEqual(servedBy(balancerScenario('random')));
+    expect(new Set(servedBy(balancerScenario('random'))).size).toBeGreaterThan(1);
+  });
+
+  it('stops sending to an instance after a failed health check', () => {
+    const { trace } = simulate(balancerScenario('round-robin', { healthCheckMs: 25, killAt: 30 }));
+    const mark = trace.find((e) => e.kind === 'mark' && e.instance === 'api-3' && !e.healthy);
+    expect(mark).toBeDefined();
+    expect(trace.filter((e) => e.kind === 'pick' && e.instance === 'api-3' && e.t > mark!.t)).toEqual([]);
+  });
+
+  it('keeps sending to a dead instance without health checks', () => {
+    const { requests } = simulate(balancerScenario('round-robin', { killAt: 30 }));
+    expect(requests.filter((r) => r.status === 'failed').map((r) => r.id)).toEqual(['#3', '#6', '#9', '#12']);
+  });
+});
+
+describe('pickInstance', () => {
+  it('breaks least-connection ties by lowest index', () => {
+    expect(pickInstance('least-connections', ['a', 'b', 'c'], { a: 1, b: 0, c: 0 }, 0, () => 0)).toBe('b');
+  });
+
+  it('takes round robin from the cursor and random from the generator', () => {
+    expect(pickInstance('round-robin', ['a', 'b', 'c'], {}, 4, () => 0)).toBe('b');
+    expect(pickInstance('random', ['a', 'b', 'c'], {}, 0, () => 0.99)).toBe('c');
+  });
+});

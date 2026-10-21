@@ -31,22 +31,25 @@ export function FormInput({ config, code, onStep }: { config: FormConfig; code: 
     <Visualizer
       steps={steps}
       code={code}
+      codeLabel={config.codeLabel}
       autoPlay={ran}
       onStep={onStep}
       toolbar={
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-end gap-3">
+        <form onSubmit={submit} className="flex flex-col gap-4">
+          {/* An even grid: every control fills its cell and starts at the same height, with any help text below it. */}
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] items-start gap-x-4 gap-y-3">
             {config.fields.map((field) => {
               const fieldId = `${id}-${field.name}`;
               const value = draft[field.name] ?? '';
               const set = (next: string) => setDraft((d) => ({ ...d, [field.name]: next }));
+              const helpId = field.help ? `${fieldId}-help` : undefined;
               return (
-                <div key={field.name} className={`flex flex-col gap-2 ${field.type === 'number' || field.type === 'choice' ? '' : 'min-w-0 flex-1 basis-48'}`}>
-                  <label htmlFor={fieldId} className="eyebrow">
+                <div key={field.name} className={`flex min-w-0 flex-col gap-1.5 ${field.type === 'numbers' || field.type === 'text' ? 'sm:col-span-2' : ''}`}>
+                  <label htmlFor={fieldId} className="eyebrow truncate" title={field.label}>
                     {field.label}
                   </label>
                   {field.type === 'choice' ? (
-                    <select id={fieldId} className="field pr-8" value={value} onChange={(e) => set(e.target.value)}>
+                    <select id={fieldId} className="field w-full" value={value} onChange={(e) => set(e.target.value)} aria-describedby={helpId}>
                       {(field.options ?? []).map((option) => (
                         <option key={option} value={option}>
                           {option}
@@ -56,36 +59,39 @@ export function FormInput({ config, code, onStep }: { config: FormConfig; code: 
                   ) : (
                     <input
                       id={fieldId}
-                      className={`field font-mono ${field.type === 'number' ? 'w-24' : ''}`}
+                      className="field w-full font-mono"
                       value={value}
                       onChange={(e) => set(e.target.value)}
                       inputMode={inputModeFor(field.type)}
                       autoComplete="off"
-                      aria-describedby={field.help ? `${fieldId}-help` : undefined}
+                      aria-describedby={helpId}
                     />
                   )}
                   {field.help && (
-                    <p id={`${fieldId}-help`} className="text-xs text-muted">
+                    <p id={helpId} className="text-xs leading-snug text-muted">
                       {field.help}
                     </p>
                   )}
                 </div>
               );
             })}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <button type="submit" className="btn btn-primary">
               <Play size={16} aria-hidden /> Run
             </button>
+            {config.presets.length > 1 && (
+              <>
+                <span aria-hidden className="mx-1 h-6 w-px bg-border" />
+                <span className="text-sm text-muted">Try:</span>
+                {config.presets.map((preset) => (
+                  <button key={preset.label} type="button" className="btn" onClick={() => run({ ...preset.values })}>
+                    {preset.label}
+                  </button>
+                ))}
+              </>
+            )}
           </div>
-          {config.presets.length > 1 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-muted">Try:</span>
-              {config.presets.map((preset) => (
-                <button key={preset.label} type="button" className="btn" onClick={() => run({ ...preset.values })}>
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-          )}
         </form>
       }
     />

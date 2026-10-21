@@ -12,6 +12,8 @@ Every lesson has a visualization you control: play, pause, step forward and back
   - Data structures: Array, String, Linked List, Stack, Queue, Binary Tree, Binary Search Tree, Heap, Priority Queue, Graph
   - Algorithms: Linear Search, Binary Search, Bubble Sort, Selection Sort, Insertion Sort, Two Pointers, Sliding Window, Prefix Sum, Merge Sort, Quick Sort, Heap Sort, BFS, DFS, Topological Sort, Tree Traversal, Dijkstra, Bellman-Ford, Kruskal, Prim
   - SQL: SELECT and FROM, WHERE, NULL and three-valued logic, ORDER BY and LIMIT, DISTINCT, aggregates, GROUP BY and HAVING, INNER JOIN, LEFT JOIN, subqueries
+  - Microservices: Monolith vs Microservices, Service Boundaries, Synchronous Calls, API Gateway, Service Discovery, Load Balancing, Database per Service
+- **Simulated microservices**: change the settings, break an instance or a schema, and watch requests travel between services one message at a time, with each request's path, time and failure reason
 - **SQL you can step through**: write any query against a sample shop or school database and watch it run clause by clause (FROM → JOIN → WHERE → GROUP BY → HAVING → SELECT → DISTINCT → ORDER BY → LIMIT), with each row the clause keeps, joins, groups or removes highlighted
 - **SQL exercises** checked by comparing your result with the expected one, with hints and friendly errors that point at the line and suggest misspelled names
 - **One visualization engine** for all of them: play, pause, next, previous, restart, 0.5x–2x speed, timeline scrubber, keyboard control (Space, ←, →)
@@ -72,6 +74,8 @@ src/
   data-structures/   step generators for structure operations
   sql/               SQL interpreter: tokenizer, parser, executor, step generator, exercise checker
     datasets/        the read-only sample databases
+  microservices/     seeded discrete-event simulator, its trace-to-steps narration, one scenario per lesson
+    scenarios/
   lessons/           one content file per lesson, meta/ (metadata per category), the registry and the curriculum
   store/             progress and theme state
   utils/             input parsing
@@ -85,7 +89,7 @@ src/
 
 Rules the code follows:
 
-- `algorithms/`, `data-structures/` and `sql/` contain no React. They only produce data.
+- `algorithms/`, `data-structures/`, `sql/` and `microservices/` contain no React. They only produce data.
 - Lesson text lives in `lessons/`, never in components.
 - Components read colours from CSS variables in `src/index.css`, so both themes work everywhere.
 
@@ -156,6 +160,21 @@ SQL lessons need no generator: the interpreter in `src/sql/` turns any supported
 
 The interpreter supports `SELECT [DISTINCT]`, `FROM`, `[INNER | LEFT] JOIN … ON`, `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY`, `LIMIT`/`OFFSET`, the aggregates `COUNT`, `SUM`, `AVG`, `MIN` and `MAX`, and `IN`, scalar and correlated subqueries. It follows SQLite's rules (NULL logic, integer division, column affinity, NULLs sorting first), with one deliberate exception: a column that is neither grouped nor aggregated is rejected, as most databases do. Anything else gets a clear "isn't supported here yet" error. Sample tables hold at most 20 rows, queries at most 2,000 characters, and a run at most 400 steps; longer runs summarise repeated row checks.
 
+## How to add a microservices lesson
+
+Microservices lessons run a simulated system in `src/microservices/`: `simulate(scenario)` plays the requests through the nodes and returns a trace, and `traceSteps` turns the trace into steps with a `services` view.
+
+1. Write `src/microservices/scenarios/<id>.ts`, exporting:
+   - `fooCode`: short pseudocode for the decision the lesson is about;
+   - `fooScenario(values)`: reads the form values with `readInt`/`readChoice` and returns the scenario (nodes, links, requests, faults), or the reason the values can't run;
+   - `fooSteps(values)`: `scenarioSteps(fooScenario(values), title, options)`. In `options`, `lines` maps event kinds to snippets of `fooCode`, and `explain` can change an event's wording or code line.
+
+   Start from the shared numbers and helpers in `scenarios/shared.ts` (5 ms links, 10 ms instances).
+2. Test each preset's point in `scenarios/<id>.test.ts` with `fooScenario` + `simulate`, for example which requests fail and why.
+3. Add the metadata to `src/lessons/meta/microservices.ts` without `complexity`, and the content to `src/lessons/microservices/<id>.ts`: a `form` visualization with `codeLabel: 'Pseudocode'`, its fields and presets.
+
+`src/microservices/contract.test.ts` runs every microservices lesson with random and garbage settings: each run must end with every request finished, stay within 201 steps, give valid code lines and repeat exactly.
+
 ## How to add an algorithm
 
 1. Create a file under `src/algorithms/<group>/`.
@@ -211,6 +230,7 @@ Unit tests cover:
 - data structure operations, including invalid ones (empty, full, out of range, missing value)
 - the player reducer, input parsing, tree layout, search ranking, Big O maths and the progress store
 - every registered lesson's content
+- the microservices simulator (timing, faults, the gateway, registry and balancer), its narration, the services layout, and each lesson's teaching moment
 - the SQL interpreter: tokenizer, parser, executor, grouping, subqueries, error messages, the step generator and the exercise checker
 - **differential tests**: over 120 queries run through both the interpreter and real SQLite ([sql.js](https://github.com/sql-js/sql.js)), whose results must match. sql.js is a dev dependency used only by tests; it is never bundled into the app.
 

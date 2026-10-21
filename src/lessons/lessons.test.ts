@@ -97,6 +97,13 @@ const EXPECTED_IDS = [
   'transactions',
   'isolation-levels',
   'normalization',
+  'monolith-vs-microservices',
+  'service-boundaries',
+  'synchronous-calls',
+  'api-gateway',
+  'service-discovery',
+  'load-balancing',
+  'database-per-service',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -133,6 +140,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
+    expect(lessonsIn('microservices')).toHaveLength(7);
   });
 
   it('links previous and next lessons within a category', () => {
@@ -164,7 +172,7 @@ describe.each(allLessons.map((l) => [l.id, l] as const))('lesson %s', (_id, less
     expect(lesson.applications.length).toBeGreaterThanOrEqual(3);
     expect(lesson.commonMistakes.length).toBeGreaterThanOrEqual(3);
     expect(lesson.summary.length).toBeGreaterThanOrEqual(3);
-    if (lesson.category !== 'sql') {
+    if (lesson.category !== 'sql' && lesson.category !== 'microservices') {
       expect(lesson.complexity!.rows.length).toBeGreaterThanOrEqual(1);
       expect(lesson.complexity!.curves.length).toBeGreaterThanOrEqual(1);
     }
@@ -293,6 +301,39 @@ describe('curriculum', () => {
       'transactions',
       'isolation-levels',
       'normalization',
+    ]);
+  });
+
+  it('lists the Microservices course in order', () => {
+    expect(topicsIn('microservices').map((t) => t.id)).toEqual([
+      'monolith-vs-microservices',
+      'service-boundaries',
+      'synchronous-calls',
+      'api-gateway',
+      'service-discovery',
+      'load-balancing',
+      'database-per-service',
+      'timeouts',
+      'retries-backoff',
+      'circuit-breaker',
+      'bulkhead',
+      'rate-limiting',
+      'message-queues',
+      'pub-sub',
+      'idempotency',
+      'saga',
+      'transactional-outbox',
+      'cqrs',
+      'event-sourcing',
+      'distributed-tracing',
+      'deployment-strategies',
+      'strangler-fig',
+      'service-mesh',
+    ]);
+    expect(topicsIn('microservices').map((t) => t.group)).toEqual([
+      ...Array<string>(7).fill('Foundations'),
+      ...Array<string>(8).fill('Communication & Resilience'),
+      ...Array<string>(8).fill('Data & Operations'),
     ]);
   });
 
