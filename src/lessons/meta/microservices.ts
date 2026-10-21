@@ -52,4 +52,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['service discovery', 'registry', 'heartbeat', 'ttl', 'eviction', 'consul', 'eureka', 'health', 'lookup'],
     prerequisites: ['api-gateway'],
   },
+  {
+    id: 'load-balancing',
+    title: 'Load Balancing',
+    category: 'microservices',
+    difficulty: 'beginner',
+    group: 'Foundations',
+    description: 'Spread requests over instances with round robin, least connections or random, then slow one down or kill it.',
+    keywords: ['load balancing', 'load balancer', 'round robin', 'least connections', 'random', 'health check', 'instances', 'scaling'],
+    prerequisites: ['service-discovery'],
+  },
 ];

@@ -213,7 +213,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         if (m.kind === 'reply') {
           return m.ok
             ? { title: `${from} replies to ${to} for ${m.request ?? m.label}`, why: `The work is done, and the answer takes ${ms} ms to travel back.` }
-            : { title: `${from} tells ${to} that ${m.request ?? 'it'} failed`, why: `${capitalise(m.reason ?? 'Something went wrong')}. The failure travels back like any answer, in ${ms} ms.` };
+            : { title: `${from} tells ${to} that ${m.request ?? 'it'} failed`, why: `Reason: ${m.reason ?? 'unknown'}. The failure travels back like any answer, in ${ms} ms.` };
         }
         if (m.kind === 'query') return { title: `${from} queries ${to} for ${m.request}`, why: `${from} needs data it doesn't keep itself. The query takes ${ms} ms to arrive.` };
         if (m.kind === 'lookup') return { title: `${from} asks ${to} where ${m.label.split(' ')[1]} is`, why: `Instances come and go, so ${from} asks before every request.` };
@@ -224,7 +224,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       case 'handle':
         return { title: `${event.instance ?? name(event.node)} starts on ${event.request}`, why: `${event.instance ?? name(event.node)} is now working on ${event.request}.` };
       case 'fail':
-        return { title: `${event.request ?? 'A message'} fails at ${event.at}`, why: `${capitalise(event.reason)}.` };
+        return { title: `${event.request ?? 'A message'} fails at ${event.at}`, why: `Reason: ${event.reason}.` };
       case 'register':
         return { title: `${event.instance} registers with ${name(event.registry)}`, why: `From now on, lookups can return ${event.instance}.` };
       case 'heartbeat':
@@ -277,7 +277,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       case 'done':
         return event.ok
           ? { title: `${event.request} succeeds after ${event.ms} ms`, why: `The answer is back at the client, ${event.ms} ms after it was sent.` }
-          : { title: `${event.request} fails after ${event.ms} ms`, why: `${capitalise(event.reason ?? 'It failed')}.` };
+          : { title: `${event.request} fails after ${event.ms} ms`, why: `Reason: ${event.reason ?? 'unknown'}.` };
     }
   }
 

@@ -77,6 +77,11 @@ describe('traceSteps', () => {
     expect(last.requests[0]).toMatchObject({ status: 'failed', reason: 'b-1 refused the connection', hops: 'client → a-1' });
   });
 
+  it('gives the reason for a failure without capitalising an instance id', () => {
+    const steps = run({ ...chain, faults: [{ kind: 'kill', instance: 'b-1', at: 0 }] });
+    expect(steps.at(-1)!.why).toBe('Reason: b-1 refused the connection.');
+  });
+
   it('merges consecutive heartbeats into one step', () => {
     const s: Scenario = {
       nodes: [client, { id: 'registry', label: 'Registry', type: 'registry', column: 1, processMs: 2, heartbeatMs: 20, ttlMs: 60, serves: ['orders'] }, service('orders', 2, [], 3)],
