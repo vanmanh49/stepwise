@@ -3,7 +3,7 @@ import { pickInstance } from './behaviours';
 import type { NodeSpec, Scenario, Strategy } from './model';
 import { simulate } from './sim';
 
-const client: NodeSpec = { id: 'client', label: 'Client', type: 'client', column: 0 };
+const client: Extract<NodeSpec, { type: 'client' }> = { id: 'client', label: 'Client', type: 'client', column: 0 };
 
 function service(id: string, count: number, processMs = 10): NodeSpec {
   return {
