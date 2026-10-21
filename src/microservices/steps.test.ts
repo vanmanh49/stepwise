@@ -121,6 +121,13 @@ describe('traceSteps', () => {
     expect(steps.at(-1)!.title).toMatch(/^\d+ more steps$/);
   });
 
+  it("uses a lesson's code line for an event and capitalises a why that starts with a node", () => {
+    const steps = run(chain, { ...options, explain: (e) => (e.kind === 'done' ? { line: 'function pick' } : undefined) });
+    expect(steps.at(-1)!.codeLine).toBe(lineOf(code, 'function pick'));
+    const fromClient = steps.find((s) => s.title === '#1 leaves the client for a-1')!;
+    expect(fromClient.why).toBe('The client sends GET / #1. Crossing the network takes 10 ms.');
+  });
+
   it('starts from an empty view for refusals', () => {
     expect(emptyServicesView()).toEqual({ kind: 'services', nodes: [], links: [], messages: [], requests: [], log: [] });
   });

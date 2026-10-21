@@ -93,6 +93,8 @@ export type VisualizationConfig =
       presets: { label: string; values: Record<string, string> }[];
       /** Parses its own fields; unusable input yields one explanatory step. */
       generate(values: Record<string, string>): Step[];
+      /** Label of the visualization's code panel; defaults to TypeScript. */
+      codeLabel?: string;
     }
   | {
       kind: 'sql';

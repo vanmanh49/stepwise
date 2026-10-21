@@ -62,7 +62,7 @@ function NodeBox({ node, box }: { node: ServicesView['nodes'][number]; box: Plac
         {node.label}
         <title>{`${node.label} (${TYPE_NAME[node.type]})`}</title>
       </text>
-      {!hasInstances && box.width > 96 && (
+      {!hasInstances && node.label.length * 7.4 + TYPE_NAME[node.type].length * 5.6 + 24 <= box.width && (
         <text x={box.x + box.width - 8} y={box.y + HEADER / 2 + 1} textAnchor="end" dominantBaseline="central" fill="var(--text-muted)" className="text-[10px]">
           {TYPE_NAME[node.type]}
         </text>

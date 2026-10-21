@@ -6,6 +6,7 @@ const links = [
   { to: '/data-structures', label: 'Data Structures' },
   { to: '/algorithms', label: 'Algorithms' },
   { to: '/sql', label: 'SQL' },
+  { to: '/microservices', label: 'Microservices' },
   { to: '/big-o', label: 'Big O' },
   { to: '/dashboard', label: 'Progress' },
 ];

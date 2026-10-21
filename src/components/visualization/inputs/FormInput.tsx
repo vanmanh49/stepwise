@@ -31,6 +31,7 @@ export function FormInput({ config, code, onStep }: { config: FormConfig; code: 
     <Visualizer
       steps={steps}
       code={code}
+      codeLabel={config.codeLabel}
       autoPlay={ran}
       onStep={onStep}
       toolbar={

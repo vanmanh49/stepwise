@@ -12,8 +12,8 @@ export interface StepOptions {
   code: string;
   /** A snippet of `code` per event kind, for lineOf; kinds left out use line 1. */
   lines: Partial<Record<TraceEvent['kind'], string>>;
-  /** Lesson wording for an event; return undefined to keep the default. */
-  explain?: (event: TraceEvent, result: SimResult) => Partial<Narration> | undefined;
+  /** Lesson wording for an event, and optionally a snippet for its code line; return undefined to keep the defaults. */
+  explain?: (event: TraceEvent, result: SimResult) => (Partial<Narration> & { line?: string }) | undefined;
   variables?: (event: TraceEvent, result: SimResult) => Record<string, string | number>;
 }
 
@@ -335,8 +335,10 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
     apply(event);
     const following = trace[i + 1];
     if (event.kind === 'arrive' && following && following.t === event.t && !quietAt(i + 1)) continue;
-    const narration = { ...describe(event), ...options.explain?.(event, result) };
-    push(event, { ...narration, title: narration.title.startsWith('the ') ? capitalise(narration.title) : narration.title }, line(event.kind));
+    const { line: snippet, ...override } = options.explain?.(event, result) ?? {};
+    const narration = { ...describe(event), ...override };
+    const lower = (text: string) => (text.startsWith('the ') ? capitalise(text) : text);
+    push(event, { ...narration, title: lower(narration.title), why: lower(narration.why) }, snippet ? lineOf(options.code, snippet) : line(event.kind));
   }
 
   if (steps.length <= MAX_STEPS) return steps;
