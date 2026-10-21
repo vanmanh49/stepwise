@@ -1,10 +1,13 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { checkBundle } from './check-bundle.mjs';
 
-const MARKER = 'Bubble sort is comparing the two highlighted values';
+// The first quiz prompt in bubble-sort.ts, which the command line looks for.
+const MARKER = 'Bubble sort is comparing the two highlighted values. What happens next?';
 
 /** A fake dist folder: index.html plus assets/<name> files of the given contents. */
 function dist(html: string, assets: Record<string, string>): string {
@@ -49,6 +52,23 @@ describe('checkBundle', () => {
   it('fails when it finds two entry scripts', () => {
     const result = checkBundle(dist(entryTag + entryTag.replace('index.js', 'other.js'), { 'index.js': 'a', 'other.js': 'b', ...lessonChunk }), MARKER);
     expect(result.problems.join()).toMatch(/expected exactly one entry script, found 2/);
+  });
+
+  it('ignores data-type and data-rel attributes', () => {
+    const decoys = '<script data-type="module" src="/stepwise/assets/other.js"></script><link data-rel="modulepreload" href="/stepwise/assets/other.js">';
+    const result = checkBundle(dist(entryTag + decoys, { 'index.js': 'a', 'other.js': 'b', ...lessonChunk }), MARKER);
+    expect(result.problems).toEqual([]);
+    expect(result.files.map((f) => f.file.split('/').pop())).toEqual(['index.js']);
+  });
+
+  it('runs from the command line through a symlinked path', () => {
+    const root = fileURLToPath(new URL('..', import.meta.url));
+    const link = join(mkdtempSync(join(tmpdir(), 'check-bundle-link-')), 'check-bundle.mjs');
+    symlinkSync(join(root, 'scripts', 'check-bundle.mjs'), link);
+    const fake = dist(entryTag, { 'index.js': 'a', ...lessonChunk });
+    const run = spawnSync(process.execPath, [link, fake], { cwd: root, encoding: 'utf8' });
+    expect(run.stdout).toMatch(/first load \(budget 600 kB\)/);
+    expect(run.status).toBe(0);
   });
 
   it('fails when the lesson text is in no file at all, so the leak check would be meaningless', () => {
