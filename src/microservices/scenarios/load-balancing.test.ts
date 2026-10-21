@@ -37,6 +37,14 @@ describe('Load Balancing', () => {
     expect(picks({ strategy: 'random' })).toEqual(picks({ strategy: 'random' }));
   });
 
+  it('narrates each health-check round once instead of repeating it', () => {
+    const titles = loadBalancingSteps({ strategy: 'round-robin', instances: '3', slow: 'none', health: 'on', dead: 'last' }).map((s) => s.title);
+    for (let i = 1; i < titles.length; i++) {
+      if (/health check/i.test(titles[i]!)) expect(titles[i], `step ${i + 1}`).not.toBe(titles[i - 1]);
+    }
+    expect(titles.some((t) => /health checks? come back/i.test(t))).toBe(true);
+  });
+
   it('refuses a single instance', () => {
     expect(loadBalancingSteps({ strategy: 'round-robin', instances: '1', slow: 'none', health: 'off', dead: 'none' })[0]!.why).toBe('Instances must be a whole number from 2 to 4.');
   });

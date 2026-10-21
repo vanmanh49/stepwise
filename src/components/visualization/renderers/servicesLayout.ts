@@ -44,7 +44,7 @@ function place(node: ServicesView['nodes'][number], x: number, y: number, width:
  * Columns: one column per `column` value, left to right, each centred against the tallest.
  * Rows (phones): each column becomes a row, top to bottom, its nodes side by side and narrowed to fit.
  */
-export function layoutServices(view: ServicesView, orientation: 'columns' | 'rows'): { boxes: PlacedBox[]; width: number; height: number } {
+export function layoutServices(view: ServicesView, orientation: 'columns' | 'rows', rowWidth = NARROW_WIDTH): { boxes: PlacedBox[]; width: number; height: number } {
   const columns = [...new Set(view.nodes.map((n) => n.column))].toSorted((a, b) => a - b).map((c) => view.nodes.filter((n) => n.column === c));
   const boxes: PlacedBox[] = [];
   if (orientation === 'columns') {
@@ -60,7 +60,7 @@ export function layoutServices(view: ServicesView, orientation: 'columns' | 'row
     });
     return { boxes, width: columns.length > 0 ? columns.length * NODE_WIDTH + (columns.length - 1) * COLUMN_GAP : 0, height };
   }
-  const widthOf = (count: number) => Math.min(NODE_WIDTH, (NARROW_WIDTH - (count - 1) * ROW_GAP) / count);
+  const widthOf = (count: number) => Math.min(NODE_WIDTH, (rowWidth - (count - 1) * ROW_GAP) / count);
   const rowWidths = columns.map((nodes) => nodes.length * widthOf(nodes.length) + (nodes.length - 1) * ROW_GAP);
   const width = Math.max(0, ...rowWidths);
   let y = 0;

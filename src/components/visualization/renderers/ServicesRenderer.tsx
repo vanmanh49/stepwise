@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Role, ServicesView } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
-import { chooseOrientation, HEADER, layoutServices, linkEnds, MARGIN, type PlacedBox } from './servicesLayout';
+import { chooseOrientation, HEADER, layoutServices, linkEnds, MARGIN, NARROW_WIDTH, type PlacedBox } from './servicesLayout';
 import { spring } from './spring';
 
 const PILL_HEIGHT = 18;
@@ -115,7 +115,8 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
     return () => observer.disconnect();
   }, []);
   const narrow = available > 0 && chooseOrientation(view, available) === 'rows';
-  const layout = layoutServices(view, narrow ? 'rows' : 'columns');
+  // Rows fill the stage they are given, so phone text stays at full size.
+  const layout = layoutServices(view, narrow ? 'rows' : 'columns', narrow ? Math.min(NARROW_WIDTH, available - 2 * MARGIN) : NARROW_WIDTH);
   const boxes = new Map(layout.boxes.map((b) => [b.id, b]));
   const width = layout.width + MARGIN * 2;
   const height = layout.height + MARGIN * 2;

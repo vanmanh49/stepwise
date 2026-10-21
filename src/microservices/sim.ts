@@ -152,7 +152,7 @@ export function simulate(input: Scenario): SimResult {
     if (isInstance && dead.has(message.to)) {
       if (message.kind === 'reply') {
         awaiting.delete(message.replyTo!);
-        ctx.trace({ kind: 'fail', at: message.to, reason: `${message.to} has stopped, so its reply is lost` });
+        ctx.trace({ kind: 'fail', at: message.to, ...(message.request && { request: message.request }), reason: `${message.to} has stopped, so its reply is lost` });
       } else {
         const reason = `${message.to} refused the connection`;
         ctx.trace({ kind: 'fail', at: message.to, ...(message.request && { request: message.request }), reason });

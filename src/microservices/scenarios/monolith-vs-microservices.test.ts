@@ -33,6 +33,12 @@ describe('Monolith vs Microservices', () => {
     for (const r of requests) expect(r.status, r.label).toBe(r.label === 'GET /reviews' ? 'failed' : 'ok');
   });
 
+  it('narrates a dead process losing the connection, not replying', () => {
+    const titles = monolithVsMicroservicesSteps({ architecture: 'monolith', bug: 'on', requests: '4' }).map((s) => s.title);
+    expect(titles).toContain('The client loses its connection to app-1');
+    expect(titles.filter((t) => t.startsWith('app-1 tells'))).toEqual([]);
+  });
+
   it('refuses a request count outside 1 to 8', () => {
     const steps = monolithVsMicroservicesSteps({ architecture: 'monolith', bug: 'off', requests: '0' });
     expect(steps).toHaveLength(1);

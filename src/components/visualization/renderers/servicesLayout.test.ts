@@ -50,6 +50,12 @@ describe('layoutServices', () => {
     for (const a of boxes) for (const b of boxes) if (a !== b) expect(overlap(a, b), `${a.id} ${b.id}`).toBe(false);
   });
 
+  it('fits rows to the width it is given', () => {
+    const { boxes, width } = layoutServices(fourBranches, 'rows', 265);
+    expect(width).toBeLessThanOrEqual(265);
+    for (const b of boxes) expect(b.x + b.width).toBeLessThanOrEqual(265);
+  });
+
   it('fits four nodes in one row inside 343 px', () => {
     const { boxes, width } = layoutServices(fourBranches, 'rows');
     expect(width).toBeLessThanOrEqual(NARROW_WIDTH);

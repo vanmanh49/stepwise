@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ServicesView } from '../../types/visualization';
 import { simulate } from '../sim';
 import { synchronousCallsScenario, synchronousCallsSteps } from './synchronous-calls';
 
@@ -23,6 +24,13 @@ describe('Synchronous Calls', () => {
     expect(fanOut.ms).toBe(10 + 5 + (10 + 200 + 10) + 10);
     // The same three branches called one after another would take 10 + 5 + (25 + 25 + 220) + 10 = 295 ms.
     expect(fanOut.ms).toBeLessThan(295);
+  });
+
+  it('shows parallel branches side by side in the path taken', () => {
+    const last = synchronousCallsSteps({ depth: '3', hop: '10', slow: 'last', style: 'parallel' }).at(-1)!.view as ServicesView;
+    expect(last.requests[0]!.hops).toBe('client → s1-1 → b1-1 + b2-1 + b3-1');
+    const chain = synchronousCallsSteps({ depth: '3', hop: '10', slow: 'none', style: 'sequential' }).at(-1)!.view as ServicesView;
+    expect(chain.requests[0]!.hops).toBe('client → s1-1 → s2-1 → s3-1');
   });
 
   it('refuses a hop latency of 0', () => {

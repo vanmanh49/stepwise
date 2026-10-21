@@ -41,6 +41,19 @@ describe('Service Discovery', () => {
     expect(failures(25)).toBeLessThan(failures(60));
   });
 
+  it('narrates a reply lost to an instance that died while waiting', () => {
+    const titles = serviceDiscoverySteps(settings(3, 20, 60, 70)).map((s) => s.title);
+    expect(titles).toContain('A reply to orders-3 is lost');
+    expect(titles.filter((t) => /balancer|health check/i.test(t))).toEqual([]);
+  });
+
+  it('only lets the instance die while requests are still being sent', () => {
+    expect(serviceDiscoverySteps(settings(3, 20, 60, 140)).map((s) => s.title)).toContain('orders-3 stops');
+    const late = serviceDiscoverySteps(settings(3, 20, 60, 150));
+    expect(late).toHaveLength(1);
+    expect(late[0]!.why).toBe('Dies at must be a whole number from 0 to 140.');
+  });
+
   it('refuses a TTL shorter than the heartbeat interval', () => {
     const steps = serviceDiscoverySteps(settings(3, 50, 20, 0));
     expect(steps).toHaveLength(1);

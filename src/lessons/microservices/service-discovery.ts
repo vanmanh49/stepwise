@@ -28,7 +28,7 @@ const content: LessonContent = {
       { name: 'instances', label: 'Instances', type: 'number', sample: register.instances, help: 'Orders instances, from 1 to 4.' },
       { name: 'heartbeat', label: 'Heartbeat interval', type: 'number', sample: register.heartbeat, help: 'Milliseconds between heartbeats, from 10 to 100.' },
       { name: 'ttl', label: 'TTL', type: 'number', sample: register.ttl, help: 'Milliseconds without a heartbeat before eviction, from 20 to 300.' },
-      { name: 'dies', label: 'Dies at', type: 'number', sample: register.dies, help: 'When the last instance dies, in ms; 0 means never.' },
+      { name: 'dies', label: 'Dies at', type: 'number', sample: register.dies, help: 'When the last instance dies, from 0 to 140 ms; 0 means never.' },
     ],
     presets: [
       { label: 'Register and look up', values: register },

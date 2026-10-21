@@ -34,7 +34,15 @@ function isQuiet(event: TraceEvent, probes: Set<string>): boolean {
     const m = event.message;
     return m.kind === 'heartbeat' || m.kind === 'probe' || (m.kind === 'reply' && probes.has(m.replyTo ?? ''));
   }
-  return event.kind === 'fail' && event.request === undefined;
+  // A probe refused by a dead instance; any failure that belongs to a request is narrated on its own.
+  return event.kind === 'fail' && event.request === undefined && event.reason.endsWith('refused the connection');
+}
+
+/** The path a request took: hops reached at the same moment (parallel branches) are joined with "+". */
+function hopsText(hops: { id: string; t: number }[]): string {
+  const groups: string[][] = [];
+  hops.forEach((hop, i) => (i > 0 && hops[i - 1]!.t === hop.t ? groups.at(-1)!.push(hop.id) : groups.push([hop.id])));
+  return groups.map((g) => g.join(' + ')).join(' → ');
 }
 
 /** Replays a run's trace into steps, each with a complete services view. */
@@ -62,7 +70,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   const lastBeat = new Map<string, number>();
   const evicted = new Set<string>();
   const balancerLoad = new Map<string, number>();
-  const requests = new Map<string, ServicesView['requests'][number] & { hopList: string[] }>();
+  const requests = new Map<string, ServicesView['requests'][number] & { hopList: { id: string; t: number }[] }>();
   const labels = new Map(scenario.requests.map((r, i) => [`#${i + 1}`, r.label]));
   const log: string[] = [];
   let now = 0;
@@ -82,7 +90,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         if (m.kind === 'probe') probes.add(m.id);
         if (m.request) {
           const row = requestRow(m.request);
-          if (row.hopList.length === 0) row.hopList.push(m.from);
+          if (row.hopList.length === 0) row.hopList.push({ id: m.from, t: event.t });
         }
         if (m.kind === 'reply' && m.request && nodes.get(m.to)?.type === 'balancer') balancerLoad.set(m.from, (balancerLoad.get(m.from) ?? 1) - 1);
         if (m.kind === 'reply' && m.request) handling.get(m.from)?.delete(m.request);
@@ -91,7 +99,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       case 'arrive': {
         const m = event.message;
         arrived.add(m.id);
-        if (m.request && (m.kind === 'request' || m.kind === 'query') && !dead.has(m.to)) requestRow(m.request).hopList.push(m.to);
+        if (m.request && (m.kind === 'request' || m.kind === 'query') && !dead.has(m.to)) requestRow(m.request).hopList.push({ id: m.to, t: event.t });
         break;
       }
       case 'handle':
@@ -200,7 +208,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
     const links = scenario.links.map((l) => ({ from: l.from, to: l.to, role: (busy.has([l.from, l.to].toSorted().join(' ')) ? 'frontier' : 'default') as Role }));
     const rows = [...requests.values()]
       .toSorted((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)))
-      .map(({ hopList, ...row }) => ({ ...row, hops: hopList.join(' → ') }));
+      .map(({ hopList, ...row }) => ({ ...row, hops: hopsText(hopList) }));
     return { kind: 'services', nodes: viewNodes, links, messages, requests: rows, log: log.slice(-LOG_LINES) };
   }
 
@@ -210,6 +218,9 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         const m = event.message;
         const ms = m.arrives - m.departs;
         const [from, to] = [name(m.from), name(m.to)];
+        if (m.kind === 'reply' && !m.ok && dead.has(m.from)) {
+          return { title: `${to} loses its connection to ${m.from}`, why: `${m.from} is dead, so nothing answers for it. Reason: ${m.reason ?? 'unknown'}.` };
+        }
         if (m.kind === 'reply') {
           return m.ok
             ? { title: `${from} replies to ${to} for ${m.request ?? m.label}`, why: `The work is done, and the answer takes ${ms} ms to travel back.` }
@@ -224,6 +235,9 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       case 'handle':
         return { title: `${event.instance ?? name(event.node)} starts on ${event.request}`, why: `${event.instance ?? name(event.node)} is now working on ${event.request}.` };
       case 'fail':
+        if (event.reason.endsWith('its reply is lost')) {
+          return { title: `A reply to ${event.at} is lost`, why: `${event.at} died while it was waiting for this answer, so the work done for ${event.request ?? 'it'} is wasted.` };
+        }
         return { title: `${event.request ?? 'A message'} fails at ${event.at}`, why: `Reason: ${event.reason}.` };
       case 'register':
         return { title: `${event.instance} registers with ${name(event.registry)}`, why: `From now on, lookups can return ${event.instance}.` };
@@ -282,17 +296,24 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   }
 
   function quietTitle(run: TraceEvent[]): Narration {
-    const arrivals = run.filter((e) => e.kind === 'arrive' && e.message.kind === 'heartbeat');
-    const probesSent = run.filter((e) => e.kind === 'send' && e.message.kind === 'probe');
-    const beatsSent = run.filter((e) => e.kind === 'send' && e.message.kind === 'heartbeat');
-    if (arrivals.length > 0) {
-      const registry = name(arrivals[0]!.kind === 'arrive' ? arrivals[0]!.message.to : '');
-      const n = arrivals.length;
-      return { title: `${n} heartbeat${n === 1 ? ' reaches' : 's reach'} ${registry}`, why: 'Each heartbeat tells the registry that its instance is still alive.' };
+    const count = (kind: TraceEvent['kind'], message: Message['kind'], toProbe = false) =>
+      run.filter((e) => e.kind === kind && 'message' in e && e.message.kind === message && (!toProbe || probes.has(e.message.replyTo ?? ''))).length;
+    const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+    const beatsIn = run.filter((e): e is Extract<TraceEvent, { kind: 'arrive' }> => e.kind === 'arrive' && e.message.kind === 'heartbeat');
+    if (beatsIn.length > 0) {
+      return { title: `${plural(beatsIn.length, 'heartbeat reaches', 'heartbeats reach')} ${name(beatsIn[0]!.message.to)}`, why: 'Each heartbeat tells the registry that its instance is still alive.' };
     }
-    if (probesSent.length > 0) return { title: `Health check: ${probesSent.length} probes go out`, why: 'The balancer asks every instance whether it is alive.' };
-    if (beatsSent.length > 0) return { title: `${beatsSent.length} instance${beatsSent.length === 1 ? ' sends a heartbeat' : 's send heartbeats'}`, why: 'Live instances report in on a fixed beat.' };
-    return { title: 'Health checks come back', why: 'The answers to the health checks arrive at the balancer.' };
+    const beatsOut = count('send', 'heartbeat');
+    if (beatsOut > 0) return { title: `${plural(beatsOut, 'instance sends a heartbeat', 'instances send heartbeats')}`, why: 'Live instances report in on a fixed beat.' };
+    const answers = count('arrive', 'reply', true);
+    const unanswered = run.filter((e) => e.kind === 'fail').length;
+    if (answers > 0) {
+      const missing = unanswered > 0 ? `; ${plural(unanswered, 'instance does', 'instances do')} not answer` : '';
+      return { title: `${plural(answers, 'health check comes back', 'health checks come back')}${missing}`, why: 'The balancer now knows which instances answered. One that did not is marked down.' };
+    }
+    const reached = count('arrive', 'probe');
+    if (reached > 0) return { title: `Health checks reach ${plural(reached, 'instance', 'instances')}`, why: 'Each live instance answers its probe straight away; a dead one cannot.' };
+    return { title: `The balancer probes ${plural(count('send', 'probe'), 'instance', 'instances')}`, why: 'On every health-check beat, the balancer asks each instance whether it is alive.' };
   }
 
   const steps: Step[] = [];
@@ -323,8 +344,9 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
     const event = trace[i]!;
     if (quietAt(i)) {
       const run: TraceEvent[] = [];
-      // One round per step: a run ends where new sends follow arrivals.
-      while (i < trace.length && quietAt(i) && !(trace[i]!.kind === 'send' && run.some((e) => e.kind === 'arrive'))) {
+      // One round per step: a run ends where a new heartbeat or probe goes out after arrivals; answers to probes stay in the round.
+      const startsRound = (e: TraceEvent) => e.kind === 'send' && (e.message.kind === 'heartbeat' || e.message.kind === 'probe');
+      while (i < trace.length && quietAt(i) && !(startsRound(trace[i]!) && run.some((e) => e.kind === 'arrive'))) {
         apply(trace[i]!);
         run.push(trace[i]!);
         i++;

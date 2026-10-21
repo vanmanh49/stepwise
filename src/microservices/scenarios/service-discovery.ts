@@ -39,7 +39,8 @@ function read(values: Record<string, string>): Read<Settings> {
   if (!heartbeat.ok) return heartbeat;
   const ttl = readInt(values, 'ttl', 'TTL', { min: 20, max: 300 });
   if (!ttl.ok) return ttl;
-  const dies = readInt(values, 'dies', 'Dies at', { min: 0, max: 400 });
+  // The last request is sent at 145 ms: a later death would change nothing.
+  const dies = readInt(values, 'dies', 'Dies at', { min: 0, max: 140 });
   if (!dies.ok) return dies;
   if (ttl.value < heartbeat.value) {
     return {
