@@ -39,7 +39,7 @@ A **scenario** has:
 
 - **Topology.** Nodes with `id`, `label`, `type` (`client`, `gateway`, `service`, `registry`, `balancer`, `db`) and a layout `column`. A service has one or more **instances** (`orders-1`, `orders-2`), each with a processing time in ms. **Links** join nodes and carry a network latency in ms.
 - **Workload.** The requests the client sends: path (`GET /orders`), optional token, send time. Request ids are `#1`, `#2`, … in send order.
-- **Faults.** Scheduled events: `kill <instance> at t`, `slow <instance> to <ms> from t`, `down <db> at t`, `bug <module>` (fails every request that reaches that module).
+- **Faults.** `kill <instance> at t`, `slow <instance> to <ms> from t`, `down <db> at t`, `crash-on <service> <path prefix>` (the instance that handles a matching request crashes, as a bug would make it), and `rename-column <db> <from> → <to> at t, by <owner service>` (the owner's own queries are updated; everyone else's are not).
 - **Behaviour config** for each node, read by its behaviour function: gateway routes and auth rule, registry heartbeat interval and TTL, balancer strategy, a service's dependencies (sequential or parallel), a database's schema (for lesson 7).
 
 ### Simulator (`sim.ts`)
@@ -68,9 +68,9 @@ A **scenario** has:
 
 Out-of-range knobs (0 instances, a negative latency, a fault time after `MAX_TIME`, an empty route table) return one explanatory step through `refuse`, and no simulation runs.
 
-### Lesson modules (`src/microservices/lessons/<id>.ts`)
+### Scenario modules (`src/microservices/scenarios/<id>.ts`)
 
-Each exports `fooCode` (pseudocode), `fooFields`, `fooPresets` and `fooSteps(values)`, which builds the scenario from the form values and runs it. The algorithms pattern of code string + step generator carries over.
+Each exports `fooCode` (pseudocode), `fooScenario(values)` (form values → a scenario, or the reason they are unusable) and `fooSteps(values)`, which builds the scenario and runs it. Tests call `fooScenario` + `simulate` to check outcomes directly. The algorithms pattern of code string + step generator carries over. Lesson content (text, fields, presets, quiz) stays in `src/lessons/microservices/<id>.ts`.
 
 ## 2. The `services` view
 
@@ -86,7 +86,8 @@ interface ServicesView {
   links: { from: string; to: string; role: Role }[];
   /** Messages in flight at this step. */
   messages: { id: string; from: string; to: string; label: string; role: Role; progress: number }[];
-  requests: { id: string; status: 'pending' | 'ok' | 'failed'; path: string; ms?: number; reason?: string }[];
+  /** label: "GET /orders"; hops: the path taken so far, e.g. "gw → orders-2 → db". */
+  requests: { id: string; label: string; status: 'pending' | 'ok' | 'failed'; hops: string; ms?: number; reason?: string }[];
   /** The last few events, newest last. */
   log: string[];
 }
@@ -104,17 +105,17 @@ interface ServicesView {
   - `default`: everything else.
 
   `rolesInView` gains a `services` case.
-- **Badges** show small state: the age of a registry entry's last heartbeat, an instance's in-flight count (least connections), the cross-service call count (lesson 2).
+- **Badges** show small state: the age of a registry entry's last heartbeat, an instance's in-flight count (least connections). Lesson 2's cross-service call count is a step variable.
 - **Below the diagram:** a compact request table (id, status, path taken such as `gw → orders-2 → db`, total time, reason for a failure) and the event log (3–4 lines).
 - Renderer `ServicesRenderer.tsx`, plus a case in `renderers/index.tsx`. Colours come from the CSS variables, and it is checked by hand in light and dark mode and at 375px.
 
 ## 3. Lessons
 
-Every lesson has the usual text sections, pseudocode, a `form` visualization and a quiz of 3–5 questions. The copy is plain, short sentences that use the run's actual values.
+Every lesson has the usual text sections, pseudocode, a `form` visualization and a quiz of 4–5 questions using at least 3 question types, at least one of them showing a step's view (the existing `lessons.test.ts` rules). There is no `complexity` section: Big O does not describe these patterns, as with SQL. The copy is plain, short sentences that use the run's actual values.
 
 | # | Lesson | Fields | Presets → what the learner should see |
 |---|---|---|---|
-| 1 | Monolith vs Microservices | architecture (monolith / split), requests, `reviews` bug on/off | *Same request both ways*: one process versus three network hops (more latency). *Reviews crashes*: the monolith fails every request; the split version fails only `/reviews`. |
+| 1 | Monolith vs Microservices | architecture (monolith / split), requests, `reviews` bug on/off | *Same request both ways*: one process versus three network hops (more latency). *Reviews crashes*: the crash takes down the monolith's only process, so every request from then on fails; the split version fails only `/reviews`. |
 | 2 | Service Boundaries | split (by layer / by business capability), requests | *By layer*: each checkout goes through ui → logic → data services (counted cross-service calls per request: high). *By capability*: an order stays inside `orders` (count: low). |
 | 3 | Synchronous Calls | chain depth (1–4), per-hop latency, slow service (none / one), call style (sequential / parallel) | *Chain of 3*: total time = the sum of the hops. *One slow service*: the delay spreads to every caller upstream. *Parallel fan-out*: total time = the slowest branch. |
 | 4 | API Gateway | request path, token present, auth required | *Route by path*: `/orders` → orders, `/users` → users. *No token*: 401 at the gateway, no backend call. *Unknown path*: 404 from the gateway. |
@@ -152,7 +153,7 @@ Pseudocode examples: the gateway's `route(req)`, the balancer's `pick(instances)
 - **Teaching moments** (one test per preset in `lessons/*.test.ts` under `src/microservices/`), for example:
   - *Instance dies* fails at least one request inside the eviction window and none after it;
   - least connections sends fewer requests to the slow instance than round robin does;
-  - the monolith *Reviews crashes* preset fails every request, and the split version fails only `/reviews`;
+  - the monolith *Reviews crashes* preset fails every request from the crash on, and the split version fails only `/reviews`;
   - the shared-DB rename fails orders' query, and the per-service rename does not.
 - **Layout** (`servicesLayout.test.ts`): nodes don't overlap, and the narrow layout stacks columns as rows.
 - The existing `lessons.test.ts` (references, quizzes, default visualization, code lines) and the `rolesInView` coverage pick up the new category and view kind.
