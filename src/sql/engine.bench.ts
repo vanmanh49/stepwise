@@ -1,4 +1,8 @@
 // Timings for the SQL engine on queries that do many row checks. Run with `npm run bench`.
+// Read them as before/after ratios: under Vite's module runner every call between engine modules
+// goes through an export getter, which adds overhead a browser doesn't have. The runner can't be
+// switched off here (the source uses extensionless imports), so vite.config.ts silences the
+// warning about it; real timings come from the browser.
 import { expect, test } from 'vitest';
 import { datasets } from './datasets';
 import { runQuery } from './execute';
@@ -25,5 +29,6 @@ test('execute a query that hits the work budget', async ({ bench }) => {
 });
 
 test('execute and build steps', async ({ bench }) => {
+  for (const sql of Object.values(queries)) expect(scriptSteps(company, sql).ok, sql).toBe(true);
   await bench.compare(...Object.entries(queries).map(([name, sql]) => bench(name, () => void scriptSteps(company, sql))));
 });

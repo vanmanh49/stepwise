@@ -159,7 +159,7 @@ export function runSessions(start: Dataset, statements: Statement[], emit?: Emit
   const rollback = (s: Session) => release(s);
 
   /** The rows a SELECT reads, by table: the matching rows of a one-table query, otherwise every row of each table it reads. */
-  const rowsRead = (db: Dataset, stmt: SelectStatement): { table: string; rows: Row[] }[] => {
+  const rowsRead = (db: Dataset, stmt: SelectStatement): { table: string; rows: readonly Row[] }[] => {
     if (stmt.from && stmt.joins.length === 0 && !stmt.compound?.length && tablesOf(stmt).length === 1 && findTable(db, stmt.from.table)) {
       const relation = scan(db, stmt.from);
       const env = { db, ctx: { cache: new Map(), work: 0 } };

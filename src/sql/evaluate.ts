@@ -29,7 +29,7 @@ export interface ExecContext {
 }
 
 export interface Scope {
-  columns: ColumnRef[];
+  columns: readonly ColumnRef[];
   row: Row;
   outer?: Scope;
   db: Dataset;

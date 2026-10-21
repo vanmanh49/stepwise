@@ -178,6 +178,12 @@ describe('subqueries', () => {
     ).toEqual([['Ana'], ['Binh'], ['Chi']]);
   });
 
+  it('resolves a correlated subquery that repeats the outer column names', () => {
+    // `salary` inside means x.salary, and e.department_id reaches out to the outer row.
+    const sql = 'SELECT name FROM employees e WHERE salary > (SELECT AVG(salary) FROM employees x WHERE x.department_id = e.department_id)';
+    expect(plain(run(sql, datasets.company))).toEqual([['Minh'], ['Hoa'], ['Tuan'], ['Vy'], ['Khoa']]);
+  });
+
   it('finds nothing with NOT IN against a NULL', () => {
     expect(run('SELECT name FROM customers WHERE id NOT IN (1, NULL)').rows).toEqual([]);
     expect(run('SELECT name FROM customers WHERE city NOT IN (SELECT city FROM customers)').rows).toEqual([]);

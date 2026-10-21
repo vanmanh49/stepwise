@@ -19,12 +19,12 @@ export interface Row {
   id: string;
   values: SqlValue[];
   /** The source rows of a group. */
-  members?: Row[];
+  members?: readonly Row[];
 }
 
 export interface Relation {
-  columns: ColumnRef[];
-  rows: Row[];
+  readonly columns: readonly ColumnRef[];
+  readonly rows: readonly Row[];
 }
 
 export interface QueryResult {
@@ -168,7 +168,7 @@ export function scan(db: Dataset, ref: TableRef, ctes?: ReadonlyMap<string, Rela
   };
 }
 
-export const nullRow = (columns: ColumnRef[]): Row => ({ id: 'probe', values: columns.map(() => null) });
+export const nullRow = (columns: readonly ColumnRef[]): Row => ({ id: 'probe', values: columns.map(() => null) });
 
 /**
  * Evaluates `expr` once against a row of NULLs. Used when a relation is empty, so that
@@ -493,7 +493,7 @@ function mapChildren(expr: Expr, f: (e: Expr) => Expr): Expr {
 }
 
 /** As in SQLite, GROUP BY and HAVING may name a SELECT alias when no table column has that name. */
-function substituteAliases(expr: Expr, aliases: Map<string, Expr>, columns: ColumnRef[]): Expr {
+function substituteAliases(expr: Expr, aliases: Map<string, Expr>, columns: readonly ColumnRef[]): Expr {
   if (expr.type === 'column') {
     if (expr.table !== undefined) return expr;
     const name = expr.name.toLowerCase();
@@ -754,7 +754,7 @@ export function executeSelect(
   expressions.forEach(rejectNested);
   const grouped = stmt.groupBy.length > 0 || stmt.having !== undefined || expressions.some((e) => findAggregate(e));
 
-  let rows: Row[];
+  let rows: readonly Row[];
   let scopeOf: (row: Row) => Scope;
   let empty: Scope;
   if (!grouped) {
@@ -787,7 +787,7 @@ export function executeSelect(
     if (filtered.rows.length === 0) for (const g of groupBy) evaluate(g, sourceScope(nulls));
 
     const groups = new Map<string, { key: SqlValue[]; members: Row[] }>();
-    if (groupBy.length === 0) groups.set('', { key: [], members: filtered.rows });
+    if (groupBy.length === 0) groups.set('', { key: [], members: [...filtered.rows] });
     for (const row of groupBy.length > 0 ? filtered.rows : []) {
       const key = groupBy.map((g) => evaluate(g, sourceScope(row)));
       const k = key.map(valueKey).join('|');
@@ -796,7 +796,7 @@ export function executeSelect(
       else groups.set(k, { key, members: [row] });
     }
     // A group row shows its key; its scope sees the first member's columns and all members for aggregates.
-    const groupScope = (members: Row[], id: string): Scope =>
+    const groupScope = (members: readonly Row[], id: string): Scope =>
       sourceScope({ id, values: members[0]?.values ?? nulls.values, members });
     const scopes = new Map<string, Scope>();
     rows = [...groups.values()].map((g, i) => {
@@ -935,7 +935,7 @@ function traceWindows(
   expr: Extract<Expr, { type: 'window' }>,
   cols: Output[],
   input: Relation,
-  rows: Row[],
+  rows: readonly Row[],
   plain: (row: Row) => Scope,
   withWindows: (row: Row) => Scope,
   trace: Trace,
@@ -1028,7 +1028,7 @@ const rowKey = (row: Row) => row.values.map(valueKey).join('|');
  */
 function computeWindows(
   exprs: Extract<Expr, { type: 'window' }>[],
-  rows: Row[],
+  rows: readonly Row[],
   scopeOf: (row: Row) => Scope,
 ): Map<string, Map<string, SqlValue>> {
   const result = new Map<string, Map<string, SqlValue>>();
@@ -1086,7 +1086,7 @@ function computeWindows(
 }
 
 /** A window's rows split by PARTITION BY (first-seen order), each sorted by its ORDER BY. */
-export function windowPartitions(expr: Extract<Expr, { type: 'window' }>, rows: Row[], scopeOf: (row: Row) => Scope): Row[][] {
+export function windowPartitions(expr: Extract<Expr, { type: 'window' }>, rows: readonly Row[], scopeOf: (row: Row) => Scope): Row[][] {
   const groups = new Map<string, Row[]>();
   for (const row of rows) {
     const key = expr.partitionBy.map((p) => valueKey(evaluate(p, scopeOf(row)))).join('|');
