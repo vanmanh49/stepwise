@@ -49,7 +49,7 @@ export function FormInput({ config, code, onStep }: { config: FormConfig; code: 
                     {field.label}
                   </label>
                   {field.type === 'choice' ? (
-                    <select id={fieldId} className="field w-full pr-8" value={value} onChange={(e) => set(e.target.value)} aria-describedby={helpId}>
+                    <select id={fieldId} className="field w-full" value={value} onChange={(e) => set(e.target.value)} aria-describedby={helpId}>
                       {(field.options ?? []).map((option) => (
                         <option key={option} value={option}>
                           {option}
