@@ -50,7 +50,7 @@ export interface TextDef {
   code: string;
 }
 
-export type Category = 'data-structures' | 'algorithms' | 'sql';
+export type Category = 'data-structures' | 'algorithms' | 'sql' | 'microservices';
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
 
 /** Describes the inputs a lesson's visualization accepts and how steps are generated. */

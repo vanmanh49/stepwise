@@ -4,6 +4,7 @@ export const CATEGORY_TITLE: Record<Category, string> = {
   'data-structures': 'Data Structures',
   algorithms: 'Algorithms',
   sql: 'SQL',
+  microservices: 'Microservices',
 };
 
 const DIFFICULTY_LABEL: Record<Difficulty, string> = {

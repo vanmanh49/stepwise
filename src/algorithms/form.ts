@@ -48,6 +48,11 @@ export function readText(values: Values, name: string, label: string, length: { 
   return { ok: true, value: text };
 }
 
+export function readChoice(values: Values, name: string, label: string, options: readonly string[]): Read<string> {
+  const value = (values[name] ?? '').trim();
+  return options.includes(value) ? { ok: true, value } : { ok: false, why: `${label} must be one of: ${options.join(', ')}.` };
+}
+
 /** The single step a generator returns for unusable input. */
 export function refusal(title: string, why: string, view: View): Step[] {
   return [{ title, why, codeLine: 1, view }];

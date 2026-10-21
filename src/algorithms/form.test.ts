@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { View } from '../types/visualization';
-import { readInt, readInts, readText, refusal } from './form';
+import { readChoice, readInt, readInts, readText, refusal } from './form';
 
 const range = { min: 0, max: 12 };
 
@@ -55,5 +55,12 @@ describe('refusal', () => {
     const steps = refusal('Bad', 'because', view);
     expect(steps).toHaveLength(1);
     expect(steps[0]).toMatchObject({ title: 'Bad', why: 'because', codeLine: 1, view });
+  });
+});
+
+describe('readChoice', () => {
+  it('reads a choice and refuses anything else', () => {
+    expect(readChoice({ s: 'parallel' }, 's', 'Style', ['sequential', 'parallel'])).toEqual({ ok: true, value: 'parallel' });
+    expect(readChoice({ s: 'x' }, 's', 'Style', ['sequential', 'parallel'])).toEqual({ ok: false, why: 'Style must be one of: sequential, parallel.' });
   });
 });
