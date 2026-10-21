@@ -6,6 +6,8 @@ import { chooseOrientation, HEADER, layoutServices, linkEnds, MARGIN, type Place
 import { spring } from './spring';
 
 const PILL_HEIGHT = 18;
+/** How far along its link a message is drawn once it has arrived. */
+const ARRIVED_AT = 0.78;
 
 const TYPE_NAME: Record<ServicesView['nodes'][number]['type'], string> = {
   client: 'client',
@@ -154,8 +156,10 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
           const [a, b] = [boxes.get(message.from), boxes.get(message.to)];
           if (!a || !b) return null;
           const { x1, y1, x2, y2 } = linkEnds(a, b);
-          const x = x1 + (x2 - x1) * message.progress;
-          const y = y1 + (y2 - y1) * message.progress;
+          // An arrived message stops just short of its destination, so it never covers the instance names.
+          const along = Math.min(message.progress, ARRIVED_AT);
+          const x = x1 + (x2 - x1) * along;
+          const y = y1 + (y2 - y1) * along;
           const text = narrow ? message.label.replace(/^(GET|POST|PUT|DELETE) /, '') : message.label;
           const pill = Math.max(36, text.length * 6.2 + 12);
           return (

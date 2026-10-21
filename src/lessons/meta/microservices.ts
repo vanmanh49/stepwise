@@ -22,4 +22,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['service boundaries', 'bounded context', 'domain', 'capability', 'layers', 'coupling', 'cohesion', 'chatty'],
     prerequisites: ['monolith-vs-microservices'],
   },
+  {
+    id: 'synchronous-calls',
+    title: 'Synchronous Calls',
+    category: 'microservices',
+    difficulty: 'beginner',
+    group: 'Foundations',
+    description: 'Follow one request through a chain of services and watch the waiting add up.',
+    keywords: ['synchronous', 'request response', 'latency', 'call chain', 'fan-out', 'parallel', 'rpc', 'http', 'slow service'],
+    prerequisites: ['service-boundaries'],
+  },
 ];
