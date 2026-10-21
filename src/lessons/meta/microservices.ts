@@ -62,4 +62,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['load balancing', 'load balancer', 'round robin', 'least connections', 'random', 'health check', 'instances', 'scaling'],
     prerequisites: ['service-discovery'],
   },
+  {
+    id: 'database-per-service',
+    title: 'Database per Service',
+    category: 'microservices',
+    difficulty: 'beginner',
+    group: 'Foundations',
+    description: 'Rename a column in a shared database and watch another team\'s service break; then give each service its own.',
+    keywords: ['database per service', 'shared database', 'schema', 'coupling', 'data ownership', 'api', 'migration', 'rename column'],
+    prerequisites: ['load-balancing'],
+  },
 ];
