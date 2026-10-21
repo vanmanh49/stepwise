@@ -1,11 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { Step } from '../types/visualization';
 import { useLiveStep } from './liveStep';
 
 const step = { title: 'Compare 5 and 2', why: 'Neighbours are checked in order.', view: { kind: 'array', cells: [] } } as Step;
 
 describe('live step store', () => {
+  beforeEach(() => useLiveStep.setState(useLiveStep.getInitialState(), true));
+
   it('starts empty', () => {
+    expect(useLiveStep.getInitialState().live).toBeUndefined();
     expect(useLiveStep.getState().live).toBeUndefined();
   });
 
