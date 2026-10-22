@@ -152,9 +152,9 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         breakers.set(event.caller, { state: event.state, failures: event.failures, threshold: event.threshold });
         break;
       case 'pool': {
-        const owner = ownerOf(event.caller);
-        let inUse = pools.get(owner);
-        if (!inUse) pools.set(owner, (inUse = new Map()));
+        const callerNode = ownerOf(event.caller);
+        let inUse = pools.get(callerNode);
+        if (!inUse) pools.set(callerNode, (inUse = new Map()));
         inUse.set(event.pool, { used: event.used, size: event.size });
         break;
       }
@@ -256,8 +256,8 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
 
   function snapshot(focus: { node?: string; compare?: boolean }): ServicesView {
     const viewNodes = scenario.nodes.map((n: NodeSpec): ServicesView['nodes'][number] => {
-      const badge = nodeBadge(n.id);
-      const base = { id: n.id, label: n.label, type: n.type, column: n.column, ...(badge && { badge }) };
+      const nodeState = nodeBadge(n.id);
+      const base = { id: n.id, label: n.label, type: n.type, column: n.column, ...(nodeState && { badge: nodeState }) };
       if (n.type === 'service') {
         const instances = n.instances.map((i) => {
           const role: Role = dead.has(i.id) ? 'discarded' : (handling.get(i.id)?.size ?? 0) > 0 ? 'active' : handled.has(i.id) ? 'visited' : 'default';
