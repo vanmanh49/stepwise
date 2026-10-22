@@ -112,6 +112,7 @@ const EXPECTED_IDS = [
   'message-queues',
   'pub-sub',
   'idempotency',
+  'saga',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -148,7 +149,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
-    expect(lessonsIn('microservices')).toHaveLength(15);
+    expect(lessonsIn('microservices')).toHaveLength(16);
   });
 
   it('links previous and next lessons within a category', () => {

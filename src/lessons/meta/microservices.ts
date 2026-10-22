@@ -152,4 +152,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['idempotency', 'idempotent', 'idempotency key', 'at most once', 'at least once', 'exactly once', 'duplicate', 'retry', 'delivery guarantees'],
     prerequisites: ['pub-sub'],
   },
+  {
+    id: 'saga',
+    title: 'Saga',
+    category: 'microservices',
+    difficulty: 'advanced',
+    group: 'Data & Operations',
+    description: 'Fail one step of an order that spans three services, then undo the finished steps with compensations.',
+    keywords: ['saga', 'compensation', 'compensating transaction', 'orchestration', 'choreography', 'distributed transaction', 'eventual consistency', 'rollback'],
+    prerequisites: ['idempotency'],
+  },
 ];
