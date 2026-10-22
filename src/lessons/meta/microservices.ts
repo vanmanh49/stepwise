@@ -92,4 +92,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['retry', 'retries', 'backoff', 'exponential backoff', 'jitter', 'retry storm', 'thundering herd', 'transient failure'],
     prerequisites: ['timeouts'],
   },
+  {
+    id: 'circuit-breaker',
+    title: 'Circuit Breaker',
+    category: 'microservices',
+    difficulty: 'intermediate',
+    group: 'Communication & Resilience',
+    description: 'Watch a breaker count timeouts, open to fail fast, and let one trial call through when the service may be back.',
+    keywords: ['circuit breaker', 'open', 'half-open', 'closed', 'fail fast', 'fallback', 'resilience4j', 'hystrix', 'cascading failure'],
+    prerequisites: ['retries-backoff'],
+  },
 ];
