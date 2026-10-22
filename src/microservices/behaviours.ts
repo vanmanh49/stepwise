@@ -1,4 +1,4 @@
-import type { Message, NodeSpec, Strategy } from './model';
+import type { Message, NodeSpec, RateLimit, Strategy } from './model';
 import type { Behaviour, SimContext } from './sim';
 
 /** The instance a balancer sends to next. `live` is in instance order; ties go to the lowest index. */
@@ -11,24 +11,60 @@ export function pickInstance(strategy: Strategy, live: string[], inFlight: Recor
 /** The first instance of a service, or the node itself: where a plain send to `id` goes. */
 const entry = (ctx: SimContext, id: string) => ctx.instancesOf(id)[0] ?? id;
 
-/** Checks the token, then forwards to the longest route prefix the path starts with. */
-export const gateway: Behaviour = (ctx, node) => (message) => {
-  if (node.type !== 'gateway' || !message.request) return;
-  const request = message.request;
-  ctx.at(ctx.now + node.processMs, () => {
-    const { path, token } = ctx.requestInfo(request);
-    if (node.requireToken && !token) {
-      ctx.trace({ kind: 'reject', gateway: node.id, request, status: 401 });
-      return ctx.reply(message, false, '401: no token');
+/** One limiter per gateway and run. `used`: the window's count, or the tokens spent from a full bucket, after this check. */
+export function createLimiter(config: RateLimit): (key: string, now: number) => { allowed: boolean; used: number } {
+  const windows = new Map<string, { window: number; count: number }>();
+  const buckets = new Map<string, { tokens: number; at: number }>();
+  return (key, now) => {
+    if (config.algorithm === 'fixed-window') {
+      const window = Math.floor(now / config.windowMs);
+      let w = windows.get(key);
+      if (!w || w.window !== window) windows.set(key, (w = { window, count: 0 }));
+      const allowed = w.count < config.limit;
+      if (allowed) w.count++;
+      return { allowed, used: w.count };
     }
-    const route = node.routes.filter((r) => path.startsWith(r.prefix)).toSorted((a, b) => b.prefix.length - a.prefix.length)[0];
-    if (!route) {
-      ctx.trace({ kind: 'reject', gateway: node.id, request, status: 404 });
-      return ctx.reply(message, false, `404: no route for ${path}`);
-    }
-    ctx.trace({ kind: 'route', gateway: node.id, request, to: route.to });
-    ctx.forward(node.id, entry(ctx, route.to), message);
-  });
+    let b = buckets.get(key);
+    if (!b) buckets.set(key, (b = { tokens: config.limit, at: now }));
+    b.tokens = Math.min(config.limit, b.tokens + ((now - b.at) * config.limit) / config.windowMs);
+    b.at = now;
+    const allowed = b.tokens >= 1;
+    if (allowed) b.tokens -= 1;
+    return { allowed, used: config.limit - Math.floor(b.tokens) };
+  };
+}
+
+/** Checks the token and the rate limit, then forwards to the longest route prefix the path starts with. */
+export const gateway: Behaviour = (ctx, node) => {
+  if (node.type !== 'gateway') return () => {};
+  const limiter = node.rateLimit && createLimiter(node.rateLimit);
+  return (message) => {
+    if (!message.request) return;
+    const request = message.request;
+    ctx.at(ctx.now + node.processMs, () => {
+      const { path, token, caller } = ctx.requestInfo(request);
+      if (node.requireToken && !token) {
+        ctx.trace({ kind: 'reject', gateway: node.id, request, status: 401 });
+        return ctx.reply(message, false, '401: no token');
+      }
+      if (limiter && node.rateLimit) {
+        const key = node.rateLimit.per === 'caller' ? (caller ?? 'all') : 'all';
+        const { allowed, used } = limiter(key, ctx.now);
+        ctx.trace({ kind: 'limit', gateway: node.id, request, key, allowed, used, limit: node.rateLimit.limit });
+        if (!allowed) {
+          ctx.trace({ kind: 'reject', gateway: node.id, request, status: 429 });
+          return ctx.reply(message, false, '429: rate limit');
+        }
+      }
+      const route = node.routes.filter((r) => path.startsWith(r.prefix)).toSorted((a, b) => b.prefix.length - a.prefix.length)[0];
+      if (!route) {
+        ctx.trace({ kind: 'reject', gateway: node.id, request, status: 404 });
+        return ctx.reply(message, false, `404: no route for ${path}`);
+      }
+      ctx.trace({ kind: 'route', gateway: node.id, request, to: route.to });
+      ctx.forward(node.id, entry(ctx, route.to), message);
+    });
+  };
 };
 
 /** Instances register and send heartbeats; ticks evict the silent ones; lookups list the rest. */

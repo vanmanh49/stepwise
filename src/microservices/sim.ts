@@ -13,7 +13,7 @@ export interface SimContext {
   /** The service that owns an instance; any other id is its own owner. */
   ownerOf(id: string): string;
   instancesOf(service: string): string[];
-  requestInfo(id: string): { label: string; path: string; token: boolean };
+  requestInfo(id: string): { label: string; path: string; token: boolean; caller?: string };
   /** Sends over the link between the two owners; `onReply` runs when the answer arrives. */
   send(from: string, to: string, message: Pick<Message, 'kind' | 'label'> & { request?: string }, onReply?: (reply: Message) => void): Message;
   reply(to: Message, ok: boolean, reason?: string, result?: string[]): void;
@@ -48,6 +48,7 @@ interface OpenRequest {
   outcome: RequestOutcome;
   path: string;
   token: boolean;
+  caller?: string;
   done: boolean;
 }
 
@@ -97,7 +98,7 @@ export function simulate(input: Scenario): SimResult {
     },
     requestInfo: (id) => {
       const r = requests.get(id)!;
-      return { label: r.outcome.label, path: r.path, token: r.token };
+      return { label: r.outcome.label, path: r.path, token: r.token, ...(r.caller && { caller: r.caller }) };
     },
     send(from, to, partial, onReply) {
       const departs = now;
@@ -354,6 +355,7 @@ export function simulate(input: Scenario): SimResult {
       outcome: { id, label: spec.label, sentAt: spec.at, status: 'failed', ms: 0, hops: [], crossServiceCalls: 0, attempts: 0 },
       path: spec.path,
       token: spec.token ?? false,
+      ...(spec.caller && { caller: spec.caller }),
       done: false,
     };
     requests.set(id, open);

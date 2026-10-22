@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { pickInstance } from './behaviours';
+import { createLimiter, pickInstance } from './behaviours';
+import * as shared from './scenarios/shared';
 import type { NodeSpec, Scenario, Strategy } from './model';
 import { simulate } from './sim';
 
@@ -167,5 +168,44 @@ describe('pickInstance', () => {
   it('takes round robin from the cursor and random from the generator', () => {
     expect(pickInstance('round-robin', ['a', 'b', 'c'], {}, 4, () => 0)).toBe('b');
     expect(pickInstance('random', ['a', 'b', 'c'], {}, 0, () => 0.99)).toBe('c');
+  });
+});
+
+describe('rate limiting', () => {
+  it('allows limit requests per fixed window', () => {
+    const allow = createLimiter({ algorithm: 'fixed-window', limit: 2, windowMs: 100, per: 'all' });
+    expect([0, 10, 20, 100].map((t) => allow('all', t).allowed)).toEqual([true, true, false, true]);
+  });
+
+  it('refills a token bucket continuously from full', () => {
+    const allow = createLimiter({ algorithm: 'token-bucket', limit: 5, windowMs: 100, per: 'all' });
+    expect([0, 0, 0, 0, 0, 0].map((t) => allow('all', t).allowed)).toEqual([true, true, true, true, true, false]);
+    expect(allow('all', 20).allowed).toBe(true);
+    expect(allow('all', 21).allowed).toBe(false);
+  });
+
+  it('reports how much of the limit is used', () => {
+    const fixed = createLimiter({ algorithm: 'fixed-window', limit: 2, windowMs: 100, per: 'all' });
+    expect([0, 10, 20].map((t) => fixed('all', t).used)).toEqual([1, 2, 2]);
+    const bucket = createLimiter({ algorithm: 'token-bucket', limit: 5, windowMs: 100, per: 'all' });
+    expect([0, 0, 50].map((t) => bucket('all', t).used)).toEqual([1, 2, 1]);
+  });
+
+  it('keeps a separate count per key', () => {
+    const allow = createLimiter({ algorithm: 'fixed-window', limit: 1, windowMs: 100, per: 'caller' });
+    expect([allow('bob', 0).allowed, allow('bob', 1).allowed, allow('alice', 2).allowed]).toEqual([true, false, true]);
+  });
+
+  it('refuses over-limit requests with 429 at the gateway', () => {
+    const gateway: NodeSpec = { ...(shared.gateway([{ prefix: '/', to: 'api' }]) as Extract<NodeSpec, { type: 'gateway' }>), rateLimit: { algorithm: 'fixed-window', limit: 1, windowMs: 100, per: 'all' } };
+    const result = simulate({
+      nodes: [shared.client(), gateway, shared.service('api', 2)],
+      links: [shared.link('client', 'gateway'), shared.link('gateway', 'api')],
+      requests: [0, 1].map((at) => ({ label: 'GET /', path: '/', to: 'gateway', at })),
+      faults: [],
+    });
+    expect(result.requests[0]!.status).toBe('ok');
+    expect(result.requests[1]).toMatchObject({ status: 'failed', reason: '429: rate limit', hops: ['client', 'gateway'] });
+    expect(result.trace.find((e) => e.kind === 'reject')).toMatchObject({ status: 429, request: '#2' });
   });
 });

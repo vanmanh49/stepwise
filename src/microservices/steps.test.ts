@@ -247,3 +247,32 @@ describe('traceSteps: call policies', () => {
     expect(run(single).map((step) => view(step).nodes.find((n) => n.id === 'api')!.badge)).toContain('pool 1/1');
   });
 });
+
+describe('traceSteps: rate limiting', () => {
+  const limited = (rateLimit: Extract<NodeSpec, { type: 'gateway' }>['rateLimit'], callers: string[]): Scenario => ({
+    nodes: [shared.client(), { ...(shared.gateway([{ prefix: '/', to: 'api' }]) as Extract<NodeSpec, { type: 'gateway' }>), rateLimit }, shared.service('api', 2)],
+    links: [shared.link('client', 'gateway'), shared.link('gateway', 'api')],
+    requests: callers.map((caller, i) => ({ label: `GET / (${caller})`, path: '/', to: 'gateway', at: i, caller })),
+    faults: [],
+  });
+  const gatewayBadges = (steps: Step[]) => steps.map((step) => view(step).nodes.find((n) => n.id === 'gateway')!.badge);
+
+  it('narrates fixed-window checks and refusals, with a badge', () => {
+    const steps = run(limited({ algorithm: 'fixed-window', limit: 5, windowMs: 100, per: 'all' }, Array(6).fill('alice')));
+    const titles = steps.map((s) => s.title);
+    expect(titles).toContain('The gateway lets #1 through: 1 of 5 used');
+    expect(titles).toContain('The gateway refuses #6 with 429: 5 of 5 used in this window');
+    expect(gatewayBadges(steps)).toContain('5/5 this window');
+  });
+
+  it('narrates an empty token bucket, with a badge', () => {
+    const steps = run(limited({ algorithm: 'token-bucket', limit: 5, windowMs: 100, per: 'all' }, Array(7).fill('alice')));
+    expect(steps.map((s) => s.title)).toContain('The gateway refuses #7 with 429: no tokens left');
+    expect(gatewayBadges(steps)).toContain('tokens 0/5');
+  });
+
+  it('shows each caller in the badge when limits are per caller', () => {
+    const steps = run(limited({ algorithm: 'fixed-window', limit: 5, windowMs: 100, per: 'caller' }, [...Array(6).fill('bob'), 'alice']));
+    expect(gatewayBadges(steps)).toContain('bob 5/5, alice 1/5');
+  });
+});

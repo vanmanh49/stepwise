@@ -74,6 +74,8 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   /** Breaker state per caller node, and what it was before its latest change (for the wording). */
   const breakers = new Map<string, { state: BreakerState; failures: number; threshold: number }>();
   const breakerWas = new Map<string, BreakerState>();
+  /** Rate-limit use per gateway and key, from its latest check. */
+  const limits = new Map<string, Map<string, number>>();
   /** Bulkhead pools in use per caller node. */
   const pools = new Map<string, Map<string, { used: number; size: number }>>();
   // Every pool a caller has, from the start, so unused ones show as 0 in use.
@@ -151,6 +153,12 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         breakerWas.set(`${event.caller}→${event.target}`, breakers.get(event.caller)?.state ?? 'closed');
         breakers.set(event.caller, { state: event.state, failures: event.failures, threshold: event.threshold });
         break;
+      case 'limit': {
+        let used = limits.get(event.gateway);
+        if (!used) limits.set(event.gateway, (used = new Map()));
+        used.set(event.key, event.used);
+        break;
+      }
       case 'pool': {
         const callerNode = ownerOf(event.caller);
         let inUse = pools.get(callerNode);
@@ -197,6 +205,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         return { node: event.node };
       case 'route':
       case 'reject':
+      case 'limit':
         return { node: event.gateway };
       case 'pick':
         return { node: event.balancer, compare: true };
@@ -246,6 +255,15 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
     const parts: string[] = [];
     const b = breakers.get(id);
     if (b) parts.push(b.state === 'closed' ? `breaker closed ${b.failures}/${b.threshold}` : `breaker ${b.state}`);
+    const node = nodes.get(id);
+    const used = limits.get(id);
+    if (node?.type === 'gateway' && node.rateLimit && used) {
+      const { algorithm, limit } = node.rateLimit;
+      const show = (n: number) => (algorithm === 'fixed-window' ? `${n}/${limit}` : `${limit - n}/${limit}`);
+      const entries = [...used.entries()];
+      if (node.rateLimit.per === 'all') parts.push(algorithm === 'fixed-window' ? `${show(entries[0]![1])} this window` : `tokens ${show(entries[0]![1])}`);
+      else parts.push(entries.map(([key, n]) => `${key} ${show(n)}${algorithm === 'fixed-window' ? '' : ' left'}`).join(', '));
+    }
     const inUse = pools.get(id);
     if (inUse) {
       const entries = [...inUse.entries()];
@@ -342,7 +360,25 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         const prefix = gateway?.type === 'gateway' ? gateway.routes.find((r) => r.to === event.to)?.prefix : undefined;
         return { title: `${capitalise(name(event.gateway))} routes ${event.request} to ${event.to}`, why: `The path ${path} starts with ${prefix ?? 'its route'}, which belongs to ${event.to}.` };
       }
+      case 'limit': {
+        const gateway = capitalise(name(event.gateway));
+        const tokens = nodes.get(event.gateway);
+        const bucket = tokens?.type === 'gateway' && tokens.rateLimit?.algorithm === 'token-bucket';
+        const whose = event.key === 'all' ? '' : ` for ${event.key}`;
+        return bucket
+          ? { title: `${gateway} lets ${event.request} through: ${event.limit - event.used} of ${event.limit} tokens left${whose}`, why: 'Each request spends one token. Tokens come back at a steady rate.' }
+          : { title: `${gateway} lets ${event.request} through: ${event.used} of ${event.limit} used${whose}`, why: `Up to ${event.limit} requests may pass in each window.` };
+      }
       case 'reject':
+        if (event.status === 429) {
+          const gateway = capitalise(name(event.gateway));
+          const node = nodes.get(event.gateway);
+          const bucket = node?.type === 'gateway' && node.rateLimit?.algorithm === 'token-bucket';
+          const limit = node?.type === 'gateway' ? (node.rateLimit?.limit ?? 0) : 0;
+          return bucket
+            ? { title: `${gateway} refuses ${event.request} with 429: no tokens left`, why: 'The bucket is empty, so the request is turned away before it reaches a service.' }
+            : { title: `${gateway} refuses ${event.request} with 429: ${limit} of ${limit} used in this window`, why: 'The window is full, so the request is turned away before it reaches a service.' };
+        }
         return event.status === 401
           ? { title: `${capitalise(name(event.gateway))} rejects ${event.request} with 401`, why: 'The request has no token, so it never reaches a service.' }
           : { title: `${capitalise(name(event.gateway))} rejects ${event.request} with 404`, why: 'No route matches the path, so there is no service to send it to.' };
@@ -481,8 +517,8 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
 
   for (let i = 0; i < trace.length; i++) {
     const event = trace[i]!;
-    // Pool changes only feed the badges.
-    if (event.kind === 'pool') {
+    // Pool changes, and limit checks that fail (the 429 that follows tells it), only feed the badges.
+    if (event.kind === 'pool' || (event.kind === 'limit' && !event.allowed)) {
       apply(event);
       continue;
     }

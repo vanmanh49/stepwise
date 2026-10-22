@@ -27,6 +27,15 @@ export interface CallPolicy {
 
 export type BreakerState = 'closed' | 'open' | 'half-open';
 
+/** Fixed window: `limit` per window. Token bucket: starts full, refills `limit` tokens per `windowMs`. */
+export interface RateLimit {
+  algorithm: 'fixed-window' | 'token-bucket';
+  limit: number;
+  windowMs: number;
+  /** One count for everyone, or one per request caller. */
+  per: 'all' | 'caller';
+}
+
 export interface Instance {
   id: string;
   processMs: number;
@@ -51,7 +60,7 @@ interface NodeBase {
 export type NodeSpec = NodeBase &
   (
     | { type: 'client'; discovery?: { registry: string; service: string } }
-    | { type: 'gateway'; processMs: number; routes: { prefix: string; to: string }[]; requireToken: boolean }
+    | { type: 'gateway'; processMs: number; routes: { prefix: string; to: string }[]; requireToken: boolean; rateLimit?: RateLimit }
     | { type: 'registry'; processMs: number; heartbeatMs: number; ttlMs: number; serves: string[] }
     | { type: 'balancer'; processMs: number; target: string; strategy: Strategy; healthCheckMs?: number }
     | { type: 'service'; instances: Instance[]; calls: Call[]; parallel: boolean; dedupe?: boolean }
@@ -73,6 +82,8 @@ export interface RequestSpec {
   to: string;
   at: number;
   token?: boolean;
+  /** Who sent it, for per-caller rate limits. */
+  caller?: string;
 }
 
 export type Fault =
@@ -133,7 +144,8 @@ export type TraceEvent = { t: number } & (
   | { kind: 'lookup'; registry: string; service: string; result: string[] }
   | { kind: 'pick'; balancer: string; instance: string; strategy: Strategy; inFlight: Record<string, number> }
   | { kind: 'route'; gateway: string; request: string; to: string }
-  | { kind: 'reject'; gateway: string; request: string; status: 401 | 404 }
+  | { kind: 'reject'; gateway: string; request: string; status: 401 | 404 | 429 }
+  | { kind: 'limit'; gateway: string; request: string; key: string; allowed: boolean; used: number; limit: number }
   | { kind: 'mark'; balancer: string; instance: string; healthy: boolean }
   | { kind: 'fault'; fault: Fault }
   | { kind: 'recover'; node: string }
