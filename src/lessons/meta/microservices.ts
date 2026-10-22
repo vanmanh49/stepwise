@@ -172,4 +172,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['transactional outbox', 'outbox', 'dual write', 'relay', 'change data capture', 'cdc', 'debezium', 'at least once', 'events'],
     prerequisites: ['saga'],
   },
+  {
+    id: 'cqrs',
+    title: 'CQRS',
+    category: 'microservices',
+    difficulty: 'advanced',
+    group: 'Data & Operations',
+    description: 'Split reads from writes, project events into a read model, and watch reads go stale right after each write.',
+    keywords: ['cqrs', 'command query responsibility segregation', 'read model', 'projection', 'projector', 'eventual consistency', 'stale read', 'materialized view'],
+    prerequisites: ['transactional-outbox'],
+  },
 ];
