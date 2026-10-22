@@ -250,7 +250,7 @@ Tests run in Node without a browser. Component behaviour is checked manually in 
 
 ## Working with Claude Code
 
-The repository shares a Claude Code setup in `.claude/settings.json`. When you open the project in Claude Code and trust the folder, it offers to add the official plugin marketplace (`anthropics/claude-plugins-official`) and install these plugins:
+The repository shares a Claude Code setup in `.claude/settings.json`. When you open the project in Claude Code and trust the folder, it offers to add two plugin marketplaces (the official `anthropics/claude-plugins-official` and `DietrichGebert/ponytail`) and install these plugins:
 
 | Plugin | Used for |
 |---|---|
@@ -259,6 +259,7 @@ The repository shares a Claude Code setup in `.claude/settings.json`. When you o
 | `context7` | Up-to-date docs for React, Vite, Tailwind and the other libraries |
 | `frontend-design` | UI and visual design work |
 | `code-review` | Reviewing a branch or pull request |
-| `code-simplifier` | Tidying recently changed code |
+| `claude-md-management` | Keeping `CLAUDE.md` up to date |
+| `ponytail` | Lean changes, plus the `/ponytail-review` and `/ponytail-audit` reports |
 
 Run `/plugin` in Claude Code to see or change what is installed. Personal settings go in `.claude/settings.local.json`, which is git-ignored.
