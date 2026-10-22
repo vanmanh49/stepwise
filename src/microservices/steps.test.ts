@@ -4,7 +4,7 @@ import { lineOf } from '../data-structures/shared';
 import { MAX_STEPS, type NodeSpec, type Scenario } from './model';
 import { simulate } from './sim';
 import * as shared from './scenarios/shared';
-import { emptyServicesView, traceSteps, type StepOptions } from './steps';
+import { emptyServicesView, recordRows, traceSteps, type StepOptions } from './steps';
 
 const code = `function handle(req) {
   const result = call(next)
@@ -307,5 +307,277 @@ describe('traceSteps: broker', () => {
   it('narrates a requeue', () => {
     const s: Scenario = { ...topic([0], ['a']), faults: [{ kind: 'outage', node: 'a', from: 0, until: 100, mode: 'refuse' }] };
     expect(run(s).map((step) => step.title)).toContain('The broker puts #1 back in the queue');
+  });
+});
+
+describe('traceSteps: records and values', () => {
+  const dataScenario = (calls: NonNullable<Extract<NodeSpec, { type: 'service' }>['calls']>, records?: Record<string, string>, value?: string): Scenario => ({
+    nodes: [shared.client(), shared.service('api', 1, calls), shared.db('db', 2, [], { ...(records && { records }) })],
+    links: [shared.link('client', 'api'), shared.link('api', 'db')],
+    requests: [{ label: 'POST /orders', path: '/orders', to: 'api', at: 0, ...(value && { value }) }],
+    faults: [],
+  });
+
+  it('narrates writes, deletes and reads', () => {
+    const titles = run(
+      dataScenario(
+        [
+          { to: 'db', data: { write: { 'order {req}': '{value}', 'outbox/{req}': 'OrderPlaced' } } },
+          { to: 'db', data: { delete: ['outbox/{req}'] } },
+          { to: 'db', data: { add: { balance: '-20' } } },
+          { to: 'db', data: { read: 'balance' } },
+          { to: 'db', data: { read: 'nope' } },
+        ],
+        { balance: '100' },
+        'placed',
+      ),
+    ).map((s) => s.title);
+    expect(titles).toContain('db saves order #1 = placed, outbox/#1 = OrderPlaced');
+    expect(titles).toContain('db deletes outbox/#1');
+    expect(titles).toContain('db saves balance = 80');
+    expect(titles).toContain('db reads balance = 80');
+    expect(titles).toContain('db finds no nope');
+  });
+
+  it('draws records as rows in the db box, the changed one active', () => {
+    const steps = run(dataScenario([{ to: 'db', data: { write: { 'order {req}': 'placed' } } }], { 'order #0': 'old' }));
+    const first = view(steps[0]!).nodes.find((n) => n.id === 'db')!;
+    expect(first.instances).toEqual([{ id: 'order #0', role: 'default', badge: 'old' }]);
+    const saved = steps.find((s) => s.title.startsWith('db saves'))!;
+    expect(view(saved).nodes.find((n) => n.id === 'db')!.instances).toEqual([
+      { id: 'order #0', role: 'default', badge: 'old' },
+      { id: 'order #1', role: 'active', badge: 'placed' },
+    ]);
+  });
+
+  it('shows the value that reached the client in the request row', () => {
+    const steps = run(dataScenario([{ to: 'db', data: { read: 'balance' } }], { balance: '80' }));
+    expect(view(steps.at(-1)!).requests[0]).toMatchObject({ status: 'ok', value: '80' });
+  });
+
+  it('keeps the newest 5 records and folds the rest into one row', () => {
+    const records = Array.from({ length: 8 }, (_, i): [string, string] => [`e${i + 1}`, `+${i}`]);
+    const rows = recordRows(records, new Set(['e8']));
+    expect(rows.map((r) => r.id)).toEqual(['+3 older', 'e4', 'e5', 'e6', 'e7', 'e8']);
+    expect(rows.at(-1)!.role).toBe('active');
+    expect(recordRows(records.slice(0, 6), new Set()).map((r) => r.id)).toEqual(['e1', 'e2', 'e3', 'e4', 'e5', 'e6']);
+  });
+
+  it('cuts a long value to 24 characters', () => {
+    const [row] = recordRows([['k', 'x'.repeat(40)]], new Set());
+    expect(row!.badge).toHaveLength(24);
+    expect(row!.badge.endsWith('…')).toBe(true);
+  });
+});
+
+describe('traceSteps: saga, errors and reroute', () => {
+  const sagaScenario: Scenario = {
+    nodes: [
+      shared.client(),
+      shared.service('orders', 1, [
+        { to: 'payments', path: '/pay', compensate: { to: 'payments', path: '/refund' } },
+        { to: 'inventory', path: '/reserve' },
+      ]),
+      shared.service('payments', 2),
+      shared.service('inventory', 2),
+    ],
+    links: [shared.link('client', 'orders'), shared.link('orders', 'payments'), shared.link('orders', 'inventory')],
+    requests: [{ label: 'POST /orders', path: '/orders', to: 'orders', at: 0 }],
+    faults: [{ kind: 'errors', node: 'inventory', rate: 1, reason: 'out of stock' }],
+  };
+
+  it('narrates a compensation and an error answer', () => {
+    const titles = run(sagaScenario).map((s) => s.title);
+    expect(titles).toContain('orders undoes payments for #1: /refund');
+    expect(titles).toContain('inventory-1 fails #1: out of stock');
+  });
+
+  it('narrates a route change', () => {
+    const s: Scenario = {
+      nodes: [shared.client(), shared.gateway([{ prefix: '/orders', to: 'orders' }]), shared.service('orders', 2), shared.service('monolith', 2)],
+      links: [shared.link('client', 'gateway'), shared.link('gateway', 'orders'), shared.link('gateway', 'monolith')],
+      requests: [{ label: 'GET /orders', path: '/orders', to: 'gateway', at: 150 }],
+      faults: [{ kind: 'reroute', gateway: 'gateway', at: 100, prefix: '/orders', to: 'monolith' }],
+    };
+    const steps = run(s);
+    expect(steps.map((x) => x.title)).toContain('The gateway now sends /orders to monolith');
+    expect(steps.find((x) => x.title.startsWith('The gateway routes'))!.why).toContain('monolith');
+  });
+});
+
+describe('traceSteps: outbox relay', () => {
+  const outboxShop = (records?: Record<string, string>, faults: Scenario['faults'] = []): Scenario => ({
+    nodes: [
+      shared.client(),
+      shared.service('orders', 1, [{ to: 'db', data: { write: { 'order {req}': 'placed', 'outbox/{req}': 'OrderPlaced' } } }]),
+      shared.db('db', 2, [], { ...(records && { records }) }),
+      shared.broker('events', 2, 'queue', ['email']),
+      shared.service('email', 3),
+      shared.relayNode('relay', 2, 'db', 'events'),
+    ],
+    links: [shared.link('client', 'orders'), shared.link('orders', 'db'), shared.link('events', 'email'), shared.link('relay', 'db'), shared.link('relay', 'events')],
+    requests: [{ label: 'POST /orders', path: '/orders', to: 'orders', at: 0 }],
+    faults,
+  });
+
+  it('narrates polls and shows the relay badge', () => {
+    const steps = run(outboxShop());
+    const titles = steps.map((s) => s.title);
+    expect(titles).toContain('The relay finds 1 unsent event: #1');
+    expect(titles).not.toContain('The relay queries db for undefined');
+    expect(view(steps[0]!).nodes.find((n) => n.id === 'relay')).toMatchObject({ type: 'relay', badge: 'polls every 40 ms' });
+  });
+
+  it('narrates an empty poll', () => {
+    const s = outboxShop();
+    const late: Scenario = { ...s, requests: [{ ...s.requests[0]!, at: 50 }] };
+    expect(run(late).map((x) => x.title)).toContain('The relay finds nothing to send');
+  });
+
+  it('tells never-published events from published ones still in the outbox when the run is cut short', () => {
+    // The relay publishes #0 and #1, but their deletes reach the db after it goes down at 70 ms. email hangs on the
+    // delivery, so the run lasts until 10,000 ms with both rows still there.
+    const hung: Scenario = {
+      ...outboxShop({ 'outbox/#0': 'OrderPlaced' }),
+      faults: [
+        { kind: 'down', node: 'db', at: 70 },
+        { kind: 'outage', node: 'email', from: 0, until: 20_000, mode: 'hang' },
+      ],
+    };
+    const published = run(hung);
+    expect(published).toHaveLength(MAX_STEPS + 1);
+    expect(published.at(-1)!.why).toContain('2 published events are still in the outbox');
+    expect(published.at(-1)!.why).not.toContain('never published');
+    // With the db down before the first poll at 40 ms, the relay never reads a row; a second request that hangs at
+    // orders keeps the run going.
+    const early = run({
+      ...hung,
+      requests: [...hung.requests, { label: 'POST /orders', path: '/orders', to: 'orders', at: 60 }],
+      faults: [{ kind: 'down', node: 'db', at: 30 }, { kind: 'outage', node: 'orders', from: 50, until: 20_000, mode: 'hang' }],
+    });
+    expect(early.some((x) => x.title === "The relay can't read the outbox: db is down")).toBe(true);
+    expect(early.at(-1)!.why).toContain('2 events were never published');
+  });
+
+  it('marks an instance alive again when it restarts', () => {
+    const s: Scenario = {
+      ...chain,
+      requests: [{ label: 'GET /', path: '/', to: 'a', at: 0 }, { label: 'GET /', path: '/', to: 'a', at: 100 }],
+      faults: [{ kind: 'crash-after', node: 'a', after: 'b', request: '#1', restartMs: 20 }],
+    };
+    const steps = run(s);
+    const back = steps.find((x) => x.title === 'a-1 is back')!;
+    expect(view(back).nodes.find((n) => n.id === 'a')!.instances![0]!.role).not.toBe('discarded');
+  });
+});
+
+describe('traceSteps: event store', () => {
+  const ledger = (ops: number, snapshotEvery?: number): Scenario => ({
+    nodes: [
+      shared.client(),
+      shared.service('account', 1, [
+        { to: 'account-db', when: 'POST', data: { append: '{value}' } },
+        { to: 'account-db', when: 'GET', data: { read: 'balance' } },
+      ]),
+      shared.db('account-db', 2, [], { events: { perEventMs: 2, ...(snapshotEvery && { snapshotEvery }) } }),
+    ],
+    links: [shared.link('client', 'account'), shared.link('account', 'account-db')],
+    requests: [
+      ...Array.from({ length: ops }, (_, i) => ({ label: 'POST /account', path: 'POST /account', to: 'account', at: i * 20, value: ['+50', '-20', '+100', '-30', '+10'][i % 5]! })),
+      { label: 'GET /balance', path: 'GET /balance', to: 'account', at: ops * 20 },
+    ],
+    faults: [],
+  });
+
+  it('narrates appends, snapshots and replays', () => {
+    const titles = run(ledger(8, 5)).map((s) => s.title);
+    expect(titles).toContain('account-db appends e3: +100');
+    expect(titles).toContain('account-db stores snapshot @5 = 110');
+    expect(titles).toContain('account-db replays 3 events to answer #9');
+  });
+
+  it('shows the events as records in the db box', () => {
+    const last = view(run(ledger(8)).at(-1)!).nodes.find((n) => n.id === 'account-db')!;
+    expect(last.instances!.map((r) => r.id)).toEqual(['+3 older', 'e4', 'e5', 'e6', 'e7', 'e8']);
+  });
+});
+
+describe('traceSteps: deploys and canaries', () => {
+  const rollout = (faults: Scenario['faults'], balancer: Partial<Extract<NodeSpec, { type: 'balancer' }>> = {}): Scenario => {
+    const app = shared.service('app', 2, [], { count: 2 });
+    if (app.type === 'service') ['v1', 'v2'].forEach((v, i) => (app.instances[i]!.version = v));
+    return {
+      nodes: [shared.client(), { id: 'lb', label: 'lb', type: 'balancer', column: 1, processMs: 1, target: 'app', strategy: 'round-robin', ...balancer }, app],
+      links: [shared.link('client', 'lb'), shared.link('lb', 'app')],
+      requests: Array.from({ length: 6 }, (_, i) => ({ label: 'GET /', path: '/', to: 'lb', at: i * 30 })),
+      faults,
+      seed: 7,
+    };
+  };
+
+  it('narrates a stop, a drain and a start, with version badges', () => {
+    const steps = run(rollout([{ kind: 'deploy', instance: 'app-1', at: 50, action: 'stop' }, { kind: 'deploy', instance: 'app-2', at: 50, action: 'start' }]));
+    const titles = steps.map((s) => s.title);
+    expect(titles).toContain('app-1 (v1) leaves rotation and finishes its work');
+    expect(titles).toContain('app-2 (v2) starts serving');
+    expect(titles).toContain('app-1 (v1) has stopped');
+    const app = view(steps[0]!).nodes.find((n) => n.id === 'app')!;
+    expect(app.instances!.map((i) => i.badge)).toEqual(['v1', 'v2, not started']);
+    expect(app.instances![1]!.role).toBe('default');
+    const end = view(steps.at(-1)!).nodes.find((n) => n.id === 'app')!;
+    expect(end.instances!.map((i) => i.badge)).toEqual(['v1, stopped', 'v2']);
+  });
+
+  it('narrates a shift and a rollback, with weight badges', () => {
+    const steps = run(
+      rollout([{ kind: 'errors', node: 'app', version: 'v2', rate: 1, reason: '500: bug' }], { weights: { v1: 0.5, v2: 0.5 }, canary: { version: 'v2', maxErrors: 1 } }),
+    );
+    expect(steps.map((s) => s.title)).toContain('The balancer rolls back v2 after 1 error');
+    expect(view(steps[0]!).nodes.find((n) => n.id === 'lb')!.badge).toBe('v1 50%, v2 50%');
+    expect(view(steps.at(-1)!).nodes.find((n) => n.id === 'lb')!.badge).toBe('v2 rolled back');
+    const shifted = run(rollout([{ kind: 'shift', balancer: 'lb', at: 40, weights: { v1: 0, v2: 1 } }], { weights: { v1: 1, v2: 0 } }));
+    expect(shifted.map((s) => s.title)).toContain('The balancer now sends v1 0%, v2 100%');
+    for (const step of shifted) for (const n of view(step).nodes) expect((n.badge ?? '').length).toBeLessThanOrEqual(24);
+  });
+});
+
+describe('traceSteps: sidecars', () => {
+  const mesh = (mtls: boolean, faults: Scenario['faults'], requests: Scenario['requests']): Scenario => ({
+    nodes: [
+      shared.client(),
+      shared.service('orders', 1, ['payments']),
+      shared.service('payments', 2),
+      shared.sidecarNode('orders', 1, { policy: { retry: { attempts: 2, backoff: 'fixed', baseMs: 10, jitter: false } } }),
+      shared.sidecarNode('payments', 2, { mtls }),
+    ],
+    links: [shared.link('client', 'orders-proxy'), shared.link('orders-proxy', 'orders', 1), shared.link('orders-proxy', 'payments-proxy'), shared.link('payments-proxy', 'payments', 1), shared.link('client', 'payments-proxy')],
+    requests,
+    faults,
+  });
+  const order = { label: 'POST /orders', path: '/orders', to: 'orders', at: 0 };
+
+  it('narrates the hand-off, a sidecar retry and the badge', () => {
+    const steps = run(mesh(false, [{ kind: 'outage', node: 'payments', from: 0, until: 30, mode: 'refuse' }], [order]));
+    const titles = steps.map((s) => s.title);
+    expect(titles).toContain('orders-1 hands #1 to its sidecar');
+    expect(titles).toContain('orders-proxy tries #1 again in 10 ms (retry 1 of 2)');
+    expect(view(steps.at(-1)!).nodes.find((n) => n.id === 'orders-proxy')).toMatchObject({ type: 'sidecar', badge: '3 calls, 1 retried' });
+  });
+
+  it('narrates an mTLS refusal', () => {
+    const steps = run(mesh(true, [], [{ label: 'GET /charges', path: '/charges', to: 'payments', at: 0, caller: 'scraper' }]));
+    expect(steps.map((s) => s.title)).toContain('payments-proxy refuses #1: 403: no client certificate');
+  });
+});
+
+describe('traceSteps: extend', () => {
+  it('merges extra view data into every step', () => {
+    const spans = { title: 'trace of #1', endMs: 40, nowMs: 0, rows: [] };
+    const steps = run(chain, { ...options, extend: () => ({ spans }) });
+    expect(steps.every((s) => view(s).spans === spans)).toBe(true);
+  });
+
+  it('adds no spans key without extend', () => {
+    expect(run(chain).every((s) => !('spans' in view(s)))).toBe(true);
   });
 });

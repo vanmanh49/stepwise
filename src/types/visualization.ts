@@ -192,25 +192,38 @@ export interface BucketsView {
 }
 
 /** A simulated microservice system: nodes in layout columns, the messages crossing its links, and each request's progress. */
+/** One span of a trace: from a request reaching a node to that node's reply. No `ms` while it is still open. */
+export interface SpanRow {
+  id: string;
+  label: string;
+  start: number;
+  ms?: number;
+  depth: number;
+  trace: string;
+  role: Role;
+}
+
 export interface ServicesView {
   kind: 'services';
   nodes: {
     id: string;
     label: string;
-    type: 'client' | 'gateway' | 'registry' | 'balancer' | 'service' | 'db' | 'broker';
+    type: 'client' | 'gateway' | 'registry' | 'balancer' | 'service' | 'db' | 'broker' | 'relay' | 'sidecar';
     column: number;
     role: Role;
     badge?: string;
-    /** A service's instances; for a broker, its queues (badge: what is waiting). */
+    /** A service's instances; for a broker, its queues (badge: what is waiting); for a db, its records (badge: the value). */
     instances?: { id: string; role: Role; badge?: string }[];
   }[];
   links: { from: string; to: string; role: Role }[];
   /** Messages in flight at this step, between node ids; progress runs from 0 (just sent) to 1 (arrived). */
   messages: { id: string; from: string; to: string; label: string; role: Role; progress: number }[];
   /** label: "GET /orders"; hops: the path taken so far, e.g. "gw → orders-2 → db". */
-  requests: { id: string; label: string; status: 'pending' | 'ok' | 'failed'; hops: string; ms?: number; reason?: string; attempts?: number }[];
+  requests: { id: string; label: string; status: 'pending' | 'ok' | 'failed'; hops: string; ms?: number; reason?: string; attempts?: number; value?: string }[];
   /** The last few events, newest last. */
   log: string[];
+  /** A trace waterfall: title such as "trace of #2"; endMs is the timeline's right edge, nowMs the step's time (open spans reach it). */
+  spans?: { title: string; endMs: number; nowMs: number; rows: SpanRow[] };
 }
 
 /** Several views shown together in one step. Panels do not nest. */

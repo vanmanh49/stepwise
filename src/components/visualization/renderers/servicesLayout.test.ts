@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ServicesView } from '../../../types/visualization';
-import { chooseOrientation, HEADER, INSTANCE_GAP, INSTANCE_HEIGHT, layoutServices, linkEnds, NARROW_WIDTH, PAD, type PlacedBox, fitBadge, stackMessages } from './servicesLayout';
+import { chooseOrientation, HEADER, INSTANCE_GAP, INSTANCE_HEIGHT, layoutServices, linkEnds, NARROW_WIDTH, PAD, type PlacedBox, fitBadge, placeBadge, stackMessages } from './servicesLayout';
 
 type ViewNode = ServicesView['nodes'][number];
 
@@ -125,5 +125,22 @@ describe('fitBadge', () => {
   it('drops a badge when not even its first word fits', () => {
     expect(fitBadge('a-very-long-instance-name', '12 waiting', 116)).toBeUndefined();
     expect(fitBadge('email', undefined, 116)).toBeUndefined();
+  });
+});
+
+describe('placeBadge', () => {
+  it('puts a badge beside the name when it fits', () => {
+    expect(placeBadge('email', '2 waiting', 116)).toEqual({ text: '2 waiting', below: false });
+  });
+
+  it('moves a badge under the name rather than cutting it', () => {
+    expect(placeBadge('charge #1', 'refunded', 116)).toEqual({ text: 'refunded', below: true });
+    expect(placeBadge('app-4', 'v2, not started', 116)).toEqual({ text: 'v2, not started', below: true });
+  });
+
+  it('falls back to the first word, then to nothing', () => {
+    expect(placeBadge('a', `${'x'.repeat(14)} ${'y'.repeat(10)}`, 116)).toEqual({ text: 'x'.repeat(14), below: false });
+    expect(placeBadge('a-very-long-instance-name', 'x'.repeat(40), 116)).toBeUndefined();
+    expect(placeBadge('email', undefined, 116)).toBeUndefined();
   });
 });

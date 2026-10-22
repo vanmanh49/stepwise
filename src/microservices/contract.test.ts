@@ -29,6 +29,14 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   'circuit-breaker': { threshold: [1, 5], openMs: [50, 500], recovers: [100, 2000], requests: [4, 16] },
   'retries-backoff': { retries: [0, 4], outage: [0, 500], requests: [1, 8] },
   timeouts: { inventory: [10, 1000], apiTimeout: [0, 2000], clientTimeout: [0, 2000], requests: [1, 4] },
+  saga: { orders: [1, 4] },
+  'transactional-outbox': { orders: [1, 5] },
+  cqrs: { readDelay: [0, 140], projector: [10, 300] },
+  'event-sourcing': { operations: [2, 20] },
+  'distributed-tracing': { requests: [1, 5] },
+  'deployment-strategies': { requests: [6, 16] },
+  'strangler-fig': { migrated: [0, 3], requests: [3, 12] },
+  'service-mesh': { retries: [0, 3], requests: [4, 12] },
 };
 
 const lessons = allLessons.filter((l) => l.category === 'microservices').map((l) => [l.id, l] as const);
@@ -62,6 +70,9 @@ describe.each(lessons)('microservices lesson %s', (_id, lesson) => {
         expect(view.kind, label).toBe('services');
         const ids = new Set(view.nodes.map((n) => n.id));
         for (const end of [...view.links, ...view.messages].flatMap((e) => [e.from, e.to])) expect(ids.has(end), `${label} ${end}`).toBe(true);
+        // A waterfall belongs to a request the table already shows.
+        const traced = view.spans?.title.match(/#\d+/)?.[0];
+        if (traced) expect(view.requests.some((q) => q.id === traced), `${label} ${traced}`).toBe(true);
       }
       const last = steps.at(-1)!.view as ServicesView;
       expect(last.requests.every((q) => q.status !== 'pending'), label).toBe(true);

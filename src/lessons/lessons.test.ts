@@ -112,6 +112,14 @@ const EXPECTED_IDS = [
   'message-queues',
   'pub-sub',
   'idempotency',
+  'saga',
+  'transactional-outbox',
+  'cqrs',
+  'event-sourcing',
+  'distributed-tracing',
+  'deployment-strategies',
+  'strangler-fig',
+  'service-mesh',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -148,7 +156,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
-    expect(lessonsIn('microservices')).toHaveLength(15);
+    expect(lessonsIn('microservices')).toHaveLength(23);
   });
 
   it('links previous and next lessons within a category', () => {
@@ -358,6 +366,11 @@ describe('curriculum', () => {
   it('has a live lesson for every algorithms topic', () => {
     expect(topicsIn('algorithms').filter((t) => !getLesson(t.id)).map((t) => t.id)).toEqual([]);
     expect(lessonsIn('algorithms').map((l) => l.id)).toEqual(topicsIn('algorithms').map((t) => t.id));
+  });
+
+  it('has a live lesson for every microservices topic', () => {
+    expect(topicsIn('microservices').filter((t) => !getLesson(t.id)).map((t) => t.id)).toEqual([]);
+    expect(lessonsIn('microservices').map((l) => l.id)).toEqual(topicsIn('microservices').map((t) => t.id));
   });
 
   it('maps every algorithm to a Big O curve', () => {

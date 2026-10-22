@@ -114,6 +114,18 @@ export function fitBadge(id: string, badge: string | undefined, width: number): 
   return fits(first) ? first : undefined;
 }
 
+/**
+ * Where an instance row's badge goes: beside the name when it fits, otherwise on its own line under the name, so
+ * values such as a record's "refunded" are not cut; failing both, its first word beside the name.
+ */
+export function placeBadge(id: string, badge: string | undefined, width: number): { text: string; below: boolean } | undefined {
+  if (!badge) return undefined;
+  if (fitBadge(id, badge, width) === badge) return { text: badge, below: false };
+  if (badge.length * 5.6 + 12 <= width) return { text: badge, below: true };
+  const first = fitBadge(id, badge, width);
+  return first ? { text: first, below: false } : undefined;
+}
+
 export type StackedPill = ServicesView['messages'][number] & { slot: number };
 
 /** How close two messages on one link may be, in progress, before their pills would overlap. */

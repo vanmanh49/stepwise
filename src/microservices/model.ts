@@ -39,7 +39,20 @@ export interface RateLimit {
 export interface Instance {
   id: string;
   processMs: number;
+  /** "v1", "v2": the release it runs. */
+  version?: string;
 }
+
+/**
+ * What a query to a db does with its records. Keys and values may use {req} (the request id), {key} and {value}
+ * (the request's data). A write of several records is atomic; `add` adds integers ("+50"), a missing key counting as 0.
+ */
+export type DataOp =
+  | { read: string }
+  | { write: Record<string, string> }
+  | { delete: string[] }
+  | { add: Record<string, string> }
+  | { append: string };
 
 /** A downstream call. `columns` are what a query to a db reads, e.g. "users.name". */
 export interface Call {
@@ -50,6 +63,12 @@ export interface Call {
   policy?: CallPolicy;
   /** The message label for this call, e.g. "OrderPlaced"; the request's label otherwise. */
   label?: string;
+  /** For a call to a db: what the query does with its records. */
+  data?: DataOp;
+  /** The path this call sends, e.g. "/refund"; the callee's `when` checks it. The request's path otherwise. */
+  path?: string;
+  /** In a sequential service: the call that undoes this one when a later call fails (a saga step's compensation). */
+  compensate?: Call;
 }
 
 interface NodeBase {
@@ -64,11 +83,28 @@ export type NodeSpec = NodeBase &
     | { type: 'client'; discovery?: { registry: string; service: string } }
     | { type: 'gateway'; processMs: number; routes: { prefix: string; to: string }[]; requireToken: boolean; rateLimit?: RateLimit }
     | { type: 'registry'; processMs: number; heartbeatMs: number; ttlMs: number; serves: string[] }
-    | { type: 'balancer'; processMs: number; target: string; strategy: Strategy; healthCheckMs?: number }
+    /**
+     * weights: each version's share of requests. canary: once that version has failed `maxErrors` answers, its
+     * weight drops to 0 (an automatic rollback).
+     */
+    | {
+        type: 'balancer';
+        processMs: number;
+        target: string;
+        strategy: Strategy;
+        healthCheckMs?: number;
+        weights?: Record<string, number>;
+        canary?: { version: string; maxErrors: number };
+      }
     | { type: 'service'; instances: Instance[]; calls: Call[]; parallel: boolean; dedupe?: boolean }
-    | { type: 'db'; processMs: number; columns: string[] }
+    /** With `events`, an event store: appends are kept as e1, e2…; a read replays the events since the latest snapshot. */
+    | { type: 'db'; processMs: number; columns: string[]; records?: Record<string, string>; events?: { perEventMs: number; snapshotEvery?: number } }
     /** queue: consumers' instances compete for one queue. topic: one queue per consumer service, each gets a copy. */
     | { type: 'broker'; processMs: number; mode: 'queue' | 'topic'; consumers: string[]; redeliverMs: number }
+    /** Every `pollMs` it reads `db`'s outbox/ records and publishes each to the broker `to`, deleting it once stored. */
+    | { type: 'relay'; processMs: number; pollMs: number; db: string; to: string }
+    /** A proxy beside service `of`: its calls go out through it with `policy`; with mtls it accepts only other sidecars. */
+    | { type: 'sidecar'; of: string; processMs: number; policy?: CallPolicy; mtls?: boolean }
   );
 
 export type NodeType = NodeSpec['type'];
@@ -88,6 +124,9 @@ export interface RequestSpec {
   token?: boolean;
   /** Who sent it, for per-caller rate limits. */
   caller?: string;
+  /** The data it carries, e.g. key "order 42" and value "paid". */
+  key?: string;
+  value?: string;
 }
 
 export type Fault =
@@ -101,7 +140,17 @@ export type Fault =
   /** Every instance of a service refuses connections (`refuse`) or accepts and never answers (`hang`) between from and until. */
   | { kind: 'outage'; node: string; from: number; until: number; mode: 'refuse' | 'hang' }
   /** The first reply `node` sends for `request` is lost on the network. */
-  | { kind: 'lose-reply'; node: string; request: string };
+  | { kind: 'lose-reply'; node: string; request: string }
+  /** `node` (a service or one instance) answers with `reason` instead of working, with chance `rate`; `version`, `request` and `from` narrow it. */
+  | { kind: 'errors'; node: string; rate: number; reason: string; version?: string; request?: string; from?: number }
+  /** The gateway's route for `prefix` points at `to` from `at` on (added when missing). */
+  | { kind: 'reroute'; gateway: string; at: number; prefix: string; to: string }
+  /** The instance of `node` handling `request` crashes right after its call to `after` answers ok; with restartMs it comes back. */
+  | { kind: 'crash-after'; node: string; after: string; request: string; restartMs?: number }
+  /** start: the instance (not running before) joins rotation. stop: it leaves rotation, finishes its work, then stops. */
+  | { kind: 'deploy'; instance: string; at: number; action: 'start' | 'stop' }
+  /** The balancer's version weights become `weights`: a blue-green switch or a manual rollback. */
+  | { kind: 'shift'; balancer: string; at: number; weights: Record<string, number> };
 
 export interface Scenario {
   nodes: NodeSpec[];
@@ -139,13 +188,23 @@ export interface Message {
   result?: string[];
   /** Deliver messages only: "#3/email". */
   delivery?: string;
+  /** A call's own path ("/refund"), checked by the callee's `when`. */
+  path?: string;
+  /** A call handed to the caller's own sidecar: the service it is for. */
+  dest?: string;
+  /** Replies to a prefix read ("outbox/*"): the matching records, oldest first. */
+  records?: [string, string][];
+  /** Replies only: the value a read found, passed back up the chain. */
+  value?: string;
 }
 
 export type TraceEvent = { t: number } & (
   | { kind: 'send'; message: Message }
   | { kind: 'arrive'; message: Message }
   | { kind: 'handle'; node: string; instance?: string; request: string }
-  | { kind: 'fail'; at: string; request?: string; reason: string }
+  /** error: the instance answered with an error (an `errors` fault) rather than breaking. */
+  | { kind: 'fail'; at: string; request?: string; reason: string; error?: boolean }
+  | { kind: 'compensate'; node: string; instance: string; request: string; target: string; path?: string }
   | { kind: 'register' | 'heartbeat' | 'evict'; registry: string; instance: string }
   | { kind: 'lookup'; registry: string; service: string; result: string[] }
   | { kind: 'pick'; balancer: string; instance: string; strategy: Strategy; inFlight: Record<string, number> }
@@ -154,7 +213,14 @@ export type TraceEvent = { t: number } & (
   | { kind: 'limit'; gateway: string; request: string; key: string; allowed: boolean; used: number; limit: number }
   | { kind: 'mark'; balancer: string; instance: string; healthy: boolean }
   | { kind: 'fault'; fault: Fault }
+  /** node: a service, or one instance coming back after a crash-after restart. */
   | { kind: 'recover'; node: string }
+  /** found: the request ids of the outbox records, oldest first. reason: why the poll couldn't read them. */
+  | { kind: 'poll'; relay: string; found: string[]; reason?: string }
+  /** A stopping instance has finished its last job and is gone. */
+  | { kind: 'drained'; instance: string }
+  | { kind: 'rollback'; balancer: string; version: string; errors: number }
+  | { kind: 'deny'; node: string; request: string; reason: string }
   | { kind: 'lost'; message: Message }
   | { kind: 'duplicate'; node: string; instance: string; request: string; status: 'replayed' | 'in progress' }
   | { kind: 'timeout'; caller: string; target: string; request: string; afterMs: number }
@@ -169,7 +235,12 @@ export type TraceEvent = { t: number } & (
   | { kind: 'store'; broker: string; request: string; label: string; queues: string[] }
   | { kind: 'requeue'; broker: string; delivery: string; reason: string }
   | { kind: 'delivered'; delivery: string; consumer?: string; ok: boolean; ms: number; reason?: string }
-  | { kind: 'done'; request: string; ok: boolean; ms: number; reason?: string }
+  /** A deleted key has the value null. */
+  | { kind: 'write'; db: string; request: string; records: Record<string, string | null> }
+  | { kind: 'read'; db: string; request: string; key: string; value?: string; replayed?: number }
+  | { kind: 'append'; db: string; request: string; seq: number; event: string }
+  | { kind: 'snapshot'; db: string; seq: number; value: number }
+  | { kind: 'done'; request: string; ok: boolean; ms: number; reason?: string; value?: string }
 );
 
 export interface RequestOutcome {
@@ -185,6 +256,8 @@ export interface RequestOutcome {
   /** Request messages the client sent for it: 1 plus its retries. */
   attempts: number;
   reason?: string;
+  /** The value the answer carried, e.g. what a read found. */
+  value?: string;
 }
 
 /** One copy of a stored message, for one queue: "#3/email". ms runs from store to ack. */

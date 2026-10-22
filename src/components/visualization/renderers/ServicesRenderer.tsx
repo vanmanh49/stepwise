@@ -2,7 +2,8 @@ import { motion } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Role, ServicesView } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
-import { chooseOrientation, fitBadge, HEADER, layoutServices, linkEnds, MARGIN, NARROW_WIDTH, stackMessages, type PlacedBox } from './servicesLayout';
+import { chooseOrientation, HEADER, layoutServices, linkEnds, MARGIN, NARROW_WIDTH, placeBadge, stackMessages, type PlacedBox } from './servicesLayout';
+import { SpanWaterfall } from './SpanWaterfall';
 import { spring } from './spring';
 
 const PILL_HEIGHT = 18;
@@ -20,6 +21,8 @@ const TYPE_NAME: Record<ServicesView['nodes'][number]['type'], string> = {
   service: 'service',
   db: 'database',
   broker: 'message broker',
+  relay: 'outbox relay',
+  sidecar: 'sidecar proxy',
 };
 
 const STATUS: Record<ServicesView['requests'][number]['status'], { text: string; role: Role }> = {
@@ -79,16 +82,25 @@ function NodeBox({ node, box }: { node: ServicesView['nodes'][number]; box: Plac
       )}
       {(node.instances ?? []).map((instance, i) => {
         const r = box.instances[i]!;
-        const badge = fitBadge(instance.id, instance.badge, r.width);
+        const badge = placeBadge(instance.id, instance.badge, r.width);
+        // A badge under the name shares the row: the name moves up, the badge sits below it.
+        const nameY = badge?.below ? r.y + 8 : r.y + r.height / 2;
         return (
           <g key={instance.id}>
             <RoleRect x={r.x} y={r.y} width={r.width} height={r.height} role={instance.role} radius={6} />
-            <text x={r.x + 6} y={r.y + r.height / 2} dominantBaseline="central" fill={roleText(instance.role)} className="font-mono text-[11px] font-semibold">
+            <text x={r.x + 6} y={nameY} dominantBaseline="central" fill={roleText(instance.role)} className={`font-mono font-semibold ${badge?.below ? 'text-[10px]' : 'text-[11px]'}`}>
               {instance.id}
             </text>
             {badge && (
-              <text x={r.x + r.width - 6} y={r.y + r.height / 2} textAnchor="end" dominantBaseline="central" fill={roleText(instance.role)} className="font-mono text-[9px]">
-                {badge}
+              <text
+                x={badge.below ? r.x + 6 : r.x + r.width - 6}
+                y={badge.below ? r.y + 19 : r.y + r.height / 2}
+                textAnchor={badge.below ? 'start' : 'end'}
+                dominantBaseline="central"
+                fill={roleText(instance.role)}
+                className="font-mono text-[9px]"
+              >
+                {badge.text}
               </text>
             )}
             {instance.badge && <title>{`${instance.id}: ${instance.badge}`}</title>}
@@ -193,6 +205,8 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
         })}
       </svg>
 
+      {view.spans && <SpanWaterfall spans={view.spans} />}
+
       {view.requests.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[18rem] border-collapse text-left font-mono text-xs">
@@ -218,6 +232,7 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
                         {status.text}
                       </span>
                       {r.attempts !== undefined && r.attempts > 1 && <span className="ml-1 text-muted">· {r.attempts} tries</span>}
+                      {r.value !== undefined && <span className="ml-1 text-muted">→ {r.value}</span>}
                       {r.reason && <div className="mt-0.5 font-sans text-[11px] text-muted">{r.reason}</div>}
                     </td>
                     <td className="break-words py-1 pr-2 text-muted">{r.hops}</td>

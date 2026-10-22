@@ -8,7 +8,7 @@ Stepwise is a static React app that teaches data structures, algorithms, SQL and
 
 ```bash
 npm run dev                              # Vite dev server
-npm test                                 # whole Vitest suite (src/**/*.test.ts), about 3,200 tests
+npm test                                 # whole Vitest suite (src/**/*.test.ts), about 3,400 tests
 npx vitest run src/sql/parse.test.ts     # one file
 npx vitest run -t "rotates left"         # tests whose name matches
 npm run typecheck                        # tsc --noEmit (strict, noUncheckedIndexedAccess)
@@ -48,11 +48,12 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
   - runs are capped at `MAX_STEPS = 400` steps, and longer runs are summarised;
   - sample datasets live in `sql/datasets/`.
 - **Microservices** (`src/microservices/`) is a seeded discrete-event simulator:
-  - `simulate(scenario)` runs nodes (client, gateway, registry, balancer, service, db, broker), links with latencies, timed requests and faults over simulated milliseconds; events are ordered by `(time, sequence)`, and faults scheduled for a time apply before anything else at that time;
-  - node behaviours are per-run factories (`sim.ts` for client, service and db; `behaviours.ts` for gateway (with its rate limiter), registry and balancer; `broker.ts` for the message broker, which stores, delivers and redelivers in `queue` or `topic` mode);
+  - `simulate(scenario)` runs nodes (client, gateway, registry, balancer, service, db, broker, relay, sidecar), links with latencies, timed requests and faults over simulated milliseconds; events are ordered by `(time, sequence)`, and faults scheduled for a time apply before anything else at that time;
+  - node behaviours are per-run factories (`sim.ts` for client, service and db; `behaviours.ts` for gateway (with its rate limiter), registry and balancer; `broker.ts` for the message broker, which stores, delivers and redelivers in `queue` or `topic` mode; `relay.ts` for the outbox relay; `sidecar.ts` for mesh proxies with a call policy and optional mTLS);
+  - db nodes hold records that calls read, write, delete, add to or append to (an event store replays events since its latest snapshot); a sequential service can compensate finished calls newest first (sagas); deploys, weight shifts, route changes and error rates are scheduled as faults, and a balancer can split by version weights and roll a canary back;
   - call policies (`resilience.ts`, `createCaller`) wrap client requests and service calls: bulkhead → breaker → send with timeout, then retries with backoff and equal jitter; a call without a policy is a plain send;
-  - a run ends once every request is done, every stored message is acked, and nothing is still on the wire, so late answers show up as wasted work;
-  - `traceSteps` (`steps.ts`) replays the trace into steps with a `services` view, folding arrivals and merging heartbeat rounds, capped at `MAX_STEPS = 200` plus one summary step;
+  - a run ends once every request is done, every stored message is acked, no outbox record is left, and nothing is still on the wire, so late answers show up as wasted work;
+  - `traceSteps` (`steps.ts`) replays the trace into steps with a `services` view, folding arrivals and merging heartbeat rounds, capped at `MAX_STEPS = 200` plus one summary step; `StepOptions.extend` adds extra view data, such as the trace waterfall from `spansOf` (`tracing.ts`);
   - each lesson has a scenario module in `scenarios/` (`fooCode`, `fooScenario`, `fooSteps`) used by a `form` visualization with `codeLabel: 'Pseudocode'`;
   - `ServicesRenderer` picks columns or rows from the measured stage width (`chooseOrientation` in `servicesLayout.ts`).
 - `algorithms/`, `data-structures/`, `sql/` and `microservices/` contain no React. All lesson text lives in `lessons/`, not in components. Colours come from CSS variables in `src/index.css`, defined for both `:root` and `.dark`.

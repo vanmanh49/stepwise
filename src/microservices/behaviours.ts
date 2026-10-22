@@ -8,6 +8,24 @@ export function pickInstance(strategy: Strategy, live: string[], inFlight: Recor
   return live.reduce((best, id) => ((inFlight[id] ?? 0) < (inFlight[best] ?? 0) ? id : best), live[0]!);
 }
 
+/**
+ * Draws a version by weight among those with an instance in rotation, in the order the weights list them. A version
+ * left out gives its share to the others; a version weighted 0 (rolled back, or not switched to yet) never gets
+ * traffic, so when only such versions are left there is none to pick.
+ */
+export function pickVersion(weights: Record<string, number>, inRotation: string[], rng: () => number): string | undefined {
+  const available = [...Object.keys(weights).filter((v) => inRotation.includes(v)), ...inRotation.filter((v) => !(v in weights))];
+  if (available.length === 0) return undefined;
+  const total = available.reduce((sum, v) => sum + (weights[v] ?? 0), 0);
+  if (total <= 0) return undefined;
+  let draw = rng() * total;
+  for (const version of available) {
+    draw -= weights[version] ?? 0;
+    if (draw < 0) return version;
+  }
+  return available.at(-1);
+}
+
 /** The first instance of a service, or the node itself: where a plain send to `id` goes. */
 const entry = (ctx: SimContext, id: string) => ctx.instancesOf(id)[0] ?? id;
 
@@ -127,6 +145,13 @@ export const balancer: Behaviour = (ctx, node) => {
   const inFlight: Record<string, number> = {};
   const unhealthy = new Set<string>();
   let cursor = 0;
+  /** Weighted balancing: a round-robin cursor per version, and the canary's failed answers so far. */
+  const cursors = new Map<string, number>();
+  let canaryErrors = 0;
+  const versionOf = (id: string) => {
+    const target = ctx.node(id);
+    return target.type === 'service' ? target.instances.find((i) => i.id === id)?.version : undefined;
+  };
   const probe = () => {
     for (const instance of ctx.instancesOf(node.target)) {
       ctx.send(node.id, instance, { kind: 'probe', label: `probe ${instance}` }, (answer) => {
@@ -145,14 +170,31 @@ export const balancer: Behaviour = (ctx, node) => {
     if (!message.request) return;
     const request = message.request;
     ctx.at(ctx.now + node.processMs, () => {
-      const live = ctx.instancesOf(node.target).filter((id) => !unhealthy.has(id));
+      const live = ctx.instancesOf(node.target).filter((id) => !unhealthy.has(id) && ctx.inRotation(id));
       if (live.length === 0) return ctx.reply(message, false, `no healthy ${node.target} instance`);
-      const instance = pickInstance(node.strategy, live, inFlight, cursor++, ctx.rng);
+      let instance: string;
+      if (node.weights) {
+        const available = [...new Set(live.flatMap((id) => versionOf(id) ?? []))];
+        const version = pickVersion(node.weights, available, ctx.rng);
+        if (version === undefined) return ctx.reply(message, false, `no healthy ${node.target} instance`);
+        const pool = live.filter((id) => versionOf(id) === version);
+        const at = cursors.get(version) ?? 0;
+        cursors.set(version, at + 1);
+        instance = pool[at % pool.length]!;
+      } else instance = pickInstance(node.strategy, live, inFlight, cursor++, ctx.rng);
       ctx.trace({ kind: 'pick', balancer: node.id, instance, strategy: node.strategy, inFlight: { ...inFlight } });
       inFlight[instance] = (inFlight[instance] ?? 0) + 1;
       ctx.send(node.id, instance, { kind: 'request', label: message.label, request }, (answer) => {
         inFlight[instance]! -= 1;
-        ctx.reply(message, answer.ok ?? false, answer.reason);
+        const canary = node.canary;
+        if (canary && node.weights && !answer.ok && versionOf(instance) === canary.version && (node.weights[canary.version] ?? 0) > 0) {
+          canaryErrors++;
+          if (canaryErrors >= canary.maxErrors) {
+            node.weights = { ...node.weights, [canary.version]: 0 };
+            ctx.trace({ kind: 'rollback', balancer: node.id, version: canary.version, errors: canaryErrors });
+          }
+        }
+        ctx.reply(message, answer.ok ?? false, answer.reason, undefined, answer.value);
       });
     });
   };
