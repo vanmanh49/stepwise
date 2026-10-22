@@ -550,3 +550,15 @@ describe('traceSteps: sidecars', () => {
     expect(steps.map((s) => s.title)).toContain('payments-proxy refuses #1: 403: no client certificate');
   });
 });
+
+describe('traceSteps: extend', () => {
+  it('merges extra view data into every step', () => {
+    const spans = { title: 'trace of #1', endMs: 40, rows: [] };
+    const steps = run(chain, { ...options, extend: () => ({ spans }) });
+    expect(steps.every((s) => view(s).spans === spans)).toBe(true);
+  });
+
+  it('adds no spans key without extend', () => {
+    expect(run(chain).every((s) => !('spans' in view(s)))).toBe(true);
+  });
+});

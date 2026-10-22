@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import type { Role, ServicesView } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
 import { chooseOrientation, fitBadge, HEADER, layoutServices, linkEnds, MARGIN, NARROW_WIDTH, stackMessages, type PlacedBox } from './servicesLayout';
+import { SpanWaterfall } from './SpanWaterfall';
 import { spring } from './spring';
 
 const PILL_HEIGHT = 18;
@@ -194,6 +195,8 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
           );
         })}
       </svg>
+
+      {view.spans && <SpanWaterfall spans={view.spans} />}
 
       {view.requests.length > 0 && (
         <div className="overflow-x-auto">

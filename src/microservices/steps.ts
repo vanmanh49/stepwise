@@ -15,6 +15,8 @@ export interface StepOptions {
   /** Lesson wording for an event, and optionally a snippet for its code line; return undefined to keep the defaults. */
   explain?: (event: TraceEvent, result: SimResult) => (Partial<Narration> & { line?: string }) | undefined;
   variables?: (event: TraceEvent, result: SimResult) => Record<string, string | number>;
+  /** Extra view data for an event's step, such as a trace waterfall. */
+  extend?: (event: TraceEvent, result: SimResult) => Partial<Pick<ServicesView, 'spans'>>;
 }
 
 export function emptyServicesView(): ServicesView {
@@ -779,7 +781,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       ...narration,
       codeLine,
       variables: { t: `${event.t} ms`, ...(request && { request }), ...options.variables?.(event, result) },
-      view: snapshot(focusOf(event)),
+      view: { ...snapshot(focusOf(event)), ...options.extend?.(event, result) },
     });
     // A message is drawn at its destination on the step it arrives, then dropped.
     for (const id of arrived) inFlight.delete(id);

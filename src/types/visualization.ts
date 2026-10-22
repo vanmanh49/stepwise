@@ -192,6 +192,17 @@ export interface BucketsView {
 }
 
 /** A simulated microservice system: nodes in layout columns, the messages crossing its links, and each request's progress. */
+/** One span of a trace: from a request reaching a node to that node's reply. No `ms` while it is still open. */
+export interface SpanRow {
+  id: string;
+  label: string;
+  start: number;
+  ms?: number;
+  depth: number;
+  trace: string;
+  role: Role;
+}
+
 export interface ServicesView {
   kind: 'services';
   nodes: {
@@ -211,6 +222,8 @@ export interface ServicesView {
   requests: { id: string; label: string; status: 'pending' | 'ok' | 'failed'; hops: string; ms?: number; reason?: string; attempts?: number; value?: string }[];
   /** The last few events, newest last. */
   log: string[];
+  /** A trace waterfall: title such as "trace of #2"; endMs is the timeline's right edge. */
+  spans?: { title: string; endMs: number; rows: SpanRow[] };
 }
 
 /** Several views shown together in one step. Panels do not nest. */
