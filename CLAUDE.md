@@ -8,7 +8,7 @@ Stepwise is a static React app that teaches data structures, algorithms, SQL and
 
 ```bash
 npm run dev                              # Vite dev server
-npm test                                 # whole Vitest suite (src/**/*.test.ts), about 3,000 tests
+npm test                                 # whole Vitest suite (src/**/*.test.ts), about 3,200 tests
 npx vitest run src/sql/parse.test.ts     # one file
 npx vitest run -t "rotates left"         # tests whose name matches
 npm run typecheck                        # tsc --noEmit (strict, noUncheckedIndexedAccess)
@@ -48,8 +48,10 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
   - runs are capped at `MAX_STEPS = 400` steps, and longer runs are summarised;
   - sample datasets live in `sql/datasets/`.
 - **Microservices** (`src/microservices/`) is a seeded discrete-event simulator:
-  - `simulate(scenario)` runs nodes (client, gateway, registry, balancer, service, db), links with latencies, timed requests and faults over simulated milliseconds; events are ordered by `(time, sequence)`, and faults scheduled for a time apply before anything else at that time;
-  - node behaviours are per-run factories (`sim.ts` for client, service and db; `behaviours.ts` for gateway, registry and balancer);
+  - `simulate(scenario)` runs nodes (client, gateway, registry, balancer, service, db, broker), links with latencies, timed requests and faults over simulated milliseconds; events are ordered by `(time, sequence)`, and faults scheduled for a time apply before anything else at that time;
+  - node behaviours are per-run factories (`sim.ts` for client, service and db; `behaviours.ts` for gateway (with its rate limiter), registry and balancer; `broker.ts` for the message broker, which stores, delivers and redelivers in `queue` or `topic` mode);
+  - call policies (`resilience.ts`, `createCaller`) wrap client requests and service calls: bulkhead → breaker → send with timeout, then retries with backoff and equal jitter; a call without a policy is a plain send;
+  - a run ends once every request is done, every stored message is acked, and nothing is still on the wire, so late answers show up as wasted work;
   - `traceSteps` (`steps.ts`) replays the trace into steps with a `services` view, folding arrivals and merging heartbeat rounds, capped at `MAX_STEPS = 200` plus one summary step;
   - each lesson has a scenario module in `scenarios/` (`fooCode`, `fooScenario`, `fooSteps`) used by a `form` visualization with `codeLabel: 'Pseudocode'`;
   - `ServicesRenderer` picks columns or rows from the measured stage width (`chooseOrientation` in `servicesLayout.ts`).
@@ -67,7 +69,7 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
 - `src/lessons/lessons.test.ts` runs every registered lesson. It checks that references resolve, quizzes are valid, the default visualization runs, and every `codeLine` points inside the lesson's code. For SQL lessons it also checks that each example runs and each exercise's solution passes its own check.
 - `src/data-structures/contract.test.ts` runs random operations against every structure lesson. It checks that no operation mutates its input, every operation yields at least one step, and every step's code line is valid. Seeded randomness comes from `random.testutil.ts`.
 - SQL differential tests (`differential*.test.ts`, `scriptDifferential*.test.ts`) run query corpora (`*Corpus*.testutil.ts`) through both the interpreter and real SQLite via `sql.js`. New SQL features add their queries to a corpus. `sql.js` is a dev dependency and is never bundled.
-- `src/microservices/contract.test.ts` runs every microservices lesson with random and garbage settings. It checks that every run ends with every request finished, stays within `MAX_STEPS + 1` steps, has valid code lines and view references, and repeats exactly. Each scenario's teaching moment is tested in `microservices/scenarios/*.test.ts`.
+- `src/microservices/contract.test.ts` runs every microservices lesson with random and garbage settings. It checks that every run ends with every request and delivery finished, stays within `MAX_STEPS + 1` steps, has valid code lines and view references, and repeats exactly. Each scenario's teaching moment is tested in `microservices/scenarios/*.test.ts`.
 - Look up code lines with `lineOf(code, snippet)` (`data-structures/shared.ts`) rather than hard-coding numbers. It throws if the snippet is missing.
 - Vitest's on-disk cache (`node_modules/.vitest-cache`) can keep a stale `import.meta.glob` after a new lesson file is added, which shows up as "No content module for <id>". Delete the folder and run again.
 - Renderers and components have no DOM tests; UI changes are checked by hand in a browser, including at phone width (375px) and in dark mode.

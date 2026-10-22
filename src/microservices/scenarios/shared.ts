@@ -1,6 +1,6 @@
 import { refusal, type Read } from '../../algorithms/form';
 import type { Step } from '../../types/visualization';
-import type { Call, Link, NodeSpec, Scenario, SimResult } from '../model';
+import type { Call, Link, NodeSpec, Scenario, SimResult, TraceEvent } from '../model';
 import { simulate } from '../sim';
 import { emptyServicesView, traceSteps, type StepOptions } from '../steps';
 
@@ -9,11 +9,12 @@ export const LINK_MS = 5;
 export const INSTANCE_MS = 10;
 export const GATEWAY_MS = 2;
 export const DB_MS = 3;
+export const BROKER_MS = 2;
 
 export const client = (extra: Partial<Extract<NodeSpec, { type: 'client' }>> = {}): NodeSpec => ({ id: 'client', label: 'client', type: 'client', column: 0, ...extra });
 
-export function service(id: string, column: number, calls: (string | Call)[] = [], options: { count?: number; processMs?: number; parallel?: boolean } = {}): NodeSpec {
-  const { count = 1, processMs = INSTANCE_MS, parallel = false } = options;
+export function service(id: string, column: number, calls: (string | Call)[] = [], options: { count?: number; processMs?: number; parallel?: boolean; dedupe?: boolean } = {}): NodeSpec {
+  const { count = 1, processMs = INSTANCE_MS, parallel = false, dedupe } = options;
   return {
     id,
     label: id,
@@ -22,10 +23,22 @@ export function service(id: string, column: number, calls: (string | Call)[] = [
     instances: Array.from({ length: count }, (_, i) => ({ id: `${id}-${i + 1}`, processMs })),
     calls: calls.map((c) => (typeof c === 'string' ? { to: c } : c)),
     parallel,
+    ...(dedupe && { dedupe }),
   };
 }
 
 export const db = (id: string, column: number, columns: string[] = []): NodeSpec => ({ id, label: id, type: 'db', column, processMs: DB_MS, columns });
+
+export const broker = (id: string, column: number, mode: 'queue' | 'topic', consumers: string[], redeliverMs = 50): NodeSpec => ({
+  id,
+  label: id,
+  type: 'broker',
+  column,
+  processMs: BROKER_MS,
+  mode,
+  consumers,
+  redeliverMs,
+});
 
 export const link = (from: string, to: string, latencyMs = LINK_MS): Link => ({ from, to, latencyMs });
 
@@ -38,6 +51,16 @@ export const gateway = (routes: { prefix: string; to: string }[], requireToken =
   routes,
   requireToken,
 });
+
+/** When requests reached a node's instances (refused ones included), in trace order. */
+export function callsTo(trace: TraceEvent[], node: string): number[] {
+  return trace.flatMap((e) => (e.kind === 'arrive' && e.message.kind === 'request' && serviceOf(e.message.to) === node ? [e.t] : []));
+}
+
+/** The most of `times` that fall in any window [t, t + windowMs). */
+export function busiest(times: number[], windowMs = 10): number {
+  return times.reduce((most, start) => Math.max(most, times.filter((t) => t >= start && t < start + windowMs).length), 0);
+}
 
 /** The service an instance id belongs to: "orders-2" → "orders". */
 export const serviceOf = (id: string) => id.replace(/-\d+$/, '');

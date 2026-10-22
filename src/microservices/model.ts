@@ -7,6 +7,35 @@ export const MAX_STEPS = 200;
 
 export type Strategy = 'round-robin' | 'least-connections' | 'random';
 
+/** attempts = retries after the first try. */
+export interface RetryPolicy {
+  attempts: number;
+  backoff: 'none' | 'fixed' | 'exponential';
+  baseMs: number;
+  jitter: boolean;
+}
+
+/** How a caller protects itself on one call: each attempt passes the bulkhead, then the breaker, then goes out with its timeout. */
+export interface CallPolicy {
+  timeoutMs?: number;
+  retry?: RetryPolicy;
+  /** Opens after `threshold` failures in a row; stays open for `openMs`. */
+  breaker?: { threshold: number; openMs: number };
+  /** At most `size` calls in flight from one caller instance through the pool named `pool`. */
+  bulkhead?: { pool: string; size: number };
+}
+
+export type BreakerState = 'closed' | 'open' | 'half-open';
+
+/** Fixed window: `limit` per window. Token bucket: starts full, refills `limit` tokens per `windowMs`. */
+export interface RateLimit {
+  algorithm: 'fixed-window' | 'token-bucket';
+  limit: number;
+  windowMs: number;
+  /** One count for everyone, or one per request caller. */
+  per: 'all' | 'caller';
+}
+
 export interface Instance {
   id: string;
   processMs: number;
@@ -16,6 +45,11 @@ export interface Instance {
 export interface Call {
   to: string;
   columns?: string[];
+  /** Made only for requests whose path starts with this prefix. */
+  when?: string;
+  policy?: CallPolicy;
+  /** The message label for this call, e.g. "OrderPlaced"; the request's label otherwise. */
+  label?: string;
 }
 
 interface NodeBase {
@@ -28,11 +62,13 @@ interface NodeBase {
 export type NodeSpec = NodeBase &
   (
     | { type: 'client'; discovery?: { registry: string; service: string } }
-    | { type: 'gateway'; processMs: number; routes: { prefix: string; to: string }[]; requireToken: boolean }
+    | { type: 'gateway'; processMs: number; routes: { prefix: string; to: string }[]; requireToken: boolean; rateLimit?: RateLimit }
     | { type: 'registry'; processMs: number; heartbeatMs: number; ttlMs: number; serves: string[] }
     | { type: 'balancer'; processMs: number; target: string; strategy: Strategy; healthCheckMs?: number }
-    | { type: 'service'; instances: Instance[]; calls: Call[]; parallel: boolean }
+    | { type: 'service'; instances: Instance[]; calls: Call[]; parallel: boolean; dedupe?: boolean }
     | { type: 'db'; processMs: number; columns: string[] }
+    /** queue: consumers' instances compete for one queue. topic: one queue per consumer service, each gets a copy. */
+    | { type: 'broker'; processMs: number; mode: 'queue' | 'topic'; consumers: string[]; redeliverMs: number }
   );
 
 export type NodeType = NodeSpec['type'];
@@ -50,6 +86,8 @@ export interface RequestSpec {
   to: string;
   at: number;
   token?: boolean;
+  /** Who sent it, for per-caller rate limits. */
+  caller?: string;
 }
 
 export type Fault =
@@ -59,7 +97,11 @@ export type Fault =
   /** The instance that handles a request whose path starts with `prefix` crashes, as a bug would make it. */
   | { kind: 'crash-on'; node: string; prefix: string }
   /** The owner service's own queries are updated; everyone else's are not. */
-  | { kind: 'rename-column'; node: string; from: string; to: string; at: number; owner: string };
+  | { kind: 'rename-column'; node: string; from: string; to: string; at: number; owner: string }
+  /** Every instance of a service refuses connections (`refuse`) or accepts and never answers (`hang`) between from and until. */
+  | { kind: 'outage'; node: string; from: number; until: number; mode: 'refuse' | 'hang' }
+  /** The first reply `node` sends for `request` is lost on the network. */
+  | { kind: 'lose-reply'; node: string; request: string };
 
 export interface Scenario {
   nodes: NodeSpec[];
@@ -67,9 +109,11 @@ export interface Scenario {
   requests: RequestSpec[];
   faults: Fault[];
   seed?: number;
+  /** Applies to every request the client sends. */
+  clientPolicy?: CallPolicy;
 }
 
-export type MessageKind = 'request' | 'reply' | 'query' | 'lookup' | 'heartbeat' | 'probe';
+export type MessageKind = 'request' | 'reply' | 'query' | 'lookup' | 'heartbeat' | 'probe' | 'deliver';
 
 export interface Message {
   /** "m1", "m2", … in send order. */
@@ -93,6 +137,8 @@ export interface Message {
   reason?: string;
   /** Replies to a lookup: the registered instances. */
   result?: string[];
+  /** Deliver messages only: "#3/email". */
+  delivery?: string;
 }
 
 export type TraceEvent = { t: number } & (
@@ -104,9 +150,25 @@ export type TraceEvent = { t: number } & (
   | { kind: 'lookup'; registry: string; service: string; result: string[] }
   | { kind: 'pick'; balancer: string; instance: string; strategy: Strategy; inFlight: Record<string, number> }
   | { kind: 'route'; gateway: string; request: string; to: string }
-  | { kind: 'reject'; gateway: string; request: string; status: 401 | 404 }
+  | { kind: 'reject'; gateway: string; request: string; status: 401 | 404 | 429 }
+  | { kind: 'limit'; gateway: string; request: string; key: string; allowed: boolean; used: number; limit: number }
   | { kind: 'mark'; balancer: string; instance: string; healthy: boolean }
   | { kind: 'fault'; fault: Fault }
+  | { kind: 'recover'; node: string }
+  | { kind: 'lost'; message: Message }
+  | { kind: 'duplicate'; node: string; instance: string; request: string; status: 'replayed' | 'in progress' }
+  | { kind: 'timeout'; caller: string; target: string; request: string; afterMs: number }
+  /** An answer that arrived after its caller stopped waiting. */
+  | { kind: 'late'; message: Message }
+  | { kind: 'retry'; caller: string; request: string; attempt: number; max: number; delayMs: number }
+  /** caller and target are owners (service ids, or the client). */
+  | { kind: 'breaker'; caller: string; target: string; state: BreakerState; failures: number; threshold: number }
+  | { kind: 'shed'; caller: string; request: string; reason: 'circuit open' | 'bulkhead full' }
+  | { kind: 'pool'; caller: string; pool: string; used: number; size: number }
+  /** label: the message without its request id, e.g. "OrderPlaced". */
+  | { kind: 'store'; broker: string; request: string; label: string; queues: string[] }
+  | { kind: 'requeue'; broker: string; delivery: string; reason: string }
+  | { kind: 'delivered'; delivery: string; consumer?: string; ok: boolean; ms: number; reason?: string }
   | { kind: 'done'; request: string; ok: boolean; ms: number; reason?: string }
 );
 
@@ -120,12 +182,30 @@ export interface RequestOutcome {
   hops: string[];
   /** Messages between two different service nodes. */
   crossServiceCalls: number;
+  /** Request messages the client sent for it: 1 plus its retries. */
+  attempts: number;
+  reason?: string;
+}
+
+/** One copy of a stored message, for one queue: "#3/email". ms runs from store to ack. */
+export interface DeliveryOutcome {
+  id: string;
+  request: string;
+  /** "OrderPlaced → email" */
+  label: string;
+  queue: string;
+  /** The instance that acked it. */
+  consumer?: string;
+  status: 'ok' | 'failed';
+  ms: number;
+  attempts: number;
   reason?: string;
 }
 
 export interface SimResult {
   trace: TraceEvent[];
   requests: RequestOutcome[];
+  deliveries: DeliveryOutcome[];
   endedAt: number;
   timedOut: boolean;
 }

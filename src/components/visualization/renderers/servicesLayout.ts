@@ -104,3 +104,51 @@ export function linkEnds(from: Rect, to: Rect): { x1: number; y1: number; x2: nu
     y2: downward ? to.y : to.y + to.height,
   };
 }
+
+/** An instance row's badge as it fits beside the name: whole, cut to its first word ("2 waiting" → "2"), or not at all. */
+export function fitBadge(id: string, badge: string | undefined, width: number): string | undefined {
+  if (!badge) return undefined;
+  const fits = (text: string) => id.length * 6.8 + text.length * 5.6 + 18 <= width;
+  if (fits(badge)) return badge;
+  const first = badge.split(' ')[0]!;
+  return fits(first) ? first : undefined;
+}
+
+export type StackedPill = ServicesView['messages'][number] & { slot: number };
+
+/** How close two messages on one link may be, in progress, before their pills would overlap. */
+const STACK_WITHIN = 0.05;
+const STACK_MAX = 3;
+
+/**
+ * Messages at the same spot of a link (within 0.05 progress, whichever way they travel) stack in slots 0–2;
+ * the rest fold into one "+N more" pill in slot 3.
+ */
+export function stackMessages(messages: ServicesView['messages']): StackedPill[] {
+  // Where a message sits, measured from the link's alphabetically first end, so both directions compare.
+  const spot = (m: ServicesView['messages'][number]) =>
+    m.from < m.to ? { link: `${m.from} ${m.to}`, at: m.progress } : { link: `${m.to} ${m.from}`, at: 1 - m.progress };
+  const groups: { link: string; at: number; members: ServicesView['messages'][number][] }[] = [];
+  for (const m of messages) {
+    const { link, at } = spot(m);
+    const group = groups.find((g) => g.link === link && Math.abs(g.at - at) <= STACK_WITHIN + 1e-9);
+    if (group) group.members.push(m);
+    else groups.push({ link, at, members: [m] });
+  }
+  const slots = new Map<string, number>();
+  const folded = new Map<string, StackedPill>();
+  for (const { members } of groups) {
+    members.forEach((m, i) => slots.set(m.id, i));
+    const extra = members.slice(STACK_MAX);
+    if (extra.length > 0) {
+      const first = extra[0]!;
+      folded.set(first.id, { ...first, id: `more-${first.id}`, label: `+${extra.length} more`, slot: STACK_MAX });
+    }
+  }
+  return messages.flatMap((m): StackedPill[] => {
+    const slot = slots.get(m.id)!;
+    if (slot < STACK_MAX) return [{ ...m, slot }];
+    const more = folded.get(m.id);
+    return more ? [more] : [];
+  });
+}

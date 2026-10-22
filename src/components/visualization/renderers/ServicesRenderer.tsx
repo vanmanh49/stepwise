@@ -2,13 +2,15 @@ import { motion } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Role, ServicesView } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
-import { chooseOrientation, HEADER, layoutServices, linkEnds, MARGIN, NARROW_WIDTH, type PlacedBox } from './servicesLayout';
+import { chooseOrientation, fitBadge, HEADER, layoutServices, linkEnds, MARGIN, NARROW_WIDTH, stackMessages, type PlacedBox } from './servicesLayout';
 import { spring } from './spring';
 
 const PILL_HEIGHT = 18;
 /** Messages are drawn between these points of their link, so a pill never covers the box it leaves or reaches. */
 const DEPARTED_AT = 0.22;
 const ARRIVED_AT = 0.78;
+/** Stacked pills alternate around the link (on it, above, below, further above), so a stack stays near its link. */
+const LANES = [0, -1, 1, -2];
 
 const TYPE_NAME: Record<ServicesView['nodes'][number]['type'], string> = {
   client: 'client',
@@ -17,6 +19,7 @@ const TYPE_NAME: Record<ServicesView['nodes'][number]['type'], string> = {
   balancer: 'load balancer',
   service: 'service',
   db: 'database',
+  broker: 'message broker',
 };
 
 const STATUS: Record<ServicesView['requests'][number]['status'], { text: string; role: Role }> = {
@@ -76,15 +79,16 @@ function NodeBox({ node, box }: { node: ServicesView['nodes'][number]; box: Plac
       )}
       {(node.instances ?? []).map((instance, i) => {
         const r = box.instances[i]!;
+        const badge = fitBadge(instance.id, instance.badge, r.width);
         return (
           <g key={instance.id}>
             <RoleRect x={r.x} y={r.y} width={r.width} height={r.height} role={instance.role} radius={6} />
             <text x={r.x + 6} y={r.y + r.height / 2} dominantBaseline="central" fill={roleText(instance.role)} className="font-mono text-[11px] font-semibold">
               {instance.id}
             </text>
-            {instance.badge && instance.id.length * 6.8 + instance.badge.length * 5.6 + 18 <= r.width && (
+            {badge && (
               <text x={r.x + r.width - 6} y={r.y + r.height / 2} textAnchor="end" dominantBaseline="central" fill={roleText(instance.role)} className="font-mono text-[9px]">
-                {instance.badge}
+                {badge}
               </text>
             )}
             {instance.badge && <title>{`${instance.id}: ${instance.badge}`}</title>}
@@ -118,6 +122,7 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
   // Rows fill the stage they are given, so phone text stays at full size.
   const layout = layoutServices(view, narrow ? 'rows' : 'columns', narrow ? Math.min(NARROW_WIDTH, available - 2 * MARGIN) : NARROW_WIDTH);
   const boxes = new Map(layout.boxes.map((b) => [b.id, b]));
+  const deliveries = view.requests.filter((r) => r.id.includes('/')).length;
   const width = layout.width + MARGIN * 2;
   const height = layout.height + MARGIN * 2;
 
@@ -128,8 +133,8 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
         height={height}
         viewBox={`${-MARGIN} ${-MARGIN} ${width} ${height}`}
         role="img"
-        aria-label={`${view.requests.length} requests, ${view.messages.length} messages in flight`}
-        className="mx-auto h-auto max-w-full"
+        aria-label={`${view.requests.length - deliveries} requests, ${deliveries > 0 ? `${deliveries} deliveries, ` : ''}${view.messages.length} messages in flight`}
+        className="mx-auto h-auto max-w-full overflow-visible"
       >
         {view.links.map((link) => {
           const [a, b] = [boxes.get(link.from), boxes.get(link.to)];
@@ -154,13 +159,17 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
           const box = boxes.get(node.id);
           return box ? <NodeBox key={node.id} node={node} box={box} /> : null;
         })}
-        {view.messages.map((message) => {
+        {stackMessages(view.messages).map((message) => {
           const [a, b] = [boxes.get(message.from), boxes.get(message.to)];
           if (!a || !b) return null;
           const { x1, y1, x2, y2 } = linkEnds(a, b);
           const along = DEPARTED_AT + (ARRIVED_AT - DEPARTED_AT) * message.progress;
-          const x = x1 + (x2 - x1) * along;
-          const y = y1 + (y2 - y1) * along;
+          // Pills that share a spot step sideways off the link, one pill height each.
+          const length = Math.hypot(x2 - x1, y2 - y1) || 1;
+          // Lanes are measured from the link's alphabetically first end, so pills going both ways share one stack.
+          const shift = (LANES[message.slot] ?? 0) * (PILL_HEIGHT + 2) * (message.from < message.to ? 1 : -1);
+          const x = x1 + (x2 - x1) * along - ((y2 - y1) / length) * shift;
+          const y = y1 + (y2 - y1) * along + ((x2 - x1) / length) * shift;
           const text = narrow ? message.label.replace(/^(GET|POST|PUT|DELETE) /, '') : message.label;
           const pill = Math.max(36, text.length * 6.2 + 12);
           return (
@@ -208,6 +217,7 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
                       <span className="rounded px-1.5 py-0.5" style={{ background: roleFill(status.role), color: roleText(status.role) }}>
                         {status.text}
                       </span>
+                      {r.attempts !== undefined && r.attempts > 1 && <span className="ml-1 text-muted">· {r.attempts} tries</span>}
                       {r.reason && <div className="mt-0.5 font-sans text-[11px] text-muted">{r.reason}</div>}
                     </td>
                     <td className="break-words py-1 pr-2 text-muted">{r.hops}</td>

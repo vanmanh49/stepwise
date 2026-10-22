@@ -1,6 +1,8 @@
-import { MAX_TIME, type Call, type Message, type NodeSpec, type NodeType, type RequestOutcome, type Scenario, type SimResult, type TraceEvent } from './model';
+import { MAX_TIME, type Call, type DeliveryOutcome, type Fault, type Message, type NodeSpec, type NodeType, type RequestOutcome, type Scenario, type SimResult, type TraceEvent } from './model';
 import { balancer, createDiscovery, gateway, registry } from './behaviours';
+import { broker } from './broker';
 import { EventQueue } from './queue';
+import { createCaller, type CallFn } from './resilience';
 
 type Distribute<T> = T extends unknown ? Omit<T, 't'> : never;
 /** A trace event before the simulator stamps its time. */
@@ -12,10 +14,14 @@ export interface SimContext {
   /** The service that owns an instance; any other id is its own owner. */
   ownerOf(id: string): string;
   instancesOf(service: string): string[];
-  requestInfo(id: string): { label: string; path: string; token: boolean };
+  requestInfo(id: string): { label: string; path: string; token: boolean; caller?: string };
   /** Sends over the link between the two owners; `onReply` runs when the answer arrives. */
-  send(from: string, to: string, message: Pick<Message, 'kind' | 'label'> & { request?: string }, onReply?: (reply: Message) => void): Message;
+  send(from: string, to: string, message: Pick<Message, 'kind' | 'label'> & { request?: string; delivery?: string }, onReply?: (reply: Message) => void): Message;
   reply(to: Message, ok: boolean, reason?: string, result?: string[]): void;
+  /** Stops waiting for `message`'s reply; when it comes, it is traced as late and dropped. */
+  cancel(message: Message): void;
+  /** Sends through a call policy (timeouts, retries, breaker, bulkhead); a plain send without one. */
+  call: CallFn;
   /** Sends a request on to `to` and passes its answer back to whoever sent `inbound`. */
   forward(from: string, to: string, inbound: Message): void;
   at(time: number, run: () => void): void;
@@ -43,6 +49,7 @@ interface OpenRequest {
   outcome: RequestOutcome;
   path: string;
   token: boolean;
+  caller?: string;
   done: boolean;
 }
 
@@ -58,6 +65,9 @@ export function simulate(input: Scenario): SimResult {
   const trace: TraceEvent[] = [];
   const requests = new Map<string, OpenRequest>();
   const awaiting = new Map<string, (reply: Message) => void>();
+  const cancelled = new Set<string>();
+  /** Work not yet answered (requests, queries, deliveries until their reply is sent) and replies still on the wire, so the run waits for late answers. */
+  const working = new Set<string>();
   const dead = new Set<string>();
   const down = new Set<string>();
   /** What each live instance is handling right now, and the jobs a death cut short. */
@@ -89,12 +99,14 @@ export function simulate(input: Scenario): SimResult {
     },
     requestInfo: (id) => {
       const r = requests.get(id)!;
-      return { label: r.outcome.label, path: r.path, token: r.token };
+      return { label: r.outcome.label, path: r.path, token: r.token, ...(r.caller && { caller: r.caller }) };
     },
     send(from, to, partial, onReply) {
       const departs = now;
       const message: Message = { id: `m${++messages}`, ...partial, from, to, departs, arrives: departs + latency(from, to) };
       if (onReply) awaiting.set(message.id, onReply);
+      if (message.kind === 'request' || message.kind === 'query' || message.kind === 'deliver') working.add(message.id);
+      if (message.kind === 'request' && message.request && from === clientId) requests.get(message.request)!.outcome.attempts++;
       ctx.trace({ kind: 'send', message });
       ctx.at(message.arrives, () => deliver(message));
       return message;
@@ -115,6 +127,8 @@ export function simulate(input: Scenario): SimResult {
         ...(reason !== undefined && { reason }),
         ...(result && { result }),
       };
+      working.delete(to.id);
+      if (to.kind === 'request' || to.kind === 'query' || to.kind === 'deliver') working.add(message.id);
       ctx.trace({ kind: 'send', message });
       ctx.at(message.arrives, () => deliver(message));
     },
@@ -124,11 +138,47 @@ export function simulate(input: Scenario): SimResult {
         ctx.reply(inbound, answer.ok ?? false, answer.reason),
       );
     },
+    cancel(message) {
+      awaiting.delete(message.id);
+      cancelled.add(message.id);
+    },
+    call: (from, to, message, policy, done) => caller.call(from, to, message, policy, done),
     at: (time, run) => queue.push(time, run),
-    trace: (event) => trace.push({ t: now, ...event } as TraceEvent),
+    trace: (event) => {
+      const stamped = { t: now, ...event } as TraceEvent;
+      trace.push(stamped);
+      observeDeliveries(stamped);
+    },
     isDead: (instance) => dead.has(instance),
     rng: random,
   };
+
+  const caller = createCaller(ctx);
+
+  /** Each stored copy of a message, kept from the broker's events; open ones keep the run going. */
+  const deliveries = new Map<string, DeliveryOutcome>();
+  const storedAt = new Map<string, number>();
+  const openDeliveries = new Set<string>();
+  function observeDeliveries(event: TraceEvent) {
+    if (event.kind === 'store') {
+      for (const name of event.queues) {
+        const id = `${event.request}/${name}`;
+        deliveries.set(id, { id, request: event.request, label: `${event.label} → ${name}`, queue: name, status: 'failed', ms: 0, attempts: 0 });
+        storedAt.set(id, event.t);
+        openDeliveries.add(id);
+      }
+    }
+    if (event.kind === 'send' && event.message.delivery) deliveries.get(event.message.delivery)!.attempts++;
+    if (event.kind === 'delivered') {
+      const d = deliveries.get(event.delivery)!;
+      d.status = event.ok ? 'ok' : 'failed';
+      d.ms = event.ms;
+      if (event.consumer) d.consumer = event.consumer;
+      if (event.reason) d.reason = event.reason;
+      openDeliveries.delete(event.delivery);
+    }
+  }
+  const clientId = scenario.nodes.find((n) => n.type === 'client')?.id;
 
   function countCrossService(from: string, to: string, request: string) {
     const [a, b] = [nodes.get(ownerOf(from)), nodes.get(ownerOf(to))];
@@ -137,6 +187,7 @@ export function simulate(input: Scenario): SimResult {
 
   function kill(instance: string, crashed?: Message) {
     dead.add(instance);
+    caller.abandon(instance);
     for (const job of jobs.get(instance) ?? []) {
       aborted.add(job);
       const reason = `${instance} ${job === crashed ? 'crashed' : 'stopped'}`;
@@ -146,8 +197,26 @@ export function simulate(input: Scenario): SimResult {
     jobs.delete(instance);
   }
 
+  /** lose-reply faults whose reply has already been dropped. */
+  const lostReplies = new Set<Fault>();
+  const hanging = (service: string) =>
+    scenario.faults.some((f) => f.kind === 'outage' && f.mode === 'hang' && f.node === service && f.from <= now && now < f.until);
+
   function deliver(message: Message) {
+    const lose = scenario.faults.find(
+      (f) => f.kind === 'lose-reply' && message.kind === 'reply' && ownerOf(message.from) === f.node && message.request === f.request && !lostReplies.has(f),
+    );
+    if (message.kind === 'reply') working.delete(message.id);
+    if (lose) {
+      lostReplies.add(lose);
+      ctx.trace({ kind: 'lost', message });
+      return;
+    }
     ctx.trace({ kind: 'arrive', message });
+    if (message.kind === 'reply' && cancelled.has(message.replyTo!)) {
+      ctx.trace({ kind: 'late', message });
+      return;
+    }
     const isInstance = owner.has(message.to);
     if (isInstance && dead.has(message.to)) {
       if (message.kind === 'reply') {
@@ -170,11 +239,35 @@ export function simulate(input: Scenario): SimResult {
     receivers.get(ownerOf(message.to))?.(message);
   }
 
-  const serviceBehaviour: Behaviour = (_ctx, node) => (message) => {
-    if (node.type !== 'service') return;
+  const serviceBehaviour: Behaviour = (_ctx, node) => {
+    if (node.type !== 'service') return () => {};
+    /** With dedupe: the result of each finished request, and the job of each one still running. */
+    const finished = new Map<string, { ok: boolean; reason?: string }>();
+    const running = new Map<string, Message>();
+    return (message) => handle(node, message, finished, running);
+  };
+
+  function handle(node: Extract<NodeSpec, { type: 'service' }>, message: Message, finished: Map<string, { ok: boolean; reason?: string }>, running: Map<string, Message>) {
     const instance = message.to;
+    if (hanging(node.id)) {
+      if (message.request) ctx.trace({ kind: 'handle', node: node.id, instance, request: message.request });
+      return;
+    }
     if (message.kind === 'probe') return ctx.reply(message, true);
     const request = message.request!;
+    if (node.dedupe) {
+      const saved = finished.get(request);
+      if (saved) {
+        ctx.trace({ kind: 'duplicate', node: node.id, instance, request, status: 'replayed' });
+        return ctx.reply(message, saved.ok, saved.reason);
+      }
+      const first = running.get(request);
+      if (first && !aborted.has(first)) {
+        ctx.trace({ kind: 'duplicate', node: node.id, instance, request, status: 'in progress' });
+        return ctx.reply(message, false, 'already in progress');
+      }
+      running.set(request, message);
+    }
     ctx.trace({ kind: 'handle', node: node.id, instance, request });
     let active = jobs.get(instance);
     if (!active) jobs.set(instance, (active = new Set()));
@@ -188,44 +281,52 @@ export function simulate(input: Scenario): SimResult {
     const finish = (ok: boolean, reason?: string) => {
       if (aborted.has(message)) return;
       jobs.get(instance)?.delete(message);
+      if (node.dedupe) {
+        running.delete(request);
+        finished.set(request, { ok, ...(reason !== undefined && { reason }) });
+      }
       ctx.reply(message, ok, reason);
     };
-    const call = (target: Call, then: (reply: Message) => void) => {
+    const path = requests.get(request)!.path;
+    const calls = node.calls.filter((c) => c.when === undefined || path.startsWith(c.when));
+    const call = (target: Call, then: (ok: boolean, reason?: string) => void) => {
       const to = nodes.get(target.to)!;
       countCrossService(instance, target.to, request);
       if (to.type === 'db') {
         const columns = target.columns ?? [];
-        const query = ctx.send(instance, to.id, { kind: 'query', label: `query ${columns.length > 0 ? `${columns.join(', ')} ` : ''}${request}`, request }, then);
+        const query = ctx.send(instance, to.id, { kind: 'query', label: `query ${columns.length > 0 ? `${columns.join(', ')} ` : ''}${request}`, request }, (reply) =>
+          then(reply.ok ?? false, reply.reason),
+        );
         queryColumns.set(query.id, columns);
       } else {
         const first = to.type === 'service' ? to.instances[0]!.id : to.id;
-        ctx.send(instance, first, { kind: 'request', label: requests.get(request)!.outcome.label + ` ${request}`, request }, then);
+        ctx.call(instance, first, { kind: 'request', label: `${target.label ?? requests.get(request)!.outcome.label} ${request}`, request }, target.policy, then);
       }
     };
     ctx.at(now + processMs.get(instance)!, () => {
       if (aborted.has(message)) return;
-      if (node.parallel && node.calls.length > 0) {
-        let left = node.calls.length;
+      if (node.parallel && calls.length > 0) {
+        let left = calls.length;
         let failed = false;
-        for (const target of node.calls) {
-          call(target, (reply) => {
+        for (const target of calls) {
+          call(target, (ok, reason) => {
             if (failed || aborted.has(message)) return;
-            if (!reply.ok) {
+            if (!ok) {
               failed = true;
-              finish(false, reply.reason);
+              finish(false, reason);
             } else if (--left === 0) finish(true);
           });
         }
         return;
       }
       const next = (index: number) => {
-        const target = node.calls[index];
+        const target = calls[index];
         if (!target) return finish(true);
-        call(target, (reply) => (reply.ok ? next(index + 1) : finish(false, reply.reason)));
+        call(target, (ok, reason) => (ok ? next(index + 1) : finish(false, reason)));
       };
       next(0);
     });
-  };
+  }
 
   const dbBehaviour: Behaviour = (_ctx, node) => (message) => {
     if (node.type !== 'db') return;
@@ -241,13 +342,24 @@ export function simulate(input: Scenario): SimResult {
 
   const clientBehaviour: Behaviour = () => () => {};
 
-  const behaviours: Record<NodeType, Behaviour> = { client: clientBehaviour, service: serviceBehaviour, db: dbBehaviour, gateway, registry, balancer };
+  const behaviours: Record<NodeType, Behaviour> = { client: clientBehaviour, service: serviceBehaviour, db: dbBehaviour, gateway, registry, balancer, broker };
 
   // Faults first, so a fault at time t applies before anything else that happens at t.
   for (const fault of scenario.faults) {
     if (fault.kind === 'kill') ctx.at(fault.at, () => (ctx.trace({ kind: 'fault', fault }), kill(fault.instance)));
     if (fault.kind === 'slow') ctx.at(fault.from, () => (ctx.trace({ kind: 'fault', fault }), processMs.set(fault.instance, fault.processMs)));
     if (fault.kind === 'down') ctx.at(fault.at, () => (ctx.trace({ kind: 'fault', fault }), down.add(fault.node)));
+    if (fault.kind === 'outage') {
+      const instances = () => ctx.instancesOf(fault.node);
+      ctx.at(fault.from, () => {
+        ctx.trace({ kind: 'fault', fault });
+        if (fault.mode === 'refuse') for (const instance of instances()) kill(instance);
+      });
+      ctx.at(fault.until, () => {
+        if (fault.mode === 'refuse') for (const instance of instances()) dead.delete(instance);
+        ctx.trace({ kind: 'recover', node: fault.node });
+      });
+    }
     if (fault.kind === 'rename-column') {
       ctx.at(fault.at, () => {
         ctx.trace({ kind: 'fault', fault });
@@ -271,9 +383,10 @@ export function simulate(input: Scenario): SimResult {
   scenario.requests.forEach((spec, index) => {
     const id = `#${index + 1}`;
     const open: OpenRequest = {
-      outcome: { id, label: spec.label, sentAt: spec.at, status: 'failed', ms: 0, hops: [], crossServiceCalls: 0 },
+      outcome: { id, label: spec.label, sentAt: spec.at, status: 'failed', ms: 0, hops: [], crossServiceCalls: 0, attempts: 0 },
       path: spec.path,
       token: spec.token ?? false,
+      ...(spec.caller && { caller: spec.caller }),
       done: false,
     };
     requests.set(id, open);
@@ -291,7 +404,7 @@ export function simulate(input: Scenario): SimResult {
       if (discover) return discover(id, finish);
       const target = nodes.get(spec.to)!;
       const to = target.type === 'service' ? target.instances[0]!.id : target.id;
-      ctx.send(client.id, to, { kind: 'request', label: `${spec.label} ${id}`, request: id }, (reply) => finish(reply.ok ?? false, reply.reason));
+      ctx.call(client.id, to, { kind: 'request', label: `${spec.label} ${id}`, request: id }, scenario.clientPolicy, finish);
     });
   });
 
@@ -304,7 +417,8 @@ export function simulate(input: Scenario): SimResult {
     }
     now = next.time;
     next.item();
-    if (allDone()) break;
+    // Answers still on their way, and work still running, show what a timeout wasted.
+    if (allDone() && openDeliveries.size === 0 && working.size === 0 && [...jobs.values()].every((set) => set.size === 0)) break;
   }
 
   for (const open of requests.values()) {
@@ -317,5 +431,17 @@ export function simulate(input: Scenario): SimResult {
     ctx.trace({ kind: 'done', request: open.outcome.id, ok: false, ms: open.outcome.ms, reason: open.outcome.reason });
   }
 
-  return { trace, requests: [...requests.values()].map((r) => r.outcome), endedAt: now, timedOut };
+  for (const id of openDeliveries) {
+    timedOut = true;
+    now = MAX_TIME;
+    ctx.trace({ kind: 'delivered', delivery: id, ok: false, ms: MAX_TIME - storedAt.get(id)!, reason: 'not processed by 10,000 ms' });
+  }
+
+  return {
+    trace,
+    requests: [...requests.values()].map((r) => r.outcome),
+    deliveries: [...deliveries.values()],
+    endedAt: now,
+    timedOut,
+  };
 }
