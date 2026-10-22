@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ServicesView } from '../../../types/visualization';
-import { chooseOrientation, HEADER, INSTANCE_GAP, INSTANCE_HEIGHT, layoutServices, linkEnds, NARROW_WIDTH, PAD, type PlacedBox, stackMessages } from './servicesLayout';
+import { chooseOrientation, HEADER, INSTANCE_GAP, INSTANCE_HEIGHT, layoutServices, linkEnds, NARROW_WIDTH, PAD, type PlacedBox, fitBadge, stackMessages } from './servicesLayout';
 
 type ViewNode = ServicesView['nodes'][number];
 
@@ -109,5 +109,21 @@ describe('stackMessages', () => {
 
   it('keeps a lone message as it is', () => {
     expect(stackMessages([message('a', 1)])).toEqual([{ ...message('a', 1), slot: 0 }]);
+  });
+});
+
+describe('fitBadge', () => {
+  it('keeps a badge that fits beside the name', () => {
+    expect(fitBadge('email', '2 waiting', 116)).toBe('2 waiting');
+    expect(fitBadge('analytics', 'empty', 116)).toBe('empty');
+  });
+
+  it('shortens a badge that does not fit to its first word', () => {
+    expect(fitBadge('analytics', '2 waiting', 116)).toBe('2');
+  });
+
+  it('drops a badge when not even its first word fits', () => {
+    expect(fitBadge('a-very-long-instance-name', '12 waiting', 116)).toBeUndefined();
+    expect(fitBadge('email', undefined, 116)).toBeUndefined();
   });
 });

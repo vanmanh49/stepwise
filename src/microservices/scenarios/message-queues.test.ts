@@ -38,3 +38,14 @@ describe('Message Queues', () => {
     expect(messageQueuesSteps(values('queue', 4, 'off'))[0]!.why).toBe('Workers must be a whole number from 1 to 3.');
   });
 });
+
+describe('Message Queues lesson copy', () => {
+  it('quotes the measured times when comparing one worker with three', async () => {
+    const { default: lesson } = await import('../../lessons/microservices/message-queues');
+    const q4 = lesson.quiz.find((q) => q.id === 'q4')!;
+    const text = `${q4.options[q4.answer]} ${q4.explanation}`;
+    expect(text).toContain(`${lastAck(values('queue', 1, 'off'))} ms`);
+    expect(text).toContain(`${lastAck(values('queue', 3, 'off'))} ms`);
+    expect(text).not.toMatch(/three times/);
+  });
+});

@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Role, ServicesView } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
-import { chooseOrientation, HEADER, layoutServices, linkEnds, MARGIN, NARROW_WIDTH, stackMessages, type PlacedBox } from './servicesLayout';
+import { chooseOrientation, fitBadge, HEADER, layoutServices, linkEnds, MARGIN, NARROW_WIDTH, stackMessages, type PlacedBox } from './servicesLayout';
 import { spring } from './spring';
 
 const PILL_HEIGHT = 18;
@@ -79,15 +79,16 @@ function NodeBox({ node, box }: { node: ServicesView['nodes'][number]; box: Plac
       )}
       {(node.instances ?? []).map((instance, i) => {
         const r = box.instances[i]!;
+        const badge = fitBadge(instance.id, instance.badge, r.width);
         return (
           <g key={instance.id}>
             <RoleRect x={r.x} y={r.y} width={r.width} height={r.height} role={instance.role} radius={6} />
             <text x={r.x + 6} y={r.y + r.height / 2} dominantBaseline="central" fill={roleText(instance.role)} className="font-mono text-[11px] font-semibold">
               {instance.id}
             </text>
-            {instance.badge && instance.id.length * 6.8 + instance.badge.length * 5.6 + 18 <= r.width && (
+            {badge && (
               <text x={r.x + r.width - 6} y={r.y + r.height / 2} textAnchor="end" dominantBaseline="central" fill={roleText(instance.role)} className="font-mono text-[9px]">
-                {instance.badge}
+                {badge}
               </text>
             )}
             {instance.badge && <title>{`${instance.id}: ${instance.badge}`}</title>}

@@ -11,7 +11,8 @@ import { monolithVsMicroservicesScenario } from './scenarios/monolith-vs-microse
 import { serviceBoundariesScenario } from './scenarios/service-boundaries';
 import { serviceDiscoveryScenario } from './scenarios/service-discovery';
 import { synchronousCallsScenario } from './scenarios/synchronous-calls';
-import { client, link, service } from './scenarios/shared';
+import { broker, client, link, service } from './scenarios/shared';
+import { circuitBreakerScenario } from './scenarios/circuit-breaker';
 
 const at = (time: number): RequestSpec => ({ label: 'GET /', path: '/', to: 'api', at: time });
 
@@ -135,5 +136,43 @@ describe('call policies', () => {
         for (const kind of kinds) expect(phase1.has(kind), `${id} ${preset.label}: ${kind}`).toBe(true);
       }
     }
+  });
+});
+
+describe('call policies: review fixes', () => {
+  it('lets only the trial call decide a half-open breaker', () => {
+    // Open time 50: #6 (sent while closed) times out at 315 ms, while trial #8 is in flight and then succeeds.
+    const read = circuitBreakerScenario({ breaker: 'on', threshold: '3', openMs: '50', recovers: '300', requests: '16' });
+    if (!read.ok) throw new Error(read.why);
+    const { trace, requests } = simulate(read.value);
+    const states = trace.flatMap((e) => (e.kind === 'breaker' && e.state !== 'closed' ? [`${e.t} ${e.state}`] : []));
+    const firstHalfOpen = states.findIndex((s) => s.endsWith('half-open'));
+    expect(states.slice(firstHalfOpen + 1).some((s) => s.endsWith('open') && !s.endsWith('half-open'))).toBe(false);
+    expect(requests.slice(-3).every((r) => r.status === 'ok')).toBe(true);
+  });
+
+  it("frees a killed caller instance's slots and stops its retries", () => {
+    const policy: CallPolicy = { timeoutMs: 60, retry: { attempts: 2, backoff: 'none', baseMs: 0, jitter: false }, bulkhead: { pool: 'p', size: 1 } };
+    const result = simulate({
+      nodes: [client(), service('api', 1, [{ to: 'slow', policy }]), service('slow', 2, [], { processMs: 100 })],
+      links: [link('client', 'api'), link('api', 'slow')],
+      requests: [at(0), at(300)],
+      faults: [{ kind: 'outage', node: 'api', from: 50, until: 200, mode: 'refuse' }],
+    });
+    // api-1 is down from 50 to 200 ms: nothing it sent may be retried in that time.
+    expect(result.trace.filter((e) => e.kind === 'retry' && e.t >= 50 && e.t < 200)).toEqual([]);
+    expect(result.requests[1]!.reason).not.toBe('bulkhead full');
+  });
+
+  it('keeps running while a node is still working on a message', () => {
+    // The client gives up at 6 ms; the broker stores the message at 7 ms and it is still delivered.
+    const result = simulate({
+      nodes: [client(), broker('jobs', 1, 'queue', ['worker']), service('worker', 2)],
+      links: [link('client', 'jobs'), link('jobs', 'worker')],
+      requests: [{ label: 'POST /job', path: '/job', to: 'jobs', at: 0 }],
+      faults: [],
+      clientPolicy: { timeoutMs: 6 },
+    });
+    expect(result.deliveries).toMatchObject([{ status: 'ok' }]);
   });
 });

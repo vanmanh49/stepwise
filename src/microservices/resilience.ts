@@ -24,15 +24,23 @@ interface Breaker {
   trial: boolean;
 }
 
+export interface Caller {
+  call: CallFn;
+  /** The instance died: its attempts in flight end now, free their slots and are never retried. */
+  abandon(instance: string): void;
+}
+
 /**
  * Sends calls through their policy, once per run: each attempt passes the bulkhead, then the breaker, then goes out
  * with its timeout; failures are retried after a backoff. A call without a policy is a plain send.
  */
-export function createCaller(ctx: SimContext): CallFn {
+export function createCaller(ctx: SimContext): Caller {
   const breakers = new Map<string, Breaker>();
   const pools = new Map<string, number>();
+  /** How to drop each attempt in flight, by the instance that sent it. */
+  const inFlight = new Map<string, Set<() => void>>();
 
-  return (from, to, message, policy, done) => {
+  const call: CallFn = (from, to, message, policy, done) => {
     if (!policy) {
       ctx.send(from, to, message, (reply) => done(reply.ok ?? false, reply.reason));
       return;
@@ -55,10 +63,11 @@ export function createCaller(ctx: SimContext): CallFn {
       if (state !== 'half-open') b.trial = false;
       ctx.trace({ kind: 'breaker', caller, target, state, failures, threshold: breaker!.threshold });
     };
-    const record = (ok: boolean) => {
+    const record = (ok: boolean, trial: boolean) => {
       if (!breaker) return;
       const b = stateOf(breaker.key);
-      if (b.state === 'half-open') return moveTo(b, ok ? 'closed' : 'open', ok ? 0 : b.failures);
+      // Only the trial decides a half-open breaker; calls sent before it opened no longer count.
+      if (b.state === 'half-open') return trial ? moveTo(b, ok ? 'closed' : 'open', ok ? 0 : b.failures) : undefined;
       if (b.state !== 'closed') return;
       if (ok) {
         if (b.failures > 0) moveTo(b, 'closed', 0);
@@ -73,6 +82,8 @@ export function createCaller(ctx: SimContext): CallFn {
     };
 
     const attempt = () => {
+      // A retry that comes due after its caller died is dropped with it.
+      if (ctx.isDead(from)) return;
       let release = () => {};
       if (policy.bulkhead) {
         const { pool, size } = policy.bulkhead;
@@ -90,6 +101,7 @@ export function createCaller(ctx: SimContext): CallFn {
           ctx.trace({ kind: 'pool', caller: from, pool, used: now, size });
         };
       }
+      let trial = false;
       if (breaker) {
         const b = stateOf(breaker.key);
         if (b.state === 'open' && ctx.now - b.openedAt >= breaker.openMs) moveTo(b, 'half-open', b.failures);
@@ -97,15 +109,23 @@ export function createCaller(ctx: SimContext): CallFn {
           release();
           return shed('circuit open');
         }
-        if (b.state === 'half-open') b.trial = true;
+        if (b.state === 'half-open') b.trial = trial = true;
       }
 
       let settled = false;
+      let mine = inFlight.get(from);
+      if (!mine) inFlight.set(from, (mine = new Set()));
+      const abandon = () => {
+        settled = true;
+        release();
+      };
+      mine.add(abandon);
       const end = (ok: boolean, reason?: string) => {
         if (settled) return;
         settled = true;
+        mine.delete(abandon);
         release();
-        record(ok);
+        record(ok, trial);
         if (ok) return done(true);
         if (policy.retry && retries < policy.retry.attempts) {
           retries++;
@@ -129,5 +149,13 @@ export function createCaller(ctx: SimContext): CallFn {
       }
     };
     attempt();
+  };
+
+  return {
+    call,
+    abandon(instance) {
+      for (const drop of inFlight.get(instance) ?? []) drop();
+      inFlight.delete(instance);
+    },
   };
 }

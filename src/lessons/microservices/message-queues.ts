@@ -1,4 +1,4 @@
-import { messageQueuesCode, messageQueuesSteps } from '../../microservices/scenarios/message-queues';
+import { messageQueuesCode, messageQueuesDrainTime, messageQueuesSteps } from '../../microservices/scenarios/message-queues';
 import type { LessonContent } from '../../types/lesson';
 
 const direct = { style: 'sync', workers: '1', jobs: '6', outage: 'on' };
@@ -7,6 +7,10 @@ const queued = { ...direct, style: 'queue' };
 // The step just before the worker comes back: jobs are piled up in the queue, waiting.
 const queuedSteps = messageQueuesSteps(queued);
 const beforeBack = queuedSteps[queuedSteps.findIndex((s) => s.title === 'worker is back') - 1]!;
+
+// When the last job is done with one worker and with three, read from the runs.
+const oneWorker = messageQueuesDrainTime({ ...queued, outage: 'off' });
+const threeWorkers = messageQueuesDrainTime({ ...queued, outage: 'off', workers: '3' });
 
 const content: LessonContent = {
   overview:
@@ -21,7 +25,7 @@ const content: LessonContent = {
     'The client sends POST /resize every 20 ms. A worker takes 60 ms per job, so jobs arrive faster than one worker can finish them.',
     'Style sync calls the worker directly. Style queue sends each job to the jobs broker, which stores it and hands it to a free worker instance.',
     'With the outage on, the worker refuses connections from 30 ms to 230 ms. The broker retries a failed delivery after 50 ms.',
-    'The rows under the table track each job in the queue, and "waiting" counts the jobs stored but not yet handed out.',
+    'In the table, each job has a row for the client\'s request and one for its delivery from the queue. "waiting" counts the jobs stored but not yet handed out.',
   ],
   visualization: {
     kind: 'form',
@@ -89,9 +93,9 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'One worker takes 60 ms per job, and a job arrives every 20 ms. What does a second and third worker change?',
-      options: ['Each job still goes to one worker, and the queue drains about three times faster', 'Every worker processes every job', 'Jobs are stored faster', 'Nothing: the queue sends to one worker only'],
+      options: ['Each job still goes to one worker, and the queue drains sooner', 'Every worker processes every job', 'Jobs are stored faster', 'Nothing: the queue sends to one worker only'],
       answer: 0,
-      explanation: 'Workers compete for jobs. Each job goes to exactly one free worker, so more workers finish the same jobs sooner.',
+      explanation: `Workers compete for jobs, and each job goes to exactly one free worker. In this run the last job is done at ${threeWorkers} ms with three workers, instead of ${oneWorker} ms with one.`,
     },
   ],
   summary: [

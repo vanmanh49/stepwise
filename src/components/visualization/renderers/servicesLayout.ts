@@ -105,6 +105,15 @@ export function linkEnds(from: Rect, to: Rect): { x1: number; y1: number; x2: nu
   };
 }
 
+/** An instance row's badge as it fits beside the name: whole, cut to its first word ("2 waiting" → "2"), or not at all. */
+export function fitBadge(id: string, badge: string | undefined, width: number): string | undefined {
+  if (!badge) return undefined;
+  const fits = (text: string) => id.length * 6.8 + text.length * 5.6 + 18 <= width;
+  if (fits(badge)) return badge;
+  const first = badge.split(' ')[0]!;
+  return fits(first) ? first : undefined;
+}
+
 export type StackedPill = ServicesView['messages'][number] & { slot: number };
 
 /** How close two messages on one link may be, in progress, before their pills would overlap. */

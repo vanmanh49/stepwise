@@ -2,6 +2,7 @@ import { readChoice, readInt, type Read } from '../../algorithms/form';
 import type { Step } from '../../types/visualization';
 import type { Scenario, TraceEvent } from '../model';
 import type { StepOptions } from '../steps';
+import { simulate } from '../sim';
 import { broker, client, link, scenarioSteps, service } from './shared';
 
 export const messageQueuesCode = `// Producer: hand the job over and move on
@@ -73,6 +74,13 @@ export function queueDepths(trace: TraceEvent[]): { t: number; waiting: number }
     else return [];
     return [{ t: e.t, waiting }];
   });
+}
+
+/** When the last job is acked: how long the queue takes to drain. */
+export function messageQueuesDrainTime(values: Record<string, string>): number {
+  const scenario = messageQueuesScenario(values);
+  if (!scenario.ok) return 0;
+  return Math.max(0, ...simulate(scenario.value).trace.flatMap((e) => (e.kind === 'delivered' ? [e.t] : [])));
 }
 
 export function messageQueuesSteps(values: Record<string, string>): Step[] {

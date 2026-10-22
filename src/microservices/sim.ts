@@ -66,7 +66,7 @@ export function simulate(input: Scenario): SimResult {
   const requests = new Map<string, OpenRequest>();
   const awaiting = new Map<string, (reply: Message) => void>();
   const cancelled = new Set<string>();
-  /** Messages on the wire that carry work (not heartbeats, probes or lookups), so the run waits for late answers. */
+  /** Work not yet answered (requests, queries, deliveries until their reply is sent) and replies still on the wire, so the run waits for late answers. */
   const working = new Set<string>();
   const dead = new Set<string>();
   const down = new Set<string>();
@@ -127,6 +127,7 @@ export function simulate(input: Scenario): SimResult {
         ...(reason !== undefined && { reason }),
         ...(result && { result }),
       };
+      working.delete(to.id);
       if (to.kind === 'request' || to.kind === 'query' || to.kind === 'deliver') working.add(message.id);
       ctx.trace({ kind: 'send', message });
       ctx.at(message.arrives, () => deliver(message));
@@ -141,7 +142,7 @@ export function simulate(input: Scenario): SimResult {
       awaiting.delete(message.id);
       cancelled.add(message.id);
     },
-    call: (from, to, message, policy, done) => caller(from, to, message, policy, done),
+    call: (from, to, message, policy, done) => caller.call(from, to, message, policy, done),
     at: (time, run) => queue.push(time, run),
     trace: (event) => {
       const stamped = { t: now, ...event } as TraceEvent;
@@ -186,6 +187,7 @@ export function simulate(input: Scenario): SimResult {
 
   function kill(instance: string, crashed?: Message) {
     dead.add(instance);
+    caller.abandon(instance);
     for (const job of jobs.get(instance) ?? []) {
       aborted.add(job);
       const reason = `${instance} ${job === crashed ? 'crashed' : 'stopped'}`;
@@ -204,7 +206,7 @@ export function simulate(input: Scenario): SimResult {
     const lose = scenario.faults.find(
       (f) => f.kind === 'lose-reply' && message.kind === 'reply' && ownerOf(message.from) === f.node && message.request === f.request && !lostReplies.has(f),
     );
-    working.delete(message.id);
+    if (message.kind === 'reply') working.delete(message.id);
     if (lose) {
       lostReplies.add(lose);
       ctx.trace({ kind: 'lost', message });
