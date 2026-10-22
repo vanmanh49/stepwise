@@ -16,6 +16,8 @@ export interface Instance {
 export interface Call {
   to: string;
   columns?: string[];
+  /** Made only for requests whose path starts with this prefix. */
+  when?: string;
 }
 
 interface NodeBase {
@@ -31,7 +33,7 @@ export type NodeSpec = NodeBase &
     | { type: 'gateway'; processMs: number; routes: { prefix: string; to: string }[]; requireToken: boolean }
     | { type: 'registry'; processMs: number; heartbeatMs: number; ttlMs: number; serves: string[] }
     | { type: 'balancer'; processMs: number; target: string; strategy: Strategy; healthCheckMs?: number }
-    | { type: 'service'; instances: Instance[]; calls: Call[]; parallel: boolean }
+    | { type: 'service'; instances: Instance[]; calls: Call[]; parallel: boolean; dedupe?: boolean }
     | { type: 'db'; processMs: number; columns: string[] }
   );
 
@@ -59,7 +61,11 @@ export type Fault =
   /** The instance that handles a request whose path starts with `prefix` crashes, as a bug would make it. */
   | { kind: 'crash-on'; node: string; prefix: string }
   /** The owner service's own queries are updated; everyone else's are not. */
-  | { kind: 'rename-column'; node: string; from: string; to: string; at: number; owner: string };
+  | { kind: 'rename-column'; node: string; from: string; to: string; at: number; owner: string }
+  /** Every instance of a service refuses connections (`refuse`) or accepts and never answers (`hang`) between from and until. */
+  | { kind: 'outage'; node: string; from: number; until: number; mode: 'refuse' | 'hang' }
+  /** The first reply `node` sends for `request` is lost on the network. */
+  | { kind: 'lose-reply'; node: string; request: string };
 
 export interface Scenario {
   nodes: NodeSpec[];
@@ -107,6 +113,9 @@ export type TraceEvent = { t: number } & (
   | { kind: 'reject'; gateway: string; request: string; status: 401 | 404 }
   | { kind: 'mark'; balancer: string; instance: string; healthy: boolean }
   | { kind: 'fault'; fault: Fault }
+  | { kind: 'recover'; node: string }
+  | { kind: 'lost'; message: Message }
+  | { kind: 'duplicate'; node: string; instance: string; request: string; status: 'replayed' | 'in progress' }
   | { kind: 'done'; request: string; ok: boolean; ms: number; reason?: string }
 );
 

@@ -51,6 +51,10 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   const owner = new Map<string, string>();
   for (const n of scenario.nodes) if (n.type === 'service') for (const i of n.instances) owner.set(i.id, n.id);
   const ownerOf = (id: string) => owner.get(id) ?? id;
+  const instancesOf = (service: string) => {
+    const n = nodes.get(service);
+    return n?.type === 'service' ? n.instances.map((i) => i.id) : [];
+  };
   const name = (id: string) => {
     const type = nodes.get(id)?.type;
     return type === 'client' || type === 'gateway' || type === 'registry' || type === 'balancer' ? `the ${id}` : id;
@@ -65,6 +69,8 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   const handling = new Map<string, Set<string>>();
   const handled = new Set<string>();
   const inFlight = new Map<string, Message>();
+  /** Replies the network dropped: drawn as failed on the step they vanish. */
+  const lost = new Set<string>();
   const arrived = new Set<string>();
   const probes = new Set<string>();
   const lastBeat = new Map<string, number>();
@@ -112,6 +118,16 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         break;
       case 'fault':
         if (event.fault.kind === 'kill') dead.add(event.fault.instance);
+        if (event.fault.kind === 'outage' && event.fault.mode === 'refuse') for (const id of instancesOf(event.fault.node)) dead.add(id);
+        break;
+      case 'recover': {
+        const outage = scenario.faults.find((f) => f.kind === 'outage' && f.node === event.node);
+        if (outage?.kind === 'outage' && outage.mode === 'refuse') for (const id of instancesOf(event.node)) dead.delete(id);
+        break;
+      }
+      case 'lost':
+        arrived.add(event.message.id);
+        lost.add(event.message.id);
         break;
       case 'fail':
         if (owner.has(event.at) && /(crashed|stopped)$/.test(event.reason)) {
@@ -165,6 +181,11 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         return { node: event.registry };
       case 'done':
         return { node: scenario.nodes.find((n) => n.type === 'client')?.id };
+      case 'recover':
+      case 'duplicate':
+        return { node: event.node };
+      case 'lost':
+        return { node: ownerOf(event.message.to) };
       default:
         return {};
     }
@@ -201,7 +222,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
     const messages = [...inFlight.values()].map((m) => {
       const span = m.arrives - m.departs;
       const progress = arrived.has(m.id) ? 1 : span === 0 ? 1 : Math.min(1, Math.max(0, (now - m.departs) / span));
-      const role: Role = m.kind === 'reply' ? (m.ok ? 'found' : 'discarded') : 'frontier';
+      const role: Role = lost.has(m.id) ? 'discarded' : m.kind === 'reply' ? (m.ok ? 'found' : 'discarded') : 'frontier';
       return { id: m.id, from: ownerOf(m.from), to: ownerOf(m.to), label: m.label, role, progress };
     });
     const busy = new Set(messages.map((m) => [m.from, m.to].toSorted().join(' ')));
@@ -286,8 +307,24 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         if (f.kind === 'slow') return { title: `${f.instance} slows down`, why: `From now on, each request takes ${f.processMs} ms on ${f.instance}.` };
         if (f.kind === 'down') return { title: `${f.node} goes down`, why: `Every query to ${f.node} fails until it comes back.` };
         if (f.kind === 'crash-on') return { title: `A bug crashes ${f.node}`, why: `Handling a ${f.prefix} request hits the bug, and the whole process dies.` };
+        if (f.kind === 'outage') {
+          return f.mode === 'refuse'
+            ? { title: `${f.node} stops answering`, why: `Every ${f.node} instance refuses connections until ${f.until} ms. Work in progress is lost.` }
+            : { title: `${f.node} hangs`, why: `Until ${f.until} ms, ${f.node} accepts requests but never answers them.` };
+        }
+        if (f.kind === 'lose-reply') return { title: `The network will drop a reply from ${f.node}`, why: `The first answer ${f.node} sends for ${f.request} never arrives.` };
         return { title: `${f.owner} renames ${f.from} to ${f.to}`, why: `The ${f.owner} team changes its table and updates its own queries. Nobody else knows.` };
       }
+      case 'recover':
+        return { title: `${event.node} is back`, why: `${event.node} accepts connections and answers again.` };
+      case 'lost': {
+        const m = event.message;
+        return { title: `The reply to ${m.request ?? m.label} is lost on the way`, why: `${m.from} did the work and answered, but the network dropped the answer. ${name(m.to)} is still waiting.` };
+      }
+      case 'duplicate':
+        return event.status === 'replayed'
+          ? { title: `${event.instance} has already handled ${event.request}, so it returns the saved result`, why: `It remembers the result for each request id, so the work is not done twice.` }
+          : { title: `${event.instance} is still working on ${event.request}, so it turns the repeat away`, why: 'The first copy is still running. Doing the work again could do it twice.' };
       case 'done':
         return event.ok
           ? { title: `${event.request} succeeds after ${event.ms} ms`, why: `The answer is back at the client, ${event.ms} ms after it was sent.` }

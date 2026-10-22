@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { deepFreeze } from '../data-structures/random.testutil';
-import type { Fault, NodeSpec, RequestSpec, Scenario } from './model';
+import type { Fault, NodeSpec, RequestSpec, Scenario, SimResult } from './model';
+import * as shared from './scenarios/shared';
 import { EventQueue } from './queue';
 import { simulate } from './sim';
 
@@ -150,5 +151,67 @@ describe('simulate', () => {
 
   it('gives the same trace for the same scenario', () => {
     expect(simulate(fanOut())).toEqual(simulate(fanOut()));
+  });
+});
+
+describe('simulate: phase 2 faults and service options', () => {
+  const api = (extra: Partial<Extract<NodeSpec, { type: 'service' }>> = {}, processMs = 10): NodeSpec => ({ ...shared.service('api', 1, [], { processMs }), ...extra }) as NodeSpec;
+  const scenario = (nodes: NodeSpec[], requests: RequestSpec[], faults: Fault[] = []): Scenario => ({
+    nodes: [shared.client(), ...nodes],
+    links: [shared.link('client', 'api')],
+    requests,
+    faults,
+  });
+  const at = (time: number, path = '/'): RequestSpec => ({ label: `GET ${path}`, path, to: 'api', at: time });
+
+  it('stops work in progress during a refuse outage and recovers at until', () => {
+    const result = simulate(scenario([api({}, 30)], [at(0), at(40), at(120)], [{ kind: 'outage', node: 'api', from: 20, until: 100, mode: 'refuse' }]));
+    expect(result.requests.map((r) => [r.status, r.reason])).toEqual([
+      ['failed', 'api-1 stopped'],
+      ['failed', 'api-1 refused the connection'],
+      ['ok', undefined],
+    ]);
+    expect(result.trace.find((e) => e.kind === 'recover')).toMatchObject({ t: 100, node: 'api' });
+  });
+
+  it('never answers a request that arrives during a hang', () => {
+    const result = simulate(scenario([api()], [at(0), at(60)], [{ kind: 'outage', node: 'api', from: 0, until: 50, mode: 'hang' }]));
+    expect(result.requests.map((r) => r.status)).toEqual(['failed', 'ok']);
+    expect(result.requests[0]!.reason).toBe('no reply by 10,000 ms');
+  });
+
+  it('loses the first reply a node sends for the named request', () => {
+    const result = simulate(scenario([api()], [at(0), at(50)], [{ kind: 'lose-reply', node: 'api', request: '#2' }]));
+    const lost = result.trace.filter((e) => e.kind === 'lost');
+    expect(lost).toHaveLength(1);
+    expect(lost[0]).toMatchObject({ t: 70, message: { from: 'api-1', request: '#2' } });
+    expect(result.requests.map((r) => r.status)).toEqual(['ok', 'failed']);
+  });
+
+  it('replays a finished request and refuses one still in progress when dedupe is on', () => {
+    const run = (parallel: boolean) =>
+      simulate({
+        nodes: [shared.client(), shared.service('s1', 1, ['api', 'api'], { parallel }), shared.service('api', 2, [], { dedupe: true })],
+        links: [shared.link('client', 's1'), shared.link('s1', 'api')],
+        requests: [{ label: 'GET /', path: '/', to: 's1', at: 0 }],
+        faults: [],
+      });
+    const sequential = run(false);
+    const parallel = run(true);
+    const statuses = (r: SimResult) => r.trace.flatMap((e) => (e.kind === 'duplicate' ? [e.status] : []));
+    expect(statuses(sequential)).toEqual(['replayed']);
+    expect(sequential.requests[0]!.status).toBe('ok');
+    expect(statuses(parallel)).toEqual(['in progress']);
+    expect(parallel.requests[0]).toMatchObject({ status: 'failed', reason: 'already in progress' });
+  });
+
+  it('skips calls whose path does not match when', () => {
+    const result = simulate({
+      nodes: [shared.client(), shared.service('api', 1, [{ to: 'a', when: '/a' }, { to: 'b', when: '/b' }]), shared.service('a', 2), shared.service('b', 2)],
+      links: [shared.link('client', 'api'), shared.link('api', 'a'), shared.link('api', 'b')],
+      requests: [at(0, '/b/x')],
+      faults: [],
+    });
+    expect(result.requests[0]!.hops).toEqual(['client', 'api-1', 'b-1']);
   });
 });

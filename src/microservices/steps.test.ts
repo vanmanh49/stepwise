@@ -3,6 +3,7 @@ import type { ServicesView, Step } from '../types/visualization';
 import { lineOf } from '../data-structures/shared';
 import { MAX_STEPS, type NodeSpec, type Scenario } from './model';
 import { simulate } from './sim';
+import * as shared from './scenarios/shared';
 import { emptyServicesView, traceSteps, type StepOptions } from './steps';
 
 const code = `function handle(req) {
@@ -135,5 +136,45 @@ describe('traceSteps', () => {
 
   it('starts from an empty view for refusals', () => {
     expect(emptyServicesView()).toEqual({ kind: 'services', nodes: [], links: [], messages: [], requests: [], log: [] });
+  });
+});
+
+describe('traceSteps: phase 2 faults and service options', () => {
+  const at = (time: number): Scenario['requests'][number] => ({ label: 'GET /', path: '/', to: 'api', at: time });
+  const single = (faults: Scenario['faults'], requests = [at(0), at(40), at(120)], processMs = 30): Scenario => ({
+    nodes: [shared.client(), shared.service('api', 1, [], { processMs })],
+    links: [shared.link('client', 'api')],
+    requests,
+    faults,
+  });
+  const titles = (s: Scenario) => run(s).map((step) => step.title);
+
+  it('narrates a refuse outage and marks the instances dead until they recover', () => {
+    const steps = run(single([{ kind: 'outage', node: 'api', from: 20, until: 100, mode: 'refuse' }]));
+    const stops = steps.findIndex((s) => s.title === 'api stops answering');
+    const back = steps.findIndex((s) => s.title === 'api is back');
+    expect(stops).toBeGreaterThanOrEqual(0);
+    expect(back).toBeGreaterThan(stops);
+    for (const step of steps.slice(stops, back)) expect(view(step).nodes.find((n) => n.id === 'api')!.instances![0]!.role).toBe('discarded');
+    expect(view(steps[back]!).nodes.find((n) => n.id === 'api')!.instances![0]!.role).not.toBe('discarded');
+  });
+
+  it('narrates a hang', () => {
+    expect(titles(single([{ kind: 'outage', node: 'api', from: 0, until: 50, mode: 'hang' }], [at(0), at(60)], 10))).toContain('api hangs');
+  });
+
+  it('narrates a lost reply', () => {
+    expect(titles(single([{ kind: 'lose-reply', node: 'api', request: '#2' }], [at(0), at(50)], 10))).toContain('The reply to #2 is lost on the way');
+  });
+
+  it('narrates replayed and refused duplicates', () => {
+    const dedupe = (parallel: boolean): Scenario => ({
+      nodes: [shared.client(), shared.service('s1', 1, ['api', 'api'], { parallel }), shared.service('api', 2, [], { dedupe: true })],
+      links: [shared.link('client', 's1'), shared.link('s1', 'api')],
+      requests: [{ label: 'GET /', path: '/', to: 's1', at: 0 }],
+      faults: [],
+    });
+    expect(titles(dedupe(false))).toContain('api-1 has already handled #1, so it returns the saved result');
+    expect(titles(dedupe(true))).toContain('api-1 is still working on #1, so it turns the repeat away');
   });
 });

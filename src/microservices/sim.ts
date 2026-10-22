@@ -1,4 +1,4 @@
-import { MAX_TIME, type Call, type Message, type NodeSpec, type NodeType, type RequestOutcome, type Scenario, type SimResult, type TraceEvent } from './model';
+import { MAX_TIME, type Call, type Fault, type Message, type NodeSpec, type NodeType, type RequestOutcome, type Scenario, type SimResult, type TraceEvent } from './model';
 import { balancer, createDiscovery, gateway, registry } from './behaviours';
 import { EventQueue } from './queue';
 
@@ -146,7 +146,20 @@ export function simulate(input: Scenario): SimResult {
     jobs.delete(instance);
   }
 
+  /** lose-reply faults whose reply has already been dropped. */
+  const lostReplies = new Set<Fault>();
+  const hanging = (service: string) =>
+    scenario.faults.some((f) => f.kind === 'outage' && f.mode === 'hang' && f.node === service && f.from <= now && now < f.until);
+
   function deliver(message: Message) {
+    const lose = scenario.faults.find(
+      (f) => f.kind === 'lose-reply' && message.kind === 'reply' && ownerOf(message.from) === f.node && message.request === f.request && !lostReplies.has(f),
+    );
+    if (lose) {
+      lostReplies.add(lose);
+      ctx.trace({ kind: 'lost', message });
+      return;
+    }
     ctx.trace({ kind: 'arrive', message });
     const isInstance = owner.has(message.to);
     if (isInstance && dead.has(message.to)) {
@@ -170,11 +183,35 @@ export function simulate(input: Scenario): SimResult {
     receivers.get(ownerOf(message.to))?.(message);
   }
 
-  const serviceBehaviour: Behaviour = (_ctx, node) => (message) => {
-    if (node.type !== 'service') return;
+  const serviceBehaviour: Behaviour = (_ctx, node) => {
+    if (node.type !== 'service') return () => {};
+    /** With dedupe: the result of each finished request, and the job of each one still running. */
+    const finished = new Map<string, { ok: boolean; reason?: string }>();
+    const running = new Map<string, Message>();
+    return (message) => handle(node, message, finished, running);
+  };
+
+  function handle(node: Extract<NodeSpec, { type: 'service' }>, message: Message, finished: Map<string, { ok: boolean; reason?: string }>, running: Map<string, Message>) {
     const instance = message.to;
+    if (hanging(node.id)) {
+      if (message.request) ctx.trace({ kind: 'handle', node: node.id, instance, request: message.request });
+      return;
+    }
     if (message.kind === 'probe') return ctx.reply(message, true);
     const request = message.request!;
+    if (node.dedupe) {
+      const saved = finished.get(request);
+      if (saved) {
+        ctx.trace({ kind: 'duplicate', node: node.id, instance, request, status: 'replayed' });
+        return ctx.reply(message, saved.ok, saved.reason);
+      }
+      const first = running.get(request);
+      if (first && !aborted.has(first)) {
+        ctx.trace({ kind: 'duplicate', node: node.id, instance, request, status: 'in progress' });
+        return ctx.reply(message, false, 'already in progress');
+      }
+      running.set(request, message);
+    }
     ctx.trace({ kind: 'handle', node: node.id, instance, request });
     let active = jobs.get(instance);
     if (!active) jobs.set(instance, (active = new Set()));
@@ -188,8 +225,14 @@ export function simulate(input: Scenario): SimResult {
     const finish = (ok: boolean, reason?: string) => {
       if (aborted.has(message)) return;
       jobs.get(instance)?.delete(message);
+      if (node.dedupe) {
+        running.delete(request);
+        finished.set(request, { ok, ...(reason !== undefined && { reason }) });
+      }
       ctx.reply(message, ok, reason);
     };
+    const path = requests.get(request)!.path;
+    const calls = node.calls.filter((c) => c.when === undefined || path.startsWith(c.when));
     const call = (target: Call, then: (reply: Message) => void) => {
       const to = nodes.get(target.to)!;
       countCrossService(instance, target.to, request);
@@ -204,10 +247,10 @@ export function simulate(input: Scenario): SimResult {
     };
     ctx.at(now + processMs.get(instance)!, () => {
       if (aborted.has(message)) return;
-      if (node.parallel && node.calls.length > 0) {
-        let left = node.calls.length;
+      if (node.parallel && calls.length > 0) {
+        let left = calls.length;
         let failed = false;
-        for (const target of node.calls) {
+        for (const target of calls) {
           call(target, (reply) => {
             if (failed || aborted.has(message)) return;
             if (!reply.ok) {
@@ -219,13 +262,13 @@ export function simulate(input: Scenario): SimResult {
         return;
       }
       const next = (index: number) => {
-        const target = node.calls[index];
+        const target = calls[index];
         if (!target) return finish(true);
         call(target, (reply) => (reply.ok ? next(index + 1) : finish(false, reply.reason)));
       };
       next(0);
     });
-  };
+  }
 
   const dbBehaviour: Behaviour = (_ctx, node) => (message) => {
     if (node.type !== 'db') return;
@@ -248,6 +291,17 @@ export function simulate(input: Scenario): SimResult {
     if (fault.kind === 'kill') ctx.at(fault.at, () => (ctx.trace({ kind: 'fault', fault }), kill(fault.instance)));
     if (fault.kind === 'slow') ctx.at(fault.from, () => (ctx.trace({ kind: 'fault', fault }), processMs.set(fault.instance, fault.processMs)));
     if (fault.kind === 'down') ctx.at(fault.at, () => (ctx.trace({ kind: 'fault', fault }), down.add(fault.node)));
+    if (fault.kind === 'outage') {
+      const instances = () => ctx.instancesOf(fault.node);
+      ctx.at(fault.from, () => {
+        ctx.trace({ kind: 'fault', fault });
+        if (fault.mode === 'refuse') for (const instance of instances()) kill(instance);
+      });
+      ctx.at(fault.until, () => {
+        if (fault.mode === 'refuse') for (const instance of instances()) dead.delete(instance);
+        ctx.trace({ kind: 'recover', node: fault.node });
+      });
+    }
     if (fault.kind === 'rename-column') {
       ctx.at(fault.at, () => {
         ctx.trace({ kind: 'fault', fault });

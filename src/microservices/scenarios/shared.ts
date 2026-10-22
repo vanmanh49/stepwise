@@ -12,8 +12,8 @@ export const DB_MS = 3;
 
 export const client = (extra: Partial<Extract<NodeSpec, { type: 'client' }>> = {}): NodeSpec => ({ id: 'client', label: 'client', type: 'client', column: 0, ...extra });
 
-export function service(id: string, column: number, calls: (string | Call)[] = [], options: { count?: number; processMs?: number; parallel?: boolean } = {}): NodeSpec {
-  const { count = 1, processMs = INSTANCE_MS, parallel = false } = options;
+export function service(id: string, column: number, calls: (string | Call)[] = [], options: { count?: number; processMs?: number; parallel?: boolean; dedupe?: boolean } = {}): NodeSpec {
+  const { count = 1, processMs = INSTANCE_MS, parallel = false, dedupe } = options;
   return {
     id,
     label: id,
@@ -22,6 +22,7 @@ export function service(id: string, column: number, calls: (string | Call)[] = [
     instances: Array.from({ length: count }, (_, i) => ({ id: `${id}-${i + 1}`, processMs })),
     calls: calls.map((c) => (typeof c === 'string' ? { to: c } : c)),
     parallel,
+    ...(dedupe && { dedupe }),
   };
 }
 
