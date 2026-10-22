@@ -39,6 +39,8 @@ export interface RateLimit {
 export interface Instance {
   id: string;
   processMs: number;
+  /** "v1", "v2": the release it runs. */
+  version?: string;
 }
 
 /**
@@ -63,6 +65,10 @@ export interface Call {
   label?: string;
   /** For a call to a db: what the query does with its records. */
   data?: DataOp;
+  /** The path this call sends, e.g. "/refund"; the callee's `when` checks it. The request's path otherwise. */
+  path?: string;
+  /** In a sequential service: the call that undoes this one when a later call fails (a saga step's compensation). */
+  compensate?: Call;
 }
 
 interface NodeBase {
@@ -117,7 +123,11 @@ export type Fault =
   /** Every instance of a service refuses connections (`refuse`) or accepts and never answers (`hang`) between from and until. */
   | { kind: 'outage'; node: string; from: number; until: number; mode: 'refuse' | 'hang' }
   /** The first reply `node` sends for `request` is lost on the network. */
-  | { kind: 'lose-reply'; node: string; request: string };
+  | { kind: 'lose-reply'; node: string; request: string }
+  /** `node` (a service or one instance) answers with `reason` instead of working, with chance `rate`; `version`, `request` and `from` narrow it. */
+  | { kind: 'errors'; node: string; rate: number; reason: string; version?: string; request?: string; from?: number }
+  /** The gateway's route for `prefix` points at `to` from `at` on (added when missing). */
+  | { kind: 'reroute'; gateway: string; at: number; prefix: string; to: string };
 
 export interface Scenario {
   nodes: NodeSpec[];
@@ -155,6 +165,8 @@ export interface Message {
   result?: string[];
   /** Deliver messages only: "#3/email". */
   delivery?: string;
+  /** A call's own path ("/refund"), checked by the callee's `when`. */
+  path?: string;
   /** Replies only: the value a read found, passed back up the chain. */
   value?: string;
 }
@@ -163,7 +175,9 @@ export type TraceEvent = { t: number } & (
   | { kind: 'send'; message: Message }
   | { kind: 'arrive'; message: Message }
   | { kind: 'handle'; node: string; instance?: string; request: string }
-  | { kind: 'fail'; at: string; request?: string; reason: string }
+  /** error: the instance answered with an error (an `errors` fault) rather than breaking. */
+  | { kind: 'fail'; at: string; request?: string; reason: string; error?: boolean }
+  | { kind: 'compensate'; node: string; instance: string; request: string; target: string; path?: string }
   | { kind: 'register' | 'heartbeat' | 'evict'; registry: string; instance: string }
   | { kind: 'lookup'; registry: string; service: string; result: string[] }
   | { kind: 'pick'; balancer: string; instance: string; strategy: Strategy; inFlight: Record<string, number> }

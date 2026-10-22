@@ -369,3 +369,38 @@ describe('traceSteps: records and values', () => {
     expect(row!.badge.endsWith('…')).toBe(true);
   });
 });
+
+describe('traceSteps: saga, errors and reroute', () => {
+  const sagaScenario: Scenario = {
+    nodes: [
+      shared.client(),
+      shared.service('orders', 1, [
+        { to: 'payments', path: '/pay', compensate: { to: 'payments', path: '/refund' } },
+        { to: 'inventory', path: '/reserve' },
+      ]),
+      shared.service('payments', 2),
+      shared.service('inventory', 2),
+    ],
+    links: [shared.link('client', 'orders'), shared.link('orders', 'payments'), shared.link('orders', 'inventory')],
+    requests: [{ label: 'POST /orders', path: '/orders', to: 'orders', at: 0 }],
+    faults: [{ kind: 'errors', node: 'inventory', rate: 1, reason: 'out of stock' }],
+  };
+
+  it('narrates a compensation and an error answer', () => {
+    const titles = run(sagaScenario).map((s) => s.title);
+    expect(titles).toContain('orders undoes payments for #1: /refund');
+    expect(titles).toContain('inventory-1 fails #1: out of stock');
+  });
+
+  it('narrates a route change', () => {
+    const s: Scenario = {
+      nodes: [shared.client(), shared.gateway([{ prefix: '/orders', to: 'orders' }]), shared.service('orders', 2), shared.service('monolith', 2)],
+      links: [shared.link('client', 'gateway'), shared.link('gateway', 'orders'), shared.link('gateway', 'monolith')],
+      requests: [{ label: 'GET /orders', path: '/orders', to: 'gateway', at: 150 }],
+      faults: [{ kind: 'reroute', gateway: 'gateway', at: 100, prefix: '/orders', to: 'monolith' }],
+    };
+    const steps = run(s);
+    expect(steps.map((x) => x.title)).toContain('The gateway now sends /orders to monolith');
+    expect(steps.find((x) => x.title.startsWith('The gateway routes'))!.why).toContain('monolith');
+  });
+});

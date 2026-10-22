@@ -209,3 +209,28 @@ describe('rate limiting', () => {
     expect(result.trace.find((e) => e.kind === 'reject')).toMatchObject({ status: 429, request: '#2' });
   });
 });
+
+describe('gateway reroute', () => {
+  it('points a route at another service from its time on', () => {
+    const s: Scenario = {
+      nodes: [client, shared.gateway([{ prefix: '/orders', to: 'orders' }]), shared.service('orders', 2), shared.service('monolith', 2)],
+      links: [shared.link('client', 'gateway'), shared.link('gateway', 'orders'), shared.link('gateway', 'monolith')],
+      requests: [0, 150].map((at) => ({ label: 'GET /orders', path: '/orders', to: 'gateway', at })),
+      faults: [{ kind: 'reroute', gateway: 'gateway', at: 100, prefix: '/orders', to: 'monolith' }],
+    };
+    const [before, after] = simulate(s).requests;
+    expect(before!.hops).toContain('orders-1');
+    expect(after!.hops).toContain('monolith-1');
+    expect(after!.status).toBe('ok');
+  });
+
+  it('adds a route that did not exist', () => {
+    const s: Scenario = {
+      nodes: [client, shared.gateway([]), shared.service('monolith', 2)],
+      links: [shared.link('client', 'gateway'), shared.link('gateway', 'monolith')],
+      requests: [0, 150].map((at) => ({ label: 'GET /x', path: '/x', to: 'gateway', at })),
+      faults: [{ kind: 'reroute', gateway: 'gateway', at: 100, prefix: '/', to: 'monolith' }],
+    };
+    expect(simulate(s).requests.map((r) => r.status)).toEqual(['failed', 'ok']);
+  });
+});

@@ -121,6 +121,8 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   const balancerLoad = new Map<string, number>();
   const requests = new Map<string, ServicesView['requests'][number] & { hopList: { id: string; t: number }[]; tries: number }>();
   const labels = new Map(scenario.requests.map((r, i) => [`#${i + 1}`, r.label]));
+  /** Each gateway's routes as they are now, after any reroute. */
+  const routes = new Map(scenario.nodes.flatMap((n) => (n.type === 'gateway' ? [[n.id, n.routes.map((r) => ({ ...r }))] as const] : [])));
   const log: string[] = [];
   let now = 0;
 
@@ -168,6 +170,13 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         }
         break;
       case 'fault':
+        if (event.fault.kind === 'reroute') {
+          const { gateway, prefix, to } = event.fault;
+          const table = routes.get(gateway);
+          const route = table?.find((r) => r.prefix === prefix);
+          if (route) route.to = to;
+          else table?.push({ prefix, to });
+        }
         if (event.fault.kind === 'kill') dead.add(event.fault.instance);
         if (event.fault.kind === 'outage' && event.fault.mode === 'refuse') for (const id of instancesOf(event.fault.node)) dead.add(id);
         break;
@@ -290,6 +299,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         return { node: scenario.nodes.find((n) => n.type === 'client')?.id };
       case 'recover':
       case 'duplicate':
+      case 'compensate':
         return { node: event.node };
       case 'write':
       case 'read':
@@ -418,6 +428,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       case 'handle':
         return { title: `${event.instance ?? name(event.node)} starts on ${event.request}`, why: `${event.instance ?? name(event.node)} is now working on ${event.request}.` };
       case 'fail':
+        if (event.error) return { title: `${event.at} fails ${event.request ?? 'the request'}: ${event.reason}`, why: `${event.at} did the work but answers with an error instead of a result.` };
         if (event.reason.endsWith('its reply is lost')) {
           return { title: `A reply to ${event.at} is lost`, why: `${event.at} died while it was waiting for this answer, so the work done for ${event.request ?? 'it'} is wasted.` };
         }
@@ -449,9 +460,8 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         return { title: `${capitalise(name(event.balancer))} picks ${event.instance} (${STRATEGY[event.strategy]})`, why };
       }
       case 'route': {
-        const gateway = nodes.get(event.gateway);
         const path = scenario.requests[Number(event.request.slice(1)) - 1]?.path ?? '';
-        const prefix = gateway?.type === 'gateway' ? gateway.routes.find((r) => r.to === event.to)?.prefix : undefined;
+        const prefix = (routes.get(event.gateway) ?? []).filter((r) => r.to === event.to && path.startsWith(r.prefix)).toSorted((a, b) => b.prefix.length - a.prefix.length)[0]?.prefix;
         return { title: `${capitalise(name(event.gateway))} routes ${event.request} to ${event.to}`, why: `The path ${path} starts with ${prefix ?? 'its route'}, which belongs to ${event.to}.` };
       }
       case 'limit': {
@@ -495,6 +505,10 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
             : { title: `${f.node} hangs`, why: `Until ${f.until} ms, ${f.node} accepts requests but never answers them.` };
         }
         if (f.kind === 'lose-reply') return { title: `The network will drop a reply from ${f.node}`, why: `The first answer ${f.node} sends for ${f.request} never arrives.` };
+        if (f.kind === 'errors') return { title: `${f.node} starts failing`, why: `It answers with an error: ${f.reason}.` };
+        if (f.kind === 'reroute') {
+          return { title: `${capitalise(name(f.gateway))} now sends ${f.prefix} to ${f.to}`, why: `Only the route table changed. Clients keep using the same address.` };
+        }
         return { title: `${f.owner} renames ${f.from} to ${f.to}`, why: `The ${f.owner} team changes its table and updates its own queries. Nobody else knows.` };
       }
       case 'recover':
@@ -579,6 +593,11 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
           ? { title: `${event.consumer ?? 'A consumer'} finishes ${request}`, why: `It acks the message, so the broker removes it for good, ${event.ms} ms after it was stored.` }
           : { title: `${request} is never processed by ${queueOf(event.delivery)}`, why: `Reason: ${event.reason ?? 'unknown'}.` };
       }
+      case 'compensate':
+        return {
+          title: `${event.node} undoes ${event.target} for ${event.request}${event.path ? `: ${event.path}` : ''}`,
+          why: `A later step failed, so the steps that already succeeded are undone, newest first.`,
+        };
       case 'pool':
         return { title: `${event.caller} uses ${event.used} of ${event.size} slots in ${event.pool}`, why: 'Each call in flight holds one slot.' };
       case 'write': {

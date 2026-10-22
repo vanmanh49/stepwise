@@ -16,7 +16,7 @@ export interface SimContext {
   instancesOf(service: string): string[];
   requestInfo(id: string): { label: string; path: string; token: boolean; caller?: string; key?: string; value?: string };
   /** Sends over the link between the two owners; `onReply` runs when the answer arrives. */
-  send(from: string, to: string, message: Pick<Message, 'kind' | 'label'> & { request?: string; delivery?: string }, onReply?: (reply: Message) => void): Message;
+  send(from: string, to: string, message: Pick<Message, 'kind' | 'label'> & { request?: string; delivery?: string; path?: string }, onReply?: (reply: Message) => void): Message;
   reply(to: Message, ok: boolean, reason?: string, result?: string[], value?: string): void;
   /** Stops waiting for `message`'s reply; when it comes, it is traced as late and dropped. */
   cancel(message: Message): void;
@@ -77,7 +77,14 @@ export function simulate(input: Scenario): SimResult {
   const owner = new Map<string, string>();
   for (const n of scenario.nodes) if (n.type === 'service') for (const i of n.instances) owner.set(i.id, n.id);
   const processMs = new Map<string, number>();
-  for (const n of scenario.nodes) if (n.type === 'service') for (const i of n.instances) processMs.set(i.id, i.processMs);
+  const versionOf = new Map<string, string>();
+  for (const n of scenario.nodes) {
+    if (n.type !== 'service') continue;
+    for (const i of n.instances) {
+      processMs.set(i.id, i.processMs);
+      if (i.version) versionOf.set(i.id, i.version);
+    }
+  }
 
   const queue = new EventQueue<() => void>();
   const trace: TraceEvent[] = [];
@@ -320,7 +327,7 @@ export function simulate(input: Scenario): SimResult {
       }
       ctx.reply(message, ok, reason, undefined, ok ? value : undefined);
     };
-    const path = requests.get(request)!.path;
+    const path = message.path ?? requests.get(request)!.path;
     const calls = node.calls.filter((c) => c.when === undefined || path.startsWith(c.when));
     const call = (target: Call, then: (ok: boolean, reason?: string) => void) => {
       const to = nodes.get(target.to)!;
@@ -338,11 +345,25 @@ export function simulate(input: Scenario): SimResult {
         if (target.data) queryOps.set(query.id, fillOp(target.data, { id: request, ...ctx.requestInfo(request) }));
       } else {
         const first = to.type === 'service' ? to.instances[0]!.id : to.id;
-        ctx.call(instance, first, { kind: 'request', label: `${target.label ?? requests.get(request)!.outcome.label} ${request}`, request }, target.policy, answered);
+        const label = target.label ?? target.path ?? requests.get(request)!.outcome.label;
+        ctx.call(instance, first, { kind: 'request', label: `${label} ${request}`, request, ...(target.path && { path: target.path }) }, target.policy, answered);
       }
     };
     ctx.at(now + processMs.get(instance)!, () => {
       if (aborted.has(message)) return;
+      const error = scenario.faults.find(
+        (f) =>
+          f.kind === 'errors' &&
+          (f.node === node.id || f.node === instance) &&
+          (f.version === undefined || versionOf.get(instance) === f.version) &&
+          (f.request === undefined || f.request === request) &&
+          (f.from === undefined || now >= f.from),
+      );
+      // Rates of 0 and 1 draw nothing, so they leave every other random choice in the run as it was.
+      if (error?.kind === 'errors' && error.rate > 0 && (error.rate >= 1 || random() < error.rate)) {
+        ctx.trace({ kind: 'fail', at: instance, request, reason: error.reason, error: true });
+        return finish(false, error.reason);
+      }
       if (node.parallel && calls.length > 0) {
         let left = calls.length;
         let failed = false;
@@ -357,10 +378,26 @@ export function simulate(input: Scenario): SimResult {
         }
         return;
       }
+      /** Calls that succeeded, oldest first: what a failure has to undo. */
+      const succeeded: Call[] = [];
       const next = (index: number) => {
         const target = calls[index];
         if (!target) return finish(true);
-        call(target, (ok, reason) => (ok ? next(index + 1) : finish(false, reason)));
+        call(target, (ok, reason) => {
+          if (!ok) return undo(succeeded.length - 1, reason);
+          succeeded.push(target);
+          next(index + 1);
+        });
+      };
+      // Compensations run newest first, one at a time; a failed one doesn't stop the rest.
+      const undo = (index: number, reason?: string) => {
+        if (aborted.has(message)) return;
+        const done = succeeded[index];
+        if (!done) return finish(false, reason);
+        if (!done.compensate) return undo(index - 1, reason);
+        const { to, path: undoPath } = done.compensate;
+        ctx.trace({ kind: 'compensate', node: node.id, instance, request, target: to, ...(undoPath && { path: undoPath }) });
+        call(done.compensate, () => undo(index - 1, reason));
       };
       next(0);
     });
@@ -414,6 +451,16 @@ export function simulate(input: Scenario): SimResult {
       ctx.at(fault.until, () => {
         if (fault.mode === 'refuse') for (const instance of instances()) dead.delete(instance);
         ctx.trace({ kind: 'recover', node: fault.node });
+      });
+    }
+    if (fault.kind === 'reroute') {
+      ctx.at(fault.at, () => {
+        ctx.trace({ kind: 'fault', fault });
+        const facade = nodes.get(fault.gateway);
+        if (facade?.type !== 'gateway') return;
+        const route = facade.routes.find((r) => r.prefix === fault.prefix);
+        if (route) route.to = fault.to;
+        else facade.routes.push({ prefix: fault.prefix, to: fault.to });
       });
     }
     if (fault.kind === 'rename-column') {
