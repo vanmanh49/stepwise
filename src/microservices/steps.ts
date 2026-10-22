@@ -130,6 +130,13 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   const withVersion = (id: string) => (versions.has(id) ? `${id} (${versions.get(id)})` : id);
   const weights = new Map<string, Record<string, number>>(scenario.nodes.flatMap((n) => (n.type === 'balancer' && n.weights ? [[n.id, { ...n.weights }]] : [])));
   const rolledBack = new Map<string, string>();
+  /** Requests each sidecar has sent, and how many of them were retries. */
+  const proxied = new Map<string, { calls: number; retried: number }>();
+  const proxyStats = (id: string) => {
+    let stats = proxied.get(id);
+    if (!stats) proxied.set(id, (stats = { calls: 0, retried: 0 }));
+    return stats;
+  };
   /** Each gateway's routes as they are now, after any reroute. */
   const routes = new Map(scenario.nodes.flatMap((n) => (n.type === 'gateway' ? [[n.id, n.routes.map((r) => ({ ...r }))] as const] : [])));
   const log: string[] = [];
@@ -148,6 +155,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         const m = event.message;
         inFlight.set(m.id, m);
         if (m.kind === 'probe') probes.add(m.id);
+        if (m.kind === 'request' && nodes.get(m.from)?.type === 'sidecar') proxyStats(m.from).calls++;
         if (m.request) {
           const row = requestRow(m.request);
           if (row.hopList.length === 0) row.hopList.push({ id: m.from, t: event.t });
@@ -273,6 +281,9 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         if (event.value !== undefined) row.value = event.value;
         break;
       }
+      case 'retry':
+        if (nodes.get(event.caller)?.type === 'sidecar') proxyStats(event.caller).retried++;
+        break;
       case 'drained':
         draining.delete(event.instance);
         stopped.add(event.instance);
@@ -347,6 +358,8 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         return { node: event.relay };
       case 'drained':
         return { node: ownerOf(event.instance) };
+      case 'deny':
+        return { node: event.node };
       case 'rollback':
         return { node: event.balancer, compare: true };
       case 'lost':
@@ -402,6 +415,8 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       else parts.push(entries.map(([key, n]) => `${key} ${show(n)}${algorithm === 'fixed-window' ? '' : ' left'}`).join(', '));
     }
     if (node?.type === 'relay') parts.push(`polls every ${node.pollMs} ms`);
+    const stats = proxied.get(id);
+    if (node?.type === 'sidecar' && stats) parts.push(`${stats.calls} call${stats.calls === 1 ? '' : 's'}, ${stats.retried} retried`);
     const shares = weights.get(id);
     if (shares) {
       const back = rolledBack.get(id);
@@ -473,6 +488,9 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
           return m.ok
             ? { title: `${from} replies to ${to} for ${m.request ?? m.label}`, why: `The work is done, and the answer takes ${ms} ms to travel back.` }
             : { title: `${from} tells ${to} that ${m.request ?? 'it'} failed`, why: `Reason: ${m.reason ?? 'unknown'}. The failure travels back like any answer, in ${ms} ms.` };
+        }
+        if (m.kind === 'request' && m.dest) {
+          return { title: `${m.from} hands ${m.request} to its sidecar`, why: `The app just calls ${m.dest}. Its sidecar, on the same host, carries the call in ${ms} ms.` };
         }
         if (m.kind === 'query' && !m.request) return { title: `${capitalise(from)} asks ${to} for unsent events`, why: `It reads every outbox record, oldest first. The query takes ${ms} ms to arrive.` };
         if (m.kind === 'query') return { title: `${from} queries ${to} for ${m.request}`, why: `${from} needs data it doesn't keep itself. The query takes ${ms} ms to arrive.` };
@@ -607,6 +625,12 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       }
       case 'retry': {
         const caller = name(ownerOf(event.caller));
+        if (nodes.get(event.caller)?.type === 'sidecar') {
+          return {
+            title: `${caller} tries ${event.request} again ${event.delayMs > 0 ? `in ${event.delayMs} ms` : 'at once'} (retry ${event.attempt} of ${event.max})`,
+            why: 'The retry rule lives in the mesh config, so the app code never had to change.',
+          };
+        }
         return {
           title: `${event.request} tries again ${event.delayMs > 0 ? `in ${event.delayMs} ms` : 'at once'} (retry ${event.attempt} of ${event.max})`,
           why:
@@ -672,6 +696,8 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
               why: `Each one was saved in the same write as its order, so none can be missed. It publishes them one by one, then deletes each record.`,
             };
       }
+      case 'deny':
+        return { title: `${event.node} refuses ${event.request}: ${event.reason}`, why: 'With mTLS, only sidecars that hold a mesh certificate may call in. This caller has none.' };
       case 'drained':
         return { title: `${withVersion(event.instance)} has stopped`, why: 'It finished the work it held, so no request was cut off.' };
       case 'rollback':

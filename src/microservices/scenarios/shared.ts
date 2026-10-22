@@ -1,6 +1,6 @@
 import { refusal, type Read } from '../../algorithms/form';
 import type { Step } from '../../types/visualization';
-import type { Call, Link, NodeSpec, Scenario, SimResult, TraceEvent } from '../model';
+import type { Call, CallPolicy, Link, NodeSpec, Scenario, SimResult, TraceEvent } from '../model';
 import { simulate } from '../sim';
 import { emptyServicesView, traceSteps, type StepOptions } from '../steps';
 
@@ -10,6 +10,8 @@ export const INSTANCE_MS = 10;
 export const GATEWAY_MS = 2;
 export const DB_MS = 3;
 export const BROKER_MS = 2;
+/** A sidecar's own processing; it sits on its service's host, so its links are 1 ms. */
+export const SIDECAR_MS = 1;
 
 export const client = (extra: Partial<Extract<NodeSpec, { type: 'client' }>> = {}): NodeSpec => ({ id: 'client', label: 'client', type: 'client', column: 0, ...extra });
 
@@ -63,6 +65,17 @@ export const relayNode = (id: string, column: number, dbId: string, to: string, 
   pollMs,
   db: dbId,
   to,
+});
+
+export const sidecarNode = (of: string, column: number, extra: { policy?: CallPolicy; mtls?: boolean } = {}): NodeSpec => ({
+  id: `${of}-proxy`,
+  label: `${of}-proxy`,
+  type: 'sidecar',
+  column,
+  of,
+  processMs: SIDECAR_MS,
+  ...(extra.policy && { policy: extra.policy }),
+  ...(extra.mtls && { mtls: extra.mtls }),
 });
 
 export const link = (from: string, to: string, latencyMs = LINK_MS): Link => ({ from, to, latencyMs });

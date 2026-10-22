@@ -11,7 +11,7 @@ export type CallDone = (ok: boolean, reason?: string, value?: string) => void;
 export type CallFn = (
   from: string,
   to: string,
-  message: Pick<Message, 'kind' | 'label'> & { request?: string; path?: string },
+  message: Pick<Message, 'kind' | 'label'> & { request?: string; path?: string; dest?: string },
   policy: CallPolicy | undefined,
   done: CallDone,
 ) => void;

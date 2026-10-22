@@ -103,6 +103,8 @@ export type NodeSpec = NodeBase &
     | { type: 'broker'; processMs: number; mode: 'queue' | 'topic'; consumers: string[]; redeliverMs: number }
     /** Every `pollMs` it reads `db`'s outbox/ records and publishes each to the broker `to`, deleting it once stored. */
     | { type: 'relay'; processMs: number; pollMs: number; db: string; to: string }
+    /** A proxy beside service `of`: its calls go out through it with `policy`; with mtls it accepts only other sidecars. */
+    | { type: 'sidecar'; of: string; processMs: number; policy?: CallPolicy; mtls?: boolean }
   );
 
 export type NodeType = NodeSpec['type'];
@@ -188,6 +190,8 @@ export interface Message {
   delivery?: string;
   /** A call's own path ("/refund"), checked by the callee's `when`. */
   path?: string;
+  /** A call handed to the caller's own sidecar: the service it is for. */
+  dest?: string;
   /** Replies to a prefix read ("outbox/*"): the matching records, oldest first. */
   records?: [string, string][];
   /** Replies only: the value a read found, passed back up the chain. */
@@ -216,6 +220,7 @@ export type TraceEvent = { t: number } & (
   /** A stopping instance has finished its last job and is gone. */
   | { kind: 'drained'; instance: string }
   | { kind: 'rollback'; balancer: string; version: string; errors: number }
+  | { kind: 'deny'; node: string; request: string; reason: string }
   | { kind: 'lost'; message: Message }
   | { kind: 'duplicate'; node: string; instance: string; request: string; status: 'replayed' | 'in progress' }
   | { kind: 'timeout'; caller: string; target: string; request: string; afterMs: number }

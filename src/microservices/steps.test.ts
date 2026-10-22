@@ -521,3 +521,32 @@ describe('traceSteps: deploys and canaries', () => {
     for (const step of shifted) for (const n of view(step).nodes) expect((n.badge ?? '').length).toBeLessThanOrEqual(24);
   });
 });
+
+describe('traceSteps: sidecars', () => {
+  const mesh = (mtls: boolean, faults: Scenario['faults'], requests: Scenario['requests']): Scenario => ({
+    nodes: [
+      shared.client(),
+      shared.service('orders', 1, ['payments']),
+      shared.service('payments', 2),
+      shared.sidecarNode('orders', 1, { policy: { retry: { attempts: 2, backoff: 'fixed', baseMs: 10, jitter: false } } }),
+      shared.sidecarNode('payments', 2, { mtls }),
+    ],
+    links: [shared.link('client', 'orders-proxy'), shared.link('orders-proxy', 'orders', 1), shared.link('orders-proxy', 'payments-proxy'), shared.link('payments-proxy', 'payments', 1), shared.link('client', 'payments-proxy')],
+    requests,
+    faults,
+  });
+  const order = { label: 'POST /orders', path: '/orders', to: 'orders', at: 0 };
+
+  it('narrates the hand-off, a sidecar retry and the badge', () => {
+    const steps = run(mesh(false, [{ kind: 'outage', node: 'payments', from: 0, until: 30, mode: 'refuse' }], [order]));
+    const titles = steps.map((s) => s.title);
+    expect(titles).toContain('orders-1 hands #1 to its sidecar');
+    expect(titles).toContain('orders-proxy tries #1 again in 10 ms (retry 1 of 2)');
+    expect(view(steps.at(-1)!).nodes.find((n) => n.id === 'orders-proxy')).toMatchObject({ type: 'sidecar', badge: '3 calls, 1 retried' });
+  });
+
+  it('narrates an mTLS refusal', () => {
+    const steps = run(mesh(true, [], [{ label: 'GET /charges', path: '/charges', to: 'payments', at: 0, caller: 'scraper' }]));
+    expect(steps.map((s) => s.title)).toContain('payments-proxy refuses #1: 403: no client certificate');
+  });
+});

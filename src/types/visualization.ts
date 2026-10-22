@@ -197,7 +197,7 @@ export interface ServicesView {
   nodes: {
     id: string;
     label: string;
-    type: 'client' | 'gateway' | 'registry' | 'balancer' | 'service' | 'db' | 'broker' | 'relay';
+    type: 'client' | 'gateway' | 'registry' | 'balancer' | 'service' | 'db' | 'broker' | 'relay' | 'sidecar';
     column: number;
     role: Role;
     badge?: string;

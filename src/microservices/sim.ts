@@ -2,6 +2,7 @@ import { MAX_TIME, type Call, type DataOp, type DeliveryOutcome, type Fault, typ
 import { balancer, createDiscovery, gateway, registry } from './behaviours';
 import { broker } from './broker';
 import { relay } from './relay';
+import { sidecar } from './sidecar';
 import { EventQueue } from './queue';
 import { createCaller, type CallFn } from './resilience';
 
@@ -15,9 +16,16 @@ export interface SimContext {
   /** The service that owns an instance; any other id is its own owner. */
   ownerOf(id: string): string;
   instancesOf(service: string): string[];
+  /** Where a message for a node goes first: its sidecar, a service's first instance, or the node itself. */
+  entryOf(id: string): string;
   requestInfo(id: string): { label: string; path: string; token: boolean; caller?: string; key?: string; value?: string };
   /** Sends over the link between the two owners; `onReply` runs when the answer arrives. */
-  send(from: string, to: string, message: Pick<Message, 'kind' | 'label'> & { request?: string; delivery?: string; path?: string }, onReply?: (reply: Message) => void): Message;
+  send(
+    from: string,
+    to: string,
+    message: Pick<Message, 'kind' | 'label'> & { request?: string; delivery?: string; path?: string; dest?: string },
+    onReply?: (reply: Message) => void,
+  ): Message;
   reply(to: Message, ok: boolean, reason?: string, result?: string[], value?: string, records?: [string, string][]): void;
   /** Sends a query that does `op` to a db; the label is what the view shows. */
   query(from: string, db: string, op: DataOp, label: string, request: string | undefined, onReply: (reply: Message) => void): Message;
@@ -132,6 +140,8 @@ export function simulate(input: Scenario): SimResult {
   let messages = 0;
 
   const ownerOf = (id: string) => owner.get(id) ?? id;
+  /** Each service's sidecar, when it has one. */
+  const sidecars = new Map(scenario.nodes.flatMap((n) => (n.type === 'sidecar' ? [[n.of, n.id] as const] : [])));
   const latency = (from: string, to: string) => {
     const [a, b] = [ownerOf(from), ownerOf(to)];
     const link = scenario.links.find((l) => (l.from === a && l.to === b) || (l.from === b && l.to === a));
@@ -148,6 +158,12 @@ export function simulate(input: Scenario): SimResult {
     instancesOf: (service) => {
       const n = nodes.get(service);
       return n?.type === 'service' ? n.instances.map((i) => i.id) : [];
+    },
+    entryOf: (id) => {
+      const proxy = sidecars.get(id);
+      if (proxy) return proxy;
+      const n = nodes.get(id);
+      return n?.type === 'service' ? n.instances[0]!.id : id;
     },
     requestInfo: (id) => {
       const r = requests.get(id)!;
@@ -391,9 +407,12 @@ export function simulate(input: Scenario): SimResult {
         queryColumns.set(query.id, columns);
         if (target.data) queryOps.set(query.id, fillOp(target.data, { id: request, ...ctx.requestInfo(request) }));
       } else {
-        const first = to.type === 'service' ? to.instances[0]!.id : to.id;
         const label = target.label ?? target.path ?? requests.get(request)!.outcome.label;
-        ctx.call(instance, first, { kind: 'request', label: `${label} ${request}`, request, ...(target.path && { path: target.path }) }, target.policy, answered);
+        const outbound = { kind: 'request' as const, label: `${label} ${request}`, request, ...(target.path && { path: target.path }) };
+        // With a sidecar, the call goes to it, on the same host, and it finds the target.
+        const proxy = sidecars.get(node.id);
+        if (proxy) ctx.call(instance, proxy, { ...outbound, dest: target.to }, target.policy, answered);
+        else ctx.call(instance, ctx.entryOf(target.to), outbound, target.policy, answered);
       }
     };
     ctx.at(now + processMs.get(instance)!, () => {
@@ -509,7 +528,7 @@ export function simulate(input: Scenario): SimResult {
 
   const clientBehaviour: Behaviour = () => () => {};
 
-  const behaviours: Record<NodeType, Behaviour> = { client: clientBehaviour, service: serviceBehaviour, db: dbBehaviour, gateway, registry, balancer, broker, relay };
+  const behaviours: Record<NodeType, Behaviour> = { client: clientBehaviour, service: serviceBehaviour, db: dbBehaviour, gateway, registry, balancer, broker, relay, sidecar };
 
   // Faults first, so a fault at time t applies before anything else that happens at t.
   for (const fault of scenario.faults) {
@@ -608,9 +627,7 @@ export function simulate(input: Scenario): SimResult {
         });
       };
       if (discover) return discover(id, finish);
-      const target = nodes.get(spec.to)!;
-      const to = target.type === 'service' ? target.instances[0]!.id : target.id;
-      ctx.call(client.id, to, { kind: 'request', label: `${spec.label} ${id}`, request: id }, scenario.clientPolicy, finish);
+      ctx.call(client.id, ctx.entryOf(spec.to), { kind: 'request', label: `${spec.label} ${id}`, request: id }, scenario.clientPolicy, finish);
     });
   });
 

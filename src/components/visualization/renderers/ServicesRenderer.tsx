@@ -21,6 +21,7 @@ const TYPE_NAME: Record<ServicesView['nodes'][number]['type'], string> = {
   db: 'database',
   broker: 'message broker',
   relay: 'outbox relay',
+  sidecar: 'sidecar proxy',
 };
 
 const STATUS: Record<ServicesView['requests'][number]['status'], { text: string; role: Role }> = {
