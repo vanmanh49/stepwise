@@ -207,7 +207,7 @@ export interface ServicesView {
   /** Messages in flight at this step, between node ids; progress runs from 0 (just sent) to 1 (arrived). */
   messages: { id: string; from: string; to: string; label: string; role: Role; progress: number }[];
   /** label: "GET /orders"; hops: the path taken so far, e.g. "gw → orders-2 → db". */
-  requests: { id: string; label: string; status: 'pending' | 'ok' | 'failed'; hops: string; ms?: number; reason?: string }[];
+  requests: { id: string; label: string; status: 'pending' | 'ok' | 'failed'; hops: string; ms?: number; reason?: string; attempts?: number }[];
   /** The last few events, newest last. */
   log: string[];
 }

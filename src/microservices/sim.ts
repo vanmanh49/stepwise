@@ -1,6 +1,7 @@
 import { MAX_TIME, type Call, type Fault, type Message, type NodeSpec, type NodeType, type RequestOutcome, type Scenario, type SimResult, type TraceEvent } from './model';
 import { balancer, createDiscovery, gateway, registry } from './behaviours';
 import { EventQueue } from './queue';
+import { createCaller, type CallFn } from './resilience';
 
 type Distribute<T> = T extends unknown ? Omit<T, 't'> : never;
 /** A trace event before the simulator stamps its time. */
@@ -16,6 +17,10 @@ export interface SimContext {
   /** Sends over the link between the two owners; `onReply` runs when the answer arrives. */
   send(from: string, to: string, message: Pick<Message, 'kind' | 'label'> & { request?: string }, onReply?: (reply: Message) => void): Message;
   reply(to: Message, ok: boolean, reason?: string, result?: string[]): void;
+  /** Stops waiting for `message`'s reply; when it comes, it is traced as late and dropped. */
+  cancel(message: Message): void;
+  /** Sends through a call policy (timeouts, retries, breaker, bulkhead); a plain send without one. */
+  call: CallFn;
   /** Sends a request on to `to` and passes its answer back to whoever sent `inbound`. */
   forward(from: string, to: string, inbound: Message): void;
   at(time: number, run: () => void): void;
@@ -58,6 +63,9 @@ export function simulate(input: Scenario): SimResult {
   const trace: TraceEvent[] = [];
   const requests = new Map<string, OpenRequest>();
   const awaiting = new Map<string, (reply: Message) => void>();
+  const cancelled = new Set<string>();
+  /** Messages on the wire that carry work (not heartbeats, probes or lookups), so the run waits for late answers. */
+  const working = new Set<string>();
   const dead = new Set<string>();
   const down = new Set<string>();
   /** What each live instance is handling right now, and the jobs a death cut short. */
@@ -95,6 +103,8 @@ export function simulate(input: Scenario): SimResult {
       const departs = now;
       const message: Message = { id: `m${++messages}`, ...partial, from, to, departs, arrives: departs + latency(from, to) };
       if (onReply) awaiting.set(message.id, onReply);
+      if (message.kind === 'request' || message.kind === 'query') working.add(message.id);
+      if (message.kind === 'request' && message.request && from === clientId) requests.get(message.request)!.outcome.attempts++;
       ctx.trace({ kind: 'send', message });
       ctx.at(message.arrives, () => deliver(message));
       return message;
@@ -115,6 +125,7 @@ export function simulate(input: Scenario): SimResult {
         ...(reason !== undefined && { reason }),
         ...(result && { result }),
       };
+      if (to.kind === 'request' || to.kind === 'query') working.add(message.id);
       ctx.trace({ kind: 'send', message });
       ctx.at(message.arrives, () => deliver(message));
     },
@@ -124,11 +135,19 @@ export function simulate(input: Scenario): SimResult {
         ctx.reply(inbound, answer.ok ?? false, answer.reason),
       );
     },
+    cancel(message) {
+      awaiting.delete(message.id);
+      cancelled.add(message.id);
+    },
+    call: (from, to, message, policy, done) => caller(from, to, message, policy, done),
     at: (time, run) => queue.push(time, run),
     trace: (event) => trace.push({ t: now, ...event } as TraceEvent),
     isDead: (instance) => dead.has(instance),
     rng: random,
   };
+
+  const caller = createCaller(ctx);
+  const clientId = scenario.nodes.find((n) => n.type === 'client')?.id;
 
   function countCrossService(from: string, to: string, request: string) {
     const [a, b] = [nodes.get(ownerOf(from)), nodes.get(ownerOf(to))];
@@ -155,12 +174,17 @@ export function simulate(input: Scenario): SimResult {
     const lose = scenario.faults.find(
       (f) => f.kind === 'lose-reply' && message.kind === 'reply' && ownerOf(message.from) === f.node && message.request === f.request && !lostReplies.has(f),
     );
+    working.delete(message.id);
     if (lose) {
       lostReplies.add(lose);
       ctx.trace({ kind: 'lost', message });
       return;
     }
     ctx.trace({ kind: 'arrive', message });
+    if (message.kind === 'reply' && cancelled.has(message.replyTo!)) {
+      ctx.trace({ kind: 'late', message });
+      return;
+    }
     const isInstance = owner.has(message.to);
     if (isInstance && dead.has(message.to)) {
       if (message.kind === 'reply') {
@@ -233,16 +257,18 @@ export function simulate(input: Scenario): SimResult {
     };
     const path = requests.get(request)!.path;
     const calls = node.calls.filter((c) => c.when === undefined || path.startsWith(c.when));
-    const call = (target: Call, then: (reply: Message) => void) => {
+    const call = (target: Call, then: (ok: boolean, reason?: string) => void) => {
       const to = nodes.get(target.to)!;
       countCrossService(instance, target.to, request);
       if (to.type === 'db') {
         const columns = target.columns ?? [];
-        const query = ctx.send(instance, to.id, { kind: 'query', label: `query ${columns.length > 0 ? `${columns.join(', ')} ` : ''}${request}`, request }, then);
+        const query = ctx.send(instance, to.id, { kind: 'query', label: `query ${columns.length > 0 ? `${columns.join(', ')} ` : ''}${request}`, request }, (reply) =>
+          then(reply.ok ?? false, reply.reason),
+        );
         queryColumns.set(query.id, columns);
       } else {
         const first = to.type === 'service' ? to.instances[0]!.id : to.id;
-        ctx.send(instance, first, { kind: 'request', label: requests.get(request)!.outcome.label + ` ${request}`, request }, then);
+        ctx.call(instance, first, { kind: 'request', label: requests.get(request)!.outcome.label + ` ${request}`, request }, target.policy, then);
       }
     };
     ctx.at(now + processMs.get(instance)!, () => {
@@ -251,11 +277,11 @@ export function simulate(input: Scenario): SimResult {
         let left = calls.length;
         let failed = false;
         for (const target of calls) {
-          call(target, (reply) => {
+          call(target, (ok, reason) => {
             if (failed || aborted.has(message)) return;
-            if (!reply.ok) {
+            if (!ok) {
               failed = true;
-              finish(false, reply.reason);
+              finish(false, reason);
             } else if (--left === 0) finish(true);
           });
         }
@@ -264,7 +290,7 @@ export function simulate(input: Scenario): SimResult {
       const next = (index: number) => {
         const target = calls[index];
         if (!target) return finish(true);
-        call(target, (reply) => (reply.ok ? next(index + 1) : finish(false, reply.reason)));
+        call(target, (ok, reason) => (ok ? next(index + 1) : finish(false, reason)));
       };
       next(0);
     });
@@ -325,7 +351,7 @@ export function simulate(input: Scenario): SimResult {
   scenario.requests.forEach((spec, index) => {
     const id = `#${index + 1}`;
     const open: OpenRequest = {
-      outcome: { id, label: spec.label, sentAt: spec.at, status: 'failed', ms: 0, hops: [], crossServiceCalls: 0 },
+      outcome: { id, label: spec.label, sentAt: spec.at, status: 'failed', ms: 0, hops: [], crossServiceCalls: 0, attempts: 0 },
       path: spec.path,
       token: spec.token ?? false,
       done: false,
@@ -345,7 +371,7 @@ export function simulate(input: Scenario): SimResult {
       if (discover) return discover(id, finish);
       const target = nodes.get(spec.to)!;
       const to = target.type === 'service' ? target.instances[0]!.id : target.id;
-      ctx.send(client.id, to, { kind: 'request', label: `${spec.label} ${id}`, request: id }, (reply) => finish(reply.ok ?? false, reply.reason));
+      ctx.call(client.id, to, { kind: 'request', label: `${spec.label} ${id}`, request: id }, scenario.clientPolicy, finish);
     });
   });
 
@@ -358,7 +384,8 @@ export function simulate(input: Scenario): SimResult {
     }
     now = next.time;
     next.item();
-    if (allDone()) break;
+    // Answers still on their way, and work still running, show what a timeout wasted.
+    if (allDone() && working.size === 0 && [...jobs.values()].every((set) => set.size === 0)) break;
   }
 
   for (const open of requests.values()) {

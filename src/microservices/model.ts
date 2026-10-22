@@ -7,6 +7,26 @@ export const MAX_STEPS = 200;
 
 export type Strategy = 'round-robin' | 'least-connections' | 'random';
 
+/** attempts = retries after the first try. */
+export interface RetryPolicy {
+  attempts: number;
+  backoff: 'none' | 'fixed' | 'exponential';
+  baseMs: number;
+  jitter: boolean;
+}
+
+/** How a caller protects itself on one call: each attempt passes the bulkhead, then the breaker, then goes out with its timeout. */
+export interface CallPolicy {
+  timeoutMs?: number;
+  retry?: RetryPolicy;
+  /** Opens after `threshold` failures in a row; stays open for `openMs`. */
+  breaker?: { threshold: number; openMs: number };
+  /** At most `size` calls in flight from one caller instance through the pool named `pool`. */
+  bulkhead?: { pool: string; size: number };
+}
+
+export type BreakerState = 'closed' | 'open' | 'half-open';
+
 export interface Instance {
   id: string;
   processMs: number;
@@ -18,6 +38,7 @@ export interface Call {
   columns?: string[];
   /** Made only for requests whose path starts with this prefix. */
   when?: string;
+  policy?: CallPolicy;
 }
 
 interface NodeBase {
@@ -73,6 +94,8 @@ export interface Scenario {
   requests: RequestSpec[];
   faults: Fault[];
   seed?: number;
+  /** Applies to every request the client sends. */
+  clientPolicy?: CallPolicy;
 }
 
 export type MessageKind = 'request' | 'reply' | 'query' | 'lookup' | 'heartbeat' | 'probe';
@@ -116,6 +139,14 @@ export type TraceEvent = { t: number } & (
   | { kind: 'recover'; node: string }
   | { kind: 'lost'; message: Message }
   | { kind: 'duplicate'; node: string; instance: string; request: string; status: 'replayed' | 'in progress' }
+  | { kind: 'timeout'; caller: string; target: string; request: string; afterMs: number }
+  /** An answer that arrived after its caller stopped waiting. */
+  | { kind: 'late'; message: Message }
+  | { kind: 'retry'; caller: string; request: string; attempt: number; max: number; delayMs: number }
+  /** caller and target are owners (service ids, or the client). */
+  | { kind: 'breaker'; caller: string; target: string; state: BreakerState; failures: number; threshold: number }
+  | { kind: 'shed'; caller: string; request: string; reason: 'circuit open' | 'bulkhead full' }
+  | { kind: 'pool'; caller: string; pool: string; used: number; size: number }
   | { kind: 'done'; request: string; ok: boolean; ms: number; reason?: string }
 );
 
@@ -129,6 +160,8 @@ export interface RequestOutcome {
   hops: string[];
   /** Messages between two different service nodes. */
   crossServiceCalls: number;
+  /** Request messages the client sent for it: 1 plus its retries. */
+  attempts: number;
   reason?: string;
 }
 

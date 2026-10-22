@@ -1,6 +1,6 @@
 import { lineOf } from '../data-structures/shared';
 import type { Role, ServicesView, Step } from '../types/visualization';
-import { MAX_STEPS, type Message, type NodeSpec, type Scenario, type SimResult, type Strategy, type TraceEvent } from './model';
+import { MAX_STEPS, type BreakerState, type Message, type NodeSpec, type Scenario, type SimResult, type Strategy, type TraceEvent } from './model';
 
 export interface Narration {
   title: string;
@@ -69,21 +69,35 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   const handling = new Map<string, Set<string>>();
   const handled = new Set<string>();
   const inFlight = new Map<string, Message>();
-  /** Replies the network dropped: drawn as failed on the step they vanish. */
+  /** Replies the network dropped, or that came too late: drawn as failed on the step they vanish. */
   const lost = new Set<string>();
+  /** Breaker state per caller node, and what it was before its latest change (for the wording). */
+  const breakers = new Map<string, { state: BreakerState; failures: number; threshold: number }>();
+  const breakerWas = new Map<string, BreakerState>();
+  /** Bulkhead pools in use per caller node. */
+  const pools = new Map<string, Map<string, { used: number; size: number }>>();
+  // Every pool a caller has, from the start, so unused ones show as 0 in use.
+  const callerPolicies = scenario.nodes.flatMap((n) => (n.type === 'service' ? n.calls.map((c) => [n.id, c.policy] as const) : []));
+  const client = scenario.nodes.find((n) => n.type === 'client');
+  if (client) callerPolicies.push([client.id, scenario.clientPolicy]);
+  for (const [caller, policy] of callerPolicies) {
+    if (!policy?.bulkhead) continue;
+    if (!pools.has(caller)) pools.set(caller, new Map());
+    pools.get(caller)!.set(policy.bulkhead.pool, { used: 0, size: policy.bulkhead.size });
+  }
   const arrived = new Set<string>();
   const probes = new Set<string>();
   const lastBeat = new Map<string, number>();
   const evicted = new Set<string>();
   const balancerLoad = new Map<string, number>();
-  const requests = new Map<string, ServicesView['requests'][number] & { hopList: { id: string; t: number }[] }>();
+  const requests = new Map<string, ServicesView['requests'][number] & { hopList: { id: string; t: number }[]; tries: number }>();
   const labels = new Map(scenario.requests.map((r, i) => [`#${i + 1}`, r.label]));
   const log: string[] = [];
   let now = 0;
 
   const requestRow = (id: string) => {
     let row = requests.get(id);
-    if (!row) requests.set(id, (row = { id, label: labels.get(id) ?? id, status: 'pending', hops: '', hopList: [] }));
+    if (!row) requests.set(id, (row = { id, label: labels.get(id) ?? id, status: 'pending', hops: '', hopList: [], tries: 0 }));
     return row;
   };
 
@@ -97,6 +111,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         if (m.request) {
           const row = requestRow(m.request);
           if (row.hopList.length === 0) row.hopList.push({ id: m.from, t: event.t });
+          if (m.kind === 'request' && nodes.get(m.from)?.type === 'client') row.tries++;
         }
         if (m.kind === 'reply' && m.request && nodes.get(m.to)?.type === 'balancer') balancerLoad.set(m.from, (balancerLoad.get(m.from) ?? 1) - 1);
         if (m.kind === 'reply' && m.request) handling.get(m.from)?.delete(m.request);
@@ -129,6 +144,20 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         arrived.add(event.message.id);
         lost.add(event.message.id);
         break;
+      case 'late':
+        lost.add(event.message.id);
+        break;
+      case 'breaker':
+        breakerWas.set(`${event.caller}→${event.target}`, breakers.get(event.caller)?.state ?? 'closed');
+        breakers.set(event.caller, { state: event.state, failures: event.failures, threshold: event.threshold });
+        break;
+      case 'pool': {
+        const owner = ownerOf(event.caller);
+        let inUse = pools.get(owner);
+        if (!inUse) pools.set(owner, (inUse = new Map()));
+        inUse.set(event.pool, { used: event.used, size: event.size });
+        break;
+      }
       case 'fail':
         if (owner.has(event.at) && /(crashed|stopped)$/.test(event.reason)) {
           dead.add(event.at);
@@ -185,7 +214,14 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       case 'duplicate':
         return { node: event.node };
       case 'lost':
+      case 'late':
         return { node: ownerOf(event.message.to) };
+      case 'timeout':
+      case 'retry':
+      case 'shed':
+        return { node: ownerOf(event.caller) };
+      case 'breaker':
+        return { node: event.caller, compare: true };
       default:
         return {};
     }
@@ -205,9 +241,23 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
     return undefined;
   }
 
+  /** What a caller's breaker and bulkhead pools look like right now. */
+  function nodeBadge(id: string): string | undefined {
+    const parts: string[] = [];
+    const b = breakers.get(id);
+    if (b) parts.push(b.state === 'closed' ? `breaker closed ${b.failures}/${b.threshold}` : `breaker ${b.state}`);
+    const inUse = pools.get(id);
+    if (inUse) {
+      const entries = [...inUse.entries()];
+      parts.push(entries.length === 1 ? `pool ${entries[0]![1].used}/${entries[0]![1].size}` : entries.map(([pool, p]) => `${pool} ${p.used}/${p.size}`).join(', '));
+    }
+    return parts.length > 0 ? parts.join(', ') : undefined;
+  }
+
   function snapshot(focus: { node?: string; compare?: boolean }): ServicesView {
     const viewNodes = scenario.nodes.map((n: NodeSpec): ServicesView['nodes'][number] => {
-      const base = { id: n.id, label: n.label, type: n.type, column: n.column };
+      const badge = nodeBadge(n.id);
+      const base = { id: n.id, label: n.label, type: n.type, column: n.column, ...(badge && { badge }) };
       if (n.type === 'service') {
         const instances = n.instances.map((i) => {
           const role: Role = dead.has(i.id) ? 'discarded' : (handling.get(i.id)?.size ?? 0) > 0 ? 'active' : handled.has(i.id) ? 'visited' : 'default';
@@ -229,7 +279,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
     const links = scenario.links.map((l) => ({ from: l.from, to: l.to, role: (busy.has([l.from, l.to].toSorted().join(' ')) ? 'frontier' : 'default') as Role }));
     const rows = [...requests.values()]
       .toSorted((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)))
-      .map(({ hopList, ...row }) => ({ ...row, hops: hopsText(hopList) }));
+      .map(({ hopList, tries, ...row }) => ({ ...row, ...(tries > 1 && { attempts: tries }), hops: hopsText(hopList) }));
     return { kind: 'services', nodes: viewNodes, links, messages, requests: rows, log: log.slice(-LOG_LINES) };
   }
 
@@ -325,6 +375,58 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         return event.status === 'replayed'
           ? { title: `${event.instance} has already handled ${event.request}, so it returns the saved result`, why: `It remembers the result for each request id, so the work is not done twice.` }
           : { title: `${event.instance} is still working on ${event.request}, so it turns the repeat away`, why: 'The first copy is still running. Doing the work again could do it twice.' };
+      case 'timeout': {
+        const caller = name(ownerOf(event.caller));
+        return {
+          title: `${caller} gives up on ${event.target} after ${event.afterMs} ms`,
+          why: `No answer came within ${event.afterMs} ms, so ${caller} stops waiting and treats ${event.request} as failed. ${event.target} may still be working on it.`,
+        };
+      }
+      case 'late': {
+        const caller = name(ownerOf(event.message.to));
+        return {
+          title: `The answer for ${event.message.request ?? event.message.label} reaches ${caller} too late`,
+          why: `${caller} already gave up, so this answer is thrown away. The work done for it was wasted.`,
+        };
+      }
+      case 'retry': {
+        const caller = name(ownerOf(event.caller));
+        return {
+          title: `${event.request} tries again ${event.delayMs > 0 ? `in ${event.delayMs} ms` : 'at once'} (retry ${event.attempt} of ${event.max})`,
+          why:
+            event.delayMs > 0
+              ? `${caller} waits ${event.delayMs} ms first, giving the failing service time to recover.`
+              : `${caller} retries straight away, so the failing service gets no time to recover.`,
+        };
+      }
+      case 'breaker': {
+        const on = `The breaker on ${name(event.caller)} → ${event.target}`;
+        const was = breakerWas.get(`${event.caller}→${event.target}`);
+        if (event.state === 'open') {
+          return was === 'half-open'
+            ? { title: `${on} opens again`, why: 'The trial call failed, so calls keep failing fast for a while longer.' }
+            : { title: `${on} opens after ${event.failures} failures in a row`, why: `While it is open, calls to ${event.target} fail at once instead of waiting.` };
+        }
+        if (event.state === 'half-open') return { title: `${on} lets one trial call through`, why: 'Enough time has passed. If this call works, the breaker closes; if not, it opens again.' };
+        if (event.failures === 0) {
+          return was === 'half-open'
+            ? { title: `${on} closes`, why: 'The trial call worked, so calls flow normally again.' }
+            : { title: `${on} resets its count`, why: 'A call worked, so the earlier failures are no longer in a row.' };
+        }
+        return { title: `${on} counts ${event.failures} failure${event.failures === 1 ? '' : 's'} in a row`, why: `It opens at ${event.threshold}.` };
+      }
+      case 'shed': {
+        const caller = name(ownerOf(event.caller));
+        return {
+          title: `${caller} turns ${event.request} away: ${event.reason}`,
+          why:
+            event.reason === 'circuit open'
+              ? 'The breaker is open, so the call fails at once instead of waiting for a service that is struggling.'
+              : 'Every slot in its pool is busy, so the call fails at once instead of piling up.',
+        };
+      }
+      case 'pool':
+        return { title: `${event.caller} uses ${event.used} of ${event.size} slots in ${event.pool}`, why: 'Each call in flight holds one slot.' };
       case 'done':
         return event.ok
           ? { title: `${event.request} succeeds after ${event.ms} ms`, why: `The answer is back at the client, ${event.ms} ms after it was sent.` }
@@ -379,6 +481,11 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
 
   for (let i = 0; i < trace.length; i++) {
     const event = trace[i]!;
+    // Pool changes only feed the badges.
+    if (event.kind === 'pool') {
+      apply(event);
+      continue;
+    }
     if (quietAt(i)) {
       const run: TraceEvent[] = [];
       // One round per step: a run ends where a new heartbeat or probe goes out after arrivals; answers to probes stay in the round.

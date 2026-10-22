@@ -178,3 +178,72 @@ describe('traceSteps: phase 2 faults and service options', () => {
     expect(titles(dedupe(true))).toContain('api-1 is still working on #1, so it turns the repeat away');
   });
 });
+
+describe('traceSteps: call policies', () => {
+  const at = (time: number, to = 'api'): Scenario['requests'][number] => ({ label: 'GET /', path: '/', to, at: time });
+  const refuse = (node: string, until: number): Scenario['faults'][number] => ({ kind: 'outage', node, from: 0, until, mode: 'refuse' });
+  const titles = (steps: Step[]) => steps.map((s) => s.title);
+
+  it('narrates a timeout with the caller service and its target, and the late answer', () => {
+    const s: Scenario = {
+      nodes: [shared.client(), shared.service('api', 1, [{ to: 'inventory', policy: { timeoutMs: 200 } }]), shared.service('inventory', 2, [], { processMs: 600 })],
+      links: [shared.link('client', 'api'), shared.link('api', 'inventory')],
+      requests: [at(0)],
+      faults: [],
+    };
+    const all = titles(run(s));
+    expect(all).toContain('api gives up on inventory after 200 ms');
+    expect(all.some((t) => t.includes('too late'))).toBe(true);
+  });
+
+  it('narrates a retry with its wait and count, and counts tries on the row', () => {
+    const s: Scenario = {
+      nodes: [shared.client(), shared.service('api', 1)],
+      links: [shared.link('client', 'api')],
+      requests: [at(0)],
+      faults: [refuse('api', 1000)],
+      clientPolicy: { retry: { attempts: 2, backoff: 'fixed', baseMs: 50, jitter: false } },
+    };
+    const steps = run(s);
+    expect(titles(steps)).toContain('#1 tries again in 50 ms (retry 1 of 2)');
+    expect(view(steps.at(-1)!).requests[0]!.attempts).toBe(3);
+  });
+
+  it('narrates the breaker and shows its state on the caller', () => {
+    const s: Scenario = {
+      nodes: [shared.client(), shared.service('api', 1, [{ to: 'payments', policy: { breaker: { threshold: 3, openMs: 1000 } } }]), shared.service('payments', 2)],
+      links: [shared.link('client', 'api'), shared.link('api', 'payments')],
+      requests: [0, 40, 80, 120, 160, 200, 240].map((t) => at(t)),
+      faults: [refuse('payments', 5000)],
+    };
+    const steps = run(s);
+    expect(titles(steps)).toContain('The breaker on api → payments opens after 3 failures in a row');
+    expect(titles(steps)).toContain('api turns #4 away: circuit open');
+    const api = (step: Step) => view(step).nodes.find((n) => n.id === 'api')!.badge;
+    expect(steps.map(api)).toContain('breaker closed 2/3');
+    expect(api(steps.at(-1)!)).toBe('breaker open');
+  });
+
+  it('shows bulkhead pools as badges without giving pool changes their own steps', () => {
+    const pool = (name: string, size: number) => ({ bulkhead: { pool: name, size } });
+    const s: Scenario = {
+      nodes: [
+        shared.client(),
+        shared.service('api', 1, [
+          { to: 'recs', when: '/recs', policy: pool('recs', 2) },
+          { to: 'checkout', when: '/checkout', policy: pool('checkout', 2) },
+        ]),
+        shared.service('recs', 2, [], { processMs: 300 }),
+        shared.service('checkout', 2),
+      ],
+      links: [shared.link('client', 'api'), shared.link('api', 'recs'), shared.link('api', 'checkout')],
+      requests: [0, 10, 20].map((t) => ({ label: 'GET /recs', path: '/recs', to: 'api', at: t })),
+      faults: [],
+    };
+    const steps = run(s);
+    expect(steps.map((step) => view(step).nodes.find((n) => n.id === 'api')!.badge)).toContain('recs 2/2, checkout 0/2');
+    expect(titles(steps).some((t) => t.includes('slots in'))).toBe(false);
+    const single: Scenario = { ...s, nodes: [s.nodes[0]!, shared.service('api', 1, [{ to: 'recs', policy: pool('p', 1) }]), s.nodes[2]!], links: s.links.slice(0, 2), requests: [at(0)] };
+    expect(run(single).map((step) => view(step).nodes.find((n) => n.id === 'api')!.badge)).toContain('pool 1/1');
+  });
+});
