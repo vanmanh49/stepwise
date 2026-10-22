@@ -48,6 +48,17 @@ export const broker = (id: string, column: number, mode: 'queue' | 'topic', cons
   redeliverMs,
 });
 
+export const relayNode = (id: string, column: number, dbId: string, to: string, pollMs = 40): NodeSpec => ({
+  id,
+  label: id,
+  type: 'relay',
+  column,
+  processMs: GATEWAY_MS,
+  pollMs,
+  db: dbId,
+  to,
+});
+
 export const link = (from: string, to: string, latencyMs = LINK_MS): Link => ({ from, to, latencyMs });
 
 export const gateway = (routes: { prefix: string; to: string }[], requireToken = false): NodeSpec => ({

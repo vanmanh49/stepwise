@@ -404,3 +404,50 @@ describe('traceSteps: saga, errors and reroute', () => {
     expect(steps.find((x) => x.title.startsWith('The gateway routes'))!.why).toContain('monolith');
   });
 });
+
+describe('traceSteps: outbox relay', () => {
+  const outboxShop = (records?: Record<string, string>, faults: Scenario['faults'] = []): Scenario => ({
+    nodes: [
+      shared.client(),
+      shared.service('orders', 1, [{ to: 'db', data: { write: { 'order {req}': 'placed', 'outbox/{req}': 'OrderPlaced' } } }]),
+      shared.db('db', 2, [], { ...(records && { records }) }),
+      shared.broker('events', 2, 'queue', ['email']),
+      shared.service('email', 3),
+      shared.relayNode('relay', 2, 'db', 'events'),
+    ],
+    links: [shared.link('client', 'orders'), shared.link('orders', 'db'), shared.link('events', 'email'), shared.link('relay', 'db'), shared.link('relay', 'events')],
+    requests: [{ label: 'POST /orders', path: '/orders', to: 'orders', at: 0 }],
+    faults,
+  });
+
+  it('narrates polls and shows the relay badge', () => {
+    const steps = run(outboxShop());
+    const titles = steps.map((s) => s.title);
+    expect(titles).toContain('The relay finds 1 unsent event: #1');
+    expect(titles).not.toContain('The relay queries db for undefined');
+    expect(view(steps[0]!).nodes.find((n) => n.id === 'relay')).toMatchObject({ type: 'relay', badge: 'polls every 40 ms' });
+  });
+
+  it('narrates an empty poll', () => {
+    const s = outboxShop();
+    const late: Scenario = { ...s, requests: [{ ...s.requests[0]!, at: 50 }] };
+    expect(run(late).map((x) => x.title)).toContain('The relay finds nothing to send');
+  });
+
+  it('says how many events were never published when the run is cut short', () => {
+    const steps = run(outboxShop({ 'outbox/#0': 'OrderPlaced' }, [{ kind: 'down', node: 'db', at: 30 }]));
+    expect(steps).toHaveLength(MAX_STEPS + 1);
+    expect(steps.at(-1)!.why).toContain('2 events were never published');
+  });
+
+  it('marks an instance alive again when it restarts', () => {
+    const s: Scenario = {
+      ...chain,
+      requests: [{ label: 'GET /', path: '/', to: 'a', at: 0 }, { label: 'GET /', path: '/', to: 'a', at: 100 }],
+      faults: [{ kind: 'crash-after', node: 'a', after: 'b', request: '#1', restartMs: 20 }],
+    };
+    const steps = run(s);
+    const back = steps.find((x) => x.title === 'a-1 is back')!;
+    expect(view(back).nodes.find((n) => n.id === 'a')!.instances![0]!.role).not.toBe('discarded');
+  });
+});

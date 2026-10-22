@@ -88,6 +88,8 @@ export type NodeSpec = NodeBase &
     | { type: 'db'; processMs: number; columns: string[]; records?: Record<string, string> }
     /** queue: consumers' instances compete for one queue. topic: one queue per consumer service, each gets a copy. */
     | { type: 'broker'; processMs: number; mode: 'queue' | 'topic'; consumers: string[]; redeliverMs: number }
+    /** Every `pollMs` it reads `db`'s outbox/ records and publishes each to the broker `to`, deleting it once stored. */
+    | { type: 'relay'; processMs: number; pollMs: number; db: string; to: string }
   );
 
 export type NodeType = NodeSpec['type'];
@@ -127,7 +129,9 @@ export type Fault =
   /** `node` (a service or one instance) answers with `reason` instead of working, with chance `rate`; `version`, `request` and `from` narrow it. */
   | { kind: 'errors'; node: string; rate: number; reason: string; version?: string; request?: string; from?: number }
   /** The gateway's route for `prefix` points at `to` from `at` on (added when missing). */
-  | { kind: 'reroute'; gateway: string; at: number; prefix: string; to: string };
+  | { kind: 'reroute'; gateway: string; at: number; prefix: string; to: string }
+  /** The instance of `node` handling `request` crashes right after its call to `after` answers ok; with restartMs it comes back. */
+  | { kind: 'crash-after'; node: string; after: string; request: string; restartMs?: number };
 
 export interface Scenario {
   nodes: NodeSpec[];
@@ -167,6 +171,8 @@ export interface Message {
   delivery?: string;
   /** A call's own path ("/refund"), checked by the callee's `when`. */
   path?: string;
+  /** Replies to a prefix read ("outbox/*"): the matching records, oldest first. */
+  records?: [string, string][];
   /** Replies only: the value a read found, passed back up the chain. */
   value?: string;
 }
@@ -186,7 +192,10 @@ export type TraceEvent = { t: number } & (
   | { kind: 'limit'; gateway: string; request: string; key: string; allowed: boolean; used: number; limit: number }
   | { kind: 'mark'; balancer: string; instance: string; healthy: boolean }
   | { kind: 'fault'; fault: Fault }
+  /** node: a service, or one instance coming back after a crash-after restart. */
   | { kind: 'recover'; node: string }
+  /** found: the request ids of the outbox records, oldest first. */
+  | { kind: 'poll'; relay: string; found: string[] }
   | { kind: 'lost'; message: Message }
   | { kind: 'duplicate'; node: string; instance: string; request: string; status: 'replayed' | 'in progress' }
   | { kind: 'timeout'; caller: string; target: string; request: string; afterMs: number }

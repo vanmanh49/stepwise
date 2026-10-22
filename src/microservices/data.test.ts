@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Call, RequestSpec, Scenario, SimResult } from './model';
 import { broker, client, db, link, service } from './scenarios/shared';
+import { finalRecords } from './records.testutil';
 import { fill, simulate } from './sim';
 
 /** client → api → db, with the shared numbers: links 5 ms, api 10 ms, db 3 ms. */
@@ -14,19 +15,6 @@ function apiWithDb(calls: Call[], requests: RequestSpec[], records?: Record<stri
 }
 
 const post = (extra: Partial<RequestSpec> = {}): RequestSpec => ({ label: 'POST /orders', path: '/orders', to: 'api', at: 0, ...extra });
-
-/** The records a db holds at the end of a run, from its write events. */
-export function finalRecords(result: SimResult, node: string, start: Record<string, string> = {}): Record<string, string> {
-  const records = { ...start };
-  for (const e of result.trace) {
-    if (e.kind !== 'write' || e.db !== node) continue;
-    for (const [key, value] of Object.entries(e.records)) {
-      if (value === null) delete records[key];
-      else records[key] = value;
-    }
-  }
-  return records;
-}
 
 describe('fill', () => {
   it('fills in the request id, key and value', () => {

@@ -1,6 +1,7 @@
 import { MAX_TIME, type Call, type DataOp, type DeliveryOutcome, type Fault, type Message, type NodeSpec, type NodeType, type RequestOutcome, type Scenario, type SimResult, type TraceEvent } from './model';
 import { balancer, createDiscovery, gateway, registry } from './behaviours';
 import { broker } from './broker';
+import { relay } from './relay';
 import { EventQueue } from './queue';
 import { createCaller, type CallFn } from './resilience';
 
@@ -17,7 +18,9 @@ export interface SimContext {
   requestInfo(id: string): { label: string; path: string; token: boolean; caller?: string; key?: string; value?: string };
   /** Sends over the link between the two owners; `onReply` runs when the answer arrives. */
   send(from: string, to: string, message: Pick<Message, 'kind' | 'label'> & { request?: string; delivery?: string; path?: string }, onReply?: (reply: Message) => void): Message;
-  reply(to: Message, ok: boolean, reason?: string, result?: string[], value?: string): void;
+  reply(to: Message, ok: boolean, reason?: string, result?: string[], value?: string, records?: [string, string][]): void;
+  /** Sends a query that does `op` to a db; the label is what the view shows. */
+  query(from: string, db: string, op: DataOp, label: string, request: string | undefined, onReply: (reply: Message) => void): Message;
   /** Stops waiting for `message`'s reply; when it comes, it is traced as late and dropped. */
   cancel(message: Message): void;
   /** Sends through a call policy (timeouts, retries, breaker, bulkhead); a plain send without one. */
@@ -148,7 +151,7 @@ export function simulate(input: Scenario): SimResult {
       ctx.at(message.arrives, () => deliver(message));
       return message;
     },
-    reply(to, ok, reason, result, value) {
+    reply(to, ok, reason, result, value, found) {
       const departs = now;
       const message: Message = {
         id: `m${++messages}`,
@@ -164,6 +167,7 @@ export function simulate(input: Scenario): SimResult {
         ...(reason !== undefined && { reason }),
         ...(result && { result }),
         ...(value !== undefined && { value }),
+        ...(found && { records: found }),
       };
       working.delete(to.id);
       if (to.kind === 'request' || to.kind === 'query' || to.kind === 'deliver') working.add(message.id);
@@ -175,6 +179,11 @@ export function simulate(input: Scenario): SimResult {
       ctx.send(from, to, { kind: 'request', label: inbound.label, ...(inbound.request && { request: inbound.request }) }, (answer) =>
         ctx.reply(inbound, answer.ok ?? false, answer.reason, undefined, answer.value),
       );
+    },
+    query(from, db, op, label, request, onReply) {
+      const message = ctx.send(from, db, { kind: 'query', label, ...(request && { request }) }, onReply);
+      queryOps.set(message.id, op);
+      return message;
     },
     cancel(message) {
       awaiting.delete(message.id);
@@ -334,6 +343,18 @@ export function simulate(input: Scenario): SimResult {
       countCrossService(instance, target.to, request);
       const answered = (ok: boolean, reason?: string, answer?: string) => {
         if (ok && answer !== undefined) value = answer;
+        const crashAfter = scenario.faults.find((f) => f.kind === 'crash-after' && f.node === node.id && f.request === request && f.after === target.to);
+        if (ok && crashAfter?.kind === 'crash-after' && !aborted.has(message)) {
+          ctx.trace({ kind: 'fault', fault: crashAfter });
+          kill(instance, message);
+          if (crashAfter.restartMs !== undefined) {
+            ctx.at(now + crashAfter.restartMs, () => {
+              dead.delete(instance);
+              ctx.trace({ kind: 'recover', node: instance });
+            });
+          }
+          return;
+        }
         then(ok, reason);
       };
       if (to.type === 'db') {
@@ -405,7 +426,7 @@ export function simulate(input: Scenario): SimResult {
 
   const dbBehaviour: Behaviour = (_ctx, node) => (message) => {
     if (node.type !== 'db') return;
-    ctx.trace({ kind: 'handle', node: node.id, request: message.request! });
+    if (message.request) ctx.trace({ kind: 'handle', node: node.id, request: message.request });
     ctx.at(now + node.processMs, () => {
       if (down.has(node.id)) return ctx.reply(message, false, `${node.id} is down`);
       const columns = queryColumns.get(message.id) ?? [];
@@ -413,8 +434,12 @@ export function simulate(input: Scenario): SimResult {
       if (missing) return ctx.reply(message, false, `no column ${missing}`);
       const op = queryOps.get(message.id);
       if (!op) return ctx.reply(message, true);
-      const request = message.request!;
+      const request = message.request ?? '';
       const data = records.get(node.id)!;
+      if ('read' in op && op.read.endsWith('*')) {
+        const prefix = op.read.slice(0, -1);
+        return ctx.reply(message, true, undefined, undefined, undefined, [...data.entries()].filter(([key]) => key.startsWith(prefix)));
+      }
       if ('read' in op) {
         const value = data.get(op.read);
         ctx.trace({ kind: 'read', db: node.id, request, key: op.read, ...(value !== undefined && { value }) });
@@ -435,7 +460,7 @@ export function simulate(input: Scenario): SimResult {
 
   const clientBehaviour: Behaviour = () => () => {};
 
-  const behaviours: Record<NodeType, Behaviour> = { client: clientBehaviour, service: serviceBehaviour, db: dbBehaviour, gateway, registry, balancer, broker };
+  const behaviours: Record<NodeType, Behaviour> = { client: clientBehaviour, service: serviceBehaviour, db: dbBehaviour, gateway, registry, balancer, broker, relay };
 
   // Faults first, so a fault at time t applies before anything else that happens at t.
   for (const fault of scenario.faults) {
@@ -523,6 +548,8 @@ export function simulate(input: Scenario): SimResult {
 
   let timedOut = false;
   const allDone = () => requests.size > 0 && [...requests.values()].every((r) => r.done);
+  // An outbox record still waiting for its relay keeps the run going.
+  const outboxEmpty = () => [...records.values()].every((data) => ![...data.keys()].some((key) => key.startsWith('outbox/')));
   for (let next = queue.pop(); next; next = queue.pop()) {
     if (next.time > MAX_TIME) {
       timedOut = true;
@@ -531,7 +558,7 @@ export function simulate(input: Scenario): SimResult {
     now = next.time;
     next.item();
     // Answers still on their way, and work still running, show what a timeout wasted.
-    if (allDone() && openDeliveries.size === 0 && working.size === 0 && [...jobs.values()].every((set) => set.size === 0)) break;
+    if (allDone() && openDeliveries.size === 0 && outboxEmpty() && working.size === 0 && [...jobs.values()].every((set) => set.size === 0)) break;
   }
 
   for (const open of requests.values()) {

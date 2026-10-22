@@ -72,6 +72,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   const name = (id: string) => {
     const type = nodes.get(id)?.type;
     if (type === 'broker') return 'the broker';
+    if (type === 'relay') return 'the relay';
     return type === 'client' || type === 'gateway' || type === 'registry' || type === 'balancer' ? `the ${id}` : id;
   };
   const line = (kind: TraceEvent['kind']) => {
@@ -181,6 +182,10 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         if (event.fault.kind === 'outage' && event.fault.mode === 'refuse') for (const id of instancesOf(event.fault.node)) dead.add(id);
         break;
       case 'recover': {
+        if (owner.has(event.node)) {
+          dead.delete(event.node);
+          break;
+        }
         const outage = scenario.faults.find((f) => f.kind === 'outage' && f.node === event.node);
         if (outage?.kind === 'outage' && outage.mode === 'refuse') for (const id of instancesOf(event.node)) dead.delete(id);
         break;
@@ -304,6 +309,8 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       case 'write':
       case 'read':
         return { node: event.db };
+      case 'poll':
+        return { node: event.relay };
       case 'lost':
       case 'late':
         return { node: ownerOf(event.message.to) };
@@ -351,6 +358,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       if (node.rateLimit.per === 'all') parts.push(algorithm === 'fixed-window' ? `${show(entries[0]![1])} this window` : `tokens ${show(entries[0]![1])}`);
       else parts.push(entries.map(([key, n]) => `${key} ${show(n)}${algorithm === 'fixed-window' ? '' : ' left'}`).join(', '));
     }
+    if (node?.type === 'relay') parts.push(`polls every ${node.pollMs} ms`);
     const inUse = pools.get(id);
     if (inUse) {
       const entries = [...inUse.entries()];
@@ -416,6 +424,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
             ? { title: `${from} replies to ${to} for ${m.request ?? m.label}`, why: `The work is done, and the answer takes ${ms} ms to travel back.` }
             : { title: `${from} tells ${to} that ${m.request ?? 'it'} failed`, why: `Reason: ${m.reason ?? 'unknown'}. The failure travels back like any answer, in ${ms} ms.` };
         }
+        if (m.kind === 'query' && !m.request) return { title: `${capitalise(from)} asks ${to} for unsent events`, why: `It reads every outbox record, oldest first. The query takes ${ms} ms to arrive.` };
         if (m.kind === 'query') return { title: `${from} queries ${to} for ${m.request}`, why: `${from} needs data it doesn't keep itself. The query takes ${ms} ms to arrive.` };
         if (m.kind === 'deliver') {
           return { title: `${capitalise(from)} hands ${m.request} to ${m.to}`, why: `${m.to} is free, and ${m.request} is the oldest message waiting for it. It takes ${ms} ms to arrive.` };
@@ -506,6 +515,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         }
         if (f.kind === 'lose-reply') return { title: `The network will drop a reply from ${f.node}`, why: `The first answer ${f.node} sends for ${f.request} never arrives.` };
         if (f.kind === 'errors') return { title: `${f.node} starts failing`, why: `It answers with an error: ${f.reason}.` };
+        if (f.kind === 'crash-after') return { title: `${f.node} crashes right after ${f.after} answers`, why: `The work for ${f.request} stops halfway: the first step is done, but nothing after it happens.` };
         if (f.kind === 'reroute') {
           return { title: `${capitalise(name(f.gateway))} now sends ${f.prefix} to ${f.to}`, why: `Only the route table changed. Clients keep using the same address.` };
         }
@@ -592,6 +602,15 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         return event.ok
           ? { title: `${event.consumer ?? 'A consumer'} finishes ${request}`, why: `It acks the message, so the broker removes it for good, ${event.ms} ms after it was stored.` }
           : { title: `${request} is never processed by ${queueOf(event.delivery)}`, why: `Reason: ${event.reason ?? 'unknown'}.` };
+      }
+      case 'poll': {
+        const n = event.found.length;
+        return n === 0
+          ? { title: 'The relay finds nothing to send', why: 'Every saved event has already been published. It looks again on its next poll.' }
+          : {
+              title: `The relay finds ${n} unsent event${n === 1 ? '' : 's'}: ${event.found.join(', ')}`,
+              why: `Each one was saved in the same write as its order, so none can be missed. It publishes them one by one, then deletes each record.`,
+            };
       }
       case 'compensate':
         return {
@@ -700,11 +719,13 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   const more = steps.length - MAX_STEPS;
   const final = steps.at(-1)!;
   const ok = result.requests.filter((r) => r.status === 'ok').length;
+  const unsent = [...records.values()].reduce((sum, data) => sum + [...data.keys()].filter((key) => key.startsWith('outbox/')).length, 0);
+  const left = unsent > 0 ? ` ${unsent} event${unsent === 1 ? ' was' : 's were'} never published.` : '';
   return [
     ...steps.slice(0, MAX_STEPS),
     {
       title: `${more} more steps`,
-      why: `The rest of the run is summarised to keep it readable: ${ok} of ${result.requests.length} requests succeeded.`,
+      why: `The rest of the run is summarised to keep it readable: ${ok} of ${result.requests.length} requests succeeded.${left}`,
       codeLine: line('done'),
       variables: { t: `${result.endedAt} ms` },
       view: final.view,
