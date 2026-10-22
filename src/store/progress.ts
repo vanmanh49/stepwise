@@ -113,13 +113,21 @@ const creator: StateCreator<ProgressData & ProgressActions> = (set) => ({
  * The only place that knows where progress is stored. Components use the
  * selectors and actions, so swapping LocalStorage for an API changes this file only.
  */
-export const useProgress =
-  typeof localStorage === 'undefined'
-    ? create(creator)
-    : create(
-        persist(creator, {
-          name: 'dsa-progress',
-          version: 1,
-          merge: (persisted, current) => ({ ...current, ...sanitizeProgress(persisted) }),
-        }),
-      );
+// Reading localStorage throws when the browser blocks site data; progress then lasts one session.
+const hasStorage = (() => {
+  try {
+    return typeof localStorage !== 'undefined';
+  } catch {
+    return false;
+  }
+})();
+
+export const useProgress = hasStorage
+  ? create(
+      persist(creator, {
+        name: 'dsa-progress',
+        version: 1,
+        merge: (persisted, current) => ({ ...current, ...sanitizeProgress(persisted) }),
+      }),
+    )
+  : create(creator);
