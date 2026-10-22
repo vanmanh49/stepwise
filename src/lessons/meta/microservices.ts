@@ -132,4 +132,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['message queue', 'queue', 'broker', 'asynchronous', 'worker', 'competing consumers', 'ack', 'redelivery', 'rabbitmq', 'sqs'],
     prerequisites: ['rate-limiting'],
   },
+  {
+    id: 'pub-sub',
+    title: 'Publish/Subscribe & Events',
+    category: 'microservices',
+    difficulty: 'intermediate',
+    group: 'Communication & Resilience',
+    description: 'Publish order events to several subscribers, take one down, and compare a topic with a queue.',
+    keywords: ['publish subscribe', 'pub/sub', 'pubsub', 'events', 'topic', 'subscriber', 'event-driven', 'kafka', 'sns', 'fan-out'],
+    prerequisites: ['message-queues'],
+  },
 ];
