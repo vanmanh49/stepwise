@@ -222,4 +222,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['strangler fig', 'strangler pattern', 'migration', 'monolith', 'facade', 'legacy', 'big bang rewrite', 'incremental migration'],
     prerequisites: ['deployment-strategies'],
   },
+  {
+    id: 'service-mesh',
+    title: 'Sidecar & Service Mesh',
+    category: 'microservices',
+    difficulty: 'advanced',
+    group: 'Data & Operations',
+    description: 'Put sidecar proxies beside each service, let the mesh retry a flaky call and lock out callers with mTLS.',
+    keywords: ['service mesh', 'sidecar', 'proxy', 'istio', 'linkerd', 'envoy', 'mtls', 'mutual tls', 'retries', 'zero trust'],
+    prerequisites: ['strangler-fig'],
+  },
 ];

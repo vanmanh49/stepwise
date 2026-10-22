@@ -119,6 +119,7 @@ const EXPECTED_IDS = [
   'distributed-tracing',
   'deployment-strategies',
   'strangler-fig',
+  'service-mesh',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -155,7 +156,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
-    expect(lessonsIn('microservices')).toHaveLength(22);
+    expect(lessonsIn('microservices')).toHaveLength(23);
   });
 
   it('links previous and next lessons within a category', () => {
