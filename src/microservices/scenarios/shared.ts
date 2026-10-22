@@ -12,6 +12,8 @@ export const DB_MS = 3;
 export const BROKER_MS = 2;
 /** A sidecar's own processing; it sits on its service's host, so its links are 1 ms. */
 export const SIDECAR_MS = 1;
+/** What an event store spends per event it replays. */
+export const PER_EVENT_MS = 2;
 
 export const client = (extra: Partial<Extract<NodeSpec, { type: 'client' }>> = {}): NodeSpec => ({ id: 'client', label: 'client', type: 'client', column: 0, ...extra });
 

@@ -182,4 +182,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['cqrs', 'command query responsibility segregation', 'read model', 'projection', 'projector', 'eventual consistency', 'stale read', 'materialized view'],
     prerequisites: ['transactional-outbox'],
   },
+  {
+    id: 'event-sourcing',
+    title: 'Event Sourcing',
+    category: 'microservices',
+    difficulty: 'advanced',
+    group: 'Data & Operations',
+    description: 'Store deposits as events instead of a balance, replay them to read, and cut the replay with snapshots.',
+    keywords: ['event sourcing', 'event store', 'append only', 'replay', 'snapshot', 'audit log', 'ledger', 'history'],
+    prerequisites: ['cqrs'],
+  },
 ];
