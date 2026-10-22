@@ -451,3 +451,34 @@ describe('traceSteps: outbox relay', () => {
     expect(view(back).nodes.find((n) => n.id === 'a')!.instances![0]!.role).not.toBe('discarded');
   });
 });
+
+describe('traceSteps: event store', () => {
+  const ledger = (ops: number, snapshotEvery?: number): Scenario => ({
+    nodes: [
+      shared.client(),
+      shared.service('account', 1, [
+        { to: 'account-db', when: 'POST', data: { append: '{value}' } },
+        { to: 'account-db', when: 'GET', data: { read: 'balance' } },
+      ]),
+      shared.db('account-db', 2, [], { events: { perEventMs: 2, ...(snapshotEvery && { snapshotEvery }) } }),
+    ],
+    links: [shared.link('client', 'account'), shared.link('account', 'account-db')],
+    requests: [
+      ...Array.from({ length: ops }, (_, i) => ({ label: 'POST /account', path: 'POST /account', to: 'account', at: i * 20, value: ['+50', '-20', '+100', '-30', '+10'][i % 5]! })),
+      { label: 'GET /balance', path: 'GET /balance', to: 'account', at: ops * 20 },
+    ],
+    faults: [],
+  });
+
+  it('narrates appends, snapshots and replays', () => {
+    const titles = run(ledger(8, 5)).map((s) => s.title);
+    expect(titles).toContain('account-db appends e3: +100');
+    expect(titles).toContain('account-db stores snapshot @5 = 110');
+    expect(titles).toContain('account-db replays 3 events to answer #9');
+  });
+
+  it('shows the events as records in the db box', () => {
+    const last = view(run(ledger(8)).at(-1)!).nodes.find((n) => n.id === 'account-db')!;
+    expect(last.instances!.map((r) => r.id)).toEqual(['+3 older', 'e4', 'e5', 'e6', 'e7', 'e8']);
+  });
+});

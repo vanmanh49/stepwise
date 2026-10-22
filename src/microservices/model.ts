@@ -85,7 +85,8 @@ export type NodeSpec = NodeBase &
     | { type: 'registry'; processMs: number; heartbeatMs: number; ttlMs: number; serves: string[] }
     | { type: 'balancer'; processMs: number; target: string; strategy: Strategy; healthCheckMs?: number }
     | { type: 'service'; instances: Instance[]; calls: Call[]; parallel: boolean; dedupe?: boolean }
-    | { type: 'db'; processMs: number; columns: string[]; records?: Record<string, string> }
+    /** With `events`, an event store: appends are kept as e1, e2…; a read replays the events since the latest snapshot. */
+    | { type: 'db'; processMs: number; columns: string[]; records?: Record<string, string>; events?: { perEventMs: number; snapshotEvery?: number } }
     /** queue: consumers' instances compete for one queue. topic: one queue per consumer service, each gets a copy. */
     | { type: 'broker'; processMs: number; mode: 'queue' | 'topic'; consumers: string[]; redeliverMs: number }
     /** Every `pollMs` it reads `db`'s outbox/ records and publishes each to the broker `to`, deleting it once stored. */
@@ -213,6 +214,8 @@ export type TraceEvent = { t: number } & (
   /** A deleted key has the value null. */
   | { kind: 'write'; db: string; request: string; records: Record<string, string | null> }
   | { kind: 'read'; db: string; request: string; key: string; value?: string; replayed?: number }
+  | { kind: 'append'; db: string; request: string; seq: number; event: string }
+  | { kind: 'snapshot'; db: string; seq: number; value: number }
   | { kind: 'done'; request: string; ok: boolean; ms: number; reason?: string; value?: string }
 );
 

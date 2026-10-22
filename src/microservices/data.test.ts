@@ -202,3 +202,59 @@ describe('errors fault', () => {
     expect(statuses(api(2, [{ kind: 'errors', node: 'api-1', rate: 1, reason: 'x' }]))).toEqual(['failed', 'failed']);
   });
 });
+
+const VALUES = ['+50', '-20', '+100', '-30', '+10', '+20'];
+
+/** client → account → account-db (an event store), `ops` POSTs every 20 ms, then one GET. */
+function ledger(ops: number, snapshotEvery?: number): Scenario {
+  return {
+    nodes: [
+      client(),
+      service('account', 1, [
+        { to: 'account-db', when: 'POST', data: { append: '{value}' } },
+        { to: 'account-db', when: 'GET', data: { read: 'balance' } },
+      ]),
+      db('account-db', 2, [], { events: { perEventMs: 2, ...(snapshotEvery && { snapshotEvery }) } }),
+    ],
+    links: [link('client', 'account'), link('account', 'account-db')],
+    requests: [
+      ...Array.from({ length: ops }, (_, i) => ({ label: 'POST /account', path: 'POST /account', to: 'account', at: i * 20, value: VALUES[i % VALUES.length]! })),
+      { label: 'GET /balance', path: 'GET /balance', to: 'account', at: ops * 20 },
+    ],
+    faults: [],
+  };
+}
+
+describe('event store', () => {
+  it('appends numbered events and folds them on read', () => {
+    const result = simulate(ledger(3));
+    expect(result.trace.flatMap((e) => (e.kind === 'append' ? [[e.seq, e.event]] : []))).toEqual([
+      [1, '+50'],
+      [2, '-20'],
+      [3, '+100'],
+    ]);
+    expect(result.requests.at(-1)).toMatchObject({ status: 'ok', value: '130' });
+    expect(result.trace.find((e) => e.kind === 'read')).toMatchObject({ key: 'balance', value: '130', replayed: 3 });
+  });
+
+  it('charges perEventMs for each replayed event', () => {
+    const result = simulate(ledger(3));
+    const arrived = result.trace.find((e) => e.kind === 'arrive' && e.message.kind === 'query' && e.message.request === '#4')!;
+    const answered = result.trace.find((e) => e.kind === 'send' && e.message.kind === 'reply' && e.message.from === 'account-db' && e.message.request === '#4')!;
+    expect(answered.t - arrived.t).toBe(3 + 2 * 3);
+  });
+
+  it('starts from the latest snapshot', () => {
+    const result = simulate(ledger(18, 5));
+    expect(result.trace.flatMap((e) => (e.kind === 'snapshot' ? [e.seq] : []))).toEqual([5, 10, 15]);
+    expect(result.trace.find((e) => e.kind === 'read')).toMatchObject({ replayed: 3 });
+    expect(result.requests.at(-1)!.value).toBe(String([...Array(18).keys()].reduce((sum, i) => sum + Number(VALUES[i % 6]), 0)));
+  });
+
+  it('keeps events and snapshots as records', () => {
+    const steps = simulate(ledger(6, 5));
+    const keys = steps.trace.flatMap((e) => (e.kind === 'append' ? [`e${e.seq}`] : e.kind === 'snapshot' ? [`snapshot @${e.seq}`] : []));
+    expect(keys).toEqual(['e1', 'e2', 'e3', 'e4', 'e5', 'snapshot @5', 'e6']);
+    expect(steps.trace.find((e) => e.kind === 'snapshot')).toMatchObject({ value: 110 });
+  });
+});

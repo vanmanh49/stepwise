@@ -273,6 +273,13 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         changed.set(event.db, keys);
         break;
       }
+      case 'append':
+      case 'snapshot': {
+        const key = event.kind === 'append' ? `e${event.seq}` : `snapshot @${event.seq}`;
+        records.get(event.db)?.set(key, event.kind === 'append' ? event.event : String(event.value));
+        changed.set(event.db, new Set([...(changed.get(event.db) ?? []), key]));
+        break;
+      }
       default:
         break;
     }
@@ -308,6 +315,8 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         return { node: event.node };
       case 'write':
       case 'read':
+      case 'append':
+      case 'snapshot':
         return { node: event.db };
       case 'poll':
         return { node: event.relay };
@@ -629,7 +638,23 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
           why: entries.length > 1 ? `All ${entries.length} changes are made in one query, so they happen together or not at all.` : `The record now holds what ${event.request} asked for.`,
         };
       }
+      case 'append':
+        return { title: `${event.db} appends e${event.seq}: ${event.event}`, why: 'Nothing is overwritten. The new event goes at the end of the history.' };
+      case 'snapshot':
+        return {
+          title: `${event.db} stores snapshot @${event.seq} = ${event.value}`,
+          why: `The total of the first ${event.seq} events is saved, so later reads can start from it instead of from e1.`,
+        };
       case 'read':
+        if (event.replayed !== undefined) {
+          const n = event.replayed;
+          return {
+            title: `${event.db} replays ${n} event${n === 1 ? '' : 's'} to answer ${event.request}`,
+            why: [...(records.get(event.db)?.keys() ?? [])].some((k) => k.startsWith('snapshot @'))
+              ? `It starts from the latest snapshot and adds the ${n} event${n === 1 ? '' : 's'} after it, which gives ${event.value}.`
+              : `The balance is not stored anywhere. Adding up all ${n} events gives ${event.value}.`,
+          };
+        }
         return event.value === undefined
           ? { title: `${event.db} finds no ${event.key}`, why: `There is no record called ${event.key} yet, so the answer carries no value.` }
           : { title: `${event.db} reads ${event.key} = ${event.value}`, why: `The answer carries ${event.value} back to whoever asked for ${event.request}.` };

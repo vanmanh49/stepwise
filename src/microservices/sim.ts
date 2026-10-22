@@ -108,6 +108,9 @@ export function simulate(input: Scenario): SimResult {
   /** Each db's records, a copy of its starting records. */
   const records = new Map<string, Map<string, string>>();
   for (const n of scenario.nodes) if (n.type === 'db') records.set(n.id, new Map(Object.entries(n.records ?? {})));
+  /** Each event store's appended events, and its latest snapshot. */
+  const eventLogs = new Map<string, { events: number[]; snapshot?: { seq: number; value: number } }>();
+  for (const n of scenario.nodes) if (n.type === 'db' && n.events) eventLogs.set(n.id, { events: [] });
   const random = seeded(scenario.seed ?? 1);
   let now = 0;
   let messages = 0;
@@ -427,7 +430,11 @@ export function simulate(input: Scenario): SimResult {
   const dbBehaviour: Behaviour = (_ctx, node) => (message) => {
     if (node.type !== 'db') return;
     if (message.request) ctx.trace({ kind: 'handle', node: node.id, request: message.request });
-    ctx.at(now + node.processMs, () => {
+    const log = eventLogs.get(node.id);
+    const pending = queryOps.get(message.id);
+    // A read from an event store replays every event since the latest snapshot, at perEventMs each.
+    const replayed = log && pending && 'read' in pending && !pending.read.endsWith('*') ? log.events.length - (log.snapshot?.seq ?? 0) : 0;
+    ctx.at(now + node.processMs + replayed * (node.events?.perEventMs ?? 0), () => {
       if (down.has(node.id)) return ctx.reply(message, false, `${node.id} is down`);
       const columns = queryColumns.get(message.id) ?? [];
       const missing = columns.find((c) => !node.columns.includes(c));
@@ -439,6 +446,25 @@ export function simulate(input: Scenario): SimResult {
       if ('read' in op && op.read.endsWith('*')) {
         const prefix = op.read.slice(0, -1);
         return ctx.reply(message, true, undefined, undefined, undefined, [...data.entries()].filter(([key]) => key.startsWith(prefix)));
+      }
+      if (log && 'read' in op) {
+        const value = String((log.snapshot?.value ?? 0) + log.events.slice(log.snapshot?.seq ?? 0).reduce((sum, n) => sum + n, 0));
+        ctx.trace({ kind: 'read', db: node.id, request, key: op.read, value, replayed });
+        return ctx.reply(message, true, undefined, undefined, value);
+      }
+      if (log && 'append' in op) {
+        log.events.push(Number.parseInt(op.append, 10) || 0);
+        const seq = log.events.length;
+        data.set(`e${seq}`, op.append);
+        ctx.trace({ kind: 'append', db: node.id, request, seq, event: op.append });
+        const every = node.events?.snapshotEvery;
+        if (every && seq % every === 0) {
+          const value = log.events.reduce((sum, n) => sum + n, 0);
+          log.snapshot = { seq, value };
+          data.set(`snapshot @${seq}`, String(value));
+          ctx.trace({ kind: 'snapshot', db: node.id, seq, value });
+        }
+        return ctx.reply(message, true);
       }
       if ('read' in op) {
         const value = data.get(op.read);
