@@ -162,4 +162,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['saga', 'compensation', 'compensating transaction', 'orchestration', 'choreography', 'distributed transaction', 'eventual consistency', 'rollback'],
     prerequisites: ['idempotency'],
   },
+  {
+    id: 'transactional-outbox',
+    title: 'Transactional Outbox',
+    category: 'microservices',
+    difficulty: 'advanced',
+    group: 'Data & Operations',
+    description: 'Crash a service between saving an order and publishing its event, then fix it with an outbox and a relay.',
+    keywords: ['transactional outbox', 'outbox', 'dual write', 'relay', 'change data capture', 'cdc', 'debezium', 'at least once', 'events'],
+    prerequisites: ['saga'],
+  },
 ];

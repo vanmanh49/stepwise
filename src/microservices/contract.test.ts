@@ -30,6 +30,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   'retries-backoff': { retries: [0, 4], outage: [0, 500], requests: [1, 8] },
   timeouts: { inventory: [10, 1000], apiTimeout: [0, 2000], clientTimeout: [0, 2000], requests: [1, 4] },
   saga: { orders: [1, 4] },
+  'transactional-outbox': { orders: [1, 5] },
 };
 
 const lessons = allLessons.filter((l) => l.category === 'microservices').map((l) => [l.id, l] as const);

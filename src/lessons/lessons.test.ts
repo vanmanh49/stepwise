@@ -113,6 +113,7 @@ const EXPECTED_IDS = [
   'pub-sub',
   'idempotency',
   'saga',
+  'transactional-outbox',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -149,7 +150,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
-    expect(lessonsIn('microservices')).toHaveLength(16);
+    expect(lessonsIn('microservices')).toHaveLength(17);
   });
 
   it('links previous and next lessons within a category', () => {
