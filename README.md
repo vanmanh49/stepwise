@@ -12,8 +12,8 @@ Every lesson has a visualization you control: play, pause, step forward and back
   - Data structures: Array, String, Linked List, Stack, Queue, Binary Tree, Binary Search Tree, Heap, Priority Queue, Graph
   - Algorithms: Linear Search, Binary Search, Bubble Sort, Selection Sort, Insertion Sort, Two Pointers, Sliding Window, Prefix Sum, Merge Sort, Quick Sort, Heap Sort, BFS, DFS, Topological Sort, Tree Traversal, Dijkstra, Bellman-Ford, Kruskal, Prim
   - SQL: SELECT and FROM, WHERE, NULL and three-valued logic, ORDER BY and LIMIT, DISTINCT, aggregates, GROUP BY and HAVING, INNER JOIN, LEFT JOIN, subqueries
-  - Microservices: Monolith vs Microservices, Service Boundaries, Synchronous Calls, API Gateway, Service Discovery, Load Balancing, Database per Service
-- **Simulated microservices**: change the settings, break an instance or a schema, and watch requests travel between services one message at a time, with each request's path, time and failure reason
+  - Microservices: Monolith vs Microservices, Service Boundaries, Synchronous Calls, API Gateway, Service Discovery, Load Balancing, Database per Service, Timeouts, Retries with Backoff & Jitter, Circuit Breaker, Bulkhead, Rate Limiting, Message Queues, Publish/Subscribe & Events, Idempotency & Delivery Guarantees
+- **Simulated microservices**: change the settings, break an instance or a schema, take a service down, flood it or lose a reply, and watch requests and queued messages travel between services one message at a time, with each request's path, tries, time and failure reason
 - **SQL you can step through**: write any query against a sample shop or school database and watch it run clause by clause (FROM → JOIN → WHERE → GROUP BY → HAVING → SELECT → DISTINCT → ORDER BY → LIMIT), with each row the clause keeps, joins, groups or removes highlighted
 - **SQL exercises** checked by comparing your result with the expected one, with hints and friendly errors that point at the line and suggest misspelled names
 - **One visualization engine** for all of them: play, pause, next, previous, restart, 0.5x–2x speed, timeline scrubber, keyboard control (Space, ←, →)
@@ -170,11 +170,18 @@ Microservices lessons run a simulated system in `src/microservices/`: `simulate(
    - `fooScenario(values)`: reads the form values with `readInt`/`readChoice` and returns the scenario (nodes, links, requests, faults), or the reason the values can't run;
    - `fooSteps(values)`: `scenarioSteps(fooScenario(values), title, options)`. In `options`, `lines` maps event kinds to snippets of `fooCode`, and `explain` can change an event's wording or code line.
 
-   Start from the shared numbers and helpers in `scenarios/shared.ts` (5 ms links, 10 ms instances).
+   Start from the shared numbers and helpers in `scenarios/shared.ts` (5 ms links, 10 ms instances, a 2 ms broker).
+
+   The scenario model covers more than nodes and links:
+   - **Call policies.** A `Call` (or the scenario's `clientPolicy`) can carry a `CallPolicy`: a timeout, retries with backoff and jitter, a circuit breaker, and a bulkhead pool. They are applied by `resilience.ts`.
+   - **Conditional calls.** `Call.when` makes a call only for matching paths.
+   - **Brokers.** A `broker` node stores messages and delivers them to its consumers, in `queue` or `topic` mode, redelivering any that fail (`broker.ts`).
+   - **Faults.** These include `outage` (refuse or hang for a while) and `lose-reply`.
+   - **Other node options.** A gateway can have a `rateLimit`, and a service with `dedupe` answers repeats from what it remembers.
 2. Test each preset's point in `scenarios/<id>.test.ts` with `fooScenario` + `simulate`, for example which requests fail and why.
 3. Add the metadata to `src/lessons/meta/microservices.ts` without `complexity`, and the content to `src/lessons/microservices/<id>.ts`: a `form` visualization with `codeLabel: 'Pseudocode'`, its fields and presets.
 
-`src/microservices/contract.test.ts` runs every microservices lesson with random and garbage settings: each run must end with every request finished, stay within 201 steps, give valid code lines and repeat exactly.
+`src/microservices/contract.test.ts` runs every microservices lesson with random and garbage settings: each run must end with every request and delivery finished, stay within 201 steps, give valid code lines and repeat exactly.
 
 ## How to add an algorithm
 
@@ -231,7 +238,7 @@ Unit tests cover:
 - data structure operations, including invalid ones (empty, full, out of range, missing value)
 - the player reducer, input parsing, tree layout, search ranking, Big O maths and the progress store
 - every registered lesson's content
-- the microservices simulator (timing, faults, the gateway, registry and balancer), its narration, the services layout, and each lesson's teaching moment
+- the microservices simulator (timing, faults, the gateway, registry, balancer, rate limiter and broker, and call policies), its narration, the services layout and message stacking, and each lesson's teaching moment
 - the SQL interpreter: tokenizer, parser, executor, grouping, subqueries, error messages, the step generator and the exercise checker
 - **differential tests**: over 120 queries run through both the interpreter and real SQLite ([sql.js](https://github.com/sql-js/sql.js)), whose results must match. sql.js is a dev dependency used only by tests; it is never bundled into the app.
 
