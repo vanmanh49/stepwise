@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Role, ServicesView } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
-import { chooseOrientation, HEADER, layoutServices, linkEnds, MARGIN, NARROW_WIDTH, type PlacedBox } from './servicesLayout';
+import { chooseOrientation, HEADER, layoutServices, linkEnds, MARGIN, NARROW_WIDTH, stackMessages, type PlacedBox } from './servicesLayout';
 import { spring } from './spring';
 
 const PILL_HEIGHT = 18;
@@ -119,6 +119,7 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
   // Rows fill the stage they are given, so phone text stays at full size.
   const layout = layoutServices(view, narrow ? 'rows' : 'columns', narrow ? Math.min(NARROW_WIDTH, available - 2 * MARGIN) : NARROW_WIDTH);
   const boxes = new Map(layout.boxes.map((b) => [b.id, b]));
+  const deliveries = view.requests.filter((r) => r.id.includes('/')).length;
   const width = layout.width + MARGIN * 2;
   const height = layout.height + MARGIN * 2;
 
@@ -129,7 +130,7 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
         height={height}
         viewBox={`${-MARGIN} ${-MARGIN} ${width} ${height}`}
         role="img"
-        aria-label={`${view.requests.length} requests, ${view.messages.length} messages in flight`}
+        aria-label={`${view.requests.length - deliveries} requests, ${deliveries > 0 ? `${deliveries} deliveries, ` : ''}${view.messages.length} messages in flight`}
         className="mx-auto h-auto max-w-full"
       >
         {view.links.map((link) => {
@@ -155,13 +156,16 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
           const box = boxes.get(node.id);
           return box ? <NodeBox key={node.id} node={node} box={box} /> : null;
         })}
-        {view.messages.map((message) => {
+        {stackMessages(view.messages).map((message) => {
           const [a, b] = [boxes.get(message.from), boxes.get(message.to)];
           if (!a || !b) return null;
           const { x1, y1, x2, y2 } = linkEnds(a, b);
           const along = DEPARTED_AT + (ARRIVED_AT - DEPARTED_AT) * message.progress;
-          const x = x1 + (x2 - x1) * along;
-          const y = y1 + (y2 - y1) * along;
+          // Pills that share a spot step sideways off the link, one pill height each.
+          const length = Math.hypot(x2 - x1, y2 - y1) || 1;
+          const shift = message.slot * (PILL_HEIGHT + 2);
+          const x = x1 + (x2 - x1) * along - ((y2 - y1) / length) * shift;
+          const y = y1 + (y2 - y1) * along + ((x2 - x1) / length) * shift;
           const text = narrow ? message.label.replace(/^(GET|POST|PUT|DELETE) /, '') : message.label;
           const pill = Math.max(36, text.length * 6.2 + 12);
           return (
@@ -209,6 +213,7 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
                       <span className="rounded px-1.5 py-0.5" style={{ background: roleFill(status.role), color: roleText(status.role) }}>
                         {status.text}
                       </span>
+                      {r.attempts !== undefined && r.attempts > 1 && <span className="ml-1 text-muted">· {r.attempts} tries</span>}
                       {r.reason && <div className="mt-0.5 font-sans text-[11px] text-muted">{r.reason}</div>}
                     </td>
                     <td className="break-words py-1 pr-2 text-muted">{r.hops}</td>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ServicesView } from '../../../types/visualization';
-import { chooseOrientation, HEADER, INSTANCE_GAP, INSTANCE_HEIGHT, layoutServices, linkEnds, NARROW_WIDTH, PAD, type PlacedBox } from './servicesLayout';
+import { chooseOrientation, HEADER, INSTANCE_GAP, INSTANCE_HEIGHT, layoutServices, linkEnds, NARROW_WIDTH, PAD, type PlacedBox, stackMessages } from './servicesLayout';
 
 type ViewNode = ServicesView['nodes'][number];
 
@@ -82,5 +82,26 @@ describe('linkEnds', () => {
     const rows = layoutServices(system, 'rows').boxes;
     const [top, below] = [at(rows, 'client'), at(rows, 'gateway')];
     expect(linkEnds(top, below)).toEqual({ x1: top.x + top.width / 2, y1: top.y + top.height, x2: below.x + below.width / 2, y2: below.y });
+  });
+});
+
+describe('stackMessages', () => {
+  const message = (id: string, progress: number, from = 'client', to = 'api') => ({ id, from, to, label: `GET ${id}`, role: 'frontier' as const, progress });
+
+  it('stacks up to three pills on one spot and folds the rest', () => {
+    const six = Array.from({ length: 6 }, (_, i) => message(`m${i}`, 0.5));
+    const pills = stackMessages(six);
+    expect(pills.map((p) => p.slot)).toEqual([0, 1, 2, 3]);
+    expect(pills.at(-1)).toMatchObject({ id: 'more-m3', label: '+3 more', role: 'frontier' });
+  });
+
+  it('stacks within 0.05 progress only, and only on the same link', () => {
+    expect(stackMessages([message('a', 0.5), message('b', 0.53)]).map((p) => p.slot)).toEqual([0, 1]);
+    expect(stackMessages([message('a', 0.5), message('b', 0.6)]).map((p) => p.slot)).toEqual([0, 0]);
+    expect(stackMessages([message('a', 0.5), message('b', 0.5, 'api', 'db')]).map((p) => p.slot)).toEqual([0, 0]);
+  });
+
+  it('keeps a lone message as it is', () => {
+    expect(stackMessages([message('a', 1)])).toEqual([{ ...message('a', 1), slot: 0 }]);
   });
 });
