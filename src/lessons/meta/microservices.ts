@@ -212,4 +212,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['deployment', 'rolling update', 'blue green', 'canary', 'rollback', 'recreate', 'release', 'zero downtime', 'drain'],
     prerequisites: ['distributed-tracing'],
   },
+  {
+    id: 'strangler-fig',
+    title: 'Strangler Fig Migration',
+    category: 'microservices',
+    difficulty: 'advanced',
+    group: 'Data & Operations',
+    description: 'Move paths from a monolith to new services one at a time behind a facade, and compare it with a big bang.',
+    keywords: ['strangler fig', 'strangler pattern', 'migration', 'monolith', 'facade', 'legacy', 'big bang rewrite', 'incremental migration'],
+    prerequisites: ['deployment-strategies'],
+  },
 ];

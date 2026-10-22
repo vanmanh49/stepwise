@@ -35,6 +35,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   'event-sourcing': { operations: [2, 20] },
   'distributed-tracing': { requests: [1, 5] },
   'deployment-strategies': { requests: [6, 16] },
+  'strangler-fig': { migrated: [0, 3], requests: [3, 12] },
 };
 
 const lessons = allLessons.filter((l) => l.category === 'microservices').map((l) => [l.id, l] as const);
