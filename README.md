@@ -80,6 +80,7 @@ src/
   store/             progress and theme state
   utils/             input parsing
   components/
+    ui/              shared controls: Field, Select, TextField, TextArea, Button, ButtonLink, PresetRow, SegmentedControl…
     visualization/   Visualizer, controls, explanation, legend, renderers, inputs
     code/            CodePanel
     sql/             schema panel and exercises

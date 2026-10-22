@@ -18,6 +18,7 @@ import { PrerequisiteNotice } from '../components/lesson/PrerequisiteNotice';
 import { CourseSidebar } from '../components/navigation/CourseSidebar';
 import { CATEGORY_TITLE } from '../lessons/labels';
 import { Drawer } from '../components/navigation/Drawer';
+import { Button } from '../components/ui/Button';
 import { Quiz } from '../components/quiz/Quiz';
 import { Exercises } from '../components/sql/Exercises';
 import { Variables } from '../components/visualization/Explanation';
@@ -61,6 +62,15 @@ const CODE_COPY: Record<Category, { title: string; label?: string; intro: string
 function sectionsFor(lesson: Lesson): (readonly [string, string])[] {
   return SECTIONS.filter(([id]) => id !== 'complexity' || lesson.complexity).map(([id, title]) =>
     id === 'code' ? ([id, CODE_COPY[lesson.category].title] as const) : ([id, title] as const),
+  );
+}
+
+/** Opens the lesson list on small screens, where the sidebar is hidden. */
+function LessonsButton({ onClick }: { onClick(): void }) {
+  return (
+    <Button icon={Menu} onClick={onClick}>
+      Lessons
+    </Button>
   );
 }
 
@@ -158,9 +168,7 @@ function LessonBody({ lesson }: { lesson: Lesson }) {
       <article className="min-w-0 space-y-14">
         <header className="space-y-4">
           <div className="flex items-center gap-3 lg:hidden">
-            <button type="button" className="btn" onClick={() => setDrawerOpen(true)}>
-              <Menu size={16} aria-hidden /> Lessons
-            </button>
+            <LessonsButton onClick={() => setDrawerOpen(true)} />
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
             <Link to={`/${lesson.category}`} className="hover:text-text">
@@ -254,15 +262,15 @@ function LessonBody({ lesson }: { lesson: Lesson }) {
         </Section>
 
         <footer className="space-y-6 border-t border-border pt-8">
-          <button
-            type="button"
-            className={`btn ${isComplete ? '' : 'btn-primary'}`}
+          <Button
+            variant={isComplete ? 'default' : 'primary'}
+            icon={CircleCheck}
+            iconSize={17}
             onClick={() => (isComplete ? unmarkComplete(lesson.id) : markComplete(lesson.id))}
             aria-pressed={isComplete}
           >
-            <CircleCheck size={17} aria-hidden />
             {isComplete ? 'Completed — mark as not done' : 'Mark as complete'}
-          </button>
+          </Button>
           <nav aria-label="Lesson navigation" className="grid gap-3 sm:grid-cols-2">
             {prev ? (
               <Link to={lessonPath(prev)} className="card flex items-center gap-3 p-4 transition-colors hover:border-accent">
@@ -354,9 +362,7 @@ function LessonPlaceholder({ meta, children }: { meta: LessonMeta; children: Rea
         <header className="space-y-4">
           {/* The same "Lessons" button as the loaded page, so the header doesn't shift when content arrives. */}
           <div className="flex items-center gap-3 lg:hidden">
-            <button type="button" className="btn" onClick={() => setDrawerOpen(true)}>
-              <Menu size={16} aria-hidden /> Lessons
-            </button>
+            <LessonsButton onClick={() => setDrawerOpen(true)} />
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
             <Link to={`/${meta.category}`} className="hover:text-text">
@@ -407,9 +413,7 @@ class LessonLoadBoundary extends Component<{ meta: LessonMeta; children: ReactNo
             <TriangleAlert size={18} aria-hidden className="text-danger" />
             {failure === 'download' ? "This lesson couldn't be downloaded." : 'Something went wrong while showing this lesson.'}
           </p>
-          <button type="button" className="btn" onClick={() => window.location.reload()}>
-            {failure === 'download' ? 'Try again' : 'Reload page'}
-          </button>
+          <Button onClick={() => window.location.reload()}>{failure === 'download' ? 'Try again' : 'Reload page'}</Button>
         </div>
       </LessonPlaceholder>
     );

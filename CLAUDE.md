@@ -54,6 +54,12 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
   - each lesson has a scenario module in `scenarios/` (`fooCode`, `fooScenario`, `fooSteps`) used by a `form` visualization with `codeLabel: 'Pseudocode'`;
   - `ServicesRenderer` picks columns or rows from the measured stage width (`chooseOrientation` in `servicesLayout.ts`).
 - `algorithms/`, `data-structures/`, `sql/` and `microservices/` contain no React. All lesson text lives in `lessons/`, not in components. Colours come from CSS variables in `src/index.css`, defined for both `:root` and `.dark`.
+- **Shared UI controls** live in `src/components/ui/`:
+  - `Field` (label, help or error text, and the id and aria wiring, shared with its control through context), `FieldGrid`, `FormMessage`;
+  - `Select`, `TextField`, `TextArea` (Ctrl/⌘+Enter via `onRunShortcut`), `Slider`;
+  - `Button`, `IconButton`, `RunButton`, `ButtonLink` (a router link styled as a button), `PresetRow` ("Try:" chips), `SegmentedControl` (one choice), `ToggleChip` (on/off).
+
+  Components use these instead of raw `<select>`/`<input>`/`<textarea>` or `btn`/`field` class strings. The `.btn`, `.field` and `select.field` styles in `src/index.css` are their only styling.
 - Progress (`store/progress.ts`, key `dsa-progress`) runs stored data through `sanitizeProgress` on load. The theme is stored as `dsa-theme` and applied in `index.html` before first paint.
 
 ## Tests that guard the whole codebase
@@ -74,3 +80,4 @@ The README's "How to add a lesson / SQL lesson / algorithm / visualization" sect
 - Work happens on a branch, goes through a PR and is merged into `main`, and the merge deploys the site.
 - Commit messages, PR titles and PR descriptions contain no AI attribution: no `Co-Authored-By` trailer for an AI, and no "Generated with" line.
 - The copy style for lessons and step text is plain, short sentences for beginners, explaining what happened and why with the actual values.
+- Follow React best practices. Anything the UI repeats becomes a reusable component: use or extend `components/ui/` before writing a control, and extract a pattern the second time it appears. Keep accessibility wiring (ids, `aria-describedby`, `aria-pressed`) inside the component, and keep component files exporting only components (hooks and helpers go in their own `.ts` files, as Oxlint's fast-refresh rule requires).

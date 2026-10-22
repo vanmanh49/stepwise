@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import { ButtonLink } from '../components/ui/ButtonLink';
 
 export default function NotFound() {
   return (
@@ -7,15 +7,15 @@ export default function NotFound() {
       <h1 className="text-3xl font-semibold tracking-tight">This page does not exist</h1>
       <p className="text-muted">The lesson may be planned but not written yet, or the link may be mistyped.</p>
       <div className="mt-2 flex flex-wrap justify-center gap-2">
-        <Link to="/data-structures" className="btn">
+        <ButtonLink to="/data-structures">
           Data Structures
-        </Link>
-        <Link to="/algorithms" className="btn">
+        </ButtonLink>
+        <ButtonLink to="/algorithms">
           Algorithms
-        </Link>
-        <Link to="/" className="btn btn-primary">
+        </ButtonLink>
+        <ButtonLink to="/" variant="primary">
           Home
-        </Link>
+        </ButtonLink>
       </div>
     </div>
   );

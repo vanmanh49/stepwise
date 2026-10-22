@@ -1,6 +1,7 @@
 import { Moon, Search, Sun } from 'lucide-react';
 import { Link, NavLink } from 'react-router';
 import { useTheme } from '../../store/theme';
+import { Button, IconButton } from '../ui/Button';
 
 const links = [
   { to: '/data-structures', label: 'Data Structures' },
@@ -40,27 +41,13 @@ export function Header({ onSearch }: { onSearch(): void }) {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onSearch}
-            className="btn text-muted sm:w-56 sm:justify-start"
-            aria-label="Search lessons"
-            aria-keyshortcuts="Control+K"
-          >
-            <Search size={16} aria-hidden />
+          <Button icon={Search} onClick={onSearch} className="text-muted sm:w-56 sm:justify-start" aria-label="Search lessons" aria-keyshortcuts="Control+K">
             <span className="hidden sm:inline">Search</span>
             <kbd className="ml-auto hidden rounded border border-border bg-surface-2 px-1.5 font-mono text-[11px] sm:inline">
               Ctrl K
             </kbd>
-          </button>
-          <button
-            type="button"
-            onClick={toggle}
-            className="btn btn-icon"
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {theme === 'dark' ? <Sun size={18} aria-hidden /> : <Moon size={18} aria-hidden />}
-          </button>
+          </Button>
+          <IconButton icon={theme === 'dark' ? Sun : Moon} label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle} />
         </div>
       </div>
       <nav aria-label="Sections" className="flex gap-1 overflow-x-auto border-t border-border px-3 [scrollbar-width:none] md:hidden">

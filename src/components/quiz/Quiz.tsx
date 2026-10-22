@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useProgress } from '../../store/progress';
 import type { QuizQuestion } from '../../types/lesson';
 import { CodePanel } from '../code/CodePanel';
+import { Button } from '../ui/Button';
 import { StepView } from '../visualization/renderers';
 
 const TYPE_LABEL: Record<QuizQuestion['type'], string> = {
@@ -83,9 +84,9 @@ export function Quiz({ lessonId, questions, codeLabel }: { lessonId: string; que
             ? 'Perfect score. This lesson is now marked as complete.'
             : 'Review the explanations above, replay the visualization, and try again when you are ready.'}
         </p>
-        <button type="button" className="btn mt-2" onClick={restart}>
-          <RotateCcw size={16} aria-hidden /> Try again
-        </button>
+        <Button icon={RotateCcw} className="mt-2" onClick={restart}>
+          Try again
+        </Button>
       </div>
     );
   }
@@ -165,13 +166,13 @@ export function Quiz({ lessonId, questions, codeLabel }: { lessonId: string; que
             <p className="mt-1.5 leading-relaxed">{question.explanation}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {!correct && (
-                <button type="button" className="btn" onClick={() => setPicked(undefined)}>
-                  <RotateCcw size={16} aria-hidden /> Retry question
-                </button>
+                <Button icon={RotateCcw} onClick={() => setPicked(undefined)}>
+                  Retry question
+                </Button>
               )}
-              <button type="button" className="btn btn-primary" onClick={next}>
+              <Button variant="primary" onClick={next}>
                 {current < questions.length - 1 ? 'Next question' : 'See results'}
-              </button>
+              </Button>
             </div>
           </div>
         )}

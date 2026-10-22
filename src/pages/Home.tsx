@@ -6,6 +6,7 @@ import { LessonCard } from '../components/lesson/LessonCard';
 import { ProgressBar } from '../components/progress/ProgressBar';
 import { Roadmap } from '../components/progress/Roadmap';
 import { MiniPlayer } from '../components/visualization/MiniPlayer';
+import { ButtonLink } from '../components/ui/ButtonLink';
 import { curriculum } from '../lessons/curriculum';
 import { getLesson, lessonPath, lessons, lessonsIn } from '../lessons/registry';
 import { computeStreak, percent, useProgress } from '../store/progress';
@@ -61,13 +62,13 @@ function ProgressSummary() {
           </p>
           <div className="mt-auto flex flex-wrap gap-2 pt-2">
             {resume && (
-              <Link to={lessonPath(resume)} className="btn btn-primary">
+              <ButtonLink to={lessonPath(resume)} variant="primary">
                 Continue: {resume.title}
-              </Link>
+              </ButtonLink>
             )}
-            <Link to="/dashboard" className="btn">
+            <ButtonLink to="/dashboard">
               View dashboard
-            </Link>
+            </ButtonLink>
           </div>
         </div>
         <div className="flex flex-col justify-center gap-5">
@@ -99,12 +100,12 @@ export default function Home() {
             Understand how data structures work and see algorithms execute step by step.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link to="/data-structures" className="btn btn-primary min-h-12 px-5">
+            <ButtonLink to="/data-structures" variant="primary" className="min-h-12 px-5">
               Explore Data Structures <ArrowRight size={17} aria-hidden />
-            </Link>
-            <Link to="/algorithms" className="btn min-h-12 px-5">
+            </ButtonLink>
+            <ButtonLink to="/algorithms" className="min-h-12 px-5">
               Explore Algorithms <ArrowRight size={17} aria-hidden />
-            </Link>
+            </ButtonLink>
           </div>
         </div>
         <div>

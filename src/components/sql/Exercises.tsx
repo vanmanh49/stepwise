@@ -5,7 +5,8 @@ import { datasets, type DatasetId } from '../../sql/datasets';
 import { MAX_QUERY_LENGTH } from '../../sql/parse';
 import { useProgress } from '../../store/progress';
 import type { SqlExercise } from '../../types/lesson';
-import { isRunShortcut } from '../visualization/inputs/runShortcut';
+import { Button } from '../ui/Button';
+import { TextArea } from '../ui/TextArea';
 
 function Exercise({
   lessonId,
@@ -47,31 +48,15 @@ function Exercise({
             </span>
           )}
         </div>
-        <textarea
-          id={`${id}-query`}
-          className="field min-h-24 w-full resize-y py-2 font-mono text-sm leading-relaxed"
-          rows={3}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (!isRunShortcut(e)) return;
-            e.preventDefault();
-            check();
-          }}
-          placeholder="SELECT …"
-          maxLength={MAX_QUERY_LENGTH}
-          spellCheck={false}
-          autoCapitalize="off"
-          autoComplete="off"
-        />
+        <TextArea id={`${id}-query`} className="min-h-24" rows={3} value={query} onChange={setQuery} onRunShortcut={() => check()} placeholder="SELECT …" maxLength={MAX_QUERY_LENGTH} />
         <div className="flex flex-wrap items-center gap-2">
-          <button type="submit" className="btn btn-primary">
+          <Button type="submit" variant="primary">
             Check
-          </button>
+          </Button>
           {exercise.hint && (
-            <button type="button" className="btn" onClick={() => setHint(true)} aria-expanded={hint}>
-              <Lightbulb size={16} aria-hidden /> Show hint
-            </button>
+            <Button icon={Lightbulb} onClick={() => setHint(true)} aria-expanded={hint}>
+              Show hint
+            </Button>
           )}
         </div>
         <p role="status" className={`min-h-5 text-sm font-medium ${result?.status === 'correct' ? 'text-accent' : 'text-danger'}`}>

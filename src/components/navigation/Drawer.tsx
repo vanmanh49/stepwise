@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
+import { IconButton } from '../ui/Button';
 
 /** A side panel built on <dialog>, which provides the focus trap, Escape and focus restore. */
 export function Drawer({
@@ -33,9 +34,7 @@ export function Drawer({
       <div className="flex h-full flex-col">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <span className="font-semibold">{title}</span>
-          <button type="button" className="btn btn-icon" onClick={onClose} aria-label="Close">
-            <X size={18} aria-hidden />
-          </button>
+          <IconButton icon={X} label="Close" onClick={onClose} />
         </div>
         <div className="flex-1 overflow-y-auto p-4">{open && children}</div>
       </div>
