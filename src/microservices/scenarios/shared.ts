@@ -1,6 +1,6 @@
 import { refusal, type Read } from '../../algorithms/form';
 import type { Step } from '../../types/visualization';
-import type { Call, Link, NodeSpec, Scenario, SimResult } from '../model';
+import type { Call, Link, NodeSpec, Scenario, SimResult, TraceEvent } from '../model';
 import { simulate } from '../sim';
 import { emptyServicesView, traceSteps, type StepOptions } from '../steps';
 
@@ -51,6 +51,16 @@ export const gateway = (routes: { prefix: string; to: string }[], requireToken =
   routes,
   requireToken,
 });
+
+/** When requests reached a node's instances (refused ones included), in trace order. */
+export function callsTo(trace: TraceEvent[], node: string): number[] {
+  return trace.flatMap((e) => (e.kind === 'arrive' && e.message.kind === 'request' && serviceOf(e.message.to) === node ? [e.t] : []));
+}
+
+/** The most of `times` that fall in any window [t, t + windowMs). */
+export function busiest(times: number[], windowMs = 10): number {
+  return times.reduce((most, start) => Math.max(most, times.filter((t) => t >= start && t < start + windowMs).length), 0);
+}
 
 /** The service an instance id belongs to: "orders-2" → "orders". */
 export const serviceOf = (id: string) => id.replace(/-\d+$/, '');

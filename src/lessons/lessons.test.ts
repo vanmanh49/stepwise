@@ -105,6 +105,7 @@ const EXPECTED_IDS = [
   'load-balancing',
   'database-per-service',
   'timeouts',
+  'retries-backoff',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -141,7 +142,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
-    expect(lessonsIn('microservices')).toHaveLength(8);
+    expect(lessonsIn('microservices')).toHaveLength(9);
   });
 
   it('links previous and next lessons within a category', () => {

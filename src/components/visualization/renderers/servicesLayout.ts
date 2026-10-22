@@ -111,13 +111,20 @@ export type StackedPill = ServicesView['messages'][number] & { slot: number };
 const STACK_WITHIN = 0.05;
 const STACK_MAX = 3;
 
-/** Messages on the same from→to link within 0.05 progress stack in slots 0–2; the rest fold into one "+N more" pill in slot 3. */
+/**
+ * Messages at the same spot of a link (within 0.05 progress, whichever way they travel) stack in slots 0–2;
+ * the rest fold into one "+N more" pill in slot 3.
+ */
 export function stackMessages(messages: ServicesView['messages']): StackedPill[] {
-  const groups: { anchor: ServicesView['messages'][number]; members: ServicesView['messages'][number][] }[] = [];
+  // Where a message sits, measured from the link's alphabetically first end, so both directions compare.
+  const spot = (m: ServicesView['messages'][number]) =>
+    m.from < m.to ? { link: `${m.from} ${m.to}`, at: m.progress } : { link: `${m.to} ${m.from}`, at: 1 - m.progress };
+  const groups: { link: string; at: number; members: ServicesView['messages'][number][] }[] = [];
   for (const m of messages) {
-    const group = groups.find((g) => g.anchor.from === m.from && g.anchor.to === m.to && Math.abs(g.anchor.progress - m.progress) <= STACK_WITHIN + 1e-9);
+    const { link, at } = spot(m);
+    const group = groups.find((g) => g.link === link && Math.abs(g.at - at) <= STACK_WITHIN + 1e-9);
     if (group) group.members.push(m);
-    else groups.push({ anchor: m, members: [m] });
+    else groups.push({ link, at, members: [m] });
   }
   const slots = new Map<string, number>();
   const folded = new Map<string, StackedPill>();

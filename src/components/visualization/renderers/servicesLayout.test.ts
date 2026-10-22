@@ -101,6 +101,12 @@ describe('stackMessages', () => {
     expect(stackMessages([message('a', 0.5), message('b', 0.5, 'api', 'db')]).map((p) => p.slot)).toEqual([0, 0]);
   });
 
+  it('stacks messages going opposite ways that sit at the same spot', () => {
+    // A request that has just arrived (progress 1) and a reply just leaving (progress 0) are drawn at the same point.
+    expect(stackMessages([message('a', 1), message('b', 0, 'api', 'client')]).map((p) => p.slot)).toEqual([0, 1]);
+    expect(stackMessages([message('a', 0), message('b', 0, 'api', 'client')]).map((p) => p.slot)).toEqual([0, 0]);
+  });
+
   it('keeps a lone message as it is', () => {
     expect(stackMessages([message('a', 1)])).toEqual([{ ...message('a', 1), slot: 0 }]);
   });

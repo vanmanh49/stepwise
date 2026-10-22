@@ -9,6 +9,8 @@ const PILL_HEIGHT = 18;
 /** Messages are drawn between these points of their link, so a pill never covers the box it leaves or reaches. */
 const DEPARTED_AT = 0.22;
 const ARRIVED_AT = 0.78;
+/** Stacked pills alternate around the link (on it, above, below, further above), so a stack stays near its link. */
+const LANES = [0, -1, 1, -2];
 
 const TYPE_NAME: Record<ServicesView['nodes'][number]['type'], string> = {
   client: 'client',
@@ -131,7 +133,7 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
         viewBox={`${-MARGIN} ${-MARGIN} ${width} ${height}`}
         role="img"
         aria-label={`${view.requests.length - deliveries} requests, ${deliveries > 0 ? `${deliveries} deliveries, ` : ''}${view.messages.length} messages in flight`}
-        className="mx-auto h-auto max-w-full"
+        className="mx-auto h-auto max-w-full overflow-visible"
       >
         {view.links.map((link) => {
           const [a, b] = [boxes.get(link.from), boxes.get(link.to)];
@@ -163,7 +165,8 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
           const along = DEPARTED_AT + (ARRIVED_AT - DEPARTED_AT) * message.progress;
           // Pills that share a spot step sideways off the link, one pill height each.
           const length = Math.hypot(x2 - x1, y2 - y1) || 1;
-          const shift = message.slot * (PILL_HEIGHT + 2);
+          // Lanes are measured from the link's alphabetically first end, so pills going both ways share one stack.
+          const shift = (LANES[message.slot] ?? 0) * (PILL_HEIGHT + 2) * (message.from < message.to ? 1 : -1);
           const x = x1 + (x2 - x1) * along - ((y2 - y1) / length) * shift;
           const y = y1 + (y2 - y1) * along + ((x2 - x1) / length) * shift;
           const text = narrow ? message.label.replace(/^(GET|POST|PUT|DELETE) /, '') : message.label;

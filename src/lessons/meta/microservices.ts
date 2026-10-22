@@ -82,4 +82,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['timeout', 'deadline', 'slow service', 'latency', 'fail fast', 'late reply', 'wasted work', 'cascading'],
     prerequisites: ['database-per-service'],
   },
+  {
+    id: 'retries-backoff',
+    title: 'Retries with Backoff & Jitter',
+    category: 'microservices',
+    difficulty: 'intermediate',
+    group: 'Communication & Resilience',
+    description: 'Retry requests during an outage straight away, after a fixed wait, after a growing wait, and with jitter.',
+    keywords: ['retry', 'retries', 'backoff', 'exponential backoff', 'jitter', 'retry storm', 'thundering herd', 'transient failure'],
+    prerequisites: ['timeouts'],
+  },
 ];
