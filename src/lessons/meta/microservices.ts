@@ -142,4 +142,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['publish subscribe', 'pub/sub', 'pubsub', 'events', 'topic', 'subscriber', 'event-driven', 'kafka', 'sns', 'fan-out'],
     prerequisites: ['message-queues'],
   },
+  {
+    id: 'idempotency',
+    title: 'Idempotency & Delivery Guarantees',
+    category: 'microservices',
+    difficulty: 'intermediate',
+    group: 'Communication & Resilience',
+    description: 'Lose a payment\'s reply, then retry with and without an idempotency key, and count the charges.',
+    keywords: ['idempotency', 'idempotent', 'idempotency key', 'at most once', 'at least once', 'exactly once', 'duplicate', 'retry', 'delivery guarantees'],
+    prerequisites: ['pub-sub'],
+  },
 ];
