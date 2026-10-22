@@ -9,7 +9,7 @@ import { MiniPlayer } from '../components/visualization/MiniPlayer';
 import { ButtonLink } from '../components/ui/ButtonLink';
 import { curriculum } from '../lessons/curriculum';
 import { getLesson, lessonPath, lessons, lessonsIn } from '../lessons/registry';
-import { computeStreak, percent, useProgress } from '../store/progress';
+import { computeStreak, countDone, percent, useProgress } from '../store/progress';
 import type { Category } from '../types/lesson';
 
 const previewSteps = bubbleSortSteps([5, 3, 8, 1, 6]);
@@ -39,9 +39,8 @@ function ProgressSummary() {
   const current = useProgress((s) => s.currentLesson);
   if (completed.length === 0) return null;
 
-  const done = (category: Category) =>
-    lessonsIn(category).filter((l) => completed.includes(l.id)).length;
-  const live = lessons.filter((l) => completed.includes(l.id)).length;
+  const done = (category: Category) => countDone(lessonsIn(category), completed);
+  const live = countDone(lessons, completed);
   const streak = computeStreak(activeDays);
   const resume = current ? getLesson(current) : undefined;
 

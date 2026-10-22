@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { computeStreak, emptyProgress, percent, sanitizeProgress, useProgress } from './progress';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { computeStreak, countDone, emptyProgress, percent, sanitizeProgress, useProgress } from './progress';
 
 describe('sanitizeProgress', () => {
   it.each([[null], ['x'], [42], [undefined], [{ completed: 'no' }], [[]]])('falls back to empty progress for %j', (raw) => {
@@ -143,5 +143,31 @@ describe('solveExercise', () => {
     useProgress.getState().solveExercise('where', 'a', ['a']);
     useProgress.getState().reset();
     expect(useProgress.getState().exercises).toEqual([]);
+  });
+});
+
+describe('blocked storage', () => {
+  it('still loads and works when reading localStorage throws', async () => {
+    vi.resetModules();
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new DOMException('denied', 'SecurityError');
+      },
+    });
+    try {
+      const { useProgress: fresh } = await import('./progress');
+      fresh.getState().markComplete('array');
+      expect(fresh.getState().completed).toEqual(['array']);
+    } finally {
+      delete (globalThis as { localStorage?: unknown }).localStorage;
+    }
+  });
+});
+
+describe('countDone', () => {
+  it('counts listed lessons only, once each', () => {
+    expect(countDone([{ id: 'a' }, { id: 'b' }], ['b', 'gone', 'b'])).toBe(1);
+    expect(countDone([], ['a'])).toBe(0);
   });
 });

@@ -75,6 +75,11 @@ export function percent(done: number, total: number): number {
   return total === 0 ? 0 : Math.round((done / total) * 100);
 }
 
+/** How many lessons in `list` are completed; ids of lessons not in the list never count. */
+export function countDone(list: readonly { id: string }[], completed: readonly string[]): number {
+  return list.filter((lesson) => completed.includes(lesson.id)).length;
+}
+
 const creator: StateCreator<ProgressData & ProgressActions> = (set) => ({
   ...emptyProgress,
   markComplete: (id) => set((s) => (s.completed.includes(id) ? s : { completed: [...s.completed, id] })),
@@ -113,13 +118,21 @@ const creator: StateCreator<ProgressData & ProgressActions> = (set) => ({
  * The only place that knows where progress is stored. Components use the
  * selectors and actions, so swapping LocalStorage for an API changes this file only.
  */
-export const useProgress =
-  typeof localStorage === 'undefined'
-    ? create(creator)
-    : create(
-        persist(creator, {
-          name: 'dsa-progress',
-          version: 1,
-          merge: (persisted, current) => ({ ...current, ...sanitizeProgress(persisted) }),
-        }),
-      );
+// Reading localStorage throws when the browser blocks site data; progress then lasts one session.
+const hasStorage = (() => {
+  try {
+    return typeof localStorage !== 'undefined';
+  } catch {
+    return false;
+  }
+})();
+
+export const useProgress = hasStorage
+  ? create(
+      persist(creator, {
+        name: 'dsa-progress',
+        version: 1,
+        merge: (persisted, current) => ({ ...current, ...sanitizeProgress(persisted) }),
+      }),
+    )
+  : create(creator);

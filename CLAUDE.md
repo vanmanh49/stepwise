@@ -18,7 +18,7 @@ npm run build                            # typecheck + production build
 npm run build:pages                      # build under /stepwise/ and copy index.html to 404.html
 ```
 
-CI runs `npm run lint`, `npm test`, `build:pages` and then `check:bundle`. The linter is Oxlint rather than ESLint because typescript-eslint does not support TypeScript 7. Its `correctness` and `suspicious` categories are errors, plus the React hooks rules. A few rules are switched off in `.oxlintrc.json` because they don't fit this code (the automatic JSX runtime, narrowing `{ok}` results inside tests, helpers kept next to their only caller). For a deliberate exception, use `// oxlint-disable-next-line <rule> -- <reason>`.
+CI runs `npm run lint`, `npm test`, `build:pages` and then `check:bundle`, on every pull request (`.github/workflows/ci.yml`) and again before each deploy from `main`. The linter is Oxlint rather than ESLint because typescript-eslint does not support TypeScript 7. Its `correctness` and `suspicious` categories are errors, plus the React hooks rules. A few rules are switched off in `.oxlintrc.json` because they don't fit this code (the automatic JSX runtime, narrowing `{ok}` results inside tests, helpers kept next to their only caller). For a deliberate exception, use `// oxlint-disable-next-line <rule> -- <reason>`.
 
 Every push to `main` deploys to GitHub Pages (`.github/workflows/deploy.yml`), and a failing test blocks the deploy.
 

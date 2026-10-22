@@ -57,6 +57,11 @@ export const corpus: CorpusQuery[] = [
   shop("SELECT name FROM products WHERE name NOT LIKE '%e%'"),
   shop("SELECT id FROM orders WHERE id LIKE '1%'"),
   shop("SELECT name FROM customers WHERE city LIKE 'h%'"),
+  shop("SELECT name FROM customers WHERE name LIKE '%a%e%'"),
+  shop("SELECT name FROM customers WHERE name LIKE '%%'"),
+  shop("SELECT name FROM customers WHERE name LIKE '_%_'"),
+  shop("SELECT name FROM customers WHERE name LIKE ''"),
+  shop("SELECT name FROM products WHERE name LIKE '%o%o%'"),
 
   // affinity
   school("SELECT name FROM students WHERE year = '2'"),

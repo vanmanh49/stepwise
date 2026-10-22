@@ -74,6 +74,31 @@ describe('like', () => {
     expect(like(null, '%')).toBeNull();
     expect(like(15, '1%')).toBe(true);
   });
+
+  it('backtracks past partial matches and handles empty strings', () => {
+    expect(like('abcabd', '%abd')).toBe(true);
+    expect(like('aXbXc', '%b%c')).toBe(true);
+    expect(like('ab', 'a%%b')).toBe(true);
+    expect(like('abc', '%b')).toBe(false);
+    expect(like('', '')).toBe(true);
+    expect(like('', '%')).toBe(true);
+    expect(like('', '_')).toBe(false);
+    expect(like('a\nb', 'a_b')).toBe(true);
+  });
+
+  it('treats characters as code points and folds only ASCII case', () => {
+    expect(like('é', '_')).toBe(true);
+    expect(like('😀x', '_x')).toBe(true);
+    expect(like('ABC', 'abc')).toBe(true);
+    expect(like('Ä', 'ä')).toBe(false);
+  });
+
+  it('stays fast on patterns full of %', () => {
+    const start = performance.now();
+    expect(like('a'.repeat(200), '%a'.repeat(30) + '%b')).toBe(false);
+    expect(like('alice.nguyen@example.com', '%'.repeat(40) + 'x')).toBe(false);
+    expect(performance.now() - start).toBeLessThan(50);
+  });
 });
 
 describe('compareValues', () => {
