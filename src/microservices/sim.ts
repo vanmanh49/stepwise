@@ -155,13 +155,15 @@ export function simulate(input: Scenario): SimResult {
   const caller = createCaller(ctx);
 
   /** Each stored copy of a message, kept from the broker's events; open ones keep the run going. */
-  const deliveries = new Map<string, DeliveryOutcome & { storedAt: number }>();
+  const deliveries = new Map<string, DeliveryOutcome>();
+  const storedAt = new Map<string, number>();
   const openDeliveries = new Set<string>();
   function observeDeliveries(event: TraceEvent) {
     if (event.kind === 'store') {
-      for (const queue of event.queues) {
-        const id = `${event.request}/${queue}`;
-        deliveries.set(id, { id, request: event.request, label: `${event.label} → ${queue}`, queue, status: 'failed', ms: 0, attempts: 0, storedAt: event.t });
+      for (const name of event.queues) {
+        const id = `${event.request}/${name}`;
+        deliveries.set(id, { id, request: event.request, label: `${event.label} → ${name}`, queue: name, status: 'failed', ms: 0, attempts: 0 });
+        storedAt.set(id, event.t);
         openDeliveries.add(id);
       }
     }
@@ -430,14 +432,13 @@ export function simulate(input: Scenario): SimResult {
   for (const id of openDeliveries) {
     timedOut = true;
     now = MAX_TIME;
-    const d = deliveries.get(id)!;
-    ctx.trace({ kind: 'delivered', delivery: id, ok: false, ms: MAX_TIME - d.storedAt, reason: 'not processed by 10,000 ms' });
+    ctx.trace({ kind: 'delivered', delivery: id, ok: false, ms: MAX_TIME - storedAt.get(id)!, reason: 'not processed by 10,000 ms' });
   }
 
   return {
     trace,
     requests: [...requests.values()].map((r) => r.outcome),
-    deliveries: [...deliveries.values()].map(({ storedAt: _, ...d }) => d),
+    deliveries: [...deliveries.values()],
     endedAt: now,
     timedOut,
   };
