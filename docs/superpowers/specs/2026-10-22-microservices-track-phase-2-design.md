@@ -98,7 +98,8 @@ interface CallPolicy {
     - **open** fails calls at once;
     - **half-open** lets exactly one trial call through, and fails the others at once while the trial is in flight.
   - The first call after `openMs` has passed moves the breaker to `half-open` and becomes the trial. If the trial succeeds, the breaker goes back to `closed`. If it fails, the breaker opens again for `openMs`.
-  - Every change of state is traced as `breaker`.
+  - Every change of state, and every change to the failure count, is traced as `breaker`, so the badge can show "closed 1/3".
+  - Bulkhead pool usage changes are traced as `pool` events. They feed the badges and don't get steps of their own.
 - **Bulkhead pools:**
   - each caller instance has its own pools;
   - two calls that name the same pool share it.
