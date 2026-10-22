@@ -107,6 +107,7 @@ const EXPECTED_IDS = [
   'timeouts',
   'retries-backoff',
   'circuit-breaker',
+  'bulkhead',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -143,7 +144,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
-    expect(lessonsIn('microservices')).toHaveLength(10);
+    expect(lessonsIn('microservices')).toHaveLength(11);
   });
 
   it('links previous and next lessons within a category', () => {

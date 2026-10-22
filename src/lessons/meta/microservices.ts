@@ -102,4 +102,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['circuit breaker', 'open', 'half-open', 'closed', 'fail fast', 'fallback', 'resilience4j', 'hystrix', 'cascading failure'],
     prerequisites: ['retries-backoff'],
   },
+  {
+    id: 'bulkhead',
+    title: 'Bulkhead',
+    category: 'microservices',
+    difficulty: 'intermediate',
+    group: 'Communication & Resilience',
+    description: 'Let a slow dependency fill a shared pool of slots, then give each dependency its own pool.',
+    keywords: ['bulkhead', 'isolation', 'thread pool', 'connection pool', 'concurrency limit', 'slots', 'starvation', 'resilience'],
+    prerequisites: ['circuit-breaker'],
+  },
 ];
