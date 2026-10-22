@@ -3,14 +3,14 @@ import { Link } from 'react-router';
 import { DIFFICULTIES, topicsIn } from '../../lessons/curriculum';
 import { CATEGORY_TITLE, difficultyLabel } from '../../lessons/labels';
 import { getLesson, lessonPath, lessonsIn } from '../../lessons/registry';
-import { percent, useProgress } from '../../store/progress';
+import { countDone, percent, useProgress } from '../../store/progress';
 import type { Category } from '../../types/lesson';
 import { ProgressBar } from '../progress/ProgressBar';
 
 export function CourseSidebar({ category, activeId }: { category: Category; activeId?: string }) {
   const completed = useProgress((s) => s.completed);
   const live = lessonsIn(category);
-  const done = live.filter((l) => completed.includes(l.id)).length;
+  const done = countDone(live, completed);
   const topics = topicsIn(category);
 
   return (

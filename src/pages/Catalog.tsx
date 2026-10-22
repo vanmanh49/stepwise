@@ -5,7 +5,7 @@ import { CATEGORY_TITLE } from '../lessons/labels';
 import { ProgressBar } from '../components/progress/ProgressBar';
 import { DIFFICULTIES, topicsIn } from '../lessons/curriculum';
 import { lessonsIn } from '../lessons/registry';
-import { percent, useProgress } from '../store/progress';
+import { countDone, percent, useProgress } from '../store/progress';
 import type { Category } from '../types/lesson';
 
 const INTRO: Record<Category, string> = {
@@ -27,7 +27,7 @@ const LEVEL_NOTE = {
 export default function Catalog({ category }: { category: Category }) {
   const completed = useProgress((s) => s.completed);
   const live = lessonsIn(category);
-  const done = live.filter((l) => completed.includes(l.id)).length;
+  const done = countDone(live, completed);
   const topics = topicsIn(category);
 
   useEffect(() => {

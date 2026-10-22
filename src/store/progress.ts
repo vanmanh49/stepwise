@@ -75,6 +75,11 @@ export function percent(done: number, total: number): number {
   return total === 0 ? 0 : Math.round((done / total) * 100);
 }
 
+/** How many lessons in `list` are completed; ids of lessons not in the list never count. */
+export function countDone(list: readonly { id: string }[], completed: readonly string[]): number {
+  return list.filter((lesson) => completed.includes(lesson.id)).length;
+}
+
 const creator: StateCreator<ProgressData & ProgressActions> = (set) => ({
   ...emptyProgress,
   markComplete: (id) => set((s) => (s.completed.includes(id) ? s : { completed: [...s.completed, id] })),

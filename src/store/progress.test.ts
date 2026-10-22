@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { computeStreak, emptyProgress, percent, sanitizeProgress, useProgress } from './progress';
+import { computeStreak, countDone, emptyProgress, percent, sanitizeProgress, useProgress } from './progress';
 
 describe('sanitizeProgress', () => {
   it.each([[null], ['x'], [42], [undefined], [{ completed: 'no' }], [[]]])('falls back to empty progress for %j', (raw) => {
@@ -162,5 +162,12 @@ describe('blocked storage', () => {
     } finally {
       delete (globalThis as { localStorage?: unknown }).localStorage;
     }
+  });
+});
+
+describe('countDone', () => {
+  it('counts listed lessons only, once each', () => {
+    expect(countDone([{ id: 'a' }, { id: 'b' }], ['b', 'gone', 'b'])).toBe(1);
+    expect(countDone([], ['a'])).toBe(0);
   });
 });

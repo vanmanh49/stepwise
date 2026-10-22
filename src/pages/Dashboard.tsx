@@ -6,7 +6,7 @@ import { ProgressBar } from '../components/progress/ProgressBar';
 import { Button } from '../components/ui/Button';
 import { ButtonLink } from '../components/ui/ButtonLink';
 import { getLesson, lessonPath, lessons, lessonsIn } from '../lessons/registry';
-import { computeStreak, percent, useProgress } from '../store/progress';
+import { computeStreak, countDone, percent, useProgress } from '../store/progress';
 import type { Category } from '../types/lesson';
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
@@ -26,8 +26,8 @@ export default function Dashboard() {
     document.title = 'Your progress — Stepwise';
   }, []);
 
-  const doneLessons = lessons.filter((l) => completed.includes(l.id));
-  const done = (category: Category) => lessonsIn(category).filter((l) => completed.includes(l.id)).length;
+  const doneCount = countDone(lessons, completed);
+  const done = (category: Category) => countDone(lessonsIn(category), completed);
   const streak = computeStreak(activeDays);
   const scored = lessons.filter((l) => quizScores[l.id]);
   const quizCorrect = scored.reduce((sum, l) => sum + quizScores[l.id]!.correct, 0);
@@ -61,8 +61,8 @@ export default function Dashboard() {
       )}
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Overall" value={`${percent(doneLessons.length, lessons.length)}%`} note={`${doneLessons.length} of ${lessons.length} lessons`} />
-        <Stat label="Lessons completed" value={String(doneLessons.length)} />
+        <Stat label="Overall" value={`${percent(doneCount, lessons.length)}%`} note={`${doneCount} of ${lessons.length} lessons`} />
+        <Stat label="Lessons completed" value={String(doneCount)} />
         <Stat
           label="Learning streak"
           value={`${streak} day${streak === 1 ? '' : 's'}`}
