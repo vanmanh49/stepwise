@@ -1,5 +1,6 @@
-import { MAX_TIME, type Call, type Fault, type Message, type NodeSpec, type NodeType, type RequestOutcome, type Scenario, type SimResult, type TraceEvent } from './model';
+import { MAX_TIME, type Call, type DeliveryOutcome, type Fault, type Message, type NodeSpec, type NodeType, type RequestOutcome, type Scenario, type SimResult, type TraceEvent } from './model';
 import { balancer, createDiscovery, gateway, registry } from './behaviours';
+import { broker } from './broker';
 import { EventQueue } from './queue';
 import { createCaller, type CallFn } from './resilience';
 
@@ -15,7 +16,7 @@ export interface SimContext {
   instancesOf(service: string): string[];
   requestInfo(id: string): { label: string; path: string; token: boolean; caller?: string };
   /** Sends over the link between the two owners; `onReply` runs when the answer arrives. */
-  send(from: string, to: string, message: Pick<Message, 'kind' | 'label'> & { request?: string }, onReply?: (reply: Message) => void): Message;
+  send(from: string, to: string, message: Pick<Message, 'kind' | 'label'> & { request?: string; delivery?: string }, onReply?: (reply: Message) => void): Message;
   reply(to: Message, ok: boolean, reason?: string, result?: string[]): void;
   /** Stops waiting for `message`'s reply; when it comes, it is traced as late and dropped. */
   cancel(message: Message): void;
@@ -104,7 +105,7 @@ export function simulate(input: Scenario): SimResult {
       const departs = now;
       const message: Message = { id: `m${++messages}`, ...partial, from, to, departs, arrives: departs + latency(from, to) };
       if (onReply) awaiting.set(message.id, onReply);
-      if (message.kind === 'request' || message.kind === 'query') working.add(message.id);
+      if (message.kind === 'request' || message.kind === 'query' || message.kind === 'deliver') working.add(message.id);
       if (message.kind === 'request' && message.request && from === clientId) requests.get(message.request)!.outcome.attempts++;
       ctx.trace({ kind: 'send', message });
       ctx.at(message.arrives, () => deliver(message));
@@ -126,7 +127,7 @@ export function simulate(input: Scenario): SimResult {
         ...(reason !== undefined && { reason }),
         ...(result && { result }),
       };
-      if (to.kind === 'request' || to.kind === 'query') working.add(message.id);
+      if (to.kind === 'request' || to.kind === 'query' || to.kind === 'deliver') working.add(message.id);
       ctx.trace({ kind: 'send', message });
       ctx.at(message.arrives, () => deliver(message));
     },
@@ -142,12 +143,38 @@ export function simulate(input: Scenario): SimResult {
     },
     call: (from, to, message, policy, done) => caller(from, to, message, policy, done),
     at: (time, run) => queue.push(time, run),
-    trace: (event) => trace.push({ t: now, ...event } as TraceEvent),
+    trace: (event) => {
+      const stamped = { t: now, ...event } as TraceEvent;
+      trace.push(stamped);
+      observeDeliveries(stamped);
+    },
     isDead: (instance) => dead.has(instance),
     rng: random,
   };
 
   const caller = createCaller(ctx);
+
+  /** Each stored copy of a message, kept from the broker's events; open ones keep the run going. */
+  const deliveries = new Map<string, DeliveryOutcome & { storedAt: number }>();
+  const openDeliveries = new Set<string>();
+  function observeDeliveries(event: TraceEvent) {
+    if (event.kind === 'store') {
+      for (const queue of event.queues) {
+        const id = `${event.request}/${queue}`;
+        deliveries.set(id, { id, request: event.request, label: `${event.label} → ${queue}`, queue, status: 'failed', ms: 0, attempts: 0, storedAt: event.t });
+        openDeliveries.add(id);
+      }
+    }
+    if (event.kind === 'send' && event.message.delivery) deliveries.get(event.message.delivery)!.attempts++;
+    if (event.kind === 'delivered') {
+      const d = deliveries.get(event.delivery)!;
+      d.status = event.ok ? 'ok' : 'failed';
+      d.ms = event.ms;
+      if (event.consumer) d.consumer = event.consumer;
+      if (event.reason) d.reason = event.reason;
+      openDeliveries.delete(event.delivery);
+    }
+  }
   const clientId = scenario.nodes.find((n) => n.type === 'client')?.id;
 
   function countCrossService(from: string, to: string, request: string) {
@@ -269,7 +296,7 @@ export function simulate(input: Scenario): SimResult {
         queryColumns.set(query.id, columns);
       } else {
         const first = to.type === 'service' ? to.instances[0]!.id : to.id;
-        ctx.call(instance, first, { kind: 'request', label: requests.get(request)!.outcome.label + ` ${request}`, request }, target.policy, then);
+        ctx.call(instance, first, { kind: 'request', label: `${target.label ?? requests.get(request)!.outcome.label} ${request}`, request }, target.policy, then);
       }
     };
     ctx.at(now + processMs.get(instance)!, () => {
@@ -311,7 +338,7 @@ export function simulate(input: Scenario): SimResult {
 
   const clientBehaviour: Behaviour = () => () => {};
 
-  const behaviours: Record<NodeType, Behaviour> = { client: clientBehaviour, service: serviceBehaviour, db: dbBehaviour, gateway, registry, balancer };
+  const behaviours: Record<NodeType, Behaviour> = { client: clientBehaviour, service: serviceBehaviour, db: dbBehaviour, gateway, registry, balancer, broker };
 
   // Faults first, so a fault at time t applies before anything else that happens at t.
   for (const fault of scenario.faults) {
@@ -387,7 +414,7 @@ export function simulate(input: Scenario): SimResult {
     now = next.time;
     next.item();
     // Answers still on their way, and work still running, show what a timeout wasted.
-    if (allDone() && working.size === 0 && [...jobs.values()].every((set) => set.size === 0)) break;
+    if (allDone() && openDeliveries.size === 0 && working.size === 0 && [...jobs.values()].every((set) => set.size === 0)) break;
   }
 
   for (const open of requests.values()) {
@@ -400,5 +427,18 @@ export function simulate(input: Scenario): SimResult {
     ctx.trace({ kind: 'done', request: open.outcome.id, ok: false, ms: open.outcome.ms, reason: open.outcome.reason });
   }
 
-  return { trace, requests: [...requests.values()].map((r) => r.outcome), endedAt: now, timedOut };
+  for (const id of openDeliveries) {
+    timedOut = true;
+    now = MAX_TIME;
+    const d = deliveries.get(id)!;
+    ctx.trace({ kind: 'delivered', delivery: id, ok: false, ms: MAX_TIME - d.storedAt, reason: 'not processed by 10,000 ms' });
+  }
+
+  return {
+    trace,
+    requests: [...requests.values()].map((r) => r.outcome),
+    deliveries: [...deliveries.values()].map(({ storedAt: _, ...d }) => d),
+    endedAt: now,
+    timedOut,
+  };
 }

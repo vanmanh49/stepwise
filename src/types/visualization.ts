@@ -197,10 +197,11 @@ export interface ServicesView {
   nodes: {
     id: string;
     label: string;
-    type: 'client' | 'gateway' | 'registry' | 'balancer' | 'service' | 'db';
+    type: 'client' | 'gateway' | 'registry' | 'balancer' | 'service' | 'db' | 'broker';
     column: number;
     role: Role;
     badge?: string;
+    /** A service's instances; for a broker, its queues (badge: what is waiting). */
     instances?: { id: string; role: Role; badge?: string }[];
   }[];
   links: { from: string; to: string; role: Role }[];

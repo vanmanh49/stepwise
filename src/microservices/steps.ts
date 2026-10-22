@@ -57,6 +57,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   };
   const name = (id: string) => {
     const type = nodes.get(id)?.type;
+    if (type === 'broker') return 'the broker';
     return type === 'client' || type === 'gateway' || type === 'registry' || type === 'balancer' ? `the ${id}` : id;
   };
   const line = (kind: TraceEvent['kind']) => {
@@ -74,6 +75,12 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   /** Breaker state per caller node, and what it was before its latest change (for the wording). */
   const breakers = new Map<string, { state: BreakerState; failures: number; threshold: number }>();
   const breakerWas = new Map<string, BreakerState>();
+  /** What waits in each broker queue, oldest first, by delivery id. */
+  const waiting = new Map<string, Map<string, string[]>>();
+  for (const n of scenario.nodes) {
+    if (n.type === 'broker') waiting.set(n.id, new Map((n.mode === 'queue' ? [n.id] : n.consumers).map((q) => [q, []])));
+  }
+  const queueOf = (delivery: string) => delivery.slice(delivery.indexOf('/') + 1);
   /** Rate-limit use per gateway and key, from its latest check. */
   const limits = new Map<string, Map<string, number>>();
   /** Bulkhead pools in use per caller node. */
@@ -115,6 +122,12 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
           if (row.hopList.length === 0) row.hopList.push({ id: m.from, t: event.t });
           if (m.kind === 'request' && nodes.get(m.from)?.type === 'client') row.tries++;
         }
+        if (m.delivery) {
+          const queue = waiting.get(m.from)?.get(queueOf(m.delivery));
+          queue?.splice(queue.indexOf(m.delivery), 1);
+          const row = requests.get(m.delivery);
+          if (row) row.tries++;
+        }
         if (m.kind === 'reply' && m.request && nodes.get(m.to)?.type === 'balancer') balancerLoad.set(m.from, (balancerLoad.get(m.from) ?? 1) - 1);
         if (m.kind === 'reply' && m.request) handling.get(m.from)?.delete(m.request);
         break;
@@ -123,6 +136,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         const m = event.message;
         arrived.add(m.id);
         if (m.request && (m.kind === 'request' || m.kind === 'query') && !dead.has(m.to)) requestRow(m.request).hopList.push({ id: m.to, t: event.t });
+        if (m.delivery && !dead.has(m.to)) requests.get(m.delivery)?.hopList.push({ id: m.to, t: event.t });
         break;
       }
       case 'handle':
@@ -153,6 +167,25 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         breakerWas.set(`${event.caller}→${event.target}`, breakers.get(event.caller)?.state ?? 'closed');
         breakers.set(event.caller, { state: event.state, failures: event.failures, threshold: event.threshold });
         break;
+      case 'store':
+        for (const queue of event.queues) {
+          const id = `${event.request}/${queue}`;
+          waiting.get(event.broker)?.get(queue)?.push(id);
+          requests.set(id, { id, label: `${event.label} → ${queue}`, status: 'pending', hops: '', hopList: [{ id: event.broker, t: event.t }], tries: 0 });
+        }
+        break;
+      case 'requeue':
+        waiting.get(event.broker)?.get(queueOf(event.delivery))?.unshift(event.delivery);
+        break;
+      case 'delivered': {
+        const row = requests.get(event.delivery);
+        if (row) {
+          row.status = event.ok ? 'ok' : 'failed';
+          row.ms = event.ms;
+          if (event.reason) row.reason = event.reason;
+        }
+        break;
+      }
       case 'limit': {
         let used = limits.get(event.gateway);
         if (!used) limits.set(event.gateway, (used = new Map()));
@@ -229,6 +262,11 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       case 'retry':
       case 'shed':
         return { node: ownerOf(event.caller) };
+      case 'store':
+      case 'requeue':
+        return { node: event.broker };
+      case 'delivered':
+        return event.consumer ? { node: ownerOf(event.consumer) } : {};
       case 'breaker':
         return { node: event.caller, compare: true };
       default:
@@ -285,6 +323,14 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         return { ...base, role: instances.every((i) => i.role === 'discarded') ? 'discarded' : 'default', instances };
       }
       const role: Role = focus.node === n.id ? (focus.compare ? 'compare' : 'active') : 'default';
+      if (n.type === 'broker') {
+        const queues = [...(waiting.get(n.id) ?? new Map<string, string[]>()).entries()].map(([queue, items]) => ({
+          id: queue,
+          role: (items.length > 0 ? 'active' : 'default') as Role,
+          badge: items.length > 0 ? `${items.length} waiting` : 'empty',
+        }));
+        return { ...base, role, instances: queues };
+      }
       return { ...base, role };
     });
     const messages = [...inFlight.values()].map((m) => {
@@ -295,8 +341,10 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
     });
     const busy = new Set(messages.map((m) => [m.from, m.to].toSorted().join(' ')));
     const links = scenario.links.map((l) => ({ from: l.from, to: l.to, role: (busy.has([l.from, l.to].toSorted().join(' ')) ? 'frontier' : 'default') as Role }));
+    // Requests in order, each followed by its deliveries ("#3", "#3/email", "#3/stock").
+    const order = (id: string) => Number(id.slice(1).split('/')[0]);
     const rows = [...requests.values()]
-      .toSorted((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)))
+      .toSorted((a, b) => order(a.id) - order(b.id) || Number(a.id.includes('/')) - Number(b.id.includes('/')))
       .map(({ hopList, tries, ...row }) => ({ ...row, ...(tries > 1 && { attempts: tries }), hops: hopsText(hopList) }));
     return { kind: 'services', nodes: viewNodes, links, messages, requests: rows, log: log.slice(-LOG_LINES) };
   }
@@ -316,6 +364,9 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
             : { title: `${from} tells ${to} that ${m.request ?? 'it'} failed`, why: `Reason: ${m.reason ?? 'unknown'}. The failure travels back like any answer, in ${ms} ms.` };
         }
         if (m.kind === 'query') return { title: `${from} queries ${to} for ${m.request}`, why: `${from} needs data it doesn't keep itself. The query takes ${ms} ms to arrive.` };
+        if (m.kind === 'deliver') {
+          return { title: `${capitalise(from)} hands ${m.request} to ${m.to}`, why: `${m.to} is free, and ${m.request} is the oldest message waiting for it. It takes ${ms} ms to arrive.` };
+        }
         if (m.kind === 'lookup') return { title: `${from} asks ${to} where ${m.label.split(' ')[1]} is`, why: `Instances come and go, so ${from} asks before every request.` };
         return { title: `${m.request} leaves ${from} for ${to}`, why: `${from} sends ${m.label}. Crossing the network takes ${ms} ms.` };
       }
@@ -460,6 +511,28 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
               ? 'The breaker is open, so the call fails at once instead of waiting for a service that is struggling.'
               : 'Every slot in its pool is busy, so the call fails at once instead of piling up.',
         };
+      }
+      case 'store': {
+        const n = event.queues.length;
+        const node = nodes.get(event.broker);
+        return {
+          title: `The broker stores ${event.request} in ${n === 1 ? 'its queue' : `${n} queues`}`,
+          why:
+            node?.type === 'broker' && node.mode === 'topic'
+              ? `Every subscriber gets its own copy, so ${n} ${n === 1 ? 'delivery is' : 'deliveries are'} now waiting. The sender does not wait for them.`
+              : 'It waits there until a worker is free. The sender does not wait for that.',
+        };
+      }
+      case 'requeue': {
+        const node = nodes.get(event.broker);
+        const later = node?.type === 'broker' ? ` It tries again in ${node.redeliverMs} ms.` : '';
+        return { title: `The broker puts ${event.delivery.split('/')[0]} back in the queue`, why: `Reason: ${event.reason}. The message is not lost.${later}` };
+      }
+      case 'delivered': {
+        const request = event.delivery.split('/')[0];
+        return event.ok
+          ? { title: `${event.consumer ?? 'A consumer'} finishes ${request}`, why: `It acks the message, so the broker removes it for good, ${event.ms} ms after it was stored.` }
+          : { title: `${request} is never processed by ${queueOf(event.delivery)}`, why: `Reason: ${event.reason ?? 'unknown'}.` };
       }
       case 'pool':
         return { title: `${event.caller} uses ${event.used} of ${event.size} slots in ${event.pool}`, why: 'Each call in flight holds one slot.' };

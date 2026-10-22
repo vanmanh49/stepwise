@@ -276,3 +276,35 @@ describe('traceSteps: rate limiting', () => {
     expect(gatewayBadges(steps)).toContain('bob 5/5, alice 1/5');
   });
 });
+
+describe('traceSteps: broker', () => {
+  const topic = (times: number[], consumers = ['a', 'b']): Scenario => ({
+    nodes: [shared.client(), shared.broker('jobs', 1, 'topic', consumers), ...consumers.map((c) => shared.service(c, 2, [], { processMs: 60 }))],
+    links: [shared.link('client', 'jobs'), ...consumers.map((c) => shared.link('jobs', c))],
+    requests: times.map((at) => ({ label: 'POST /job', path: '/job', to: 'jobs', at })),
+    faults: [],
+  });
+
+  it('narrates storing, delivering and finishing, with delivery rows after each request', () => {
+    const steps = run(topic([0, 5], ['a', 'b', 'c']));
+    const titles = steps.map((s) => s.title);
+    expect(titles).toContain('The broker stores #1 in 3 queues');
+    expect(titles).toContain('a-1 finishes #1');
+    const last = view(steps.at(-1)!);
+    expect(last.requests.map((r) => r.id)).toEqual(['#1', '#1/a', '#1/b', '#1/c', '#2', '#2/a', '#2/b', '#2/c']);
+    expect(last.requests.every((r) => r.status !== 'pending')).toBe(true);
+    expect(last.requests.find((r) => r.id === '#1/a')!.label).toBe('POST /job → a');
+  });
+
+  it('shows each queue as a row with what is waiting', () => {
+    const steps = run(topic([0, 1, 2]));
+    const queues = steps.flatMap((s) => view(s).nodes.find((n) => n.id === 'jobs')!.instances!.map((q) => q.badge));
+    expect(queues).toContain('2 waiting');
+    expect(view(steps.at(-1)!).nodes.find((n) => n.id === 'jobs')).toMatchObject({ type: 'broker', instances: [{ id: 'a', badge: 'empty' }, { id: 'b', badge: 'empty' }] });
+  });
+
+  it('narrates a requeue', () => {
+    const s: Scenario = { ...topic([0], ['a']), faults: [{ kind: 'outage', node: 'a', from: 0, until: 100, mode: 'refuse' }] };
+    expect(run(s).map((step) => step.title)).toContain('The broker puts #1 back in the queue');
+  });
+});

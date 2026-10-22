@@ -17,6 +17,7 @@ const TYPE_NAME: Record<ServicesView['nodes'][number]['type'], string> = {
   balancer: 'load balancer',
   service: 'service',
   db: 'database',
+  broker: 'message broker',
 };
 
 const STATUS: Record<ServicesView['requests'][number]['status'], { text: string; role: Role }> = {

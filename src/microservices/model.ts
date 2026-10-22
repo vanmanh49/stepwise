@@ -48,6 +48,8 @@ export interface Call {
   /** Made only for requests whose path starts with this prefix. */
   when?: string;
   policy?: CallPolicy;
+  /** The message label for this call, e.g. "OrderPlaced"; the request's label otherwise. */
+  label?: string;
 }
 
 interface NodeBase {
@@ -65,6 +67,8 @@ export type NodeSpec = NodeBase &
     | { type: 'balancer'; processMs: number; target: string; strategy: Strategy; healthCheckMs?: number }
     | { type: 'service'; instances: Instance[]; calls: Call[]; parallel: boolean; dedupe?: boolean }
     | { type: 'db'; processMs: number; columns: string[] }
+    /** queue: consumers' instances compete for one queue. topic: one queue per consumer service, each gets a copy. */
+    | { type: 'broker'; processMs: number; mode: 'queue' | 'topic'; consumers: string[]; redeliverMs: number }
   );
 
 export type NodeType = NodeSpec['type'];
@@ -109,7 +113,7 @@ export interface Scenario {
   clientPolicy?: CallPolicy;
 }
 
-export type MessageKind = 'request' | 'reply' | 'query' | 'lookup' | 'heartbeat' | 'probe';
+export type MessageKind = 'request' | 'reply' | 'query' | 'lookup' | 'heartbeat' | 'probe' | 'deliver';
 
 export interface Message {
   /** "m1", "m2", … in send order. */
@@ -133,6 +137,8 @@ export interface Message {
   reason?: string;
   /** Replies to a lookup: the registered instances. */
   result?: string[];
+  /** Deliver messages only: "#3/email". */
+  delivery?: string;
 }
 
 export type TraceEvent = { t: number } & (
@@ -159,6 +165,10 @@ export type TraceEvent = { t: number } & (
   | { kind: 'breaker'; caller: string; target: string; state: BreakerState; failures: number; threshold: number }
   | { kind: 'shed'; caller: string; request: string; reason: 'circuit open' | 'bulkhead full' }
   | { kind: 'pool'; caller: string; pool: string; used: number; size: number }
+  /** label: the message without its request id, e.g. "OrderPlaced". */
+  | { kind: 'store'; broker: string; request: string; label: string; queues: string[] }
+  | { kind: 'requeue'; broker: string; delivery: string; reason: string }
+  | { kind: 'delivered'; delivery: string; consumer?: string; ok: boolean; ms: number; reason?: string }
   | { kind: 'done'; request: string; ok: boolean; ms: number; reason?: string }
 );
 
@@ -177,9 +187,25 @@ export interface RequestOutcome {
   reason?: string;
 }
 
+/** One copy of a stored message, for one queue: "#3/email". ms runs from store to ack. */
+export interface DeliveryOutcome {
+  id: string;
+  request: string;
+  /** "OrderPlaced → email" */
+  label: string;
+  queue: string;
+  /** The instance that acked it. */
+  consumer?: string;
+  status: 'ok' | 'failed';
+  ms: number;
+  attempts: number;
+  reason?: string;
+}
+
 export interface SimResult {
   trace: TraceEvent[];
   requests: RequestOutcome[];
+  deliveries: DeliveryOutcome[];
   endedAt: number;
   timedOut: boolean;
 }

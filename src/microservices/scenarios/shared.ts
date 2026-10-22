@@ -9,6 +9,7 @@ export const LINK_MS = 5;
 export const INSTANCE_MS = 10;
 export const GATEWAY_MS = 2;
 export const DB_MS = 3;
+export const BROKER_MS = 2;
 
 export const client = (extra: Partial<Extract<NodeSpec, { type: 'client' }>> = {}): NodeSpec => ({ id: 'client', label: 'client', type: 'client', column: 0, ...extra });
 
@@ -27,6 +28,17 @@ export function service(id: string, column: number, calls: (string | Call)[] = [
 }
 
 export const db = (id: string, column: number, columns: string[] = []): NodeSpec => ({ id, label: id, type: 'db', column, processMs: DB_MS, columns });
+
+export const broker = (id: string, column: number, mode: 'queue' | 'topic', consumers: string[], redeliverMs = 50): NodeSpec => ({
+  id,
+  label: id,
+  type: 'broker',
+  column,
+  processMs: BROKER_MS,
+  mode,
+  consumers,
+  redeliverMs,
+});
 
 export const link = (from: string, to: string, latencyMs = LINK_MS): Link => ({ from, to, latencyMs });
 
