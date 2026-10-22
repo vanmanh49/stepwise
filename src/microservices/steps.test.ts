@@ -274,6 +274,7 @@ describe('traceSteps: rate limiting', () => {
   it('shows each caller in the badge when limits are per caller', () => {
     const steps = run(limited({ algorithm: 'fixed-window', limit: 5, windowMs: 100, per: 'caller' }, [...Array(6).fill('bob'), 'alice']));
     expect(gatewayBadges(steps)).toContain('bob 5/5, alice 1/5');
+    expect(steps.map((s) => s.title)).toContain('The gateway refuses #6 with 429: 5 of 5 used by bob in this window');
   });
 });
 

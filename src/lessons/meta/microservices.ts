@@ -112,4 +112,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['bulkhead', 'isolation', 'thread pool', 'connection pool', 'concurrency limit', 'slots', 'starvation', 'resilience'],
     prerequisites: ['circuit-breaker'],
   },
+  {
+    id: 'rate-limiting',
+    title: 'Rate Limiting',
+    category: 'microservices',
+    difficulty: 'intermediate',
+    group: 'Communication & Resilience',
+    description: 'Limit requests at the gateway with a fixed window or a token bucket, and see a noisy caller use up a shared limit.',
+    keywords: ['rate limiting', 'rate limit', '429', 'too many requests', 'token bucket', 'fixed window', 'throttling', 'quota', 'per caller'],
+    prerequisites: ['bulkhead'],
+  },
 ];

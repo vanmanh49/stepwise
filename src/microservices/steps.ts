@@ -83,6 +83,8 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   const queueOf = (delivery: string) => delivery.slice(delivery.indexOf('/') + 1);
   /** Rate-limit use per gateway and key, from its latest check. */
   const limits = new Map<string, Map<string, number>>();
+  /** The rate-limit key each request was checked under, for the 429 wording. */
+  const limitKeys = new Map<string, string>();
   /** Bulkhead pools in use per caller node. */
   const pools = new Map<string, Map<string, { used: number; size: number }>>();
   // Every pool a caller has, from the start, so unused ones show as 0 in use.
@@ -190,6 +192,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         let used = limits.get(event.gateway);
         if (!used) limits.set(event.gateway, (used = new Map()));
         used.set(event.key, event.used);
+        limitKeys.set(event.request, event.key);
         break;
       }
       case 'pool': {
@@ -426,9 +429,11 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
           const node = nodes.get(event.gateway);
           const bucket = node?.type === 'gateway' && node.rateLimit?.algorithm === 'token-bucket';
           const limit = node?.type === 'gateway' ? (node.rateLimit?.limit ?? 0) : 0;
+          const key = limitKeys.get(event.request);
+          const whose = key && key !== 'all' ? ` by ${key}` : '';
           return bucket
-            ? { title: `${gateway} refuses ${event.request} with 429: no tokens left`, why: 'The bucket is empty, so the request is turned away before it reaches a service.' }
-            : { title: `${gateway} refuses ${event.request} with 429: ${limit} of ${limit} used in this window`, why: 'The window is full, so the request is turned away before it reaches a service.' };
+            ? { title: `${gateway} refuses ${event.request} with 429: no tokens left${key && key !== 'all' ? ` for ${key}` : ''}`, why: 'The bucket is empty, so the request is turned away before it reaches a service.' }
+            : { title: `${gateway} refuses ${event.request} with 429: ${limit} of ${limit} used${whose} in this window`, why: 'The window is full, so the request is turned away before it reaches a service.' };
         }
         return event.status === 401
           ? { title: `${capitalise(name(event.gateway))} rejects ${event.request} with 401`, why: 'The request has no token, so it never reaches a service.' }

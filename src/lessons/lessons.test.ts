@@ -108,6 +108,7 @@ const EXPECTED_IDS = [
   'retries-backoff',
   'circuit-breaker',
   'bulkhead',
+  'rate-limiting',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -144,7 +145,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
-    expect(lessonsIn('microservices')).toHaveLength(11);
+    expect(lessonsIn('microservices')).toHaveLength(12);
   });
 
   it('links previous and next lessons within a category', () => {

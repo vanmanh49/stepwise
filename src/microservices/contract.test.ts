@@ -22,6 +22,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   'service-discovery': { instances: [1, 4], heartbeat: [10, 100], ttl: [20, 300], dies: [0, 140] },
   'load-balancing': { instances: [2, 4] },
   bulkhead: { requests: [2, 12] },
+  'rate-limiting': { limit: [1, 10] },
   'circuit-breaker': { threshold: [1, 5], openMs: [50, 500], recovers: [100, 2000], requests: [4, 16] },
   'retries-backoff': { retries: [0, 4], outage: [0, 500], requests: [1, 8] },
   timeouts: { inventory: [10, 1000], apiTimeout: [0, 2000], clientTimeout: [0, 2000], requests: [1, 4] },
