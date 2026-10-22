@@ -192,4 +192,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['event sourcing', 'event store', 'append only', 'replay', 'snapshot', 'audit log', 'ledger', 'history'],
     prerequisites: ['cqrs'],
   },
+  {
+    id: 'distributed-tracing',
+    title: 'Distributed Tracing',
+    category: 'microservices',
+    difficulty: 'advanced',
+    group: 'Data & Operations',
+    description: 'Follow requests through five services as a span waterfall, find the slow one, then break propagation and sampling.',
+    keywords: ['distributed tracing', 'trace', 'span', 'traceparent', 'context propagation', 'opentelemetry', 'jaeger', 'zipkin', 'sampling', 'observability'],
+    prerequisites: ['event-sourcing'],
+  },
 ];

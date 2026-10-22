@@ -116,6 +116,7 @@ const EXPECTED_IDS = [
   'transactional-outbox',
   'cqrs',
   'event-sourcing',
+  'distributed-tracing',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -152,7 +153,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
-    expect(lessonsIn('microservices')).toHaveLength(19);
+    expect(lessonsIn('microservices')).toHaveLength(20);
   });
 
   it('links previous and next lessons within a category', () => {
