@@ -218,6 +218,7 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
                         {status.text}
                       </span>
                       {r.attempts !== undefined && r.attempts > 1 && <span className="ml-1 text-muted">· {r.attempts} tries</span>}
+                      {r.value !== undefined && <span className="ml-1 text-muted">→ {r.value}</span>}
                       {r.reason && <div className="mt-0.5 font-sans text-[11px] text-muted">{r.reason}</div>}
                     </td>
                     <td className="break-words py-1 pr-2 text-muted">{r.hops}</td>

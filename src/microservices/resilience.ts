@@ -7,7 +7,7 @@ export function retryDelay(retry: RetryPolicy, n: number, rng: () => number): nu
   return retry.jitter ? Math.floor(delay / 2 + rng() * (delay / 2)) : delay;
 }
 
-export type CallDone = (ok: boolean, reason?: string) => void;
+export type CallDone = (ok: boolean, reason?: string, value?: string) => void;
 export type CallFn = (
   from: string,
   to: string,
@@ -42,7 +42,7 @@ export function createCaller(ctx: SimContext): Caller {
 
   const call: CallFn = (from, to, message, policy, done) => {
     if (!policy) {
-      ctx.send(from, to, message, (reply) => done(reply.ok ?? false, reply.reason));
+      ctx.send(from, to, message, (reply) => done(reply.ok ?? false, reply.reason, reply.value));
       return;
     }
     const caller = ctx.ownerOf(from);
@@ -120,13 +120,13 @@ export function createCaller(ctx: SimContext): Caller {
         release();
       };
       mine.add(abandon);
-      const end = (ok: boolean, reason?: string) => {
+      const end = (ok: boolean, reason?: string, value?: string) => {
         if (settled) return;
         settled = true;
         mine.delete(abandon);
         release();
         record(ok, trial);
-        if (ok) return done(true);
+        if (ok) return done(true, undefined, value);
         if (policy.retry && retries < policy.retry.attempts) {
           retries++;
           const delayMs = retryDelay(policy.retry, retries, ctx.rng);
@@ -136,7 +136,7 @@ export function createCaller(ctx: SimContext): Caller {
         }
         done(false, reason);
       };
-      const sent = ctx.send(from, to, message, (reply) => end(reply.ok ?? false, reply.reason));
+      const sent = ctx.send(from, to, message, (reply) => end(reply.ok ?? false, reply.reason, reply.value));
       const { timeoutMs } = policy;
       if (timeoutMs !== undefined) {
         // Queued now, so at a tie it runs before the reply arrives: an answer at the deadline is late.

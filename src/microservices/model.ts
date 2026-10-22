@@ -41,6 +41,17 @@ export interface Instance {
   processMs: number;
 }
 
+/**
+ * What a query to a db does with its records. Keys and values may use {req} (the request id), {key} and {value}
+ * (the request's data). A write of several records is atomic; `add` adds integers ("+50"), a missing key counting as 0.
+ */
+export type DataOp =
+  | { read: string }
+  | { write: Record<string, string> }
+  | { delete: string[] }
+  | { add: Record<string, string> }
+  | { append: string };
+
 /** A downstream call. `columns` are what a query to a db reads, e.g. "users.name". */
 export interface Call {
   to: string;
@@ -50,6 +61,8 @@ export interface Call {
   policy?: CallPolicy;
   /** The message label for this call, e.g. "OrderPlaced"; the request's label otherwise. */
   label?: string;
+  /** For a call to a db: what the query does with its records. */
+  data?: DataOp;
 }
 
 interface NodeBase {
@@ -66,7 +79,7 @@ export type NodeSpec = NodeBase &
     | { type: 'registry'; processMs: number; heartbeatMs: number; ttlMs: number; serves: string[] }
     | { type: 'balancer'; processMs: number; target: string; strategy: Strategy; healthCheckMs?: number }
     | { type: 'service'; instances: Instance[]; calls: Call[]; parallel: boolean; dedupe?: boolean }
-    | { type: 'db'; processMs: number; columns: string[] }
+    | { type: 'db'; processMs: number; columns: string[]; records?: Record<string, string> }
     /** queue: consumers' instances compete for one queue. topic: one queue per consumer service, each gets a copy. */
     | { type: 'broker'; processMs: number; mode: 'queue' | 'topic'; consumers: string[]; redeliverMs: number }
   );
@@ -88,6 +101,9 @@ export interface RequestSpec {
   token?: boolean;
   /** Who sent it, for per-caller rate limits. */
   caller?: string;
+  /** The data it carries, e.g. key "order 42" and value "paid". */
+  key?: string;
+  value?: string;
 }
 
 export type Fault =
@@ -139,6 +155,8 @@ export interface Message {
   result?: string[];
   /** Deliver messages only: "#3/email". */
   delivery?: string;
+  /** Replies only: the value a read found, passed back up the chain. */
+  value?: string;
 }
 
 export type TraceEvent = { t: number } & (
@@ -169,7 +187,10 @@ export type TraceEvent = { t: number } & (
   | { kind: 'store'; broker: string; request: string; label: string; queues: string[] }
   | { kind: 'requeue'; broker: string; delivery: string; reason: string }
   | { kind: 'delivered'; delivery: string; consumer?: string; ok: boolean; ms: number; reason?: string }
-  | { kind: 'done'; request: string; ok: boolean; ms: number; reason?: string }
+  /** A deleted key has the value null. */
+  | { kind: 'write'; db: string; request: string; records: Record<string, string | null> }
+  | { kind: 'read'; db: string; request: string; key: string; value?: string; replayed?: number }
+  | { kind: 'done'; request: string; ok: boolean; ms: number; reason?: string; value?: string }
 );
 
 export interface RequestOutcome {
@@ -185,6 +206,8 @@ export interface RequestOutcome {
   /** Request messages the client sent for it: 1 plus its retries. */
   attempts: number;
   reason?: string;
+  /** The value the answer carried, e.g. what a read found. */
+  value?: string;
 }
 
 /** One copy of a stored message, for one queue: "#3/email". ms runs from store to ack. */

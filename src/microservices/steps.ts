@@ -22,6 +22,20 @@ export function emptyServicesView(): ServicesView {
 }
 
 const LOG_LINES = 4;
+/** Records shown in a db box before the oldest fold into one row. */
+const RECORD_ROWS = 5;
+const BADGE_MAX = 24;
+
+/** Cuts text to fit a badge, ending in "…" when it was longer. */
+const fit = (text: string) => (text.length > BADGE_MAX ? `${text.slice(0, BADGE_MAX - 1)}…` : text);
+
+/** A db's records as rows: all of them when they fit, otherwise one "+N older" row and the newest 5. */
+export function recordRows(records: [string, string][], changed: Set<string>): { id: string; role: Role; badge: string }[] {
+  const rows = records.map(([key, value]) => ({ id: key, role: (changed.has(key) ? 'active' : 'default') as Role, badge: fit(value) }));
+  if (rows.length <= RECORD_ROWS + 1) return rows;
+  const older = rows.length - RECORD_ROWS;
+  return [{ id: `+${older} older`, role: 'default', badge: '' }, ...rows.slice(-RECORD_ROWS)];
+}
 
 const STRATEGY: Record<Strategy, string> = { 'round-robin': 'round robin', 'least-connections': 'least connections', random: 'random' };
 
@@ -96,6 +110,10 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
     if (!pools.has(caller)) pools.set(caller, new Map());
     pools.get(caller)!.set(policy.bulkhead.pool, { used: 0, size: policy.bulkhead.size });
   }
+  /** Each db's records, and the keys changed by the event being shown. */
+  const records = new Map<string, Map<string, string>>();
+  for (const n of scenario.nodes) if (n.type === 'db') records.set(n.id, new Map(Object.entries(n.records ?? {})));
+  const changed = new Map<string, Set<string>>();
   const arrived = new Set<string>();
   const probes = new Set<string>();
   const lastBeat = new Map<string, number>();
@@ -224,6 +242,21 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         row.status = event.ok ? 'ok' : 'failed';
         row.ms = event.ms;
         if (event.reason) row.reason = event.reason;
+        if (event.value !== undefined) row.value = event.value;
+        break;
+      }
+      case 'write': {
+        const data = records.get(event.db);
+        if (!data) break;
+        const keys = new Set<string>();
+        for (const [key, value] of Object.entries(event.records)) {
+          if (value === null) data.delete(key);
+          else {
+            data.set(key, value);
+            keys.add(key);
+          }
+        }
+        changed.set(event.db, keys);
         break;
       }
       default:
@@ -258,6 +291,9 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       case 'recover':
       case 'duplicate':
         return { node: event.node };
+      case 'write':
+      case 'read':
+        return { node: event.db };
       case 'lost':
       case 'late':
         return { node: ownerOf(event.message.to) };
@@ -326,6 +362,10 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         return { ...base, role: instances.every((i) => i.role === 'discarded') ? 'discarded' : 'default', instances };
       }
       const role: Role = focus.node === n.id ? (focus.compare ? 'compare' : 'active') : 'default';
+      if (n.type === 'db') {
+        const rows = recordRows([...(records.get(n.id) ?? new Map<string, string>()).entries()], changed.get(n.id) ?? new Set());
+        return rows.length > 0 ? { ...base, role, instances: rows } : { ...base, role };
+      }
       if (n.type === 'broker') {
         const queues = [...(waiting.get(n.id) ?? new Map<string, string[]>()).entries()].map(([queue, items]) => ({
           id: queue,
@@ -541,6 +581,20 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       }
       case 'pool':
         return { title: `${event.caller} uses ${event.used} of ${event.size} slots in ${event.pool}`, why: 'Each call in flight holds one slot.' };
+      case 'write': {
+        const entries = Object.entries(event.records);
+        const saved = entries.filter(([, v]) => v !== null).map(([k, v]) => `${k} = ${v}`);
+        const deleted = entries.filter(([, v]) => v === null).map(([k]) => k);
+        const parts = [...(saved.length > 0 ? [`saves ${saved.join(', ')}`] : []), ...(deleted.length > 0 ? [`deletes ${deleted.join(', ')}`] : [])];
+        return {
+          title: `${event.db} ${parts.join(' and ')}`,
+          why: entries.length > 1 ? `All ${entries.length} changes are made in one query, so they happen together or not at all.` : `The record now holds what ${event.request} asked for.`,
+        };
+      }
+      case 'read':
+        return event.value === undefined
+          ? { title: `${event.db} finds no ${event.key}`, why: `There is no record called ${event.key} yet, so the answer carries no value.` }
+          : { title: `${event.db} reads ${event.key} = ${event.value}`, why: `The answer carries ${event.value} back to whoever asked for ${event.request}.` };
       case 'done':
         return event.ok
           ? { title: `${event.request} succeeds after ${event.ms} ms`, why: `The answer is back at the client, ${event.ms} ms after it was sent.` }
@@ -583,6 +637,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
     // A message is drawn at its destination on the step it arrives, then dropped.
     for (const id of arrived) inFlight.delete(id);
     arrived.clear();
+    changed.clear();
   };
 
   /** A first heartbeat is a registration: its arrival belongs with the register step that follows. */

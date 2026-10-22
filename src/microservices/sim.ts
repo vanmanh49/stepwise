@@ -1,4 +1,4 @@
-import { MAX_TIME, type Call, type DeliveryOutcome, type Fault, type Message, type NodeSpec, type NodeType, type RequestOutcome, type Scenario, type SimResult, type TraceEvent } from './model';
+import { MAX_TIME, type Call, type DataOp, type DeliveryOutcome, type Fault, type Message, type NodeSpec, type NodeType, type RequestOutcome, type Scenario, type SimResult, type TraceEvent } from './model';
 import { balancer, createDiscovery, gateway, registry } from './behaviours';
 import { broker } from './broker';
 import { EventQueue } from './queue';
@@ -14,10 +14,10 @@ export interface SimContext {
   /** The service that owns an instance; any other id is its own owner. */
   ownerOf(id: string): string;
   instancesOf(service: string): string[];
-  requestInfo(id: string): { label: string; path: string; token: boolean; caller?: string };
+  requestInfo(id: string): { label: string; path: string; token: boolean; caller?: string; key?: string; value?: string };
   /** Sends over the link between the two owners; `onReply` runs when the answer arrives. */
   send(from: string, to: string, message: Pick<Message, 'kind' | 'label'> & { request?: string; delivery?: string }, onReply?: (reply: Message) => void): Message;
-  reply(to: Message, ok: boolean, reason?: string, result?: string[]): void;
+  reply(to: Message, ok: boolean, reason?: string, result?: string[], value?: string): void;
   /** Stops waiting for `message`'s reply; when it comes, it is traced as late and dropped. */
   cancel(message: Message): void;
   /** Sends through a call policy (timeouts, retries, breaker, bulkhead); a plain send without one. */
@@ -34,7 +34,7 @@ export interface SimContext {
 export type Behaviour = (ctx: SimContext, node: NodeSpec) => (message: Message) => void;
 
 /** Seeded random numbers (mulberry32). */
-function rng(seed: number): () => number {
+export function seeded(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -45,11 +45,29 @@ function rng(seed: number): () => number {
   };
 }
 
+/** Fills {req}, {key} and {value} in a data call's key or value from the request it belongs to. */
+export function fill(template: string, request: { id: string; key?: string; value?: string }): string {
+  return template.replaceAll('{req}', request.id).replaceAll('{key}', request.key ?? '').replaceAll('{value}', request.value ?? '');
+}
+
+/** A data call with its templates filled in for one request. */
+function fillOp(op: DataOp, request: { id: string; key?: string; value?: string }): DataOp {
+  const f = (t: string) => fill(t, request);
+  const map = (records: Record<string, string>) => Object.fromEntries(Object.entries(records).map(([k, v]) => [f(k), f(v)]));
+  if ('read' in op) return { read: f(op.read) };
+  if ('write' in op) return { write: map(op.write) };
+  if ('add' in op) return { add: map(op.add) };
+  if ('delete' in op) return { delete: op.delete.map(f) };
+  return { append: f(op.append) };
+}
+
 interface OpenRequest {
   outcome: RequestOutcome;
   path: string;
   token: boolean;
   caller?: string;
+  key?: string;
+  value?: string;
   done: boolean;
 }
 
@@ -75,7 +93,12 @@ export function simulate(input: Scenario): SimResult {
   const aborted = new Set<Message>();
   /** The columns each query reads, by message id, kept beside the message rather than parsed from its label. */
   const queryColumns = new Map<string, string[]>();
-  const random = rng(scenario.seed ?? 1);
+  /** The data call each query makes, filled in for its request, by message id. */
+  const queryOps = new Map<string, DataOp>();
+  /** Each db's records, a copy of its starting records. */
+  const records = new Map<string, Map<string, string>>();
+  for (const n of scenario.nodes) if (n.type === 'db') records.set(n.id, new Map(Object.entries(n.records ?? {})));
+  const random = seeded(scenario.seed ?? 1);
   let now = 0;
   let messages = 0;
 
@@ -99,7 +122,14 @@ export function simulate(input: Scenario): SimResult {
     },
     requestInfo: (id) => {
       const r = requests.get(id)!;
-      return { label: r.outcome.label, path: r.path, token: r.token, ...(r.caller && { caller: r.caller }) };
+      return {
+        label: r.outcome.label,
+        path: r.path,
+        token: r.token,
+        ...(r.caller && { caller: r.caller }),
+        ...(r.key !== undefined && { key: r.key }),
+        ...(r.value !== undefined && { value: r.value }),
+      };
     },
     send(from, to, partial, onReply) {
       const departs = now;
@@ -111,7 +141,7 @@ export function simulate(input: Scenario): SimResult {
       ctx.at(message.arrives, () => deliver(message));
       return message;
     },
-    reply(to, ok, reason, result) {
+    reply(to, ok, reason, result, value) {
       const departs = now;
       const message: Message = {
         id: `m${++messages}`,
@@ -126,6 +156,7 @@ export function simulate(input: Scenario): SimResult {
         ok,
         ...(reason !== undefined && { reason }),
         ...(result && { result }),
+        ...(value !== undefined && { value }),
       };
       working.delete(to.id);
       if (to.kind === 'request' || to.kind === 'query' || to.kind === 'deliver') working.add(message.id);
@@ -135,7 +166,7 @@ export function simulate(input: Scenario): SimResult {
     forward(from, to, inbound) {
       if (inbound.request) countCrossService(from, to, inbound.request);
       ctx.send(from, to, { kind: 'request', label: inbound.label, ...(inbound.request && { request: inbound.request }) }, (answer) =>
-        ctx.reply(inbound, answer.ok ?? false, answer.reason),
+        ctx.reply(inbound, answer.ok ?? false, answer.reason, undefined, answer.value),
       );
     },
     cancel(message) {
@@ -278,6 +309,8 @@ export function simulate(input: Scenario): SimResult {
       kill(instance, message);
       return;
     }
+    /** The last value any call answered with, passed back with the reply. */
+    let value: string | undefined;
     const finish = (ok: boolean, reason?: string) => {
       if (aborted.has(message)) return;
       jobs.get(instance)?.delete(message);
@@ -285,22 +318,27 @@ export function simulate(input: Scenario): SimResult {
         running.delete(request);
         finished.set(request, { ok, ...(reason !== undefined && { reason }) });
       }
-      ctx.reply(message, ok, reason);
+      ctx.reply(message, ok, reason, undefined, ok ? value : undefined);
     };
     const path = requests.get(request)!.path;
     const calls = node.calls.filter((c) => c.when === undefined || path.startsWith(c.when));
     const call = (target: Call, then: (ok: boolean, reason?: string) => void) => {
       const to = nodes.get(target.to)!;
       countCrossService(instance, target.to, request);
+      const answered = (ok: boolean, reason?: string, answer?: string) => {
+        if (ok && answer !== undefined) value = answer;
+        then(ok, reason);
+      };
       if (to.type === 'db') {
         const columns = target.columns ?? [];
         const query = ctx.send(instance, to.id, { kind: 'query', label: `query ${columns.length > 0 ? `${columns.join(', ')} ` : ''}${request}`, request }, (reply) =>
-          then(reply.ok ?? false, reply.reason),
+          answered(reply.ok ?? false, reply.reason, reply.value),
         );
         queryColumns.set(query.id, columns);
+        if (target.data) queryOps.set(query.id, fillOp(target.data, { id: request, ...ctx.requestInfo(request) }));
       } else {
         const first = to.type === 'service' ? to.instances[0]!.id : to.id;
-        ctx.call(instance, first, { kind: 'request', label: `${target.label ?? requests.get(request)!.outcome.label} ${request}`, request }, target.policy, then);
+        ctx.call(instance, first, { kind: 'request', label: `${target.label ?? requests.get(request)!.outcome.label} ${request}`, request }, target.policy, answered);
       }
     };
     ctx.at(now + processMs.get(instance)!, () => {
@@ -336,6 +374,24 @@ export function simulate(input: Scenario): SimResult {
       const columns = queryColumns.get(message.id) ?? [];
       const missing = columns.find((c) => !node.columns.includes(c));
       if (missing) return ctx.reply(message, false, `no column ${missing}`);
+      const op = queryOps.get(message.id);
+      if (!op) return ctx.reply(message, true);
+      const request = message.request!;
+      const data = records.get(node.id)!;
+      if ('read' in op) {
+        const value = data.get(op.read);
+        ctx.trace({ kind: 'read', db: node.id, request, key: op.read, ...(value !== undefined && { value }) });
+        return ctx.reply(message, true, undefined, undefined, value);
+      }
+      const changed: Record<string, string | null> = {};
+      if ('write' in op) Object.assign(changed, op.write);
+      if ('add' in op) for (const [key, by] of Object.entries(op.add)) changed[key] = String(Number.parseInt(data.get(key) ?? '0', 10) + Number.parseInt(by, 10));
+      if ('delete' in op) for (const key of op.delete) if (data.has(key)) changed[key] = null;
+      for (const [key, value] of Object.entries(changed)) {
+        if (value === null) data.delete(key);
+        else data.set(key, value);
+      }
+      if (Object.keys(changed).length > 0) ctx.trace({ kind: 'write', db: node.id, request, records: changed });
       ctx.reply(message, true);
     });
   };
@@ -387,19 +443,29 @@ export function simulate(input: Scenario): SimResult {
       path: spec.path,
       token: spec.token ?? false,
       ...(spec.caller && { caller: spec.caller }),
+      ...(spec.key !== undefined && { key: spec.key }),
+      ...(spec.value !== undefined && { value: spec.value }),
       done: false,
     };
     requests.set(id, open);
     ctx.at(spec.at, () => {
       if (!client) throw new Error('Scenario has no client');
       open.outcome.hops.push(client.id);
-      const finish = (ok: boolean, reason?: string) => {
+      const finish = (ok: boolean, reason?: string, value?: string) => {
         if (open.done) return;
         open.done = true;
         open.outcome.status = ok ? 'ok' : 'failed';
         open.outcome.ms = now - spec.at;
         if (!ok && reason) open.outcome.reason = reason;
-        ctx.trace({ kind: 'done', request: id, ok, ms: open.outcome.ms, ...(open.outcome.reason && { reason: open.outcome.reason }) });
+        if (ok && value !== undefined) open.outcome.value = value;
+        ctx.trace({
+          kind: 'done',
+          request: id,
+          ok,
+          ms: open.outcome.ms,
+          ...(open.outcome.reason && { reason: open.outcome.reason }),
+          ...(open.outcome.value !== undefined && { value: open.outcome.value }),
+        });
       };
       if (discover) return discover(id, finish);
       const target = nodes.get(spec.to)!;

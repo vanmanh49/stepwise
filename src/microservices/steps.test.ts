@@ -4,7 +4,7 @@ import { lineOf } from '../data-structures/shared';
 import { MAX_STEPS, type NodeSpec, type Scenario } from './model';
 import { simulate } from './sim';
 import * as shared from './scenarios/shared';
-import { emptyServicesView, traceSteps, type StepOptions } from './steps';
+import { emptyServicesView, recordRows, traceSteps, type StepOptions } from './steps';
 
 const code = `function handle(req) {
   const result = call(next)
@@ -307,5 +307,65 @@ describe('traceSteps: broker', () => {
   it('narrates a requeue', () => {
     const s: Scenario = { ...topic([0], ['a']), faults: [{ kind: 'outage', node: 'a', from: 0, until: 100, mode: 'refuse' }] };
     expect(run(s).map((step) => step.title)).toContain('The broker puts #1 back in the queue');
+  });
+});
+
+describe('traceSteps: records and values', () => {
+  const dataScenario = (calls: NonNullable<Extract<NodeSpec, { type: 'service' }>['calls']>, records?: Record<string, string>, value?: string): Scenario => ({
+    nodes: [shared.client(), shared.service('api', 1, calls), shared.db('db', 2, [], { ...(records && { records }) })],
+    links: [shared.link('client', 'api'), shared.link('api', 'db')],
+    requests: [{ label: 'POST /orders', path: '/orders', to: 'api', at: 0, ...(value && { value }) }],
+    faults: [],
+  });
+
+  it('narrates writes, deletes and reads', () => {
+    const titles = run(
+      dataScenario(
+        [
+          { to: 'db', data: { write: { 'order {req}': '{value}', 'outbox/{req}': 'OrderPlaced' } } },
+          { to: 'db', data: { delete: ['outbox/{req}'] } },
+          { to: 'db', data: { add: { balance: '-20' } } },
+          { to: 'db', data: { read: 'balance' } },
+          { to: 'db', data: { read: 'nope' } },
+        ],
+        { balance: '100' },
+        'placed',
+      ),
+    ).map((s) => s.title);
+    expect(titles).toContain('db saves order #1 = placed, outbox/#1 = OrderPlaced');
+    expect(titles).toContain('db deletes outbox/#1');
+    expect(titles).toContain('db saves balance = 80');
+    expect(titles).toContain('db reads balance = 80');
+    expect(titles).toContain('db finds no nope');
+  });
+
+  it('draws records as rows in the db box, the changed one active', () => {
+    const steps = run(dataScenario([{ to: 'db', data: { write: { 'order {req}': 'placed' } } }], { 'order #0': 'old' }));
+    const first = view(steps[0]!).nodes.find((n) => n.id === 'db')!;
+    expect(first.instances).toEqual([{ id: 'order #0', role: 'default', badge: 'old' }]);
+    const saved = steps.find((s) => s.title.startsWith('db saves'))!;
+    expect(view(saved).nodes.find((n) => n.id === 'db')!.instances).toEqual([
+      { id: 'order #0', role: 'default', badge: 'old' },
+      { id: 'order #1', role: 'active', badge: 'placed' },
+    ]);
+  });
+
+  it('shows the value that reached the client in the request row', () => {
+    const steps = run(dataScenario([{ to: 'db', data: { read: 'balance' } }], { balance: '80' }));
+    expect(view(steps.at(-1)!).requests[0]).toMatchObject({ status: 'ok', value: '80' });
+  });
+
+  it('keeps the newest 5 records and folds the rest into one row', () => {
+    const records = Array.from({ length: 8 }, (_, i): [string, string] => [`e${i + 1}`, `+${i}`]);
+    const rows = recordRows(records, new Set(['e8']));
+    expect(rows.map((r) => r.id)).toEqual(['+3 older', 'e4', 'e5', 'e6', 'e7', 'e8']);
+    expect(rows.at(-1)!.role).toBe('active');
+    expect(recordRows(records.slice(0, 6), new Set()).map((r) => r.id)).toEqual(['e1', 'e2', 'e3', 'e4', 'e5', 'e6']);
+  });
+
+  it('cuts a long value to 24 characters', () => {
+    const [row] = recordRows([['k', 'x'.repeat(40)]], new Set());
+    expect(row!.badge).toHaveLength(24);
+    expect(row!.badge.endsWith('…')).toBe(true);
   });
 });

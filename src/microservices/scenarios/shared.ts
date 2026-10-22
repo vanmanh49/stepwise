@@ -27,7 +27,15 @@ export function service(id: string, column: number, calls: (string | Call)[] = [
   };
 }
 
-export const db = (id: string, column: number, columns: string[] = []): NodeSpec => ({ id, label: id, type: 'db', column, processMs: DB_MS, columns });
+export const db = (id: string, column: number, columns: string[] = [], options: { records?: Record<string, string> } = {}): NodeSpec => ({
+  id,
+  label: id,
+  type: 'db',
+  column,
+  processMs: DB_MS,
+  columns,
+  ...(options.records && { records: options.records }),
+});
 
 export const broker = (id: string, column: number, mode: 'queue' | 'topic', consumers: string[], redeliverMs = 50): NodeSpec => ({
   id,

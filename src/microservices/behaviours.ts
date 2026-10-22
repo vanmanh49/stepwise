@@ -152,7 +152,7 @@ export const balancer: Behaviour = (ctx, node) => {
       inFlight[instance] = (inFlight[instance] ?? 0) + 1;
       ctx.send(node.id, instance, { kind: 'request', label: message.label, request }, (answer) => {
         inFlight[instance]! -= 1;
-        ctx.reply(message, answer.ok ?? false, answer.reason);
+        ctx.reply(message, answer.ok ?? false, answer.reason, undefined, answer.value);
       });
     });
   };
