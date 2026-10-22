@@ -487,9 +487,11 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
           return { title: `${to} loses its connection to ${m.from}`, why: `${m.from} is dead, so nothing answers for it. Reason: ${m.reason ?? 'unknown'}.` };
         }
         if (m.kind === 'reply') {
+          // A reply's label already starts with "reply" or "failed"; name what it answers instead.
+          const answered = m.request ?? m.label.replace(/^(reply|failed) /, '');
           return m.ok
-            ? { title: `${from} replies to ${to} for ${m.request ?? m.label}`, why: `The work is done, and the answer takes ${ms} ms to travel back.` }
-            : { title: `${from} tells ${to} that ${m.request ?? 'it'} failed`, why: `Reason: ${m.reason ?? 'unknown'}. The failure travels back like any answer, in ${ms} ms.` };
+            ? { title: `${from} replies to ${to} for ${answered}`, why: `The work is done, and the answer takes ${ms} ms to travel back.` }
+            : { title: `${from} tells ${to} that ${answered} failed`, why: `Reason: ${m.reason ?? 'unknown'}. The failure travels back like any answer, in ${ms} ms.` };
         }
         if (m.kind === 'request' && m.dest) {
           return { title: `${m.from} hands ${m.request} to its sidecar`, why: `The app just calls ${m.dest}. Its sidecar, on the same host, carries the call in ${ms} ms.` };
@@ -690,6 +692,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
           : { title: `${request} is never processed by ${queueOf(event.delivery)}`, why: `Reason: ${event.reason ?? 'unknown'}.` };
       }
       case 'poll': {
+        if (event.reason) return { title: `The relay can't read the outbox: ${event.reason}`, why: 'Nothing is lost. The rows stay in the database until the relay can read them again.' };
         const n = event.found.length;
         return n === 0
           ? { title: 'The relay finds nothing to send', why: 'Every saved event has already been published. It looks again on its next poll.' }
@@ -830,8 +833,15 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   const more = steps.length - MAX_STEPS;
   const final = steps.at(-1)!;
   const ok = result.requests.filter((r) => r.status === 'ok').length;
-  const unsent = [...records.values()].reduce((sum, data) => sum + [...data.keys()].filter((key) => key.startsWith('outbox/')).length, 0);
-  const left = unsent > 0 ? ` ${unsent} event${unsent === 1 ? ' was' : 's were'} never published.` : '';
+  // An outbox row left over is either an event the broker never stored, or one it stored whose row the relay couldn't delete.
+  const stored = new Set(result.trace.flatMap((e) => (e.kind === 'store' ? [e.request] : [])));
+  const leftover = [...records.values()].flatMap((data) => [...data.keys()].filter((key) => key.startsWith('outbox/')).map((key) => key.slice('outbox/'.length)));
+  const never = leftover.filter((id) => !stored.has(id)).length;
+  const resend = leftover.length - never;
+  const left = [
+    ...(never > 0 ? [` ${never} event${never === 1 ? ' was' : 's were'} never published.`] : []),
+    ...(resend > 0 ? [` ${resend} published event${resend === 1 ? ' is' : 's are'} still in the outbox, so the relay would send ${resend === 1 ? 'it' : 'them'} again.`] : []),
+  ].join('');
   return [
     ...steps.slice(0, MAX_STEPS),
     {

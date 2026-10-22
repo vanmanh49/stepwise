@@ -47,3 +47,27 @@ describe('Transactional Outbox', () => {
     expect(transactionalOutboxSteps(values('outbox', 'none', '6'))[0]!.why).toBe('Orders must be a whole number from 1 to 5.');
   });
 });
+
+describe('Transactional Outbox: review fixes', () => {
+  const dbDown = values('outbox', 'db-down');
+
+  it('ends soon when the outbox db is down, instead of polling until 10,000 ms', () => {
+    const result = run(dbDown);
+    expect(result.timedOut).toBe(false);
+    expect(result.endedAt).toBeLessThan(1000);
+    expect(finalRecords(result, 'orders-db')).toHaveProperty(['outbox/#1']);
+  });
+
+  it("says the relay can't read the outbox when its poll fails", () => {
+    const titles = transactionalOutboxSteps(dbDown).map((s) => s.title);
+    expect(titles.some((t) => t.startsWith("The relay can't read the outbox"))).toBe(true);
+    const down = titles.findIndex((t) => t === 'orders-db goes down');
+    expect(titles.slice(down).filter((t) => t === 'The relay finds nothing to send')).toEqual([]);
+  });
+
+  it('names the query a reply answers, not the reply itself', () => {
+    const titles = transactionalOutboxSteps(values('outbox', 'none')).map((s) => s.title);
+    expect(titles.some((t) => t.includes('for reply poll outbox'))).toBe(false);
+    expect(titles).toContain('orders-db replies to the relay for poll outbox');
+  });
+});

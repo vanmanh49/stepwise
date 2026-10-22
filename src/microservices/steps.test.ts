@@ -434,10 +434,29 @@ describe('traceSteps: outbox relay', () => {
     expect(run(late).map((x) => x.title)).toContain('The relay finds nothing to send');
   });
 
-  it('says how many events were never published when the run is cut short', () => {
-    const steps = run(outboxShop({ 'outbox/#0': 'OrderPlaced' }, [{ kind: 'down', node: 'db', at: 30 }]));
-    expect(steps).toHaveLength(MAX_STEPS + 1);
-    expect(steps.at(-1)!.why).toContain('2 events were never published');
+  it('tells never-published events from published ones still in the outbox when the run is cut short', () => {
+    // The relay publishes #0 and #1, but their deletes reach the db after it goes down at 70 ms. email hangs on the
+    // delivery, so the run lasts until 10,000 ms with both rows still there.
+    const hung: Scenario = {
+      ...outboxShop({ 'outbox/#0': 'OrderPlaced' }),
+      faults: [
+        { kind: 'down', node: 'db', at: 70 },
+        { kind: 'outage', node: 'email', from: 0, until: 20_000, mode: 'hang' },
+      ],
+    };
+    const published = run(hung);
+    expect(published).toHaveLength(MAX_STEPS + 1);
+    expect(published.at(-1)!.why).toContain('2 published events are still in the outbox');
+    expect(published.at(-1)!.why).not.toContain('never published');
+    // With the db down before the first poll at 40 ms, the relay never reads a row; a second request that hangs at
+    // orders keeps the run going.
+    const early = run({
+      ...hung,
+      requests: [...hung.requests, { label: 'POST /orders', path: '/orders', to: 'orders', at: 60 }],
+      faults: [{ kind: 'down', node: 'db', at: 30 }, { kind: 'outage', node: 'orders', from: 50, until: 20_000, mode: 'hang' }],
+    });
+    expect(early.some((x) => x.title === "The relay can't read the outbox: db is down")).toBe(true);
+    expect(early.at(-1)!.why).toContain('2 events were never published');
   });
 
   it('marks an instance alive again when it restarts', () => {

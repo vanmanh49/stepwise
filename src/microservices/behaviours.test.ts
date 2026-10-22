@@ -258,8 +258,9 @@ describe('versions and deploys', () => {
     expect(share).toBeLessThan(0.3);
   });
 
-  it('passes the share of a version with nothing in rotation to the others', () => {
-    expect(pickVersion({ v1: 0, v2: 1 }, ['v1'], seeded(7))).toBe('v1');
+  it('passes the share of a version with nothing in rotation to the others, but never to a version weighted 0', () => {
+    expect(pickVersion({ v1: 0.5, v2: 0.5 }, ['v1'], seeded(7))).toBe('v1');
+    expect(pickVersion({ v1: 0, v2: 1 }, ['v1'], seeded(7))).toBeUndefined();
     expect(pickVersion({ v1: 1 }, [], seeded(7))).toBeUndefined();
   });
 
@@ -299,6 +300,20 @@ describe('versions and deploys', () => {
     expect(rollback[0]).toMatchObject({ balancer: 'lb', version: 'v2', errors: 2 });
     expect(result.requests.filter((r) => r.status === 'failed')).toHaveLength(2);
     expect(picks(s).filter((p) => p.t > rollback[0]!.t).every((p) => p.instance !== 'app-3')).toBe(true);
+  });
+
+  it('fails with no healthy instance once v2 is rolled back and v1 has drained', () => {
+    const s = rollout(['v1', 'v2'], [{ kind: 'errors', node: 'app', version: 'v2', rate: 1, reason: '500: bug' }, { kind: 'deploy', instance: 'app-1', at: 200, action: 'stop' }], 12, {
+      weights: { v2: 0.5, v1: 0.5 },
+      canary: { version: 'v2', maxErrors: 1 },
+    });
+    const result = simulate(s);
+    const rollback = result.trace.find((e) => e.kind === 'rollback')!;
+    expect(rollback.t).toBeLessThan(200);
+    expect(picks(s).filter((p) => p.t > rollback.t).every((p) => p.instance === 'app-1')).toBe(true);
+    const late = result.requests.filter((r) => r.sentAt > 210);
+    expect(late.length).toBeGreaterThan(0);
+    expect(late.every((r) => r.reason === 'no healthy app instance')).toBe(true);
   });
 
   it('applies a shift at its time', () => {

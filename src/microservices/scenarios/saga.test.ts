@@ -54,3 +54,16 @@ describe('Saga', () => {
     expect(sagaSteps(values('on', 'none', '0'))[0]!.why).toBe('Orders must be a whole number from 1 to 4.');
   });
 });
+
+describe('Saga: review fixes', () => {
+  it('does not claim a payment was taken when the card was declined', () => {
+    const failed = sagaSteps(values('off', 'payment')).find((s) => s.title === '#2 fails after 46 ms' || (s.title.startsWith('#2 fails after') && s.why.includes('card declined')))!;
+    expect(failed.why).not.toContain('payment stays taken');
+    expect(failed.why).toContain('pending');
+  });
+
+  it('still says the payment stays taken when inventory fails without a saga', () => {
+    const failed = sagaSteps(values('off', 'inventory')).find((s) => s.title.startsWith('#2 fails after'))!;
+    expect(failed.why).toContain('payment stays taken');
+  });
+});

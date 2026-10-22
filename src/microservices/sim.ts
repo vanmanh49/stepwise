@@ -633,8 +633,8 @@ export function simulate(input: Scenario): SimResult {
 
   let timedOut = false;
   const allDone = () => requests.size > 0 && [...requests.values()].every((r) => r.done);
-  // An outbox record still waiting for its relay keeps the run going.
-  const outboxEmpty = () => [...records.values()].every((data) => ![...data.keys()].some((key) => key.startsWith('outbox/')));
+  // An outbox record still waiting for its relay keeps the run going, unless its db is down and the relay can't reach it.
+  const outboxEmpty = () => [...records].every(([db, data]) => down.has(db) || ![...data.keys()].some((key) => key.startsWith('outbox/')));
   for (let next = queue.pop(); next; next = queue.pop()) {
     if (next.time > MAX_TIME) {
       timedOut = true;

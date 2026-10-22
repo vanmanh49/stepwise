@@ -12,7 +12,7 @@ export const relay: Behaviour = (ctx, node) => {
   const poll = () => {
     ctx.query(node.id, node.db, { read: `${PREFIX}*` }, 'poll outbox', undefined, (reply: Message) => {
       const found = reply.ok ? (reply.records ?? []) : [];
-      ctx.trace({ kind: 'poll', relay: node.id, found: found.map(([key]) => key.slice(PREFIX.length)) });
+      ctx.trace({ kind: 'poll', relay: node.id, found: found.map(([key]) => key.slice(PREFIX.length)), ...(!reply.ok && { reason: reply.reason ?? 'no answer' }) });
       const publish = (index: number) => {
         const record = found[index];
         if (!record) return ctx.at(ctx.now + node.pollMs, poll);

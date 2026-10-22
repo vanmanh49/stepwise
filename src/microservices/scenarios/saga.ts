@@ -114,9 +114,11 @@ export function sagaSteps(values: Record<string, string>): Step[] {
       if (event.kind === 'write' && event.db === 'payments-db') return { line: Object.values(event.records)[0] === 'refunded' ? 'payments.refund(o)' : 'payments.pay(o)' };
       if (event.kind === 'write' && event.db === 'inventory-db') return { line: Object.values(event.records)[0] === 'released' ? 'inventory.release(o)' : 'inventory.reserve(o)' };
       if (event.kind === 'done' && !event.ok) {
-        return saga
-          ? { line: 'throw error', why: `Reason: ${event.reason ?? 'unknown'}. Every step that had already succeeded was undone first.` }
-          : { line: 'throw error', why: `Reason: ${event.reason ?? 'unknown'}. Nothing undoes the steps that already happened, so the order stays pending and the payment stays taken.` };
+        if (saga) return { line: 'throw error', why: `Reason: ${event.reason ?? 'unknown'}. Every step that had already succeeded was undone first.` };
+        // Only a charge that was actually written stays taken; a declined card never charged.
+        const charged = result.trace.some((e) => e.kind === 'write' && e.db === 'payments-db' && e.records[`charge ${event.request}`] === 'charged' && e.t <= event.t);
+        const left = charged ? 'the order stays pending and the payment stays taken' : 'the order stays pending';
+        return { line: 'throw error', why: `Reason: ${event.reason ?? 'unknown'}. Nothing undoes the steps that already happened, so ${left}.` };
       }
       return undefined;
     },

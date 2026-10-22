@@ -215,8 +215,8 @@ export type TraceEvent = { t: number } & (
   | { kind: 'fault'; fault: Fault }
   /** node: a service, or one instance coming back after a crash-after restart. */
   | { kind: 'recover'; node: string }
-  /** found: the request ids of the outbox records, oldest first. */
-  | { kind: 'poll'; relay: string; found: string[] }
+  /** found: the request ids of the outbox records, oldest first. reason: why the poll couldn't read them. */
+  | { kind: 'poll'; relay: string; found: string[]; reason?: string }
   /** A stopping instance has finished its last job and is gone. */
   | { kind: 'drained'; instance: string }
   | { kind: 'rollback'; balancer: string; version: string; errors: number }

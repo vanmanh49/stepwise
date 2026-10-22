@@ -68,7 +68,7 @@ describe('outbox relay', () => {
     expect(result.timedOut).toBe(false);
   });
 
-  it('ends at MAX_TIME when the outbox can never drain', () => {
+  it('stops waiting for an outbox whose db is down, and leaves the row there', () => {
     const result = simulate(
       shop([{ to: 'db', data: { write: { 'order {req}': 'placed' } } }], {
         outbox: true,
@@ -77,9 +77,11 @@ describe('outbox relay', () => {
         faults: [{ kind: 'down', node: 'db', at: 40 }],
       }),
     );
-    expect(result.timedOut).toBe(true);
-    expect(result.endedAt).toBeLessThanOrEqual(MAX_TIME);
+    expect(result.timedOut).toBe(false);
+    expect(result.endedAt).toBeLessThan(MAX_TIME);
     expect(result.deliveries).toEqual([]);
+    // The client's request is done at 33 ms, before the relay's first poll, and nothing else keeps the run going.
+    expect(result.trace.some((e) => e.kind === 'poll')).toBe(false);
     expect(finalRecords(result, 'db', { 'outbox/#1': 'OrderPlaced' })).toHaveProperty(['outbox/#1']);
   });
 });

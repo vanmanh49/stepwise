@@ -10,13 +10,14 @@ export function pickInstance(strategy: Strategy, live: string[], inFlight: Recor
 
 /**
  * Draws a version by weight among those with an instance in rotation, in the order the weights list them. A version
- * left out gives its share to the others; when every available version has weight 0, the first one is used.
+ * left out gives its share to the others; a version weighted 0 (rolled back, or not switched to yet) never gets
+ * traffic, so when only such versions are left there is none to pick.
  */
 export function pickVersion(weights: Record<string, number>, inRotation: string[], rng: () => number): string | undefined {
   const available = [...Object.keys(weights).filter((v) => inRotation.includes(v)), ...inRotation.filter((v) => !(v in weights))];
   if (available.length === 0) return undefined;
   const total = available.reduce((sum, v) => sum + (weights[v] ?? 0), 0);
-  if (total <= 0) return available[0];
+  if (total <= 0) return undefined;
   let draw = rng() * total;
   for (const version of available) {
     draw -= weights[version] ?? 0;
@@ -174,7 +175,8 @@ export const balancer: Behaviour = (ctx, node) => {
       let instance: string;
       if (node.weights) {
         const available = [...new Set(live.flatMap((id) => versionOf(id) ?? []))];
-        const version = pickVersion(node.weights, available, ctx.rng)!;
+        const version = pickVersion(node.weights, available, ctx.rng);
+        if (version === undefined) return ctx.reply(message, false, `no healthy ${node.target} instance`);
         const pool = live.filter((id) => versionOf(id) === version);
         const at = cursors.get(version) ?? 0;
         cursors.set(version, at + 1);
