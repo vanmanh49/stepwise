@@ -83,7 +83,19 @@ export type NodeSpec = NodeBase &
     | { type: 'client'; discovery?: { registry: string; service: string } }
     | { type: 'gateway'; processMs: number; routes: { prefix: string; to: string }[]; requireToken: boolean; rateLimit?: RateLimit }
     | { type: 'registry'; processMs: number; heartbeatMs: number; ttlMs: number; serves: string[] }
-    | { type: 'balancer'; processMs: number; target: string; strategy: Strategy; healthCheckMs?: number }
+    /**
+     * weights: each version's share of requests. canary: once that version has failed `maxErrors` answers, its
+     * weight drops to 0 (an automatic rollback).
+     */
+    | {
+        type: 'balancer';
+        processMs: number;
+        target: string;
+        strategy: Strategy;
+        healthCheckMs?: number;
+        weights?: Record<string, number>;
+        canary?: { version: string; maxErrors: number };
+      }
     | { type: 'service'; instances: Instance[]; calls: Call[]; parallel: boolean; dedupe?: boolean }
     /** With `events`, an event store: appends are kept as e1, e2…; a read replays the events since the latest snapshot. */
     | { type: 'db'; processMs: number; columns: string[]; records?: Record<string, string>; events?: { perEventMs: number; snapshotEvery?: number } }
@@ -132,7 +144,11 @@ export type Fault =
   /** The gateway's route for `prefix` points at `to` from `at` on (added when missing). */
   | { kind: 'reroute'; gateway: string; at: number; prefix: string; to: string }
   /** The instance of `node` handling `request` crashes right after its call to `after` answers ok; with restartMs it comes back. */
-  | { kind: 'crash-after'; node: string; after: string; request: string; restartMs?: number };
+  | { kind: 'crash-after'; node: string; after: string; request: string; restartMs?: number }
+  /** start: the instance (not running before) joins rotation. stop: it leaves rotation, finishes its work, then stops. */
+  | { kind: 'deploy'; instance: string; at: number; action: 'start' | 'stop' }
+  /** The balancer's version weights become `weights`: a blue-green switch or a manual rollback. */
+  | { kind: 'shift'; balancer: string; at: number; weights: Record<string, number> };
 
 export interface Scenario {
   nodes: NodeSpec[];
@@ -197,6 +213,9 @@ export type TraceEvent = { t: number } & (
   | { kind: 'recover'; node: string }
   /** found: the request ids of the outbox records, oldest first. */
   | { kind: 'poll'; relay: string; found: string[] }
+  /** A stopping instance has finished its last job and is gone. */
+  | { kind: 'drained'; instance: string }
+  | { kind: 'rollback'; balancer: string; version: string; errors: number }
   | { kind: 'lost'; message: Message }
   | { kind: 'duplicate'; node: string; instance: string; request: string; status: 'replayed' | 'in progress' }
   | { kind: 'timeout'; caller: string; target: string; request: string; afterMs: number }

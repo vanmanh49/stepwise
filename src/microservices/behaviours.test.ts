@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createLimiter, pickInstance } from './behaviours';
+import { createLimiter, pickInstance, pickVersion } from './behaviours';
 import * as shared from './scenarios/shared';
 import type { NodeSpec, Scenario, Strategy } from './model';
-import { simulate } from './sim';
+import { seeded, simulate } from './sim';
 
 const client: Extract<NodeSpec, { type: 'client' }> = { id: 'client', label: 'Client', type: 'client', column: 0 };
 
@@ -232,5 +232,79 @@ describe('gateway reroute', () => {
       faults: [{ kind: 'reroute', gateway: 'gateway', at: 100, prefix: '/', to: 'monolith' }],
     };
     expect(simulate(s).requests.map((r) => r.status)).toEqual(['failed', 'ok']);
+  });
+});
+
+/** client → lb → app; `versions` gives each instance's version; one request every 30 ms. */
+function rollout(versions: string[], faults: Scenario['faults'], requests: number, balancer: Partial<Extract<NodeSpec, { type: 'balancer' }>> = {}): Scenario {
+  const app = service('app', versions.length);
+  if (app.type === 'service') versions.forEach((v, i) => (app.instances[i]!.version = v));
+  return {
+    nodes: [client, { id: 'lb', label: 'lb', type: 'balancer', column: 1, processMs: 1, target: 'app', strategy: 'round-robin', ...balancer }, app],
+    links: [shared.link('client', 'lb'), shared.link('lb', 'app')],
+    requests: Array.from({ length: requests }, (_, i) => ({ label: 'GET /', path: '/', to: 'lb', at: i * 30 })),
+    faults,
+    seed: 7,
+  };
+}
+const picks = (s: Scenario) => simulate(s).trace.flatMap((e) => (e.kind === 'pick' ? [{ t: e.t, instance: e.instance }] : []));
+
+describe('versions and deploys', () => {
+  it('draws versions by weight', () => {
+    const rng = seeded(7);
+    const draws = Array.from({ length: 400 }, () => pickVersion({ v1: 0.75, v2: 0.25 }, ['v1', 'v2'], rng));
+    const share = draws.filter((v) => v === 'v2').length / draws.length;
+    expect(share).toBeGreaterThan(0.2);
+    expect(share).toBeLessThan(0.3);
+  });
+
+  it('passes the share of a version with nothing in rotation to the others', () => {
+    expect(pickVersion({ v1: 0, v2: 1 }, ['v1'], seeded(7))).toBe('v1');
+    expect(pickVersion({ v1: 1 }, [], seeded(7))).toBeUndefined();
+  });
+
+  it('never picks an instance before it starts or while it drains', () => {
+    const s = rollout(['v1', 'v2'], [{ kind: 'deploy', instance: 'app-1', at: 100, action: 'stop' }, { kind: 'deploy', instance: 'app-2', at: 100, action: 'start' }], 8);
+    const all = picks(s);
+    expect(all.filter((p) => p.t < 100).every((p) => p.instance === 'app-1')).toBe(true);
+    expect(all.filter((p) => p.t >= 100).every((p) => p.instance === 'app-2')).toBe(true);
+    const result = simulate(s);
+    expect(result.requests.every((r) => r.status === 'ok')).toBe(true);
+    expect(result.trace.find((e) => e.kind === 'drained')).toMatchObject({ instance: 'app-1' });
+  });
+
+  it('lets a stopping instance finish the work it holds', () => {
+    const s = rollout(['v1', 'v2'], [{ kind: 'deploy', instance: 'app-1', at: 10, action: 'stop' }, { kind: 'deploy', instance: 'app-2', at: 10, action: 'start' }], 1);
+    const result = simulate(s);
+    expect(result.requests[0]).toMatchObject({ status: 'ok', hops: ['client', 'lb', 'app-1'] });
+    const drained = result.trace.find((e) => e.kind === 'drained')!;
+    expect(drained.t).toBeGreaterThan(10);
+  });
+
+  it('fails with no healthy instance when nothing is in rotation', () => {
+    const s = rollout(['v1', 'v2'], [{ kind: 'deploy', instance: 'app-1', at: 50, action: 'stop' }, { kind: 'deploy', instance: 'app-2', at: 150, action: 'start' }], 7);
+    const result = simulate(s);
+    expect(result.requests.map((r) => r.status)).toEqual(['ok', 'ok', 'failed', 'failed', 'failed', 'ok', 'ok']);
+    expect(result.requests[2]!.reason).toBe('no healthy app instance');
+  });
+
+  it('rolls the canary back after maxErrors failures', () => {
+    const s = rollout(['v1', 'v1', 'v2'], [{ kind: 'errors', node: 'app', version: 'v2', rate: 1, reason: '500: bug in v2' }], 16, {
+      weights: { v1: 0.75, v2: 0.25 },
+      canary: { version: 'v2', maxErrors: 2 },
+    });
+    const result = simulate(s);
+    const rollback = result.trace.filter((e) => e.kind === 'rollback');
+    expect(rollback).toHaveLength(1);
+    expect(rollback[0]).toMatchObject({ balancer: 'lb', version: 'v2', errors: 2 });
+    expect(result.requests.filter((r) => r.status === 'failed')).toHaveLength(2);
+    expect(picks(s).filter((p) => p.t > rollback[0]!.t).every((p) => p.instance !== 'app-3')).toBe(true);
+  });
+
+  it('applies a shift at its time', () => {
+    const s = rollout(['v1', 'v2'], [{ kind: 'shift', balancer: 'lb', at: 100, weights: { v1: 0, v2: 1 } }], 8, { weights: { v1: 1, v2: 0 } });
+    const all = picks(s);
+    expect(all.filter((p) => p.t < 100).every((p) => p.instance === 'app-1')).toBe(true);
+    expect(all.filter((p) => p.t >= 100).every((p) => p.instance === 'app-2')).toBe(true);
   });
 });

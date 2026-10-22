@@ -30,6 +30,8 @@ export interface SimContext {
   at(time: number, run: () => void): void;
   trace(event: TraceInput): void;
   isDead(instance: string): boolean;
+  /** False while an instance is not started yet, is draining, or has stopped after a deploy. */
+  inRotation(instance: string): boolean;
   rng(): number;
 }
 
@@ -97,6 +99,20 @@ export function simulate(input: Scenario): SimResult {
   /** Work not yet answered (requests, queries, deliveries until their reply is sent) and replies still on the wire, so the run waits for late answers. */
   const working = new Set<string>();
   const dead = new Set<string>();
+  /** Deploy state: instances waiting for their start, stopping ones finishing their work, and those that stopped. */
+  const notStarted = new Set(scenario.faults.flatMap((f) => (f.kind === 'deploy' && f.action === 'start' ? [f.instance] : [])));
+  for (const id of notStarted) dead.add(id);
+  const draining = new Set<string>();
+  const retired = new Set<string>();
+  /** Requests and deliveries on their way to each instance: a stopping instance waits for them too. */
+  const incoming = new Map<string, number>();
+  const drainIfIdle = (instance: string) => {
+    if (!draining.has(instance) || (jobs.get(instance)?.size ?? 0) > 0 || (incoming.get(instance) ?? 0) > 0) return;
+    draining.delete(instance);
+    retired.add(instance);
+    dead.add(instance);
+    ctx.trace({ kind: 'drained', instance });
+  };
   const down = new Set<string>();
   /** What each live instance is handling right now, and the jobs a death cut short. */
   const jobs = new Map<string, Set<Message>>();
@@ -149,6 +165,7 @@ export function simulate(input: Scenario): SimResult {
       const message: Message = { id: `m${++messages}`, ...partial, from, to, departs, arrives: departs + latency(from, to) };
       if (onReply) awaiting.set(message.id, onReply);
       if (message.kind === 'request' || message.kind === 'query' || message.kind === 'deliver') working.add(message.id);
+      if ((message.kind === 'request' || message.kind === 'deliver') && owner.has(to)) incoming.set(to, (incoming.get(to) ?? 0) + 1);
       if (message.kind === 'request' && message.request && from === clientId) requests.get(message.request)!.outcome.attempts++;
       ctx.trace({ kind: 'send', message });
       ctx.at(message.arrives, () => deliver(message));
@@ -200,6 +217,7 @@ export function simulate(input: Scenario): SimResult {
       observeDeliveries(stamped);
     },
     isDead: (instance) => dead.has(instance),
+    inRotation: (instance) => !notStarted.has(instance) && !draining.has(instance) && !retired.has(instance),
     rng: random,
   };
 
@@ -257,6 +275,10 @@ export function simulate(input: Scenario): SimResult {
       (f) => f.kind === 'lose-reply' && message.kind === 'reply' && ownerOf(message.from) === f.node && message.request === f.request && !lostReplies.has(f),
     );
     if (message.kind === 'reply') working.delete(message.id);
+    if ((message.kind === 'request' || message.kind === 'deliver') && owner.has(message.to)) {
+      incoming.set(message.to, (incoming.get(message.to) ?? 1) - 1);
+      ctx.at(now, () => drainIfIdle(message.to));
+    }
     if (lose) {
       lostReplies.add(lose);
       ctx.trace({ kind: 'lost', message });
@@ -333,6 +355,7 @@ export function simulate(input: Scenario): SimResult {
     const finish = (ok: boolean, reason?: string) => {
       if (aborted.has(message)) return;
       jobs.get(instance)?.delete(message);
+      ctx.at(now, () => drainIfIdle(instance));
       if (node.dedupe) {
         running.delete(request);
         finished.set(request, { ok, ...(reason !== undefined && { reason }) });
@@ -502,6 +525,25 @@ export function simulate(input: Scenario): SimResult {
       ctx.at(fault.until, () => {
         if (fault.mode === 'refuse') for (const instance of instances()) dead.delete(instance);
         ctx.trace({ kind: 'recover', node: fault.node });
+      });
+    }
+    if (fault.kind === 'deploy') {
+      ctx.at(fault.at, () => {
+        ctx.trace({ kind: 'fault', fault });
+        if (fault.action === 'start') {
+          notStarted.delete(fault.instance);
+          dead.delete(fault.instance);
+          return;
+        }
+        draining.add(fault.instance);
+        drainIfIdle(fault.instance);
+      });
+    }
+    if (fault.kind === 'shift') {
+      ctx.at(fault.at, () => {
+        ctx.trace({ kind: 'fault', fault });
+        const lb = nodes.get(fault.balancer);
+        if (lb?.type === 'balancer') lb.weights = { ...fault.weights };
       });
     }
     if (fault.kind === 'reroute') {

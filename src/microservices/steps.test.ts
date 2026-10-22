@@ -482,3 +482,42 @@ describe('traceSteps: event store', () => {
     expect(last.instances!.map((r) => r.id)).toEqual(['+3 older', 'e4', 'e5', 'e6', 'e7', 'e8']);
   });
 });
+
+describe('traceSteps: deploys and canaries', () => {
+  const rollout = (faults: Scenario['faults'], balancer: Partial<Extract<NodeSpec, { type: 'balancer' }>> = {}): Scenario => {
+    const app = shared.service('app', 2, [], { count: 2 });
+    if (app.type === 'service') ['v1', 'v2'].forEach((v, i) => (app.instances[i]!.version = v));
+    return {
+      nodes: [shared.client(), { id: 'lb', label: 'lb', type: 'balancer', column: 1, processMs: 1, target: 'app', strategy: 'round-robin', ...balancer }, app],
+      links: [shared.link('client', 'lb'), shared.link('lb', 'app')],
+      requests: Array.from({ length: 6 }, (_, i) => ({ label: 'GET /', path: '/', to: 'lb', at: i * 30 })),
+      faults,
+      seed: 7,
+    };
+  };
+
+  it('narrates a stop, a drain and a start, with version badges', () => {
+    const steps = run(rollout([{ kind: 'deploy', instance: 'app-1', at: 50, action: 'stop' }, { kind: 'deploy', instance: 'app-2', at: 50, action: 'start' }]));
+    const titles = steps.map((s) => s.title);
+    expect(titles).toContain('app-1 (v1) leaves rotation and finishes its work');
+    expect(titles).toContain('app-2 (v2) starts serving');
+    expect(titles).toContain('app-1 (v1) has stopped');
+    const app = view(steps[0]!).nodes.find((n) => n.id === 'app')!;
+    expect(app.instances!.map((i) => i.badge)).toEqual(['v1', 'v2, not started']);
+    expect(app.instances![1]!.role).toBe('default');
+    const end = view(steps.at(-1)!).nodes.find((n) => n.id === 'app')!;
+    expect(end.instances!.map((i) => i.badge)).toEqual(['v1, stopped', 'v2']);
+  });
+
+  it('narrates a shift and a rollback, with weight badges', () => {
+    const steps = run(
+      rollout([{ kind: 'errors', node: 'app', version: 'v2', rate: 1, reason: '500: bug' }], { weights: { v1: 0.5, v2: 0.5 }, canary: { version: 'v2', maxErrors: 1 } }),
+    );
+    expect(steps.map((s) => s.title)).toContain('The balancer rolls back v2 after 1 error');
+    expect(view(steps[0]!).nodes.find((n) => n.id === 'lb')!.badge).toBe('v1 50%, v2 50%');
+    expect(view(steps.at(-1)!).nodes.find((n) => n.id === 'lb')!.badge).toBe('v2 rolled back');
+    const shifted = run(rollout([{ kind: 'shift', balancer: 'lb', at: 40, weights: { v1: 0, v2: 1 } }], { weights: { v1: 1, v2: 0 } }));
+    expect(shifted.map((s) => s.title)).toContain('The balancer now sends v1 0%, v2 100%');
+    for (const step of shifted) for (const n of view(step).nodes) expect((n.badge ?? '').length).toBeLessThanOrEqual(24);
+  });
+});

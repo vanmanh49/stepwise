@@ -122,6 +122,14 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   const balancerLoad = new Map<string, number>();
   const requests = new Map<string, ServicesView['requests'][number] & { hopList: { id: string; t: number }[]; tries: number }>();
   const labels = new Map(scenario.requests.map((r, i) => [`#${i + 1}`, r.label]));
+  /** Deploy state per instance, and each weighted balancer's weights now (after shifts and rollbacks). */
+  const notStarted = new Set(scenario.faults.flatMap((f) => (f.kind === 'deploy' && f.action === 'start' ? [f.instance] : [])));
+  const draining = new Set<string>();
+  const stopped = new Set<string>();
+  const versions = new Map(scenario.nodes.flatMap((n) => (n.type === 'service' ? n.instances.flatMap((i) => (i.version ? [[i.id, i.version] as const] : [])) : [])));
+  const withVersion = (id: string) => (versions.has(id) ? `${id} (${versions.get(id)})` : id);
+  const weights = new Map<string, Record<string, number>>(scenario.nodes.flatMap((n) => (n.type === 'balancer' && n.weights ? [[n.id, { ...n.weights }]] : [])));
+  const rolledBack = new Map<string, string>();
   /** Each gateway's routes as they are now, after any reroute. */
   const routes = new Map(scenario.nodes.flatMap((n) => (n.type === 'gateway' ? [[n.id, n.routes.map((r) => ({ ...r }))] as const] : [])));
   const log: string[] = [];
@@ -171,6 +179,12 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         }
         break;
       case 'fault':
+        if (event.fault.kind === 'deploy') {
+          const { instance, action } = event.fault;
+          if (action === 'start') notStarted.delete(instance);
+          else draining.add(instance);
+        }
+        if (event.fault.kind === 'shift') weights.set(event.fault.balancer, { ...event.fault.weights });
         if (event.fault.kind === 'reroute') {
           const { gateway, prefix, to } = event.fault;
           const table = routes.get(gateway);
@@ -259,6 +273,17 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         if (event.value !== undefined) row.value = event.value;
         break;
       }
+      case 'drained':
+        draining.delete(event.instance);
+        stopped.add(event.instance);
+        dead.add(event.instance);
+        break;
+      case 'rollback': {
+        const current = weights.get(event.balancer);
+        if (current) current[event.version] = 0;
+        rolledBack.set(event.balancer, event.version);
+        break;
+      }
       case 'write': {
         const data = records.get(event.db);
         if (!data) break;
@@ -320,6 +345,10 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         return { node: event.db };
       case 'poll':
         return { node: event.relay };
+      case 'drained':
+        return { node: ownerOf(event.instance) };
+      case 'rollback':
+        return { node: event.balancer, compare: true };
       case 'lost':
       case 'late':
         return { node: ownerOf(event.message.to) };
@@ -343,6 +372,11 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
   const registered = new Set(scenario.nodes.flatMap((n) => (n.type === 'registry' ? n.serves : [])));
 
   function instanceBadge(service: string, instance: string): string | undefined {
+    const version = versions.get(instance);
+    if (version) {
+      const state = notStarted.has(instance) ? ', not started' : draining.has(instance) ? ', draining' : stopped.has(instance) ? ', stopped' : '';
+      return `${version}${state}`;
+    }
     if (leastConnections.has(service)) return `${balancerLoad.get(instance) ?? 0} in flight`;
     if (registered.has(service)) {
       if (evicted.has(instance)) return 'evicted';
@@ -368,6 +402,13 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       else parts.push(entries.map(([key, n]) => `${key} ${show(n)}${algorithm === 'fixed-window' ? '' : ' left'}`).join(', '));
     }
     if (node?.type === 'relay') parts.push(`polls every ${node.pollMs} ms`);
+    const shares = weights.get(id);
+    if (shares) {
+      const back = rolledBack.get(id);
+      const total = Object.values(shares).reduce((sum, w) => sum + w, 0);
+      if (back) parts.push(`${back} rolled back`);
+      else if (total > 0) parts.push(Object.entries(shares).map(([v, w]) => `${v} ${Math.round((w / total) * 100)}%`).join(', '));
+    }
     const inUse = pools.get(id);
     if (inUse) {
       const entries = [...inUse.entries()];
@@ -382,7 +423,7 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
       const base = { id: n.id, label: n.label, type: n.type, column: n.column, ...(nodeState && { badge: nodeState }) };
       if (n.type === 'service') {
         const instances = n.instances.map((i) => {
-          const role: Role = dead.has(i.id) ? 'discarded' : (handling.get(i.id)?.size ?? 0) > 0 ? 'active' : handled.has(i.id) ? 'visited' : 'default';
+          const role: Role = notStarted.has(i.id) ? 'default' : dead.has(i.id) ? 'discarded' : (handling.get(i.id)?.size ?? 0) > 0 ? 'active' : handled.has(i.id) ? 'visited' : 'default';
           const badge = instanceBadge(n.id, i.id);
           return { id: i.id, role, ...(badge && { badge }) };
         });
@@ -525,6 +566,16 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
         if (f.kind === 'lose-reply') return { title: `The network will drop a reply from ${f.node}`, why: `The first answer ${f.node} sends for ${f.request} never arrives.` };
         if (f.kind === 'errors') return { title: `${f.node} starts failing`, why: `It answers with an error: ${f.reason}.` };
         if (f.kind === 'crash-after') return { title: `${f.node} crashes right after ${f.after} answers`, why: `The work for ${f.request} stops halfway: the first step is done, but nothing after it happens.` };
+        if (f.kind === 'deploy') {
+          return f.action === 'start'
+            ? { title: `${withVersion(f.instance)} starts serving`, why: `The balancer can send requests to ${f.instance} from now on.` }
+            : { title: `${withVersion(f.instance)} leaves rotation and finishes its work`, why: `No new requests go to ${f.instance}. It stops once the work it holds is done.` };
+        }
+        if (f.kind === 'shift') {
+          const total = Object.values(f.weights).reduce((sum, w) => sum + w, 0) || 1;
+          const split = Object.entries(f.weights).map(([v, w]) => `${v} ${Math.round((w / total) * 100)}%`).join(', ');
+          return { title: `The balancer now sends ${split}`, why: 'Every instance is already running. Only the share of traffic each version gets has changed.' };
+        }
         if (f.kind === 'reroute') {
           return { title: `${capitalise(name(f.gateway))} now sends ${f.prefix} to ${f.to}`, why: `Only the route table changed. Clients keep using the same address.` };
         }
@@ -621,6 +672,13 @@ export function traceSteps(scenario: Scenario, result: SimResult, options: StepO
               why: `Each one was saved in the same write as its order, so none can be missed. It publishes them one by one, then deletes each record.`,
             };
       }
+      case 'drained':
+        return { title: `${withVersion(event.instance)} has stopped`, why: 'It finished the work it held, so no request was cut off.' };
+      case 'rollback':
+        return {
+          title: `The balancer rolls back ${event.version} after ${event.errors} error${event.errors === 1 ? '' : 's'}`,
+          why: `${event.version} failed too often, so it gets no more traffic. Only the requests it already served were affected.`,
+        };
       case 'compensate':
         return {
           title: `${event.node} undoes ${event.target} for ${event.request}${event.path ? `: ${event.path}` : ''}`,
