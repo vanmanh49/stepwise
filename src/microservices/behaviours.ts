@@ -9,10 +9,11 @@ export function pickInstance(strategy: Strategy, live: string[], inFlight: Recor
 }
 
 /**
- * Draws a version by weight among those with an instance in rotation (`available`, in order). A version left out
- * gives its share to the others; when every available version has weight 0, the first one is used.
+ * Draws a version by weight among those with an instance in rotation, in the order the weights list them. A version
+ * left out gives its share to the others; when every available version has weight 0, the first one is used.
  */
-export function pickVersion(weights: Record<string, number>, available: string[], rng: () => number): string | undefined {
+export function pickVersion(weights: Record<string, number>, inRotation: string[], rng: () => number): string | undefined {
+  const available = [...Object.keys(weights).filter((v) => inRotation.includes(v)), ...inRotation.filter((v) => !(v in weights))];
   if (available.length === 0) return undefined;
   const total = available.reduce((sum, v) => sum + (weights[v] ?? 0), 0);
   if (total <= 0) return available[0];

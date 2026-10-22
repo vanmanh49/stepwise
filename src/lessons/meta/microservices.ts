@@ -202,4 +202,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['distributed tracing', 'trace', 'span', 'traceparent', 'context propagation', 'opentelemetry', 'jaeger', 'zipkin', 'sampling', 'observability'],
     prerequisites: ['event-sourcing'],
   },
+  {
+    id: 'deployment-strategies',
+    title: 'Deployment Strategies',
+    category: 'microservices',
+    difficulty: 'advanced',
+    group: 'Data & Operations',
+    description: 'Deploy a new version four ways (recreate, rolling, blue-green, canary) and count what a bug in it costs.',
+    keywords: ['deployment', 'rolling update', 'blue green', 'canary', 'rollback', 'recreate', 'release', 'zero downtime', 'drain'],
+    prerequisites: ['distributed-tracing'],
+  },
 ];

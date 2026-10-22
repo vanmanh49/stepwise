@@ -34,6 +34,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   cqrs: { readDelay: [0, 140], projector: [10, 300] },
   'event-sourcing': { operations: [2, 20] },
   'distributed-tracing': { requests: [1, 5] },
+  'deployment-strategies': { requests: [6, 16] },
 };
 
 const lessons = allLessons.filter((l) => l.category === 'microservices').map((l) => [l.id, l] as const);
