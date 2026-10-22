@@ -104,6 +104,7 @@ const EXPECTED_IDS = [
   'service-discovery',
   'load-balancing',
   'database-per-service',
+  'timeouts',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -140,7 +141,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('data-structures')).toHaveLength(19);
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
-    expect(lessonsIn('microservices')).toHaveLength(7);
+    expect(lessonsIn('microservices')).toHaveLength(8);
   });
 
   it('links previous and next lessons within a category', () => {

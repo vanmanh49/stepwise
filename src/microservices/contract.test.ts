@@ -21,6 +21,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   'synchronous-calls': { depth: [1, 4], hop: [1, 50] },
   'service-discovery': { instances: [1, 4], heartbeat: [10, 100], ttl: [20, 300], dies: [0, 140] },
   'load-balancing': { instances: [2, 4] },
+  timeouts: { inventory: [10, 1000], apiTimeout: [0, 2000], clientTimeout: [0, 2000], requests: [1, 4] },
 };
 
 const lessons = allLessons.filter((l) => l.category === 'microservices').map((l) => [l.id, l] as const);

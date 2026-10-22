@@ -72,4 +72,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['database per service', 'shared database', 'schema', 'coupling', 'data ownership', 'api', 'migration', 'rename column'],
     prerequisites: ['load-balancing'],
   },
+  {
+    id: 'timeouts',
+    title: 'Timeouts',
+    category: 'microservices',
+    difficulty: 'intermediate',
+    group: 'Communication & Resilience',
+    description: 'Call a slow service with and without a timeout, and see whose time is wasted when the timeouts are wrong.',
+    keywords: ['timeout', 'deadline', 'slow service', 'latency', 'fail fast', 'late reply', 'wasted work', 'cascading'],
+    prerequisites: ['database-per-service'],
+  },
 ];
