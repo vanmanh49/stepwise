@@ -122,4 +122,14 @@ export const microservicesMeta: LessonMeta[] = [
     keywords: ['rate limiting', 'rate limit', '429', 'too many requests', 'token bucket', 'fixed window', 'throttling', 'quota', 'per caller'],
     prerequisites: ['bulkhead'],
   },
+  {
+    id: 'message-queues',
+    title: 'Message Queues',
+    category: 'microservices',
+    difficulty: 'intermediate',
+    group: 'Communication & Resilience',
+    description: 'Send jobs to a worker that goes down, directly and through a queue, then add workers to drain it.',
+    keywords: ['message queue', 'queue', 'broker', 'asynchronous', 'worker', 'competing consumers', 'ack', 'redelivery', 'rabbitmq', 'sqs'],
+    prerequisites: ['rate-limiting'],
+  },
 ];
