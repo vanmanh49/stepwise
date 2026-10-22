@@ -1,4 +1,4 @@
-import { Play, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { datasets } from '../../../sql/datasets';
 import { MAX_QUERY_LENGTH } from '../../../sql/parse';
@@ -6,15 +6,19 @@ import { parseScript } from '../../../sql/parse';
 import { scriptSteps } from '../../../sql/scriptSteps';
 import type { VisualizationConfig } from '../../../types/lesson';
 import { SchemaPanel } from '../../sql/SchemaPanel';
+import { Button, RunButton } from '../../ui/Button';
+import { Field } from '../../ui/Field';
+import { FormMessage } from '../../ui/FormMessage';
+import { PresetRow } from '../../ui/PresetRow';
+import { TextArea } from '../../ui/TextArea';
 import { Visualizer } from '../Visualizer';
 import type { StepListener } from './LessonVisualization';
-import { isRunShortcut } from './runShortcut';
 
 type SqlConfig = Extract<VisualizationConfig, { kind: 'sql' }>;
 
 /** A query editor over a sample database; any query that runs is stepped through clause by clause. */
 export function SqlInput({ config, onStep }: { config: SqlConfig; code: string; onStep?: StepListener }) {
-  const id = useId();
+  const helpId = `${useId()}-help`;
   const dataset = datasets[config.dataset];
   // Lessons about changing data open with a script; the wording follows.
   const isScript = useMemo(() => {
@@ -62,59 +66,22 @@ export function SqlInput({ config, onStep }: { config: SqlConfig; code: string; 
       toolbar={
         <div className="flex flex-col gap-4">
           <form onSubmit={submit} className="flex flex-col gap-2">
-            <label htmlFor={`${id}-query`} className="eyebrow">
-              {isScript ? 'Your script' : 'Your query'}
-            </label>
-            <textarea
-              id={`${id}-query`}
-              className="field min-h-36 w-full resize-y py-2 font-mono text-sm leading-relaxed"
-              rows={6}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (!isRunShortcut(e)) return;
-                e.preventDefault();
-                run(draft);
-              }}
-              maxLength={MAX_QUERY_LENGTH}
-              spellCheck={false}
-              autoCapitalize="off"
-              autoComplete="off"
-              aria-invalid={error !== undefined}
-              aria-describedby={`${id}-help`}
-            />
-            {error ? (
-              <p id={`${id}-help`} role="alert" className="text-sm font-medium text-danger">
-                {error}
-              </p>
-            ) : (
-              <p id={`${id}-help`} className="text-sm text-muted">
-                {isScript
-                  ? 'Separate statements with ;. Each run starts from a fresh copy of the data. Press Run or Ctrl+Enter (⌘+Enter on macOS).'
-                  : 'Press Run or Ctrl+Enter (⌘+Enter on macOS) to step through your query.'}
-              </p>
-            )}
+            <Field label={isScript ? 'Your script' : 'Your query'} describedBy={helpId} invalid={error !== undefined}>
+              <TextArea className="min-h-36" rows={6} value={draft} onChange={setDraft} onRunShortcut={() => run(draft)} maxLength={MAX_QUERY_LENGTH} />
+            </Field>
+            <FormMessage id={helpId} error={error}>
+              {isScript
+                ? 'Separate statements with ;. Each run starts from a fresh copy of the data. Press Run or Ctrl+Enter (⌘+Enter on macOS).'
+                : 'Press Run or Ctrl+Enter (⌘+Enter on macOS) to step through your query.'}
+            </FormMessage>
             <div className="flex flex-wrap gap-2">
-              <button type="submit" className="btn btn-primary">
-                <Play size={16} aria-hidden /> Run
-              </button>
-              <button type="button" className="btn" onClick={() => run(config.initialQuery)}>
-                <RotateCcw size={16} aria-hidden /> Reset to example
-              </button>
+              <RunButton />
+              <Button icon={RotateCcw} onClick={() => run(config.initialQuery)}>
+                Reset to example
+              </Button>
             </div>
           </form>
-          {config.examples.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <span className="eyebrow">Try</span>
-              <div className="flex flex-wrap gap-2">
-                {config.examples.map((example) => (
-                  <button key={example.label} type="button" className="btn text-sm" onClick={() => run(example.query)}>
-                    {example.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <PresetRow presets={config.examples.map((example) => ({ label: example.label, onSelect: () => run(example.query) }))} />
           <SchemaPanel dataset={dataset} />
         </div>
       }

@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import { Link } from 'react-router';
 import { CATEGORY_TITLE } from '../lessons/labels';
 import { ProgressBar } from '../components/progress/ProgressBar';
+import { Button } from '../components/ui/Button';
+import { ButtonLink } from '../components/ui/ButtonLink';
 import { getLesson, lessonPath, lessons, lessonsIn } from '../lessons/registry';
 import { computeStreak, percent, useProgress } from '../store/progress';
 import type { Category } from '../types/lesson';
@@ -45,9 +47,9 @@ export default function Dashboard() {
           <h1 className="mt-3 text-4xl font-semibold tracking-tight">Your learning progress</h1>
         </div>
         {resume && (
-          <Link to={lessonPath(resume)} className="btn btn-primary">
+          <ButtonLink to={lessonPath(resume)} variant="primary">
             {started ? 'Continue' : 'Start'}: {resume.title} <ArrowRight size={16} aria-hidden />
-          </Link>
+          </ButtonLink>
         )}
       </header>
 
@@ -144,9 +146,9 @@ export default function Dashboard() {
           <p className="flex items-center gap-2 text-sm text-muted">
             <Flame size={15} aria-hidden /> Progress is stored in this browser.
           </p>
-          <button type="button" className="btn text-danger" onClick={confirmReset}>
+          <Button className="text-danger" onClick={confirmReset}>
             Reset progress
-          </button>
+          </Button>
         </div>
       )}
     </div>

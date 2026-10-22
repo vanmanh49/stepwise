@@ -1,4 +1,6 @@
 import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { Slider } from '../ui/Slider';
+import { ToggleChip } from '../ui/ToggleChip';
 import { COMPLEXITIES, formatOps, type Complexity } from './complexities';
 
 const W = 640;
@@ -99,20 +101,12 @@ export function BigOChart({ compact = false, highlight, size: controlledSize, on
       {!compact && (
         <div className="flex flex-wrap gap-2" role="group" aria-label="Show or hide curves">
           {COMPLEXITIES.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => toggle(c.id)}
-              aria-pressed={enabled.has(c.id)}
-              className={`flex min-h-11 items-center gap-2 rounded-xl border px-3 font-mono text-sm transition-colors ${
-                enabled.has(c.id) ? 'border-border bg-surface' : 'border-dashed border-border text-muted opacity-60'
-              }`}
-            >
+            <ToggleChip key={c.id} pressed={enabled.has(c.id)} onToggle={() => toggle(c.id)}>
               <svg width="22" height="8" aria-hidden>
                 <line x1="0" y1="4" x2="22" y2="4" stroke={c.color} strokeWidth="3" strokeDasharray={c.dash} />
               </svg>
               {c.label}
-            </button>
+            </ToggleChip>
           ))}
         </div>
       )}
@@ -206,15 +200,7 @@ export function BigOChart({ compact = false, highlight, size: controlledSize, on
               <span className="font-medium">Largest input size shown</span>
               <span className="font-mono tabular-nums text-muted">n = {size}</span>
             </label>
-            <input
-              id={`${id}-size`}
-              type="range"
-              min={MIN_SIZE}
-              max={MAX_SIZE}
-              value={size}
-              onChange={(e) => setSize(Number(e.target.value))}
-              className="h-6 w-full cursor-pointer accent-[var(--accent)]"
-            />
+            <Slider id={`${id}-size`} min={MIN_SIZE} max={MAX_SIZE} value={size} onChange={setSize} />
           </div>
 
           <div className="rounded-xl bg-surface-2 p-4">

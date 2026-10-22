@@ -1,5 +1,8 @@
-import { useId, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { VisualizationConfig } from '../../../types/lesson';
+import { Field } from '../../ui/Field';
+import { FieldGrid } from '../../ui/FieldGrid';
+import { Select } from '../../ui/Select';
 import { Visualizer } from '../Visualizer';
 import type { StepListener } from './LessonVisualization';
 
@@ -8,12 +11,12 @@ type GraphConfig = Extract<VisualizationConfig, { kind: 'graph' }>;
 // Graphs are predefined for now. An editor would only need to produce a Graph
 // object and pass it to config.generate, exactly like the selection below.
 export function GraphInput({ config, code, onStep }: { config: GraphConfig; code: string; onStep?: StepListener }) {
-  const id = useId();
   const [graphId, setGraphId] = useState(config.graphs[0]!.id);
   const graph = config.graphs.find((g) => g.id === graphId) ?? config.graphs[0]!;
   const [start, setStart] = useState(graph.nodes[0]!.id);
   const [goal, setGoal] = useState(graph.nodes[graph.nodes.length - 1]!.id);
   const [ran, setRan] = useState(false);
+  const nodeOptions = graph.nodes.map((n) => ({ value: n.id, label: n.label }));
   const steps = useMemo(
     () => (config.needsGoal ? config.generate(graph, start, goal) : config.generate(graph, start)),
     [config, graph, start, goal],
@@ -26,75 +29,45 @@ export function GraphInput({ config, code, onStep }: { config: GraphConfig; code
       autoPlay={ran}
       onStep={onStep}
       toolbar={
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-2">
-            <label htmlFor={`${id}-graph`} className="eyebrow">
-              Example graph
-            </label>
-            <select
-              id={`${id}-graph`}
-              className="field"
+        <FieldGrid>
+          <Field label="Example graph">
+            <Select
               value={graph.id}
-              onChange={(e) => {
-                const next = config.graphs.find((g) => g.id === e.target.value)!;
-                setGraphId(next.id);
-                setStart(next.nodes[0]!.id);
-                setGoal(next.nodes[next.nodes.length - 1]!.id);
+              options={config.graphs.map((g) => ({ value: g.id, label: g.name }))}
+              onChange={(next) => {
+                const picked = config.graphs.find((g) => g.id === next)!;
+                setGraphId(picked.id);
+                setStart(picked.nodes[0]!.id);
+                setGoal(picked.nodes[picked.nodes.length - 1]!.id);
                 setRan(true);
               }}
-            >
-              {config.graphs.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            />
+          </Field>
           {config.needsStart && (
-            <div className="flex flex-col gap-2">
-              <label htmlFor={`${id}-start`} className="eyebrow">
-                Start node
-              </label>
-              <select
-                id={`${id}-start`}
-                className="field"
+            <Field label="Start node">
+              <Select
                 value={start}
-                onChange={(e) => {
-                  setStart(e.target.value);
+                options={nodeOptions}
+                onChange={(next) => {
+                  setStart(next);
                   setRan(true);
                 }}
-              >
-                {graph.nodes.map((n) => (
-                  <option key={n.id} value={n.id}>
-                    {n.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+              />
+            </Field>
           )}
           {config.needsGoal && (
-            <div className="flex flex-col gap-2">
-              <label htmlFor={`${id}-goal`} className="eyebrow">
-                Goal node
-              </label>
-              <select
-                id={`${id}-goal`}
-                className="field"
+            <Field label="Goal node">
+              <Select
                 value={goal}
-                onChange={(e) => {
-                  setGoal(e.target.value);
+                options={nodeOptions}
+                onChange={(next) => {
+                  setGoal(next);
                   setRan(true);
                 }}
-              >
-                {graph.nodes.map((n) => (
-                  <option key={n.id} value={n.id}>
-                    {n.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+              />
+            </Field>
           )}
-        </div>
+        </FieldGrid>
       }
     />
   );

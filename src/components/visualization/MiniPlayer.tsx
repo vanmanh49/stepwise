@@ -3,6 +3,7 @@ import { MotionConfig, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { usePlayer } from '../../engine/usePlayer';
 import type { Step } from '../../types/visualization';
+import { IconButton } from '../ui/Button';
 import { StepView } from './renderers';
 
 /** A compact, looping preview that runs on the same engine as the full Visualizer. */
@@ -54,14 +55,13 @@ export function MiniPlayer({ steps, label }: { steps: Step[]; label: string }) {
       <section ref={section} aria-label={label} className="card overflow-hidden">
         <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
           <span className="eyebrow">{label}</span>
-          <button
-            type="button"
-            className="btn btn-icon -my-1.5 border-transparent"
+          <IconButton
+            icon={player.playing ? Pause : Play}
+            iconSize={15}
+            label={player.playing ? 'Pause preview' : 'Play preview'}
+            className="-my-1.5 border-transparent"
             onClick={player.toggle}
-            aria-label={player.playing ? 'Pause preview' : 'Play preview'}
-          >
-            {player.playing ? <Pause size={15} aria-hidden /> : <Play size={15} aria-hidden />}
-          </button>
+          />
         </div>
         <div className="overflow-x-auto bg-surface-2/40">
           <div className="mx-auto flex min-h-[11rem] w-max max-w-full items-center px-6 py-8">

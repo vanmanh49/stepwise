@@ -3,6 +3,10 @@ import { useId, useState, type FormEvent } from 'react';
 import type { StructureDef, StructureOp, VisualizationConfig } from '../../../types/lesson';
 import { parseOpFields } from '../../../data-structures/shared';
 import type { Step } from '../../../types/visualization';
+import { Button } from '../../ui/Button';
+import { Field } from '../../ui/Field';
+import { FormMessage } from '../../ui/FormMessage';
+import { TextField } from '../../ui/TextField';
 import { Visualizer } from '../Visualizer';
 import type { StepListener } from './LessonVisualization';
 
@@ -26,7 +30,6 @@ function OperationForm({
   onRun(args: number[], words: string[]): void;
   onError(message: string): void;
 }) {
-  const id = useId();
   const [fields, setFields] = useState(() => op.args.map((a) => String(a.sample)));
 
   const submit = (event: FormEvent) => {
@@ -39,24 +42,18 @@ function OperationForm({
   return (
     <form onSubmit={submit} className="flex items-end gap-1.5 rounded-xl border border-border bg-surface-2/50 p-1.5">
       {op.args.map((arg, i) => (
-        <div key={arg.name} className="flex flex-col gap-1">
-          <label htmlFor={`${id}-${arg.name}`} className="px-1 text-[11px] font-medium text-muted">
-            {arg.label}
-          </label>
-          <input
-            id={`${id}-${arg.name}`}
-            className={`field px-2 font-mono ${'text' in arg ? 'w-24' : 'w-16'}`}
-            value={fields[i]}
-            onChange={(e) => setFields(fields.map((f, k) => (k === i ? e.target.value : f)))}
+        <Field key={arg.name} label={arg.label} compact>
+          <TextField
+            value={fields[i] ?? ''}
+            onChange={(next) => setFields(fields.map((f, k) => (k === i ? next : f)))}
+            width={'text' in arg ? 'sm' : 'xs'}
             inputMode={'text' in arg ? 'text' : 'numeric'}
-            autoComplete="off"
-            spellCheck={false}
           />
-        </div>
+        </Field>
       ))}
-      <button type="submit" className="btn btn-primary">
+      <Button type="submit" variant="primary">
         {op.label}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -76,6 +73,7 @@ export function StructureInput({
   const [steps, setSteps] = useState(() => idle(structure, structure.initial));
   const [error, setError] = useState<string>();
   const [ran, setRan] = useState(false);
+  const errorId = `${useId()}-error`;
 
   const run = (op: StructureOp<unknown>, args: number[], words: string[]) => {
     const result = op.run(state, args, words);
@@ -105,15 +103,11 @@ export function StructureInput({
             {structure.ops.map((op) => (
               <OperationForm key={op.id} op={op} onRun={(args, words) => run(op, args, words)} onError={setError} />
             ))}
-            <button type="button" className="btn mb-1.5" onClick={reset}>
-              <RotateCcw size={16} aria-hidden /> Reset
-            </button>
+            <Button icon={RotateCcw} className="mb-1.5" onClick={reset}>
+              Reset
+            </Button>
           </div>
-          {error && (
-            <p role="alert" className="text-sm font-medium text-danger">
-              {error}
-            </p>
-          )}
+          <FormMessage id={errorId} error={error} />
         </div>
       }
     />

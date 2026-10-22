@@ -1,8 +1,12 @@
-import { Play, RotateCcw, Shuffle } from 'lucide-react';
+import { RotateCcw, Shuffle } from 'lucide-react';
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { prepareSearchInput } from '../../../algorithms/searching/binary';
 import type { VisualizationConfig } from '../../../types/lesson';
 import { parseNumberList, randomArray } from '../../../utils/parseInput';
+import { Button, RunButton } from '../../ui/Button';
+import { Field } from '../../ui/Field';
+import { FormMessage } from '../../ui/FormMessage';
+import { TextField } from '../../ui/TextField';
 import { Visualizer } from '../Visualizer';
 import type { StepListener } from './LessonVisualization';
 
@@ -11,7 +15,7 @@ type SearchConfig = Extract<VisualizationConfig, { kind: 'search' }>;
 const LIMITS = { min: 1, max: 12 };
 
 export function SearchInput({ config, code, onStep }: { config: SearchConfig; code: string; onStep?: StepListener }) {
-  const id = useId();
+  const helpId = `${useId()}-help`;
   const targetLabel = config.targetLabel ?? 'Target';
   const [run, setRun] = useState({ values: config.initial, target: config.target, wasSorted: false });
   const [text, setText] = useState(config.initial.join(', '));
@@ -61,55 +65,23 @@ export function SearchInput({ config, code, onStep }: { config: SearchConfig; co
       toolbar={
         <form onSubmit={submit} className="flex flex-col gap-2">
           <div className="flex flex-wrap items-end gap-2">
-            <div className="flex min-w-0 flex-1 basis-56 flex-col gap-2">
-              <label htmlFor={`${id}-data`} className="eyebrow">
-                Your data{config.needsSorted && ' (sorted)'}
-              </label>
-              <input
-                id={`${id}-data`}
-                className="field font-mono"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                inputMode="numeric"
-                autoComplete="off"
-                aria-invalid={error?.field === 'data'}
-                aria-describedby={`${id}-help`}
-              />
-            </div>
-            <div className="flex w-28 flex-col gap-2">
-              <label htmlFor={`${id}-target`} className="eyebrow whitespace-nowrap">
-                {targetLabel}
-              </label>
-              <input
-                id={`${id}-target`}
-                className="field font-mono"
-                value={targetText}
-                onChange={(e) => setTargetText(e.target.value)}
-                inputMode="numeric"
-                autoComplete="off"
-                aria-invalid={error?.field === 'target'}
-                aria-describedby={`${id}-help`}
-              />
-            </div>
-            <button type="submit" className="btn btn-primary">
-              <Play size={16} aria-hidden /> Run
-            </button>
-            <button type="button" className="btn" onClick={random}>
-              <Shuffle size={16} aria-hidden /> Random
-            </button>
-            <button type="button" className="btn" onClick={() => load(config.initial, config.target, false)}>
-              <RotateCcw size={16} aria-hidden /> Reset
-            </button>
+            <Field label={`Your data${config.needsSorted ? ' (sorted)' : ''}`} describedBy={helpId} invalid={error?.field === 'data'} className="flex-1 basis-56">
+              <TextField value={text} onChange={setText} inputMode="numeric" />
+            </Field>
+            <Field label={targetLabel} describedBy={helpId} invalid={error?.field === 'target'} className="w-28">
+              <TextField value={targetText} onChange={setTargetText} inputMode="numeric" />
+            </Field>
+            <RunButton />
+            <Button icon={Shuffle} onClick={random}>
+              Random
+            </Button>
+            <Button icon={RotateCcw} onClick={() => load(config.initial, config.target, false)}>
+              Reset
+            </Button>
           </div>
-          {error ? (
-            <p id={`${id}-help`} role="alert" className="text-sm font-medium text-danger">
-              {error.message}
-            </p>
-          ) : (
-            <p id={`${id}-help`} className="text-sm text-muted">
-              {config.targetHelp ?? `${LIMITS.min}–${LIMITS.max} whole numbers, separated by commas, and one target to look for.`}
-            </p>
-          )}
+          <FormMessage id={helpId} error={error?.message}>
+            {config.targetHelp ?? `${LIMITS.min}–${LIMITS.max} whole numbers, separated by commas, and one target to look for.`}
+          </FormMessage>
         </form>
       }
     />

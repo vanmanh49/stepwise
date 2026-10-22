@@ -3,6 +3,10 @@ import { useId, useState, type FormEvent } from 'react';
 import type { TextDef, TextOp, VisualizationConfig } from '../../../types/lesson';
 import type { Step } from '../../../types/visualization';
 import { MAX_TEXT_LENGTH, parseText } from '../../../utils/parseInput';
+import { Button } from '../../ui/Button';
+import { Field } from '../../ui/Field';
+import { FormMessage } from '../../ui/FormMessage';
+import { TextField } from '../../ui/TextField';
 import { Visualizer } from '../Visualizer';
 import type { StepListener } from './LessonVisualization';
 
@@ -18,7 +22,6 @@ const idle = (def: TextDef, text: string): Step[] => [
 ];
 
 function OperationForm({ op, onRun }: { op: TextOp; onRun(arg: string): void }) {
-  const id = useId();
   const [field, setField] = useState(op.arg?.sample ?? '');
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -27,24 +30,13 @@ function OperationForm({ op, onRun }: { op: TextOp; onRun(arg: string): void }) 
   return (
     <form onSubmit={submit} className="flex items-end gap-1.5 rounded-xl border border-border bg-surface-2/50 p-1.5">
       {op.arg && (
-        <div className="flex flex-col gap-1">
-          <label htmlFor={id} className="px-1 text-[11px] font-medium text-muted">
-            {op.arg.label}
-          </label>
-          <input
-            id={id}
-            className={`field px-2 font-mono ${op.arg.numeric ? 'w-16' : 'w-24'}`}
-            value={field}
-            onChange={(e) => setField(e.target.value)}
-            inputMode={op.arg.numeric ? 'numeric' : 'text'}
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </div>
+        <Field label={op.arg.label} compact>
+          <TextField value={field} onChange={setField} width={op.arg.numeric ? 'xs' : 'sm'} inputMode={op.arg.numeric ? 'numeric' : 'text'} />
+        </Field>
       )}
-      <button type="submit" className="btn btn-primary">
+      <Button type="submit" variant="primary">
         {op.label}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -52,7 +44,7 @@ function OperationForm({ op, onRun }: { op: TextOp; onRun(arg: string): void }) 
 /** Operation buttons for a text-based structure; the text persists between operations. */
 export function TextInput({ config, code, onStep }: { config: TextConfig; code: string; onStep?: StepListener }) {
   const def = config.text;
-  const id = useId();
+  const helpId = `${useId()}-help`;
   const [text, setText] = useState(def.initial);
   const [draft, setDraft] = useState(def.initial);
   const [steps, setSteps] = useState(() => idle(def, def.initial));
@@ -99,37 +91,18 @@ export function TextInput({ config, code, onStep }: { config: TextConfig; code: 
       toolbar={
         <div className="flex flex-col gap-3">
           <form onSubmit={setOwnText} className="flex flex-col gap-2">
-            <label htmlFor={`${id}-text`} className="eyebrow">
-              Your text
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <input
-                id={`${id}-text`}
-                className="field min-w-0 flex-1 basis-40 font-mono"
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                maxLength={MAX_TEXT_LENGTH * 2}
-                autoComplete="off"
-                spellCheck={false}
-                aria-invalid={error !== undefined}
-                aria-describedby={`${id}-help`}
-              />
-              <button type="submit" className="btn">
-                Set text
-              </button>
-              <button type="button" className="btn" onClick={() => load(def.initial)}>
-                <RotateCcw size={16} aria-hidden /> Reset
-              </button>
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="Your text" describedBy={helpId} invalid={error !== undefined} className="flex-1 basis-40">
+                <TextField value={draft} onChange={setDraft} maxLength={MAX_TEXT_LENGTH * 2} />
+              </Field>
+              <Button type="submit">Set text</Button>
+              <Button icon={RotateCcw} onClick={() => load(def.initial)}>
+                Reset
+              </Button>
             </div>
-            {error ? (
-              <p id={`${id}-help`} role="alert" className="text-sm font-medium text-danger">
-                {error}
-              </p>
-            ) : (
-              <p id={`${id}-help`} className="text-sm text-muted">
-                1–{MAX_TEXT_LENGTH} characters.
-              </p>
-            )}
+            <FormMessage id={helpId} error={error}>
+              1–{MAX_TEXT_LENGTH} characters.
+            </FormMessage>
           </form>
           <div className="flex flex-col gap-2">
             <span className="eyebrow">Operations</span>
