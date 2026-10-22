@@ -553,7 +553,7 @@ describe('traceSteps: sidecars', () => {
 
 describe('traceSteps: extend', () => {
   it('merges extra view data into every step', () => {
-    const spans = { title: 'trace of #1', endMs: 40, rows: [] };
+    const spans = { title: 'trace of #1', endMs: 40, nowMs: 0, rows: [] };
     const steps = run(chain, { ...options, extend: () => ({ spans }) });
     expect(steps.every((s) => view(s).spans === spans)).toBe(true);
   });

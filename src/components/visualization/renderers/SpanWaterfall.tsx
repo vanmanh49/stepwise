@@ -3,7 +3,7 @@ import { roleBorder, roleFill } from '../roles';
 
 type Spans = NonNullable<ServicesView['spans']>;
 
-/** A trace as a waterfall: one row per span, indented by depth, its bar placed on a shared 0 → endMs timeline. */
+/** A trace as a waterfall: one row per span, indented by depth, its bar on a shared 0 → endMs timeline, then its length. */
 export function SpanWaterfall({ spans }: { spans: Spans }) {
   const end = Math.max(1, spans.endMs);
   return (
@@ -14,23 +14,21 @@ export function SpanWaterfall({ spans }: { spans: Spans }) {
           {spans.rows.map((row) => {
             const [owner, ...rest] = row.label.split(' ');
             const open = row.ms === undefined;
-            const left = (row.start / end) * 100;
-            const width = Math.max(0.5, (((open ? end - row.start : row.ms!) / end) * 100));
+            // An open span reaches the step's time: it is still running.
+            const length = open ? Math.max(0, spans.nowMs - row.start) : row.ms!;
             return (
-              <li key={row.id} className="grid grid-cols-[7rem_1fr] items-center gap-2 sm:grid-cols-[11rem_1fr]">
+              <li key={row.id} className="grid grid-cols-[7rem_1fr_3.5rem] items-center gap-2 sm:grid-cols-[11rem_1fr_4rem]">
                 <span className="truncate" style={{ paddingLeft: `${row.depth * 12}px` }} title={`${row.label} (${row.trace})`}>
                   {owner}
                   {rest.length > 0 && <span className="hidden text-muted sm:inline"> {rest.join(' ')}</span>}
                 </span>
-                <span className="relative flex h-4 items-center">
+                <span className="relative h-3">
                   <span
-                    className={`absolute h-3 rounded-sm border ${open ? 'border-dashed' : ''}`}
-                    style={{ left: `${left}%`, width: `${width}%`, background: roleFill(row.role), borderColor: roleBorder(row.role) }}
+                    className={`absolute inset-y-0 rounded-sm border ${open ? 'border-dashed' : ''}`}
+                    style={{ left: `${(row.start / end) * 100}%`, width: `max(2px, ${(length / end) * 100}%)`, background: roleFill(row.role), borderColor: roleBorder(row.role) }}
                   />
-                  <span className="absolute whitespace-nowrap pl-1 text-muted" style={{ left: `${Math.min(left + width, 85)}%` }}>
-                    {open ? 'open' : `${row.ms} ms`}
-                  </span>
                 </span>
+                <span className="text-right text-muted">{open ? `${length} ms…` : `${row.ms} ms`}</span>
               </li>
             );
           })}

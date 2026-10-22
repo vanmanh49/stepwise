@@ -102,10 +102,10 @@ export function distributedTracingSteps(values: Record<string, string>): Step[] 
   const spansAt = (result: SimResult, event: TraceEvent): NonNullable<ServicesView['spans']> => {
     const index = result.trace.indexOf(event);
     const request = requestOf(result.trace, index) ?? '#1';
-    if (!sampled.has(request)) return { title: `${request} was not sampled`, endMs: result.endedAt, rows: [] };
+    if (!sampled.has(request)) return { title: `${request} was not sampled`, endMs: result.endedAt, nowMs: event.t, rows: [] };
     const rows = spansOf(scenario.value, result.trace, index + 1, { propagate, sampled }).get(request) ?? [];
     const traces = new Set(rows.map((r) => r.trace)).size;
-    return { title: propagate ? `trace of ${request}` : `${request}: ${traces} separate trace${traces === 1 ? '' : 's'}`, endMs: result.endedAt, rows };
+    return { title: propagate ? `trace of ${request}` : `${request}: ${traces} separate trace${traces === 1 ? '' : 's'}`, endMs: result.endedAt, nowMs: event.t, rows };
   };
   const options = (result: SimResult): StepOptions => ({
     code: distributedTracingCode,

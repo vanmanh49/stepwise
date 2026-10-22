@@ -222,8 +222,8 @@ export interface ServicesView {
   requests: { id: string; label: string; status: 'pending' | 'ok' | 'failed'; hops: string; ms?: number; reason?: string; attempts?: number; value?: string }[];
   /** The last few events, newest last. */
   log: string[];
-  /** A trace waterfall: title such as "trace of #2"; endMs is the timeline's right edge. */
-  spans?: { title: string; endMs: number; rows: SpanRow[] };
+  /** A trace waterfall: title such as "trace of #2"; endMs is the timeline's right edge, nowMs the step's time (open spans reach it). */
+  spans?: { title: string; endMs: number; nowMs: number; rows: SpanRow[] };
 }
 
 /** Several views shown together in one step. Panels do not nest. */
