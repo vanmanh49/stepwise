@@ -117,13 +117,30 @@ const asciiLower = (s: string) => s.replace(/[A-Z]/g, (c) => c.toLowerCase());
 /** SQLite LIKE: % matches any run, _ matches one character, ASCII letters ignore case. */
 export function like(value: SqlValue, pattern: SqlValue): Truth {
   if (value === null || pattern === null) return null;
-  let source = '^';
-  for (const ch of asciiLower(formatValue(pattern))) {
-    if (ch === '%') source += '.*';
-    else if (ch === '_') source += '.';
-    else source += ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Code points, not UTF-16 units, so _ matches one character. A regex would backtrack
+  // exponentially on patterns full of %; this backs up only to the last %, so it stays O(n·m).
+  const text = [...asciiLower(formatValue(value))];
+  const pat = [...asciiLower(formatValue(pattern))];
+  let t = 0;
+  let p = 0;
+  let star = -1;
+  let mark = 0;
+  while (t < text.length) {
+    if (p < pat.length && (pat[p] === '_' || pat[p] === text[t])) {
+      t++;
+      p++;
+    } else if (pat[p] === '%') {
+      star = p++;
+      mark = t;
+    } else if (star >= 0) {
+      p = star + 1;
+      t = ++mark;
+    } else {
+      return false;
+    }
   }
-  return new RegExp(source + '$', 'su').test(asciiLower(formatValue(value)));
+  while (pat[p] === '%') p++;
+  return p === pat.length;
 }
 
 /** A key that is equal for SQL-equal values, for DISTINCT, grouping and result comparison. */
