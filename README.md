@@ -1,18 +1,18 @@
 # Stepwise
 
-An interactive platform for learning data structures, algorithms and SQL by watching them run.
+An interactive platform for learning data structures, algorithms, SQL and microservices by watching them run.
 
 Every lesson has a visualization you control: play, pause, step forward and back, change the speed, and run it on your own data. Each step explains what happened and why, and highlights the line of code responsible.
 
-![Bubble Sort lesson mid-run: 8 and 1 swapping, with playback controls, the step explanation and the highlighted line of code](docs/screenshot.png)
+![Stepwise home page: the "Learn Data Structures & Algorithms Visually" hero with a live Bubble Sort preview comparing 3 and 5](docs/screenshot.png)
 
 ## Features
 
-- **39 interactive lessons**
-  - Data structures: Array, String, Linked List, Stack, Queue, Binary Tree, Binary Search Tree, Heap, Priority Queue, Graph
-  - Algorithms: Linear Search, Binary Search, Bubble Sort, Selection Sort, Insertion Sort, Two Pointers, Sliding Window, Prefix Sum, Merge Sort, Quick Sort, Heap Sort, BFS, DFS, Topological Sort, Tree Traversal, Dijkstra, Bellman-Ford, Kruskal, Prim
-  - SQL: SELECT and FROM, WHERE, NULL and three-valued logic, ORDER BY and LIMIT, DISTINCT, aggregates, GROUP BY and HAVING, INNER JOIN, LEFT JOIN, subqueries
-  - Microservices: Monolith vs Microservices, Service Boundaries, Synchronous Calls, API Gateway, Service Discovery, Load Balancing, Database per Service, Timeouts, Retries with Backoff & Jitter, Circuit Breaker, Bulkhead, Rate Limiting, Message Queues, Publish/Subscribe & Events, Idempotency & Delivery Guarantees, Saga, Transactional Outbox, CQRS, Event Sourcing, Distributed Tracing, Deployment Strategies, Strangler Fig Migration, Sidecar & Service Mesh
+- **109 interactive lessons**
+  - Data structures (19): Array, String, Linked List, Stack, Queue, Hash Table, Binary Tree, Binary Search Tree, Heap, Priority Queue, Graph, Trie, AVL Tree, Red-Black Tree, Disjoint Set / Union Find, Segment Tree, Fenwick Tree, B-Tree / B+ Tree, Graph Representations
+  - Algorithms (39): Linear Search, Binary Search, Bubble Sort, Selection Sort, Insertion Sort, Two Pointers, Sliding Window, Prefix Sum, Merge Sort, Quick Sort, Heap Sort, Counting Sort, Radix Sort, Recursion Fundamentals, Backtracking, Divide and Conquer, BFS, DFS, Topological Sort, Tree Traversal, Lowest Common Ancestor, Dijkstra, Bellman-Ford, Floyd-Warshall, Kruskal, Prim, Fibonacci DP, 0/1 Knapsack, Coin Change, Longest Common Subsequence, Longest Increasing Subsequence, Grid DP, Greedy Algorithms, Union Find, KMP, Rabin-Karp, A*, Network Flow, Advanced Graph Algorithms
+  - SQL (28): SELECT and FROM, WHERE, NULL and three-valued logic, ORDER BY and LIMIT, DISTINCT, aggregates, INSERT / UPDATE / DELETE, GROUP BY and HAVING, INNER JOIN, LEFT JOIN, subqueries, self joins, many-to-many joins, CREATE TABLE, constraints, CASE, UNION / INTERSECT / EXCEPT, CTEs, recursive CTEs, window functions, views, indexes, query plans, transactions, isolation levels, normalization
+  - Microservices (23): Monolith vs Microservices, Service Boundaries, Synchronous Calls, API Gateway, Service Discovery, Load Balancing, Database per Service, Timeouts, Retries with Backoff & Jitter, Circuit Breaker, Bulkhead, Rate Limiting, Message Queues, Publish/Subscribe & Events, Idempotency & Delivery Guarantees, Saga, Transactional Outbox, CQRS, Event Sourcing, Distributed Tracing, Deployment Strategies, Strangler Fig Migration, Sidecar & Service Mesh
 - **Simulated microservices**: change the settings, break an instance or a schema, take a service down, flood it or lose a reply, deploy a buggy version or crash between two writes, and watch requests, queued messages and database records change one message at a time, with each request's path, tries, time, value and failure reason, and a trace waterfall for tracing
 - **SQL you can step through**: write any query against a sample shop or school database and watch it run clause by clause (FROM → JOIN → WHERE → GROUP BY → HAVING → SELECT → DISTINCT → ORDER BY → LIMIT), with each row the clause keeps, joins, groups or removes highlighted
 - **SQL exercises** checked by comparing your result with the expected one, with hints and friendly errors that point at the line and suggest misspelled names
@@ -22,7 +22,7 @@ Every lesson has a visualization you control: play, pause, step forward and back
 - **Quizzes** in four styles (multiple choice, complexity, code, predict the next step) with explanations and retry
 - **Big O explorer**: toggle curves, change the input size, read exact operation counts, compare the course's algorithms
 - **Progress tracking**: completed lessons, quiz scores, solved exercises, current lesson and a daily streak, saved in LocalStorage
-- **Roadmap and full curriculum**: about 90 planned topics, shown as "Coming soon" until their lesson is written
+- **Roadmap and full curriculum**: every topic grouped by category and difficulty; a topic added to the curriculum shows as "Coming soon" until its lesson is written
 - **Global search** with Ctrl+K (Cmd+K on macOS)
 - **Light and dark themes**, responsive layout, reduced-motion support, and state cues that do not rely on colour
 
