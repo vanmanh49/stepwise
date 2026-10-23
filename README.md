@@ -4,7 +4,7 @@ An interactive platform for learning data structures, algorithms, SQL and micros
 
 Every lesson has a visualization you control: play, pause, step forward and back, change the speed, and run it on your own data. Each step explains what happened and why, and highlights the line of code responsible.
 
-![Stepwise home page: the "Learn Data Structures & Algorithms Visually" hero with a live Bubble Sort preview comparing 3 and 5](docs/screenshot.png)
+![Stepwise home page: the "Learn Data Structures & Algorithms Visually" hero with a live Bubble Sort preview](docs/screenshot.png)
 
 ## Features
 
