@@ -139,6 +139,7 @@ const EXPECTED_IDS = [
   'volumes-pv-pvc',
   'statefulsets',
   'daemonsets',
+  'jobs-cronjobs',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -176,7 +177,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
     expect(lessonsIn('microservices')).toHaveLength(23);
-    expect(lessonsIn('kubernetes')).toHaveLength(19);
+    expect(lessonsIn('kubernetes')).toHaveLength(20);
   });
 
   it('links previous and next lessons within a category', () => {

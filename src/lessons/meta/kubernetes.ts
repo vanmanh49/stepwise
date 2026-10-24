@@ -192,4 +192,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['daemonset', 'daemon', 'node agent', 'log collector', 'every node', 'nodeSelector', 'tolerations', 'ignore-daemonsets'],
     prerequisites: ['statefulsets'],
   },
+  {
+    id: 'jobs-cronjobs',
+    title: 'Jobs & CronJobs',
+    category: 'kubernetes',
+    difficulty: 'advanced',
+    group: 'Workloads & Operations',
+    description: 'Run a batch until it succeeds, watch it fail three ways, then schedule it every minute.',
+    keywords: ['job', 'cronjob', 'batch', 'completions', 'parallelism', 'backoffLimit', 'activeDeadlineSeconds', 'concurrencyPolicy', 'schedule', 'cron'],
+    prerequisites: ['daemonsets'],
+  },
 ];

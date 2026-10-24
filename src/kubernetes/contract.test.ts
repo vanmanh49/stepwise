@@ -26,6 +26,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   hpa: { max: [4, 8] },
   'cluster-autoscaler': { replicas: [2, 14], max: [2, 4] },
   statefulsets: { replicas: [1, 5] },
+  'jobs-cronjobs': { completions: [1, 6], parallelism: [1, 3] },
 };
 
 function checkSteps(steps: Step[], lines: number, label: string) {
