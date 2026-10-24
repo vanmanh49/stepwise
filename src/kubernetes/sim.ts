@@ -131,7 +131,7 @@ export function simulate(scenario: Scenario): SimResult {
     recoveredAt: () => recoveredAt,
   };
   const kubelet = createKubelet(env);
-  const ctx = (): Ctx => ({ now, store, rng });
+  const ctx = (): Ctx => ({ now, store, rng, ...(scenario.schedulerStrategy && { strategy: scenario.schedulerStrategy }) });
 
   const run = (group: Group) => {
     pending.delete(group);

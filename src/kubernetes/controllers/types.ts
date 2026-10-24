@@ -5,6 +5,8 @@ export interface Ctx {
   now: number;
   store: Store;
   rng: () => number;
+  /** How the scheduler scores free room: spread pods out (default) or pack them together. */
+  strategy?: 'LeastAllocated' | 'MostAllocated';
 }
 
 /** A write with its narration; a change without a write is a note (a reconcile that found nothing to do). */

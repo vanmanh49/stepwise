@@ -104,14 +104,14 @@ describe('scheduler', () => {
     const store = storeWith(node('node-1', { cpu: 1 }), node('node-2', { cpu: 1 }), pod('x', { node: 'node-1' }), pod('y', { node: 'node-2' }), pending('p'));
     const changes = schedule(ctxFor(store));
     expect(changes.map((c) => c.event.kind)).toEqual(['unschedulable']);
-    expect(changes[0]!.write!.object).toMatchObject({ name: 'p', reason: '0/2 nodes have 1 CPU free' });
+    expect(changes[0]!.write!.object).toMatchObject({ name: 'p', reason: '0/2 nodes are available: 2 Insufficient cpu' });
     store.write(changes[0]!.write!);
     expect(schedule(ctxFor(store))).toEqual([]);
   });
 
   it('says when no node is Ready', () => {
     const store = storeWith(node('node-1', { ready: false }), pending('p'));
-    expect(schedule(ctxFor(store))[0]!.write!.object).toMatchObject({ reason: '0/1 nodes are Ready' });
+    expect(schedule(ctxFor(store))[0]!.write!.object).toMatchObject({ reason: '0/1 nodes are available: 1 node(s) were not ready' });
   });
 });
 
