@@ -2,6 +2,7 @@ import { EventQueue } from '../utils/eventQueue';
 import { seeded } from '../utils/random';
 import { reconcileDeployments, rolledBack, withImage } from './controllers/deployment';
 import { reconcileEndpoints } from './controllers/endpoints';
+import { reconcileHpas, type HpaHistory } from './controllers/hpa';
 import { reconcileReplicaSets } from './controllers/replicaset';
 import { schedule } from './controllers/scheduler';
 import type { Change, Ctx, Reconcile } from './controllers/types';
@@ -10,6 +11,7 @@ import { applyNoExecute, evictForTaint, requestEviction } from './evict';
 import { createKubelet } from './kubelet';
 import {
   HEARTBEAT_S,
+  HPA_SYNC_S,
   MAX_TIME,
   METRICS_S,
   NODE_CHECK_S,
@@ -56,11 +58,12 @@ type Item =
   | { kind: 'timer'; timer: Timer }
   | { kind: 'heartbeat' }
   | { kind: 'node-check' }
-  | { kind: 'metrics' };
+  | { kind: 'metrics' }
+  | { kind: 'hpa' };
 
 /** Recurring work that never keeps a run alive on its own. */
 const periodic = (item: Item) =>
-  item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics' || (item.kind === 'timer' && item.timer.kind === 'kubelet' && item.timer.step === 'probe');
+  item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics' || item.kind === 'hpa' || (item.kind === 'timer' && item.timer.kind === 'kubelet' && item.timer.step === 'probe');
 
 /** Runs a scenario: kubectl actions and faults at their times, then every controller reacting until the cluster settles. */
 export function simulate(scenario: Scenario): SimResult {
@@ -82,6 +85,7 @@ export function simulate(scenario: Scenario): SimResult {
   let recoveredAt = 0;
   /** Requests per second at each metrics tick, for the traffic strip. */
   const traffic: number[] = [];
+  const hpaHistory: HpaHistory = new Map();
   let now = 0;
   let live = 0;
   let current: Group | undefined;
@@ -267,6 +271,7 @@ export function simulate(scenario: Scenario): SimResult {
   push(0, { kind: 'heartbeat' });
   push(NODE_CHECK_S, { kind: 'node-check' });
   if (scenario.load || scenario.faults.some((f) => f.kind === 'leak')) push(METRICS_S, { kind: 'metrics' });
+  if (scenario.actions.some((a) => a.kind === 'apply' && a.object.kind === 'HorizontalPodAutoscaler')) push(HPA_SYNC_S, { kind: 'hpa' });
 
   let cutOff = false;
   let endedAt = 0;
@@ -320,6 +325,14 @@ export function simulate(scenario: Scenario): SimResult {
       case 'metrics':
         metricsTick(env, scenario, { startedAt: kubelet.startedAt, kill: kubelet.kill, traffic });
         push(now + METRICS_S, item);
+        break;
+      case 'hpa':
+        // The HPA runs in the controller manager.
+        if (!down.has('controllers')) {
+          current = undefined;
+          for (const change of reconcileHpas(ctx(), hpaHistory)) apply(change);
+        }
+        push(now + HPA_SYNC_S, item);
         break;
       case 'node-check':
         // Node lifecycle runs in the controller manager and needs etcd.
