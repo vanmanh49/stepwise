@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Requirement } from './model';
 import { explainMatch, formatSelector, matches } from './selector';
 
 const pod = { app: 'web', tier: 'fe', env: 'prod' };
@@ -21,12 +22,9 @@ describe('selectors', () => {
   });
 
   it('names the requirement that decided', () => {
-    const selector = [
-      { key: 'app', op: '=', values: ['web'] },
-      { key: 'env', op: '!=', values: ['prod'] },
-    ] as const;
-    expect(explainMatch([...selector], pod)).toEqual({ ok: false, requirement: 'env!=prod' });
-    expect(explainMatch([selector[0]], pod)).toEqual({ ok: true, requirement: 'app=web' });
+    const app: Requirement = { key: 'app', op: '=', values: ['web'] };
+    expect(explainMatch([app, { key: 'env', op: '!=', values: ['prod'] }], pod)).toEqual({ ok: false, requirement: 'env!=prod' });
+    expect(explainMatch([app], pod)).toEqual({ ok: true, requirement: 'app=web' });
   });
 
   it('formats selectors', () => {
