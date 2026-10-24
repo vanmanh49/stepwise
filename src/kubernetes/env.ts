@@ -16,5 +16,7 @@ export interface Env {
   later(delayS: number, timer: Timer): void;
   /** Nodes that are really down. */
   offline: Set<string>;
+  /** When etcd or the controller manager last came back: heartbeats missed while they were down don't count. */
+  recoveredAt(): number;
   faults: Fault[];
 }

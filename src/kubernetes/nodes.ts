@@ -11,7 +11,9 @@ export function heartbeat(env: Env) {
 /** Node lifecycle: a node silent for longer than the grace period goes NotReady and its pods are Lost. */
 export function checkNodes(env: Env) {
   for (const node of env.store.list('Node')) {
-    if (!node.ready || env.now() - node.lastHeartbeat <= GRACE_S) continue;
+    // Kubernetes times the grace period from when it last observed the node, so an outage of its own doesn't count.
+    const seen = Math.max(node.lastHeartbeat, env.recoveredAt());
+    if (!node.ready || env.now() - seen <= GRACE_S) continue;
     const ok = env.apply({
       write: { op: 'update', object: { ...node, ready: false } },
       event: {

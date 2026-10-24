@@ -202,6 +202,36 @@ describe('simulate', () => {
     expect(new Set(notes).size).toBe(notes.length);
   });
 
+  it('gives every node a fresh grace period after an etcd outage, instead of marking them all NotReady', () => {
+    const { frames } = simulate(
+      basic({
+        actions: [
+          { at: 0, kind: 'apply', object: deploymentOf('web', 2) },
+          { at: 50, kind: 'scale', target: 'web', replicas: 3 },
+        ],
+        faults: [{ kind: 'down', component: 'etcd', from: 12, to: 33 }],
+      }),
+    );
+    expect(of(frames, 'node-not-ready')).toEqual([]);
+    expect(last(frames).pods.filter((p) => p.ready)).toHaveLength(3);
+  });
+
+  it.each([
+    [4, 6],
+    [4, 30],
+  ])('retries kubelet writes refused while etcd is down (%i–%i s)', (from, to) => {
+    const { frames } = simulate(basic({ faults: [{ kind: 'down', component: 'etcd', from, to }] }));
+    expect(last(frames).pods.map((p) => [p.phase, p.ready])).toEqual([
+      ['Running', true],
+      ['Running', true],
+    ]);
+    // A pod is never ready before it is Running.
+    expect(frames.every((f) => f.state.pods.every((p) => !p.ready || p.phase === 'Running'))).toBe(true);
+    // Repeated refusals of the same write are narrated once.
+    const refusals = of(frames, 'refuse-write').map((f) => `${f.event.by}/${f.event.subjects[0]}`);
+    expect(new Set(refusals).size).toBe(refusals.length);
+  });
+
   it('never throws on an empty scenario', () => {
     expect(simulate({ nodes: [], actions: [], faults: [] }).frames).toEqual([]);
   });

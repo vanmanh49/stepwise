@@ -70,6 +70,9 @@ export function simulate(scenario: Scenario): SimResult {
   /** The last "nothing to do" note per object, so an unchanged state isn't narrated twice. */
   const notes = new Map<string, string>();
   const until = Math.min(scenario.until ?? MAX_TIME, MAX_TIME);
+  /** Refusals already narrated, by actor and object, so a write retried during an outage is told once. */
+  const refused = new Set<string>();
+  let recoveredAt = 0;
   let now = 0;
   let live = 0;
   let current: Group | undefined;
@@ -106,6 +109,9 @@ export function simulate(scenario: Scenario): SimResult {
     const result = store.write(write);
     if (!result.ok) {
       if (current) retry.add(current);
+      const key = `${event.by}/${event.subjects[0] ?? ''}`;
+      if (refused.has(key)) return false;
+      refused.add(key);
       record({ ...event, kind: 'refuse-write', reason: result.reason, text: `${event.text}, but the write is refused: ${result.reason}` });
       return false;
     }
@@ -115,7 +121,15 @@ export function simulate(scenario: Scenario): SimResult {
     return true;
   };
 
-  const env: Env = { store, now: () => now, apply, later: (delay, timer) => push(now + delay, { kind: 'timer', timer }), offline, faults: scenario.faults };
+  const env: Env = {
+    store,
+    now: () => now,
+    apply,
+    later: (delay, timer) => push(now + delay, { kind: 'timer', timer }),
+    offline,
+    faults: scenario.faults,
+    recoveredAt: () => recoveredAt,
+  };
   const kubelet = createKubelet(env);
   const ctx = (): Ctx => ({ now, store, rng });
 
@@ -202,6 +216,8 @@ export function simulate(scenario: Scenario): SimResult {
     const label = name === 'controllers' ? 'The controller manager' : name;
     record({ kind: up ? 'component-up' : 'component-down', by: name, subjects: [name], text: up ? `${label} is back` : `${label} goes down` });
     if (!up) return;
+    if (name === 'etcd' || name === 'controllers') recoveredAt = now;
+    if (name === 'etcd') refused.clear();
     // Level-triggered: on return, each controller reads the current state once and catches up.
     for (const group of ORDER) if (GROUPS[group].component === name || (name === 'etcd' && retry.has(group))) run(group);
     if (name === 'etcd') retry.clear();

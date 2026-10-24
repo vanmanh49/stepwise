@@ -20,16 +20,21 @@ export function createKubelet(env: Env) {
   const badImage = (image: string) => env.faults.some((f) => f.kind === 'bad-image' && f.image === image);
   const timer = (delay: number, step: Extract<Timer, { kind: 'kubelet' }>['step'], pod: Pod, w: Work) => env.later(delay, { kind: 'kubelet', step, pod: pod.name, gen: w.gen });
 
+  /** A write etcd refused is tried again a second later, so the pod never moves on from a state that wasn't saved. */
+  const RETRY_S = 1;
+
   function pull(pod: Pod, w: Work) {
-    env.apply({ write: { op: 'update', object: { ...pod, phase: pod.phase === 'ImagePullBackOff' ? pod.phase : 'ContainerCreating' } }, event: { kind: 'pull', ...by(pod), text: `kubelet on ${pod.node} pulls ${pod.image} for ${pod.name}` } });
-    timer(PULL_S, 'pulled', pod, w);
+    const ok = env.apply({ write: { op: 'update', object: { ...pod, phase: pod.phase === 'ImagePullBackOff' ? pod.phase : 'ContainerCreating' } }, event: { kind: 'pull', ...by(pod), text: `kubelet on ${pod.node} pulls ${pod.image} for ${pod.name}` } });
+    timer(ok ? PULL_S : RETRY_S, ok ? 'pulled' : 'pull', pod, w);
   }
 
   function run(pod: Pod, w: Work, restart: boolean) {
     w.startedAt = env.now();
     const restarts = pod.restarts + (restart ? 1 : 0);
     const text = restart ? `kubelet restarts ${pod.name} (restart ${restarts})` : `${pod.name} is Running on ${pod.node} (not ready yet)`;
-    env.apply({ write: { op: 'update', object: { ...pod, phase: 'Running', ready: false, restarts } }, event: { kind: restart ? 'restart' : 'start', ...by(pod), text } });
+    if (!env.apply({ write: { op: 'update', object: { ...pod, phase: 'Running', ready: false, restarts } }, event: { kind: restart ? 'restart' : 'start', ...by(pod), text } })) {
+      return timer(RETRY_S, restart ? 'restart' : 'started', pod, w);
+    }
     timer(READY_S, 'ready', pod, w);
     const fault = crash(pod);
     if (fault) timer(fault.afterS, 'exit', pod, w);
@@ -38,11 +43,13 @@ export function createKubelet(env: Env) {
   function exit(pod: Pod, w: Work) {
     const fault = crash(pod)!;
     const ran = env.now() - w.startedAt;
-    w.gen++; // a pending "ready" for this run no longer applies
     const again = pod.restartPolicy === 'Always' || (pod.restartPolicy === 'OnFailure' && fault.exitCode !== 0);
     const final: PodPhase = again ? 'CrashLoopBackOff' : fault.exitCode === 0 ? 'Completed' : 'Failed';
     const exited = { ...pod, phase: final, ready: false };
-    env.apply({ write: { op: 'update', object: exited }, event: { kind: 'exit', ...by(pod), text: `${pod.name}'s container exits with code ${fault.exitCode} after ${ran} s${again ? '' : `: ${final}`}` } });
+    if (!env.apply({ write: { op: 'update', object: exited }, event: { kind: 'exit', ...by(pod), text: `${pod.name}'s container exits with code ${fault.exitCode} after ${ran} s${again ? '' : `: ${final}`}` } })) {
+      return timer(RETRY_S, 'exit', pod, w);
+    }
+    w.gen++; // a pending "ready" for this run no longer applies
     if (!again) return;
     if (ran >= BACKOFF_RESET_S) w.level = 0;
     const wait = backoffS(w.level++);
@@ -73,11 +80,13 @@ export function createKubelet(env: Env) {
         case 'pulled':
           if (!badImage(pod.image)) return timer(START_S, 'started', pod, w);
           {
-            const wait = backoffS(w.level++);
-            env.apply({
+            const wait = backoffS(w.level);
+            const saved = env.apply({
               write: { op: 'update', object: { ...pod, phase: 'ImagePullBackOff', reason: 'ErrImagePull' } },
               event: { kind: 'pull-fail', ...by(pod), text: `kubelet on ${pod.node} can't pull ${pod.image} for ${pod.name} (ErrImagePull); it tries again in ${wait} s`, reason: 'ErrImagePull' },
             });
+            if (!saved) return timer(RETRY_S, 'pulled', pod, w);
+            w.level++;
             return timer(wait, 'pull', pod, w);
           }
         case 'started':
@@ -85,7 +94,7 @@ export function createKubelet(env: Env) {
         case 'restart':
           return run(pod, w, true);
         case 'ready':
-          env.apply({ write: { op: 'update', object: { ...pod, ready: true } }, event: { kind: 'ready', ...by(pod), text: `${pod.name} is ready` } });
+          if (!env.apply({ write: { op: 'update', object: { ...pod, ready: true } }, event: { kind: 'ready', ...by(pod), text: `${pod.name} is ready` } })) timer(RETRY_S, 'ready', pod, w);
           return;
         case 'exit':
           return exit(pod, w);
