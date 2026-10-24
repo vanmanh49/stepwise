@@ -268,6 +268,8 @@ export interface ClusterView {
   objects: { kind: string; name: string; desired?: number; current?: number; ready?: number; note?: string; role: Role }[];
   /** Client requests to a Service. */
   requests?: { id: string; label: string; status: 'pending' | 'ok' | 'failed'; endpoint?: string; reason?: string }[];
+  /** Requests older than the ones listed, folded into counts. */
+  requestsEarlier?: { count: number; ok: number; failed: number };
   /** Requests per second now, and one value per metrics tick so far. */
   traffic?: { rps: number; points: number[] };
   /** The scheduler's filters and scores for one pod. */

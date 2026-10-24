@@ -156,7 +156,7 @@ function ObjectsTable({ objects }: { objects: ClusterView['objects'] }) {
   );
 }
 
-function RequestList({ requests }: { requests: NonNullable<ClusterView['requests']> }) {
+function RequestList({ requests, earlier }: { requests: NonNullable<ClusterView['requests']>; earlier?: ClusterView['requestsEarlier'] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[16rem] border-collapse text-left font-mono text-xs">
@@ -170,6 +170,13 @@ function RequestList({ requests }: { requests: NonNullable<ClusterView['requests
           </tr>
         </thead>
         <tbody>
+          {earlier && (
+            <tr className="text-muted">
+              <td colSpan={4} className="py-1 font-sans text-[11px]">
+                {earlier.count} earlier: {earlier.ok} ok, {earlier.failed} failed
+              </td>
+            </tr>
+          )}
           {requests.map((r) => (
             <tr key={r.id} className="border-t border-border align-top">
               <td className="py-1 pr-2">{r.id}</td>
@@ -203,7 +210,7 @@ export function ClusterRenderer({ view }: { view: ClusterView }) {
       <PendingTray pods={view.pending} />
       {view.scoring && <ScoringTable scoring={view.scoring} />}
       <ObjectsTable objects={view.objects} />
-      {view.requests && <RequestList requests={view.requests} />}
+      {view.requests && <RequestList requests={view.requests} earlier={view.requestsEarlier} />}
       <EventLog lines={view.log} />
     </div>
   );

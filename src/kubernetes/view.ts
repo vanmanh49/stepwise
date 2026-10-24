@@ -11,6 +11,9 @@ const PLANE: { id: Plane['id']; label: string }[] = [
   { id: 'controllers', label: 'controller manager' },
 ];
 
+/** Requests listed in the view; older ones fold into counts so the table stays short. */
+const REQUEST_ROWS = 10;
+
 const finished = (p: Pod) => p.phase === 'Completed' || p.phase === 'Failed';
 
 function podRole(pod: Pod, touched: Set<string>): Role {
@@ -103,7 +106,10 @@ export function clusterView({ event, state }: Frame, log: string[], merged: Fram
       return { kind: 'Service', name: s.name, note: `${count} endpoint${count === 1 ? '' : 's'}`, role: (touched.has(s.name) ? 'active' : 'default') as Role };
     }),
   ];
-  const requests = state.requests.map((r) => ({ id: r.id, label: `to ${r.service}`, status: r.status, ...(r.pod && { endpoint: r.pod }), ...(r.reason && { reason: r.reason }) }));
+  const all = state.requests.map((r) => ({ id: r.id, label: `to ${r.service}`, status: r.status, ...(r.pod && { endpoint: r.pod }), ...(r.reason && { reason: r.reason }) }));
+  const requests = all.slice(-REQUEST_ROWS);
+  const older = all.slice(0, -REQUEST_ROWS);
+  const requestsEarlier = older.length > 0 && { count: older.length, ok: older.filter((r) => r.status === 'ok').length, failed: older.filter((r) => r.status === 'failed').length };
   const scoring = breakdown && {
     pod: breakdown.pod,
     rows: breakdown.rows.map((r) => ({ ...r, role: (r.chosen ? 'found' : r.filtered ? 'discarded' : 'default') as Role })),
@@ -115,6 +121,7 @@ export function clusterView({ event, state }: Frame, log: string[], merged: Fram
     pending,
     objects,
     ...(requests.length > 0 && { requests }),
+    ...(requestsEarlier && { requestsEarlier }),
     ...(state.load && { traffic: state.load }),
     ...(scoring && { scoring }),
     log,

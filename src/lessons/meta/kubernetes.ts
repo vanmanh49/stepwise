@@ -92,4 +92,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['requests', 'limits', 'QoS', 'Guaranteed', 'Burstable', 'BestEffort', 'OOMKilled', 'throttling', 'memory pressure', 'eviction'],
     prerequisites: ['scheduler'],
   },
+  {
+    id: 'probes',
+    title: 'Liveness, Readiness & Startup Probes',
+    category: 'kubernetes',
+    difficulty: 'intermediate',
+    group: 'Scheduling & Health',
+    description: 'Send traffic to pods that start slowly or hang, and see what each probe does about it.',
+    keywords: ['probes', 'liveness', 'readiness', 'startup', 'health check', 'periodSeconds', 'failureThreshold', 'hang'],
+    prerequisites: ['requests-limits'],
+  },
 ];

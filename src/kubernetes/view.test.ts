@@ -58,6 +58,21 @@ describe('phase 2 cluster view', () => {
     expect(booting.view.pending.every((p) => p.badge === 'waiting for a node')).toBe(true);
   });
 
+  it('shows the last 10 requests and folds earlier ones into a count', () => {
+    const s: Scenario = {
+      nodes: nodesOf(1),
+      actions: [
+        { at: 0, kind: 'apply', object: deploymentOf('web', 1) },
+        { at: 0, kind: 'apply', object: { kind: 'Service', name: 'web', selector: [{ key: 'app', op: '=', values: ['web'] }] } },
+        ...Array.from({ length: 14 }, (_, i) => ({ at: 12 + i, kind: 'request' as const, id: `#${i + 1}`, service: 'web' })),
+      ],
+      faults: [],
+    };
+    const end = views(s).at(-1)!.view;
+    expect(end.requests!.map((r) => r.id)).toEqual(['#5', '#6', '#7', '#8', '#9', '#10', '#11', '#12', '#13', '#14']);
+    expect(end.requestsEarlier).toEqual({ count: 4, ok: 4, failed: 0 });
+  });
+
   it('adds no phase 2 parts to a phase 1 run', () => {
     const end = views({ nodes: nodesOf(1), actions: [{ at: 0, kind: 'apply', object: deploymentOf('web', 1) }], faults: [] }).at(-1)!.view;
     expect(end.traffic).toBeUndefined();
