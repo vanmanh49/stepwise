@@ -182,4 +182,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['statefulset', 'stateful', 'ordinal', 'volumeClaimTemplates', 'headless service', 'OrderedReady', 'Parallel', 'database', 'stable identity'],
     prerequisites: ['volumes-pv-pvc'],
   },
+  {
+    id: 'daemonsets',
+    title: 'DaemonSets',
+    category: 'kubernetes',
+    difficulty: 'advanced',
+    group: 'Workloads & Operations',
+    description: 'One agent pod on every node: new nodes get one, taints and selectors limit it, drains leave it.',
+    keywords: ['daemonset', 'daemon', 'node agent', 'log collector', 'every node', 'nodeSelector', 'tolerations', 'ignore-daemonsets'],
+    prerequisites: ['statefulsets'],
+  },
 ];
