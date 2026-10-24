@@ -25,7 +25,7 @@ const WHY: Record<TraceKind, string> = {
   'delete-pod': 'A pod is removed: there are more than wanted, or its node is gone.',
   scale: 'The Deployment moves pods from the old ReplicaSet to the new one a few at a time, staying within maxSurge and maxUnavailable.',
   rollout: 'The Deployment has no ReplicaSet for its current pod template, so it creates one.',
-  bind: 'The scheduler picks a Ready node with enough free CPU, preferring the one with the most free.',
+  bind: 'The scheduler rules out nodes that can\'t take the pod, scores the rest, and binds the pod to the highest score. With nothing else set, that is the node with the most room left.',
   unschedulable: 'No node has room for the pod, so it stays Pending until one does.',
   pull: 'The kubelet on the node sees a pod bound to it and pulls the container image.',
   'pull-fail': "The image can't be pulled, so the container can't start. The kubelet keeps trying, waiting longer each time.",

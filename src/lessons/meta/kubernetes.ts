@@ -112,4 +112,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['taints', 'tolerations', 'NoSchedule', 'NoExecute', 'PreferNoSchedule', 'tolerationSeconds', 'dedicated nodes', 'eviction'],
     prerequisites: ['probes'],
   },
+  {
+    id: 'affinity',
+    title: 'Affinity & Anti-affinity',
+    category: 'kubernetes',
+    difficulty: 'intermediate',
+    group: 'Scheduling & Health',
+    description: 'Send pods to ssd nodes, or keep replicas one per node, with required and preferred rules.',
+    keywords: ['affinity', 'anti-affinity', 'node affinity', 'pod anti-affinity', 'topologyKey', 'required', 'preferred', 'zones'],
+    prerequisites: ['taints-tolerations'],
+  },
 ];

@@ -22,6 +22,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   'deployments-rolling-updates': { replicas: [2, 6] },
   'services-kube-proxy': { replicas: [1, 4] },
   scheduler: { cpu: [1, 4] },
+  affinity: { replicas: [2, 6] },
 };
 
 function checkSteps(steps: Step[], lines: number, label: string) {
