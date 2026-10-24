@@ -6,6 +6,7 @@ import { reconcileReplicaSets } from './controllers/replicaset';
 import { schedule } from './controllers/scheduler';
 import type { Change, Ctx, Reconcile } from './controllers/types';
 import type { Env, Timer } from './env';
+import { applyNoExecute, evictForTaint, requestEviction } from './evict';
 import { createKubelet } from './kubelet';
 import {
   HEARTBEAT_S,
@@ -178,6 +179,25 @@ export function simulate(scenario: Scenario): SimResult {
       }
       case 'request':
         return route(action.id, action.service);
+      case 'cordon':
+      case 'uncordon':
+      case 'drain': {
+        const node = store.get('Node', action.node);
+        if (!node) return record(kubectl(`kubectl can't find ${action.node}`, [action.node]));
+        const cordon = action.kind !== 'uncordon';
+        const text = action.kind === 'drain' ? `kubectl drain ${node.name}: cordons it, then evicts its pods` : cordon ? `kubectl cordons ${node.name}: it keeps its pods but gets no new ones` : `kubectl uncordons ${node.name}: it can take new pods again`;
+        apply({ write: { op: 'update', object: { ...node, unschedulable: cordon } }, event: { kind: 'cordon', by: 'kubectl', node: node.name, subjects: [node.name], text } });
+        if (action.kind === 'drain') for (const pod of store.list('Pod').filter((p) => p.node === node.name && p.phase !== 'Completed' && p.phase !== 'Failed')) requestEviction(env, pod, 'kubectl');
+        return;
+      }
+      case 'taint': {
+        const node = store.get('Node', action.node);
+        if (!node) return record(kubectl(`kubectl can't find ${action.node}`, [action.node]));
+        const { key, value, effect } = action.taint;
+        apply({ write: { op: 'update', object: { ...node, taints: [...(node.taints ?? []), action.taint] } }, event: { kind: 'taint', by: 'kubectl', node: node.name, subjects: [node.name], text: `kubectl taints ${node.name} with {${key}: ${value}}:${effect}` } });
+        if (effect === 'NoExecute') applyNoExecute(env, node.name, action.taint);
+        return;
+      }
     }
   };
 
@@ -240,11 +260,11 @@ export function simulate(scenario: Scenario): SimResult {
   for (;;) {
     // A dead node nobody has noticed yet keeps the run going until the node lifecycle does.
     const unnoticed = store.list('Node').some((n) => n.ready && offline.has(n.name));
-    if (live === 0 && !unnoticed) break;
+    if (live === 0 && !unnoticed && !scenario.runToEnd) break;
     const next = queue.pop();
     if (!next) break;
     if (next.time > until) {
-      cutOff = true;
+      cutOff = !scenario.runToEnd;
       endedAt = until;
       break;
     }
@@ -267,10 +287,19 @@ export function simulate(scenario: Scenario): SimResult {
       case 'reconcile':
         run(item.group);
         break;
-      case 'timer':
-        if (item.timer.kind === 'evict') evict(env, item.timer.node);
-        else kubelet.fire(item.timer);
+      case 'timer': {
+        const timer = item.timer;
+        if (timer.kind === 'evict') evict(env, timer.node);
+        else if (timer.kind === 'evict-retry') {
+          const pod = store.get('Pod', timer.pod);
+          if (pod) requestEviction(env, pod, timer.by);
+        } else if (timer.kind === 'noexecute') {
+          const pod = store.get('Pod', timer.pod);
+          const taint = store.get('Node', timer.node)?.taints?.find((t) => t.effect === 'NoExecute');
+          if (pod && pod.node === timer.node && taint) evictForTaint(env, pod, taint);
+        } else kubelet.fire(timer);
         break;
+      }
       case 'heartbeat':
         heartbeat(env);
         push(now + HEARTBEAT_S, item);
