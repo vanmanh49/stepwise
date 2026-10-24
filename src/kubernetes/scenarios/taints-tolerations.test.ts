@@ -34,7 +34,19 @@ describe('Taints & Tolerations', () => {
   });
 
   it('delays the eviction by tolerationSeconds', () => {
-    expect(evicts(run({ effect: 'NoExecute', toleration: 'on', seconds: '10' }).frames).map((f) => f.event.t)).toEqual([30]);
+    expect(evicts(run({ effect: 'NoExecute', toleration: 'on', seconds: '10' }).frames)[0]!.event.t).toBe(30);
+  });
+
+  it('evicts a pod placed on the node after the taint once its tolerationSeconds pass', () => {
+    const { frames, cutOff, endedAt } = run({ effect: 'NoExecute', toleration: 'on', seconds: '10' });
+    const late = frames.filter((f) => f.event.kind === 'bind' && f.event.node === 'node-3' && f.event.t > 20);
+    expect(late.length).toBeGreaterThan(0);
+    for (const bind of late) {
+      const pod = bind.event.subjects[0]!;
+      const evicted = evicts(frames).find((f) => f.event.subjects[0] === pod && f.event.t > bind.event.t);
+      if (cutOff && endedAt < bind.event.t + 10) continue;
+      expect(evicted?.event.t).toBe(bind.event.t + 10);
+    }
   });
 
   it('keeps a pod that tolerates NoExecute with no time limit', () => {

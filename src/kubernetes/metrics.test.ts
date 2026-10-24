@@ -45,7 +45,7 @@ describe('metrics', () => {
     expect(of(frames, 'restart').length).toBeGreaterThan(0);
   });
 
-  it('evicts BestEffort first, then Burstable over its request, when a node runs out of memory', () => {
+  it('evicts the pod furthest over its memory request when a node runs out of memory, not the BestEffort one', () => {
     const bare = (name: string, resources?: Resources): Pod => ({ kind: 'Pod', name, labels: { app: name }, phase: 'Pending', ready: false, restarts: 0, image: 'app:v1', cpu: 0, restartPolicy: 'Always', createdAt: 0, ...(resources && { resources }) });
     const { frames } = simulate({
       nodes: [{ name: 'node-1', cpu: 4, memory: 256 }],
@@ -58,8 +58,9 @@ describe('metrics', () => {
       until: 60,
       runToEnd: true,
     });
-    expect(of(frames, 'evict').map((f) => f.event.subjects[0])).toEqual(['be', 'bu']);
-    expect(frames.at(-1)!.state.pods.map((p) => p.name)).toEqual(['gu']);
+    // be is 64 MiB over its (zero) request; the leaking bu is further over, so it goes and the pressure ends.
+    expect(of(frames, 'evict').map((f) => f.event.subjects[0])).toEqual(['bu']);
+    expect(frames.at(-1)!.state.pods.map((p) => p.name)).toEqual(['be', 'gu']);
   });
 
   it('adds no metrics to a run without load or leaks', () => {

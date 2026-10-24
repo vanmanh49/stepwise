@@ -308,11 +308,16 @@ describe('simulate', () => {
           { at: 20, kind: 'taint', node: 'node-1', taint: { key: 'maint', value: 'now', effect: 'NoExecute' } },
         ],
         faults: [],
+        until: 45,
       });
       const evicted = of(frames, 'evict').map((f) => [f.event.t, f.event.subjects[0]!.split('-')[0]]);
+      // api's replacement tolerates the taint, so it can land on node-1 again; its own 10 s start when it is bound.
+      const rebound = of(frames, 'bind').find((f) => f.event.t > 30 && f.event.subjects[0]!.startsWith('api'))!;
+      expect(rebound.event.node).toBe('node-1');
       expect(evicted).toEqual([
         [20, 'web'],
         [30, 'api'],
+        [rebound.event.t + 10, 'api'],
       ]);
       expect(last(frames).pods.find((p) => p.owner?.startsWith('db'))!.node).toBe('node-1');
     });

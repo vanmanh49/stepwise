@@ -8,6 +8,8 @@ const usage = average(pods.cpu) / average(pods.request)
 const ratio = usage / target
 if (Math.abs(ratio - 1) <= 0.1) return              // close enough
 let desired = clamp(ceil(readyPods * ratio), min, max)
+// scaling up is rate-limited: at most +4 pods or double, per sync
+if (desired > replicas) desired = min(desired, max(replicas + 4, replicas * 2))
 // scaling down waits: take the highest wish of the last 30 s
 if (desired < replicas) desired = max(recent wishes)
 deployment.replicas = desired`;
@@ -54,7 +56,9 @@ export function hpaSteps(values: Record<string, string>): Step[] {
       if (down && Number(down[1]) < Number(down[2])) {
         return { line: 'max(recent wishes)', why: 'Load fell a while ago. The HPA only scales down once every recommendation of the last 30 s (5 minutes in Kubernetes) agrees, so a short dip doesn\'t remove pods it will need again.' };
       }
-      return { line: 'clamp(ceil(readyPods * ratio)', why: 'The pods use more CPU than the target, so the HPA scales up straight away: ready pods × usage ÷ target, rounded up and kept between min and max.' };
+      return event.text.includes('limited to')
+        ? { line: 'max(replicas + 4', why: 'The pods want more replicas than one sync may add. By default the HPA adds at most 4 pods or doubles them, whichever is more, so a big spike is met in a few quick steps.' }
+        : { line: 'clamp(ceil(readyPods * ratio)', why: 'The pods use more CPU than the target, so the HPA scales up without waiting: ready pods × usage ÷ target, rounded up and kept between min and max.' };
     },
   });
 }

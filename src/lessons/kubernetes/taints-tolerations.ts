@@ -15,13 +15,13 @@ const content: LessonContent = {
     'A taint is key=value:effect on a node, such as gpu=true:NoSchedule. A toleration on a pod says "I can live with that taint".',
     'NoSchedule keeps new pods without a toleration off the node. PreferNoSchedule only makes the node less attractive. NoExecute also evicts pods already running there that don\'t tolerate it.',
     'A toleration allows a pod onto a tainted node; it doesn\'t send it there. To force pods onto special nodes, combine a toleration with node affinity.',
-    'A NoExecute toleration can set tolerationSeconds: the pod may stay that long after the taint appears, then it is evicted. Kubernetes uses this for nodes that become unreachable, where pods tolerate the taint for 5 minutes by default.',
+    'A NoExecute toleration can set tolerationSeconds: the pod may stay that long on the tainted node (counted from the taint, or from when the pod lands there), then it is evicted. Kubernetes uses this for nodes that become unreachable, where pods tolerate the taint for 5 minutes by default; those nodes also get a NoSchedule taint, so new pods don\'t land there in the meantime.',
   ],
   howItWorks: [
     'Three nodes. A Deployment named web asks for 3 pods.',
     'With NoSchedule, node-3 is tainted gpu=true:NoSchedule from the start. Watch the scheduler\'s table rule it out, unless the pods tolerate it.',
     'With NoExecute, the pods start spread over all three nodes, and node-3 is tainted gpu=true:NoExecute at 20 s.',
-    'With a toleration and tolerationSeconds 10, the pod on node-3 stays 10 s longer before it is evicted.',
+    'With a toleration and tolerationSeconds 10, the pod on node-3 stays 10 s longer before it is evicted. Its replacement tolerates the taint and node-3 is now the emptiest node, so it lands there and is evicted 10 s later, again and again. That run stops at 60 s.',
   ],
   visualization: {
     kind: 'form',

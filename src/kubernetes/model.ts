@@ -24,6 +24,8 @@ export const METRICS_S = 5;
 export const HPA_SYNC_S = 5;
 export const HPA_STABILISE_S = 30;
 export const HPA_TOLERANCE = 0.1;
+/** Default scale-up policy: per sync (per 15 s in Kubernetes) add at most 4 pods or 100%, whichever is more. */
+export const HPA_UP_PODS = 4;
 export const CA_SCAN_S = 5;
 export const NODE_BOOT_S = 20;
 export const CA_UNNEEDED_S = 60;

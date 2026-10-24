@@ -13,7 +13,7 @@ const content: LessonContent = {
   concept: [
     'The HPA compares the pods\' average CPU use with their CPU request. Its target is a percentage of the request, for example 50%.',
     'Desired replicas = ready pods × (usage ÷ target), rounded up and kept between min and max. Within 10% of the target it does nothing, so small wobbles don\'t cause changes.',
-    'Scaling up happens at once. Scaling down waits: the HPA uses the highest recommendation of a stabilisation window (30 s here, 5 minutes by default), so a brief dip doesn\'t remove pods.',
+    'Scaling up doesn\'t wait, but it is rate-limited: by default one step adds at most 4 pods or doubles them, whichever is more. Scaling down waits: the HPA uses the highest recommendation of a stabilisation window (30 s here, 5 minutes by default), so a brief dip doesn\'t remove pods.',
     'The HPA needs CPU requests on the pods (usage is a share of the request) and metrics about their use. More pods share the load, so each pod\'s use drops and the HPA settles.',
   ],
   howItWorks: [
@@ -60,9 +60,9 @@ const content: LessonContent = {
       type: 'predict-next',
       prompt: 'Two pods each use 200m of CPU against a 100m request; the target is 50%. How many replicas does the HPA ask for?',
       view: beforeUp.view,
-      options: ['8: 2 × (200% ÷ 50%)', '4: double the pods', '3: one more each sync', '2: it waits for the window'],
+      options: ['6: it wants 8, but one step adds at most 4 pods (or doubles them)', '8: 2 × (200% ÷ 50%), all at once', '3: one more each sync', '2: it waits for the window'],
       answer: 0,
-      explanation: 'Usage is 200% of the request, four times the target. Two pods × 4 = 8, within max 8. Scale-up doesn\'t wait.',
+      explanation: 'Usage is 200% of the request, four times the target, so it wants 2 × 4 = 8. Scale-up doesn\'t wait, but the default policy adds at most max(4 pods, 100%) per step: 2 + 4 = 6 now, 8 on the next sync.',
     },
     {
       id: 'q2',
@@ -93,7 +93,7 @@ const content: LessonContent = {
   summary: [
     'The HPA sets replicas from average CPU use against a target share of the request.',
     'desired = ready pods × usage ÷ target, within min and max, with a 10% tolerance.',
-    'It scales up at once and down only after a stabilisation window.',
+    'It scales up without waiting (at most +4 pods or double per step) and down only after a stabilisation window.',
     'It needs CPU requests and metrics; nodes must have room for the new pods.',
   ],
 };

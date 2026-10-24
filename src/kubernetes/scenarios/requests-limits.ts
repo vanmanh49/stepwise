@@ -14,7 +14,7 @@ if (memory > limits.memory)
   kill(pod, 'OOMKilled')             // exit code 137, then restart
 
 // node out of memory: evict one pod
-evict(first(BestEffort, Burstable over request, the rest))`;
+evict(furthestOver(pods, memory - requests.memory))   // under their request: last`;
 
 export const QOS = ['BestEffort', 'Burstable', 'Guaranteed'];
 export const CPU_LIMITS = ['none', '500m', '1000m'];
@@ -57,10 +57,10 @@ export function requestsLimitsSteps(values: Record<string, string>): Step[] {
   return scenarioSteps(requestsLimitsScenario(values), "Can't run these pods", {
     code: requestsLimitsCode,
     focus: 'web',
-    lines: { throttle: 'cpu = min', metrics: 'cpu = min', 'oom-kill': "kill(pod, 'OOMKilled')", evict: 'evict(first', 'create-pod': 'qos = limits', restart: "kill(pod, 'OOMKilled')" },
+    lines: { throttle: 'cpu = min', metrics: 'cpu = min', 'oom-kill': "kill(pod, 'OOMKilled')", evict: 'evict(furthestOver', 'create-pod': 'qos = limits', restart: "kill(pod, 'OOMKilled')" },
     explain: (event) => {
       if (event.kind === 'evict') {
-        return { why: 'The node has more memory in use than it has. The kubelet must free some, so it evicts by QoS class: BestEffort pods promised nothing and go first, then Burstable pods using more than they requested. Guaranteed pods go last.' };
+        return { why: 'The node has more memory in use than it has. The kubelet must free some, so it evicts the pod using the most memory beyond its request. Pods within their request go last, which is why Guaranteed pods are the safest. QoS class doesn\'t set the order: a BestEffort pod requested nothing, so all its use counts as over, but a leaking pod can be further over.' };
       }
       if (event.kind === 'throttle') return { why: 'Traffic grew, so the pod wants more CPU than its limit. CPU can be shared out over time, so the kernel just gives it less: the pod gets slower, but it keeps running.' };
       return undefined;

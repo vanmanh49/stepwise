@@ -29,19 +29,18 @@ describe('Requests & Limits', () => {
     expect(of(frames, 'evict')).toEqual([]);
   });
 
-  it('evicts the BestEffort batch pod first when leaking Burstable pods fill the node, then a Burstable pod over its request', () => {
+  it('evicts the pod furthest over its memory request first: a leaking web pod before the BestEffort batch pod', () => {
     const { frames } = run({ qos: 'Burstable', cpuLimit: 'none', leak: 'on' });
     const evicts = of(frames, 'evict');
-    expect(evicts[0]!.event.subjects[0]).toMatch(/^batch-/);
-    expect(evicts[0]!.event.text).toMatch(/\(BestEffort\)/);
-    // A web pod goes only when no BestEffort pod is running on the node (batch's replacements go first each time).
-    const webEvicts = evicts.filter((f) => f.event.subjects[0]!.startsWith('web-'));
-    expect(webEvicts.length).toBeGreaterThan(0);
+    expect(evicts[0]!.event.subjects[0]).toMatch(/^web-/);
+    expect(evicts[0]!.event.text).toMatch(/\(Burstable, \d+ MiB over its request\)/);
     const pressured = requestsLimitsSteps({ ...throttled, cpuLimit: 'none', leak: 'on' }).some((s) => (s.view as import('../../types/visualization').ClusterView).nodes[0]!.memoryPressure);
     expect(pressured).toBe(true);
-    for (const f of webEvicts) {
-      const before = frames[frames.indexOf(f) - 1]!.state;
-      expect(before.pods.some((p) => p.owner?.startsWith('batch') && p.phase === 'Running')).toBe(false);
+    // Usage is written in the same tick as the eviction, so the eviction's own frame holds the readings it compared.
+    for (const f of evicts) {
+      const victimOver = Number(/(\d+) MiB over its request/.exec(f.event.text)![1]);
+      const others = f.state.pods.filter((p) => p.node === 'node-1' && p.phase === 'Running');
+      expect(others.every((p) => (p.memoryUsage ?? 0) - (p.resources?.memory?.request ?? 0) <= victimOver)).toBe(true);
     }
   });
 

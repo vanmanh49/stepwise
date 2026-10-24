@@ -157,7 +157,11 @@ export function simulate(scenario: Scenario): SimResult {
     pending.delete(group);
     if (down.has(GROUPS[group].component)) return;
     current = group;
-    if (group === 'kubelet') kubelet.reconcile();
+    if (group === 'kubelet') {
+      kubelet.reconcile();
+      // The taint manager watches pods too: one bound to a NoExecute node it tolerates for a while starts its countdown.
+      applyNoExecute(env);
+    }
     else for (const change of RECONCILERS[group](ctx())) apply(change);
     current = undefined;
   };
@@ -214,7 +218,7 @@ export function simulate(scenario: Scenario): SimResult {
         if (!node) return record(kubectl(`kubectl can't find ${action.node}`, [action.node]));
         const { key, value, effect } = action.taint;
         apply({ write: { op: 'update', object: { ...node, taints: [...(node.taints ?? []), action.taint] } }, event: { kind: 'taint', by: 'kubectl', node: node.name, subjects: [node.name], text: `kubectl taints ${node.name} with {${key}: ${value}}:${effect}` } });
-        if (effect === 'NoExecute') applyNoExecute(env, node.name, action.taint);
+        if (effect === 'NoExecute') applyNoExecute(env);
         return;
       }
     }

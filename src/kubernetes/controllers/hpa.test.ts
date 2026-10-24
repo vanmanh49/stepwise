@@ -22,11 +22,17 @@ describe('Horizontal Pod Autoscaler', () => {
   });
 
   it('clamps to max and min', () => {
-    const [up] = run(store(2, [500, 500]));
+    const [up] = run(store(4, [500, 500, 500, 500]));
     expect(up!.write!.object).toMatchObject({ replicas: 8 });
-    expect(up!.event.text).toBe('HPA web: CPU 500% of request vs target 50% → 8 replicas (from 2), capped at max 8');
+    expect(up!.event.text).toBe('HPA web: CPU 500% of request vs target 50% → 8 replicas (from 4), capped at max 8');
     const [down] = run(store(4, [0, 0, 0, 0]), new Map(), 100);
     expect(down!.write!.object).toMatchObject({ replicas: 2 });
+  });
+
+  it('adds at most 4 pods or doubles them in one sync', () => {
+    const [up] = run(store(2, [500, 500]));
+    expect(up!.write!.object).toMatchObject({ replicas: 6 });
+    expect(up!.event.text).toBe('HPA web: CPU 500% of request vs target 50% → 6 replicas (from 2), limited to 6 this sync (at most +4 pods or double)');
   });
 
   it('waits out the 30 s stabilisation window before scaling down', () => {

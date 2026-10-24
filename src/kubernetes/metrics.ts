@@ -11,13 +11,8 @@ export interface MetricsHooks {
 
 const running = (p: Pod) => p.phase === 'Running';
 
-/** Order in which the kubelet evicts under memory pressure: BestEffort, then Burstable over its request, then the rest; biggest first. */
-function pressureRank(p: Pod): number {
-  const qos = qosOf(p.resources);
-  if (qos === 'BestEffort') return 0;
-  if (qos === 'Burstable' && (p.memoryUsage ?? 0) > memoryRequestMi(p)) return 1;
-  return 2;
-}
+/** How far a pod's memory use is over its request; the kubelet evicts pods over their request first, the furthest over first. */
+const overRequest = (p: Pod) => (p.memoryUsage ?? 0) - memoryRequestMi(p);
 
 /**
  * One metrics tick: each running pod's CPU (its share of the traffic, capped at its limit) and memory (a base
@@ -57,10 +52,10 @@ export function metricsTick(env: Env, scenario: Scenario, hooks: MetricsHooks): 
     const pressure = used > capacity;
     if (pressure !== !!node.memoryPressure) env.store.write({ op: 'update', object: { ...node, memoryPressure: pressure } });
     if (!pressure) continue;
-    const victim = pods.toSorted((a, b) => pressureRank(a) - pressureRank(b) || (b.memoryUsage ?? 0) - (a.memoryUsage ?? 0) || (a.name < b.name ? -1 : 1))[0]!;
+    const victim = pods.toSorted((a, b) => Number(overRequest(b) > 0) - Number(overRequest(a) > 0) || overRequest(b) - overRequest(a) || (a.name < b.name ? -1 : 1))[0]!;
     env.apply({
       write: { op: 'delete', object: victim },
-      event: { kind: 'evict', by: 'kubelet', node: node.name, subjects: [victim.name], text: `kubelet on ${node.name} evicts ${victim.name} (${qosOf(victim.resources)}) to free memory: the node uses ${used} of ${capacity} MiB` },
+      event: { kind: 'evict', by: 'kubelet', node: node.name, subjects: [victim.name], text: `kubelet on ${node.name} evicts ${victim.name} (${qosOf(victim.resources)}, ${Math.max(0, overRequest(victim))} MiB over its request) to free memory: the node uses ${used} of ${capacity} MiB` },
     });
   }
 

@@ -7,7 +7,8 @@ export const taintsTolerationsCode = `// scheduler: a taint repels pods that don
 if (node.taints.some((t) => t.effect !== 'PreferNoSchedule' && !tolerates(pod, t)))
   skip(node)                              // "untolerated taint"
 
-// taint manager: NoExecute also removes pods already running
+// taint manager: NoExecute also removes pods on the node,
+// whether they were there first or placed after the taint
 for (const pod of podsOn(node))
   if (!tolerates(pod, taint)) evict(pod)
   else if (toleration.seconds) evictAfter(pod, toleration.seconds)`;
@@ -34,7 +35,9 @@ export function taintsTolerationsScenario(values: Record<string, string>): Read<
     { at: noExecute ? NO_EXECUTE_AT : 0, kind: 'taint', node: 'node-3', taint },
     { at: 0, kind: 'apply', object: { ...d, template: { ...d.template, ...(tolerations && { tolerations }) } } },
   ];
-  return { ok: true, value: { nodes: nodes(3), actions, faults: [] } };
+  // A timed toleration never settles: each replacement may land on node-3 again and is evicted 10 s later.
+  const timed = noExecute && toleration.value === 'on' && seconds.value !== 'none';
+  return { ok: true, value: { nodes: nodes(3), actions, faults: [], ...(timed && { until: 60 }) } };
 }
 
 export function taintsTolerationsSteps(values: Record<string, string>): Step[] {
@@ -49,7 +52,7 @@ export function taintsTolerationsSteps(values: Record<string, string>): Step[] {
       }
       if (event.kind === 'evict') {
         const delayed = state.t > NO_EXECUTE_AT;
-        return { line: delayed ? 'evictAfter' : 'evict(pod)', why: delayed ? 'The pod tolerated the taint, but only for tolerationSeconds (10 s). Time is up, so it is evicted now.' : 'The pod doesn\'t tolerate the new NoExecute taint, so the taint manager evicts it at once. Its ReplicaSet makes a replacement, which the taint keeps off this node.' };
+        return { line: delayed ? 'evictAfter' : 'evict(pod)', why: delayed ? 'The pod tolerated the taint, but only for tolerationSeconds (10 s) from when it was on the tainted node. Time is up, so it is evicted. Its replacement tolerates the taint too, so it can land here again and go round the same loop.' : 'The pod doesn\'t tolerate the new NoExecute taint, so the taint manager evicts it at once. Its ReplicaSet makes a replacement, which the taint keeps off this node.' };
       }
       if (event.kind === 'bind') return { why: 'The tainted node is ruled out for pods without a matching toleration. A toleration only lifts that rule: the pod still goes wherever it scores best.' };
       return undefined;

@@ -21,6 +21,12 @@ describe('Horizontal Pod Autoscaler lesson', () => {
     expect(down[0]).toBeGreaterThanOrEqual(70 + 30);
   });
 
+  it('adds at most 4 pods or doubles them in one sync, as the default scale-up policy allows', () => {
+    const steps = replicas(run({}).frames);
+    expect(steps[0]![1]).toBe(6);
+    expect(steps.every(([, r], i) => i === 0 || r <= Math.max(steps[i - 1]![1] + 4, steps[i - 1]![1] * 2))).toBe(true);
+  });
+
   it('stops at max replicas and says so', () => {
     const { frames } = run({ max: '4' });
     expect(Math.max(...replicas(frames).map(([, r]) => r))).toBe(4);

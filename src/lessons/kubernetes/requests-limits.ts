@@ -15,7 +15,7 @@ const content: LessonContent = {
     'A request is what the pod is promised. The scheduler only places a pod where its requests fit. A limit is a ceiling the pod can\'t go past.',
     'CPU over the limit is throttled: the pod gets less CPU and slows down, but keeps running. Memory can\'t be taken back, so a container that goes over its memory limit is killed (OOMKilled, exit code 137) and restarted.',
     'Requests and limits give each pod a QoS class. Guaranteed: limits equal requests for both CPU and memory. Burstable: some request or limit set. BestEffort: nothing set.',
-    'When a node runs out of memory, the kubelet evicts pods to save the node: BestEffort first, then Burstable pods using more than they requested, Guaranteed last. While the node is short of memory, no new BestEffort pods are placed there.',
+    'When a node runs out of memory, the kubelet evicts pods to save the node. Pods using more than they requested go first, the furthest over first; pods within their request go last (it also weighs pod priority, not shown here). While the node is short of memory, no new BestEffort pods are placed there.',
   ],
   howItWorks: [
     'One node with 4 CPU and 768 MiB of memory runs two web pods and one batch pod (BestEffort).',
@@ -33,27 +33,28 @@ const content: LessonContent = {
     presets: [
       { label: 'Throttled, not killed', values: throttled },
       { label: 'OOMKilled', values: { qos: 'Guaranteed', cpuLimit: '500m', leak: 'on' } },
-      { label: 'Node pressure evicts BestEffort first', values: pressure },
+      { label: 'Node pressure evicts the pod furthest over', values: pressure },
     ],
     generate: requestsLimitsSteps,
     codeLabel: 'Pseudocode',
   },
   code: requestsLimitsCode,
   prosCons: {
-    pros: ['Requests let the scheduler pack nodes without overcommitting them', 'CPU limits protect neighbours from a busy pod without killing it', 'QoS classes make it predictable who is evicted first'],
-    cons: ['A CPU limit set too low makes a pod slow under load', 'A memory limit set too low turns normal peaks into OOMKills and restarts', 'Pods without requests (BestEffort) are the first to go under pressure'],
+    pros: ['Requests let the scheduler pack nodes without overcommitting them', 'CPU limits protect neighbours from a busy pod without killing it', 'Pods that stay within their memory request are the last to be evicted'],
+    cons: ['A CPU limit set too low makes a pod slow under load', 'A memory limit set too low turns normal peaks into OOMKills and restarts', 'Pods without requests (BestEffort) count all their memory as over the request, so they are at risk under pressure'],
     useWhen: ['Always set requests; set memory limits for anything that could leak'],
     avoidWhen: ['Don\'t copy one set of numbers to every app: measure what each one actually uses'],
   },
   applications: [
     'kubectl describe pod shows "OOMKilled" and exit code 137 as the last state of a container that hit its memory limit',
-    'Critical services run as Guaranteed so they are evicted last',
+    'Critical services run as Guaranteed: they can never use more than they requested, so they are evicted last',
     'Batch jobs often run as BestEffort to soak up spare capacity',
   ],
   commonMistakes: [
     'Thinking a pod over its CPU limit gets killed: it gets throttled.',
+    'Thinking BestEffort pods are always evicted first: the kubelet ranks by how far memory use is over the request.',
     'Setting no memory limit on a leaky app, so it fills the node and other pods are evicted.',
-    'Forgetting requests, so the scheduler thinks the pod needs nothing and the pod is first to be evicted.',
+    'Forgetting requests, so the scheduler thinks the pod needs nothing and all its memory counts against it under pressure.',
   ],
   quiz: [
     {
@@ -61,9 +62,9 @@ const content: LessonContent = {
       type: 'predict-next',
       prompt: 'The node has run out of memory. The web pods are Burstable and leaking; the batch pod is BestEffort. Which pod does the kubelet evict first?',
       view: beforeEvict.view,
-      options: ['The batch pod: BestEffort goes first', 'A web pod, because it is leaking', 'All pods at once', 'None: the node just slows down'],
+      options: ['A web pod: it is furthest over its memory request', 'The batch pod: BestEffort always goes first', 'All pods at once', 'None: the node just slows down'],
       answer: 0,
-      explanation: 'Eviction follows QoS class, not blame: BestEffort pods promised nothing, so they go before Burstable pods over their request.',
+      explanation: 'The kubelet evicts pods over their request first, the furthest over first. The batch pod uses 64 MiB against no request; each leaking web pod is hundreds of MiB past its 128 MiB request, so a web pod goes.',
     },
     {
       id: 'q2',
@@ -95,7 +96,7 @@ const content: LessonContent = {
     'Requests decide placement; limits cap use.',
     'Over the CPU limit: throttled. Over the memory limit: OOMKilled and restarted.',
     'QoS classes (Guaranteed, Burstable, BestEffort) come from requests and limits.',
-    'Under memory pressure, BestEffort pods are evicted first and no new ones are placed.',
+    'Under memory pressure, the pod furthest over its memory request is evicted first, and no new BestEffort pods are placed.',
   ],
 };
 

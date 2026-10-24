@@ -1,4 +1,4 @@
-import { HPA_STABILISE_S, HPA_TOLERANCE } from '../model';
+import { HPA_STABILISE_S, HPA_TOLERANCE, HPA_UP_PODS } from '../model';
 import type { Change, Ctx } from './types';
 
 /** Each HPA's recent recommendations, newest last: scale-down follows the highest one in the window. */
@@ -6,8 +6,8 @@ export type HpaHistory = Map<string, { t: number; desired: number }[]>;
 
 /**
  * One HPA sync: ratio = the ready pods' average CPU use ÷ their request ÷ the target; outside the 10% tolerance,
- * desired = ceil(ready pods × ratio), clamped to [min, max]; a scale-down takes the highest recommendation of the
- * last 30 s, so a brief dip doesn't remove pods.
+ * desired = ceil(ready pods × ratio), clamped to [min, max]; a scale-up adds at most 4 pods or doubles them, whichever
+ * is more; a scale-down takes the highest recommendation of the last 30 s, so a brief dip doesn't remove pods.
  */
 export function reconcileHpas(ctx: Ctx, history: HpaHistory): Change[] {
   const changes: Change[] = [];
@@ -32,9 +32,10 @@ export function reconcileHpas(ctx: Ctx, history: HpaHistory): Change[] {
     const recommended = Math.min(hpa.max, Math.max(hpa.min, raw));
     const recent = [...(history.get(hpa.name) ?? []), { t: ctx.now, desired: recommended }].filter((h) => h.t > ctx.now - HPA_STABILISE_S);
     history.set(hpa.name, recent);
-    const desired = recommended < d.replicas ? Math.min(d.replicas, Math.max(...recent.map((h) => h.desired))) : recommended;
+    const upLimit = Math.max(d.replicas + HPA_UP_PODS, d.replicas * 2);
+    const desired = recommended < d.replicas ? Math.min(d.replicas, Math.max(...recent.map((h) => h.desired))) : Math.min(recommended, upLimit);
     if (desired === d.replicas) continue;
-    const capped = raw > hpa.max ? `, capped at max ${hpa.max}` : '';
+    const capped = recommended > upLimit ? `, limited to ${upLimit} this sync (at most +${HPA_UP_PODS} pods or double)` : raw > hpa.max ? `, capped at max ${hpa.max}` : '';
     changes.push({
       write: { op: 'update', object: { ...d, replicas: desired } },
       event: { kind: 'hpa', by: 'controllers', subjects: [hpa.name, d.name], text: `HPA ${hpa.name}: CPU ${percent}% of request vs target ${hpa.targetCpuPercent}% → ${desired} replicas (from ${d.replicas})${capped}` },

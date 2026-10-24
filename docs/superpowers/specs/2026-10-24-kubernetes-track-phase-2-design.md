@@ -75,7 +75,7 @@ Replaces the phase 1 rule with filter → score, keeping its results for the vie
 
 - Every metrics tick, for the `load` target: rps(t) is split evenly over its ready pods; `cpuUsage = share × cpuPerRequest`, capped at the CPU limit (then `throttled = true`). Pods outside the target idle at 0.
 - Memory: a base of 64 MiB, plus `leak × seconds running`. Above the memory limit → the container is killed (`exit`, reason `OOMKilled`, exit code 137) and restarted by its restart policy with back-off.
-- Node memory pressure: when the summed memory use on a node exceeds its capacity, the kubelet evicts one pod per tick: BestEffort first, then Burstable pods using more than their request, highest use first; Guaranteed last (`lastTermination: 'Evicted'`). Evicted pods are deleted, so their ReplicaSet replaces them.
+- Node memory pressure: when the summed memory use on a node exceeds its capacity, the kubelet evicts one pod per tick: pods whose memory use exceeds their request first, the furthest over first; pods within their request last (the kubelet does not rank by QoS class; pod priority is not modelled) (`lastTermination: 'Evicted'`). Evicted pods are deleted, so their ReplicaSet replaces them.
 
 ### Probes (`probes.ts`)
 
@@ -86,7 +86,7 @@ Replaces the phase 1 rule with filter → score, keeping its results for the vie
 
 ### Horizontal Pod Autoscaler (`controllers/hpa.ts`)
 
-Every sync: `ratio = average cpuUsage ÷ cpu request ÷ targetCpuPercent`; within 10% of 1 → no change; otherwise `desired = ceil(current × ratio)`, clamped to [min, max]. Scale-down uses the highest desired value seen in the last 30 s (stabilisation). Writes the Deployment's `replicas`. Pods without a CPU request make the HPA report "missing request for cpu" and do nothing.
+Every sync: `ratio = average cpuUsage ÷ cpu request ÷ targetCpuPercent`; within 10% of 1 → no change; otherwise `desired = ceil(current × ratio)`, clamped to [min, max]. Scale-up is rate-limited as by the default policy: at most `max(replicas + 4, replicas × 2)` per sync. Scale-down uses the highest desired value seen in the last 30 s (stabilisation). Writes the Deployment's `replicas`. Pods without a CPU request make the HPA report "missing request for cpu" and do nothing.
 
 ### Cluster Autoscaler (`controllers/autoscaler.ts`)
 
@@ -123,7 +123,7 @@ Same-second events merge only when they share kind, actor **and owning object** 
 | id | What the learner watches | Knobs | Presets |
 |---|---|---|---|
 | `scheduler` | One pod placed on 3 nodes with different free CPU and memory; the scoring table shows each node's filters and scores, and the winner. | strategy LeastAllocated / MostAllocated · pod CPU 1–4 · cordon node-2 off / on | Spread (least allocated) · Bin-pack (most allocated) · Nothing fits |
-| `requests-limits` | A Deployment under a traffic ramp: CPU over the limit is throttled, not killed; a memory leak past the limit is OOMKilled and restarts; on a node out of memory, BestEffort goes first. | QoS BestEffort / Burstable / Guaranteed · CPU limit none / 500m / 1000m · memory leak off / on | Throttled, not killed · OOMKilled · Node pressure evicts BestEffort first |
+| `requests-limits` | A Deployment under a traffic ramp: CPU over the limit is throttled, not killed; a memory leak past the limit is OOMKilled and restarts; on a node out of memory, the pod furthest over its memory request goes first. | QoS BestEffort / Burstable / Guaranteed · CPU limit none / 500m / 1000m · memory leak off / on | Throttled, not killed · OOMKilled · Node pressure evicts the pod furthest over |
 | `probes` | A Service with steady requests and an app that starts slowly (20 s) and hangs at 40 s; requests show who gets traffic. | liveness / readiness / startup (each off / on) · slow start off / on · hang off / on | No probes: a hung pod keeps traffic · Liveness restarts the hung pod · Liveness kills a slow starter · Startup probe protects a slow start |
 | `taints-tolerations` | node-3 tainted `gpu=true:NoSchedule`; pods with and without a toleration; a `NoExecute` taint at 20 s evicts untolerated pods, after `tolerationSeconds` if set. | toleration off / on · effect NoSchedule / NoExecute · tolerationSeconds none / 10 | Tainted node is skipped · A toleration allows but doesn't force · NoExecute evicts · tolerationSeconds delays it |
 | `affinity` | 4 nodes in zones a and b labelled `disk=ssd/hdd`; required and preferred node affinity; pod anti-affinity by hostname spreading replicas. | node affinity none / required ssd / preferred ssd · anti-affinity none / preferred / required · replicas 2–6 | Required ssd · Preferred falls back when ssd is full · Spread one per node · Too many replicas stay Pending |

@@ -46,17 +46,32 @@ export function requestEviction(env: Env, pod: Pod, by: 'kubectl' | 'controllers
   return env.apply({ write: { op: 'delete', object: pod }, event: { kind: 'evict', by, node: pod.node!, subjects: [pod.name], text: `${by === 'kubectl' ? 'kubectl' : 'The eviction API'} evicts ${pod.name} from ${pod.node}` } });
 }
 
-/** The taint manager: a NoExecute taint evicts pods that don't tolerate it, and tolerating pods after their tolerationSeconds. */
-export function applyNoExecute(env: Env, node: string, taint: Taint) {
-  for (const pod of env.store.list('Pod')) {
-    if (pod.node !== node || pod.phase === 'Completed' || pod.phase === 'Failed') continue;
-    const toleration = (pod.tolerations ?? []).find((t) => tolerates([t], taint));
-    if (toleration && toleration.seconds === undefined) continue;
-    if (toleration) {
-      env.later(toleration.seconds!, { kind: 'noexecute', pod: pod.name, node });
-      continue;
+/** Pods whose tolerationSeconds countdown has started, so each pod's starts once. */
+const counting = new WeakMap<Env, Set<string>>();
+
+/**
+ * The taint manager, run when a taint is added and when pods are bound: a NoExecute taint evicts pods that don't
+ * tolerate it, and starts the tolerationSeconds countdown for pods that tolerate it for a while, including pods
+ * placed on the node after the taint.
+ */
+export function applyNoExecute(env: Env) {
+  const started = counting.get(env) ?? new Set<string>();
+  counting.set(env, started);
+  for (const node of env.store.list('Node')) {
+    for (const taint of (node.taints ?? []).filter((t) => t.effect === 'NoExecute')) {
+      for (const pod of env.store.list('Pod')) {
+        if (pod.node !== node.name || pod.phase === 'Completed' || pod.phase === 'Failed') continue;
+        const toleration = (pod.tolerations ?? []).find((t) => tolerates([t], taint));
+        if (toleration && toleration.seconds === undefined) continue;
+        if (!toleration) {
+          evictForTaint(env, pod, taint);
+          continue;
+        }
+        if (started.has(pod.name)) continue;
+        started.add(pod.name);
+        env.later(toleration.seconds!, { kind: 'noexecute', pod: pod.name, node: node.name });
+      }
     }
-    evictForTaint(env, pod, taint);
   }
 }
 

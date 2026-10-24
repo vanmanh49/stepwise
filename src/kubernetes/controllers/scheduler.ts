@@ -94,7 +94,7 @@ export const schedule: Reconcile = (ctx) => {
       });
       continue;
     }
-    // Reasons grouped and counted in the order the filters run, as kube-scheduler prints them.
+    // Reasons grouped and counted, in the order the filters run.
     const counts = new Map<string, number>();
     for (const order of ['not ready', 'unschedulable', 'taint', 'memory pressure', 'node affinity', 'anti-affinity', 'Insufficient cpu', 'Insufficient memory']) {
       for (const r of rows) if (r.filtered?.includes(order)) counts.set(r.filtered, (counts.get(r.filtered) ?? 0) + 1);
