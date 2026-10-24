@@ -49,6 +49,8 @@ export function StepView({ view }: { view: View }) {
       return <SessionsRenderer view={view} />;
     case 'services':
       return <ServicesRenderer view={view} />;
+    case 'cluster':
+      return null;
     case 'panels':
       return <PanelsRenderer view={view} renderView={(panel) => <StepView view={panel} />} />;
   }

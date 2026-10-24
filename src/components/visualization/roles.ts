@@ -76,6 +76,14 @@ export function rolesInView(view: View): Role[] {
         ...view.requests.flatMap((r): Role[] => (r.status === 'ok' ? ['found'] : r.status === 'failed' ? ['discarded'] : [])),
         ...(view.spans?.rows.map((r) => r.role) ?? []),
       ];
+    case 'cluster':
+      return [
+        ...view.controlPlane.map((c) => c.role),
+        ...view.nodes.flatMap((n) => [n.role, ...n.pods.map((p) => p.role)]),
+        ...view.pending.map((p) => p.role),
+        ...view.objects.map((o) => o.role),
+        ...(view.requests ?? []).flatMap((r): Role[] => (r.status === 'ok' ? ['found'] : r.status === 'failed' ? ['discarded'] : [])),
+      ];
     case 'panels':
       return view.panels.flatMap((p) => rolesInView(p.view));
   }

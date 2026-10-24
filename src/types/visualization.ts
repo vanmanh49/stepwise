@@ -226,6 +226,33 @@ export interface ServicesView {
   spans?: { title: string; endMs: number; nowMs: number; rows: SpanRow[] };
 }
 
+/** A simulated Kubernetes cluster: the control plane, worker nodes with their pods, and the objects it reconciles. */
+export interface ClusterView {
+  kind: 'cluster';
+  /** The control-plane components; the one acting in this step has role 'active'. */
+  controlPlane: { id: 'api-server' | 'etcd' | 'scheduler' | 'controllers'; label: string; role: Role; badge?: string }[];
+  nodes: {
+    name: string;
+    /** What the control plane believes: false once it has marked the node NotReady. */
+    ready: boolean;
+    /** The node is really down, noticed or not. */
+    offline?: boolean;
+    role: Role;
+    /** CPU requested by its pods vs capacity, in cores. */
+    cpu: { used: number; capacity: number };
+    /** phase: Pending | ContainerCreating | Running | CrashLoopBackOff | ImagePullBackOff | Completed | Failed | Lost. */
+    pods: { name: string; phase: string; ready: boolean; role: Role; badge?: string }[];
+  }[];
+  /** Pods not bound to any node yet. */
+  pending: { name: string; role: Role; reason?: string; badge?: string }[];
+  /** Workload objects: desired vs current vs ready. */
+  objects: { kind: string; name: string; desired?: number; current?: number; ready?: number; note?: string; role: Role }[];
+  /** Client requests to a Service. */
+  requests?: { id: string; label: string; status: 'pending' | 'ok' | 'failed'; endpoint?: string; reason?: string }[];
+  /** The last few steps, newest last. */
+  log: string[];
+}
+
 /** Several views shown together in one step. Panels do not nest. */
 export interface PanelsView {
   kind: 'panels';
@@ -248,6 +275,7 @@ export type View =
   | CallsView
   | BucketsView
   | ServicesView
+  | ClusterView
   | PanelsView;
 
 export interface Step {
