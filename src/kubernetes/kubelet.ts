@@ -1,6 +1,7 @@
 import type { Env, Timer } from './env';
+import { resolveConfig } from './config';
 import { answers, PROBE_NAME, type ProbeKind } from './probes';
-import { BACKOFF_CAP_S, BACKOFF_FIRST_S, BACKOFF_RESET_S, PULL_S, READY_S, START_S, type Pod, type PodPhase, type TraceKind } from './model';
+import { CONFIG_SYNC_S, BACKOFF_CAP_S, BACKOFF_FIRST_S, BACKOFF_RESET_S, PULL_S, READY_S, START_S, type Pod, type PodPhase, type TraceKind } from './model';
 
 /** The wait before retry number level + 1: 10 s, doubling, capped at 160 s. */
 export function backoffS(level: number): number {
@@ -86,6 +87,18 @@ export function createKubelet(env: Env) {
   }
 
   function run(pod: Pod, w: Work, restart: boolean) {
+    const resolved = resolveConfig(env.store, pod);
+    if (!resolved.ok) {
+      // Env from a missing ConfigMap or Secret is a config error; a missing mounted ConfigMap keeps the pod ContainerCreating.
+      const phase = resolved.mount ? 'ContainerCreating' : 'CreateContainerConfigError';
+      const event = { kind: 'config-error' as const, ...by(pod), text: `kubelet can't start ${pod.name}: ${resolved.reason}`, reason: resolved.reason };
+      // Told once: retries in the same state say nothing new.
+      if (pod.phase !== phase || pod.reason !== resolved.reason) env.apply({ write: { op: 'update', object: { ...pod, phase, reason: resolved.reason } }, event });
+      return timer(CONFIG_SYNC_S, restart ? 'restart' : 'started', pod, w);
+    }
+    const { reason: _reason, ...rest } = pod;
+    const config = { ...resolved.env, ...resolved.mounted };
+    pod = { ...rest, ...(Object.keys(config).length > 0 && { config }) };
     w.startedAt = env.now();
     Object.assign(w, freshProbes());
     const restarts = pod.restarts + (restart ? 1 : 0);

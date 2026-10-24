@@ -9,9 +9,11 @@ import { schedule } from './controllers/scheduler';
 import type { Change, Ctx, Reconcile } from './controllers/types';
 import type { Env, Timer } from './env';
 import { applyNoExecute, evictForTaint, requestEviction } from './evict';
+import { answerOf, configSync } from './config';
 import { createKubelet } from './kubelet';
 import {
   CA_SCAN_S,
+  CONFIG_SYNC_S,
   HEARTBEAT_S,
   HPA_SYNC_S,
   MAX_TIME,
@@ -62,11 +64,12 @@ type Item =
   | { kind: 'node-check' }
   | { kind: 'metrics' }
   | { kind: 'hpa' }
-  | { kind: 'autoscaler' };
+  | { kind: 'autoscaler' }
+  | { kind: 'config-sync' };
 
 /** Recurring work that never keeps a run alive on its own. */
 const periodic = (item: Item) =>
-  item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics' || item.kind === 'hpa' || item.kind === 'autoscaler' || (item.kind === 'timer' && item.timer.kind === 'kubelet' && item.timer.step === 'probe');
+  item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics' || item.kind === 'hpa' || item.kind === 'autoscaler' || item.kind === 'config-sync' || (item.kind === 'timer' && item.timer.kind === 'kubelet' && item.timer.step === 'probe');
 
 /** Runs a scenario: kubectl actions and faults at their times, then every controller reacting until the cluster settles. */
 export function simulate(scenario: Scenario): SimResult {
@@ -264,8 +267,9 @@ export function simulate(scenario: Scenario): SimResult {
     const running = pod?.phase === 'Running' && !!node?.ready && !offline.has(node.name);
     const ok = running && kubelet.answers(name);
     const reason = ok ? undefined : running ? `${name} doesn't answer: the request times out` : `${name} is not running: connection refused`;
-    requests.set(id, { id, service, status: ok ? 'ok' : 'failed', pod: name, ...(reason && { reason }) });
-    record({ kind: 'route', ...by, ...(pod?.node && { node: pod.node }), subjects: [id, service, name], text: ok ? `kube-proxy sends request ${id} to ${name}` : `kube-proxy sends request ${id} to ${name}, which fails: ${reason}`, ...(reason && { reason }) });
+    const body = ok ? answerOf(pod) : undefined;
+    requests.set(id, { id, service, status: ok ? 'ok' : 'failed', pod: name, ...(reason && { reason }), ...(body && { body }) });
+    record({ kind: 'route', ...by, ...(pod?.node && { node: pod.node }), subjects: [id, service, name], text: ok ? `kube-proxy sends request ${id} to ${name}${body ? `, which answers ${body}` : ''}` : `kube-proxy sends request ${id} to ${name}, which fails: ${reason}`, ...(reason && { reason }) });
   };
 
   const fault = (f: Extract<Item, { kind: 'fault' }>['fault']) => {
@@ -310,6 +314,7 @@ export function simulate(scenario: Scenario): SimResult {
   if (scenario.load || scenario.faults.some((f) => f.kind === 'leak')) push(METRICS_S, { kind: 'metrics' });
   if (scenario.actions.some((a) => a.kind === 'apply' && a.object.kind === 'HorizontalPodAutoscaler')) push(HPA_SYNC_S, { kind: 'hpa' });
   if (pool) push(CA_SCAN_S, { kind: 'autoscaler' });
+  if (scenario.actions.some((a) => a.kind === 'apply' && a.object.kind === 'ConfigMap')) push(CONFIG_SYNC_S, { kind: 'config-sync' });
 
   let cutOff = false;
   let endedAt = 0;
@@ -376,6 +381,10 @@ export function simulate(scenario: Scenario): SimResult {
       case 'autoscaler':
         if (!down.has('controllers') && store.etcdUp) autoscalerTick(env, pool!, autoscaler);
         push(now + CA_SCAN_S, item);
+        break;
+      case 'config-sync':
+        configSync(env);
+        push(now + CONFIG_SYNC_S, item);
         break;
       case 'node-check':
         // Node lifecycle runs in the controller manager and needs etcd.
