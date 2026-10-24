@@ -7,6 +7,7 @@ import { reconcileDeployments, rolledBack, withImage } from './controllers/deplo
 import { reconcileEndpoints } from './controllers/endpoints';
 import { reconcileHpas, type HpaHistory } from './controllers/hpa';
 import { reconcileJobs, type JobState } from './controllers/job';
+import { reconcileDatabases } from './controllers/operator';
 import { reconcileReplicaSets } from './controllers/replicaset';
 import { detachIdle, provision, reconcileVolumes, usersOf } from './controllers/volumes';
 import { schedule } from './controllers/scheduler';
@@ -47,7 +48,7 @@ import { dataTick } from './storage';
 import { checkNodes, evict, heartbeat } from './nodes';
 import { Store } from './store';
 
-type Group = 'replicaset' | 'deployment' | 'endpoints' | 'scheduler' | 'kubelet' | 'volumes' | 'statefulset' | 'daemonset' | 'job';
+type Group = 'replicaset' | 'deployment' | 'endpoints' | 'scheduler' | 'kubelet' | 'volumes' | 'statefulset' | 'daemonset' | 'job' | 'operator';
 
 const GROUPS: Record<Group, { component: Component; watches: Kind[] }> = {
   deployment: { component: 'controllers', watches: ['Deployment', 'ReplicaSet', 'Pod'] },
@@ -59,6 +60,7 @@ const GROUPS: Record<Group, { component: Component; watches: Kind[] }> = {
   statefulset: { component: 'controllers', watches: ['StatefulSet', 'Pod', 'PersistentVolumeClaim'] },
   daemonset: { component: 'controllers', watches: ['DaemonSet', 'Node', 'Pod'] },
   job: { component: 'controllers', watches: ['Job', 'Pod'] },
+  operator: { component: 'operator', watches: ['Database', 'StatefulSet', 'Job', 'Pod'] },
 };
 const ORDER = Object.keys(GROUPS) as Group[];
 
@@ -69,6 +71,7 @@ const RECONCILERS: Record<Exclude<Group, 'kubelet' | 'volumes' | 'job'>, Reconci
   scheduler: schedule,
   statefulset: reconcileStatefulSets,
   daemonset: reconcileDaemonSets,
+  operator: reconcileDatabases,
 };
 
 type Item =
@@ -187,9 +190,16 @@ export function simulate(scenario: Scenario): SimResult {
   const kubelet = createKubelet(env);
   const ctx = (): Ctx => ({ now, store, rng, ...(scenario.schedulerStrategy && { strategy: scenario.schedulerStrategy }) });
 
+  const operatorUp = () => {
+    const sets = new Set(store.list('ReplicaSet').filter((rs) => rs.owner === 'db-operator').map((rs) => rs.name));
+    return store.list('Pod').some((p) => p.owner && sets.has(p.owner) && p.phase === 'Running' && p.ready);
+  };
+
   const run = (group: Group) => {
     pending.delete(group);
     if (down.has(GROUPS[group].component)) return;
+    // The operator is a pod like any other app: it reconciles only while its own Deployment has a ready pod.
+    if (group === 'operator' && !operatorUp()) return;
     current = group;
     if (group === 'kubelet') {
       kubelet.reconcile();
