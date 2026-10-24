@@ -114,6 +114,18 @@ describe('Deployment controller', () => {
     expect(readyPods(store, 'app:v1')).toBe(4);
   });
 
+  it("doesn't count a scale-down twice before the ReplicaSet controller carries it out", () => {
+    const store = storeWith(deployment(4, '25%', '25%'));
+    converge(store);
+    store.write({ op: 'update', object: withImage(store.get('Deployment', 'web')!, 'app:v2') });
+    // Two Deployment passes in a row, with no pods created or deleted in between.
+    for (let pass = 0; pass < 2; pass++) for (const change of reconcileDeployments(ctxFor(store))) store.write(change.write!);
+    expect(counts(store).toSorted()).toEqual([
+      ['app:v1', 3],
+      ['app:v2', 2],
+    ]);
+  });
+
   it('has nothing to roll back to without history', () => {
     expect(rolledBack(deployment(2, 1, 0))).toBeUndefined();
   });

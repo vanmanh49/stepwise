@@ -50,11 +50,10 @@ export const reconcileDeployments: Reconcile = (ctx) => {
     total += up;
 
     const olds = owned.filter((rs) => rs !== current && rs.replicas > 0).toSorted((a, b) => a.revision - b.revision);
-    const ownerNames = new Set(owned.map((rs) => rs.name));
-    const ready = pods.filter((p) => p.ready && p.owner && ownerNames.has(p.owner)).length;
-    const oldNames = new Set(olds.map((rs) => rs.name));
-    // Not-ready old pods serve nothing, so they may always go.
-    let removable = Math.max(0, ready - minReady) + pods.filter((p) => !p.ready && p.owner && oldNames.has(p.owner)).length;
+    // Counted from ReplicaSet sizes, as Kubernetes does, so a scale-down the ReplicaSet controller hasn't carried out yet
+    // isn't counted twice; pods of the current set that aren't ready yet can't be relied on.
+    const readyCurrent = pods.filter((p) => p.ready && p.owner === current.name).length;
+    let removable = Math.max(0, total - minReady - Math.max(0, current.replicas - readyCurrent));
     for (const old of olds) {
       const cut = Math.min(old.replicas, removable);
       if (cut === 0) continue;

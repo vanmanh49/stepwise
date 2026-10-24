@@ -39,7 +39,7 @@ export class Store {
     return { ok: true, version: ++this.version };
   }
 
-  snapshot(): Omit<Snapshot, 't' | 'down' | 'requests'> {
+  snapshot(): Omit<Snapshot, 't' | 'down' | 'offline' | 'requests'> {
     return {
       nodes: this.list('Node'),
       pods: this.list('Pod'),

@@ -180,6 +180,8 @@ export interface Snapshot {
   services: Service[];
   endpoints: Endpoints[];
   down: Component[];
+  /** Nodes that are really down, whether or not the control plane has noticed yet. */
+  offline: string[];
   requests: RequestState[];
 }
 
