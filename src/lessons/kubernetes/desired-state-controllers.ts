@@ -15,7 +15,7 @@ const content: LessonContent = {
     'You describe the desired state (here: 3 pods). The actual state is whatever is running now. A controller\'s whole job is to make actual match desired.',
     'Every controller runs the same loop: read the desired state, observe the actual state, act on the difference, then wait for the next change.',
     'Controllers are level-triggered: they act on the current state, not on the events that led to it. A controller that missed ten deletions does not need to replay them; one look tells it that three pods are missing.',
-    'This is why Kubernetes heals itself. Whatever removed a pod (a person, a crash, a lost node), the controller only sees that one is missing and makes another.',
+    'This is why Kubernetes heals itself. Whatever removed a pod (a person, a lost node, an eviction), the controller only sees that one is missing and makes another. A crashing container is different: the kubelet restarts it inside the same pod.',
   ],
   howItWorks: [
     'kubectl applies a ReplicaSet named web with the desired number of pods. The controller creates them.',

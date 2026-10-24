@@ -5,7 +5,7 @@ import { appTemplate, nodes, pod, scenarioSteps } from './shared';
 
 export const podsCode = `// kubelet, for a pod bound to its node
 pullImage(pod)
-startContainer(pod)                  // phase: Running
+startContainer(pod)                  // status: Running
 markReady(pod)
 
 // kubelet, when the container exits
@@ -13,10 +13,10 @@ function onExit(pod, exitCode) {
   const restart = pod.restartPolicy === 'Always' ||
     (pod.restartPolicy === 'OnFailure' && exitCode !== 0)
   if (!restart) {
-    pod.phase = exitCode === 0 ? 'Completed' : 'Failed'
+    pod.status = exitCode === 0 ? 'Completed' : 'Failed'
     return
   }
-  pod.phase = 'CrashLoopBackOff'
+  pod.status = 'CrashLoopBackOff'
   wait(backoff)                      // 10 s, 20 s, 40 s … up to 160 s
   backoff = Math.min(backoff * 2, 160)
   restartContainer(pod)              // restarts + 1
@@ -49,13 +49,13 @@ export function podsScenario(values: Record<string, string>): Read<Scenario> {
 export function podsSteps(values: Record<string, string>): Step[] {
   return scenarioSteps(podsScenario(values), "Can't run this pod", {
     code: podsCode,
-    lines: { pull: 'pullImage', start: 'startContainer', ready: 'markReady', exit: 'function onExit', 'back-off': "pod.phase = 'CrashLoopBackOff'", restart: 'restartContainer' },
+    lines: { pull: 'pullImage', start: 'startContainer', ready: 'markReady', exit: 'function onExit', 'back-off': "pod.status = 'CrashLoopBackOff'", restart: 'restartContainer' },
     explain: (event, state) => {
       const web = state.pods[0];
       if (event.kind === 'action') return { why: 'A pod is the smallest thing Kubernetes runs: one or more containers that share a network address. This one has no controller, so nothing replaces it if it is deleted.' };
       if (event.kind === 'exit' && web && (web.phase === 'Completed' || web.phase === 'Failed')) {
         return {
-          line: 'pod.phase = exitCode === 0',
+          line: 'pod.status = exitCode === 0',
           why: web.phase === 'Completed' ? 'Exit code 0 means the program finished successfully. OnFailure only restarts on failure, so the pod is Completed and stays that way.' : 'The program failed, but the restart policy is Never, so the kubelet leaves the pod Failed.',
         };
       }

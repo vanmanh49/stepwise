@@ -51,3 +51,10 @@ describe('ReplicaSets', () => {
     }
   });
 });
+
+describe('ReplicaSets lesson wording', () => {
+  it('says Lost is this lesson’s name, not a status kubectl shows', async () => {
+    const lesson = (await import('../../lessons/kubernetes/replicasets')).default;
+    expect(lesson.concept.join(' ')).toContain('kubectl shows them as Unknown');
+  });
+});

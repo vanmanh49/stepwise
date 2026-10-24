@@ -14,7 +14,7 @@ const content: LessonContent = {
     'A ReplicaSet has three parts: how many replicas you want, a selector that finds its pods, and a pod template to make new ones from.',
     'Its controller counts the pods it owns. Too few, and it creates more from the template; too many, and it deletes the surplus: pods not yet scheduled first, then pods that aren\'t ready, then the newest.',
     'Scaling is just changing the replicas number. The controller does the rest.',
-    'When a node dies, the control plane first has to notice (no heartbeat for longer than the grace period: 20 s here, 40 s by default). Its pods are then marked Lost and deleted a little later (10 s here, 5 minutes by default), and only then does the ReplicaSet see the gap and create replacements on healthy nodes.',
+    'When a node dies, the control plane first has to notice (no heartbeat for longer than the grace period: 20 s here, 40 s by default). Its pods are then marked Lost (this lesson\'s name for them; kubectl shows them as Unknown, then Terminating) and deleted a little later (10 s here, 5 minutes by default), and only then does the ReplicaSet see the gap and create replacements on healthy nodes.',
   ],
   howItWorks: [
     'kubectl applies a ReplicaSet named web on 3 nodes. Its pods are spread over the nodes with the most free CPU.',

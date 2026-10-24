@@ -57,3 +57,13 @@ describe('Pods', () => {
     }
   });
 });
+
+describe('Pods lesson wording', () => {
+  it('calls CrashLoopBackOff a status, not a phase, and names the five real phases', async () => {
+    const { podsCode } = await import('./pods');
+    const lesson = (await import('../../lessons/kubernetes/pods')).default;
+    expect(podsCode).not.toContain('pod.phase');
+    expect(podsCode).toContain("pod.status = 'CrashLoopBackOff'");
+    expect(lesson.concept.join(' ')).toMatch(/Pending, Running, Succeeded, Failed and Unknown/);
+  });
+});

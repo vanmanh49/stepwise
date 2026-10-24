@@ -49,3 +49,10 @@ describe('Desired State & Controllers', () => {
     }
   });
 });
+
+describe('Desired State lesson wording', () => {
+  it("doesn't say a crash removes a pod: the kubelet restarts the container in place", async () => {
+    const lesson = (await import('../../lessons/kubernetes/desired-state-controllers')).default;
+    expect(lesson.concept.join(' ')).not.toMatch(/a crash/);
+  });
+});

@@ -12,7 +12,7 @@ const content: LessonContent = {
   overview:
     'A pod is the smallest thing Kubernetes runs: one or more containers that share an address and run on the same node. This lesson runs one pod whose container keeps exiting, and shows what the kubelet does about it under each restart policy.',
   concept: [
-    'A pod goes through phases: Pending (no node yet), ContainerCreating (the image is being pulled), Running, and finally Completed or Failed if its containers stop for good.',
+    'kubectl get pods shows each pod\'s status: Pending (no node yet), ContainerCreating (the image is being pulled), Running, CrashLoopBackOff, and finally Completed or Failed once its containers stop for good. Underneath, Kubernetes keeps only five phases: Pending, Running, Succeeded, Failed and Unknown. ContainerCreating and CrashLoopBackOff are reasons a container is waiting, and a crash-looping pod\'s phase stays Running.',
     'When a container exits, the kubelet on its node looks at the pod\'s restart policy. Always restarts it whatever happened; OnFailure restarts it only if it failed (a non-zero exit code); Never leaves it stopped.',
     'A container that keeps crashing is restarted with a growing wait in between: 10 s, 20 s, 40 s and so on, up to 160 s. While it waits, the pod shows CrashLoopBackOff. The wait resets once the container runs for a while (60 s here).',
     'The kubelet restarts the container in place: same pod, same node, restart count + 1. A pod on its own is never moved or replaced; that is what controllers such as ReplicaSets are for.',
