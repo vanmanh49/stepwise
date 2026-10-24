@@ -1,5 +1,6 @@
 import { EventQueue } from '../utils/eventQueue';
 import { seeded } from '../utils/random';
+import { autoscalerTick, bootNode, type AutoscalerState } from './controllers/autoscaler';
 import { reconcileDeployments, rolledBack, withImage } from './controllers/deployment';
 import { reconcileEndpoints } from './controllers/endpoints';
 import { reconcileHpas, type HpaHistory } from './controllers/hpa';
@@ -10,6 +11,7 @@ import type { Env, Timer } from './env';
 import { applyNoExecute, evictForTaint, requestEviction } from './evict';
 import { createKubelet } from './kubelet';
 import {
+  CA_SCAN_S,
   HEARTBEAT_S,
   HPA_SYNC_S,
   MAX_TIME,
@@ -59,11 +61,12 @@ type Item =
   | { kind: 'heartbeat' }
   | { kind: 'node-check' }
   | { kind: 'metrics' }
-  | { kind: 'hpa' };
+  | { kind: 'hpa' }
+  | { kind: 'autoscaler' };
 
 /** Recurring work that never keeps a run alive on its own. */
 const periodic = (item: Item) =>
-  item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics' || item.kind === 'hpa' || (item.kind === 'timer' && item.timer.kind === 'kubelet' && item.timer.step === 'probe');
+  item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics' || item.kind === 'hpa' || item.kind === 'autoscaler' || (item.kind === 'timer' && item.timer.kind === 'kubelet' && item.timer.step === 'probe');
 
 /** Runs a scenario: kubectl actions and faults at their times, then every controller reacting until the cluster settles. */
 export function simulate(scenario: Scenario): SimResult {
@@ -86,6 +89,7 @@ export function simulate(scenario: Scenario): SimResult {
   /** Requests per second at each metrics tick, for the traffic strip. */
   const traffic: number[] = [];
   const hpaHistory: HpaHistory = new Map();
+  const autoscaler: AutoscalerState = { unneededSince: new Map(), maxNoted: false };
   let now = 0;
   let live = 0;
   let current: Group | undefined;
@@ -260,6 +264,10 @@ export function simulate(scenario: Scenario): SimResult {
   };
 
   for (const { name, cpu, ...extra } of scenario.nodes) store.write({ op: 'create', object: { kind: 'Node', name, cpu, ready: true, lastHeartbeat: 0, ...extra } });
+  const pool = scenario.pool;
+  for (let i = 1; i <= (pool?.min ?? 0); i++) {
+    store.write({ op: 'create', object: { kind: 'Node', name: `pool-${i}`, cpu: pool!.cpu, memory: pool!.memory, ready: true, lastHeartbeat: 0, pool: true, ...(pool!.labels && { labels: pool!.labels }) } });
+  }
   // Pushed first, so at equal times faults come before actions, and both before anything the run schedules.
   for (const f of scenario.faults) {
     if (f.kind === 'down') {
@@ -272,6 +280,7 @@ export function simulate(scenario: Scenario): SimResult {
   push(NODE_CHECK_S, { kind: 'node-check' });
   if (scenario.load || scenario.faults.some((f) => f.kind === 'leak')) push(METRICS_S, { kind: 'metrics' });
   if (scenario.actions.some((a) => a.kind === 'apply' && a.object.kind === 'HorizontalPodAutoscaler')) push(HPA_SYNC_S, { kind: 'hpa' });
+  if (pool) push(CA_SCAN_S, { kind: 'autoscaler' });
 
   let cutOff = false;
   let endedAt = 0;
@@ -315,7 +324,8 @@ export function simulate(scenario: Scenario): SimResult {
           const pod = store.get('Pod', timer.pod);
           const taint = store.get('Node', timer.node)?.taints?.find((t) => t.effect === 'NoExecute');
           if (pod && pod.node === timer.node && taint) evictForTaint(env, pod, taint);
-        } else kubelet.fire(timer);
+        } else if (timer.kind === 'boot') bootNode(env, timer.node);
+        else kubelet.fire(timer);
         break;
       }
       case 'heartbeat':
@@ -333,6 +343,10 @@ export function simulate(scenario: Scenario): SimResult {
           for (const change of reconcileHpas(ctx(), hpaHistory)) apply(change);
         }
         push(now + HPA_SYNC_S, item);
+        break;
+      case 'autoscaler':
+        if (!down.has('controllers') && store.etcdUp) autoscalerTick(env, pool!, autoscaler);
+        push(now + CA_SCAN_S, item);
         break;
       case 'node-check':
         // Node lifecycle runs in the controller manager and needs etcd.
