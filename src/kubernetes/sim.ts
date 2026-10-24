@@ -199,7 +199,7 @@ export function simulate(scenario: Scenario): SimResult {
     if (name === 'etcd') store.etcdUp = up;
     if (up) down.delete(name);
     else down.add(name);
-    const label = name === 'controllers' ? 'the controller manager' : name;
+    const label = name === 'controllers' ? 'The controller manager' : name;
     record({ kind: up ? 'component-up' : 'component-down', by: name, subjects: [name], text: up ? `${label} is back` : `${label} goes down` });
     if (!up) return;
     // Level-triggered: on return, each controller reads the current state once and catches up.

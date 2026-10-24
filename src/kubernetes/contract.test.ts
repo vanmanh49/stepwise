@@ -17,6 +17,7 @@ function valueFor(field: FormField, r: () => number, range?: [number, number]): 
 /** The valid range of each number field, so random runs exercise real settings and their extremes. */
 const RANGES: Record<string, Record<string, [number, number]>> = {
   'cluster-architecture': { nodes: [1, 3], replicas: [1, 3] },
+  'desired-state-controllers': { desired: [1, 5], deleted: [0, 3] },
 };
 
 function checkSteps(steps: Step[], lines: number, label: string) {

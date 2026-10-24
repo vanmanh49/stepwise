@@ -32,4 +32,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['labels', 'selectors', 'label selector', 'equality', 'set-based', 'matchLabels', 'matchExpressions', 'kubectl -l'],
     prerequisites: ['pods'],
   },
+  {
+    id: 'desired-state-controllers',
+    title: 'Desired State & Controllers',
+    category: 'kubernetes',
+    difficulty: 'beginner',
+    group: 'Foundations',
+    description: 'Delete pods by hand and take the controller away, then watch the reconcile loop put everything back.',
+    keywords: ['desired state', 'controller', 'reconcile', 'reconciliation loop', 'level-triggered', 'self-healing', 'declarative', 'control loop'],
+    prerequisites: ['labels-selectors'],
+  },
 ];

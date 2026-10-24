@@ -69,6 +69,8 @@ function mergedTitle(frames: Frame[]): string {
       return `${n} pods on ${e.node} are Lost: ${names(frames)}`;
     case 'delete-pod':
       return `${n} pods are deleted: ${names(frames)}`;
+    case 'action':
+      return frames.every((f) => f.event.text.startsWith('kubectl deletes pod')) ? `kubectl deletes ${n} pods: ${names(frames)}` : frames.map((f) => f.event.text).join('; ');
     default:
       return frames.map((f) => f.event.text).join('; ');
   }
