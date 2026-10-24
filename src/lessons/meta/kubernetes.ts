@@ -202,4 +202,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['job', 'cronjob', 'batch', 'completions', 'parallelism', 'backoffLimit', 'activeDeadlineSeconds', 'concurrencyPolicy', 'schedule', 'cron'],
     prerequisites: ['daemonsets'],
   },
+  {
+    id: 'ingress',
+    title: 'Ingress',
+    category: 'kubernetes',
+    difficulty: 'advanced',
+    group: 'Workloads & Operations',
+    description: 'Route HTTP requests by host and path to Services through an ingress controller.',
+    keywords: ['ingress', 'ingress controller', 'ingress-nginx', 'host', 'path', 'Prefix', 'Exact', 'default backend', '404', '503', 'gateway api', 'http routing'],
+    prerequisites: ['jobs-cronjobs'],
+  },
 ];

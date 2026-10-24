@@ -27,6 +27,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   'cluster-autoscaler': { replicas: [2, 14], max: [2, 4] },
   statefulsets: { replicas: [1, 5] },
   'jobs-cronjobs': { completions: [1, 6], parallelism: [1, 3] },
+  ingress: { apiReplicas: [0, 2] },
 };
 
 function checkSteps(steps: Step[], lines: number, label: string) {
