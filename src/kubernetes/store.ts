@@ -46,6 +46,8 @@ export class Store {
       deployments: this.list('Deployment'),
       services: this.list('Service'),
       endpoints: this.list('Endpoints'),
+      hpas: this.list('HorizontalPodAutoscaler'),
+      pdbs: this.list('PodDisruptionBudget'),
     };
   }
 }

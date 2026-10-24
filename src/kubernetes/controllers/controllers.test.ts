@@ -55,6 +55,17 @@ describe('ReplicaSet controller', () => {
     expect(reconcileReplicaSets(ctxFor(store)).map((c) => c.event.kind)).toEqual(['delete-pod', 'create-pod']);
   });
 
+  it('copies resources, tolerations, affinity and probes from the template', () => {
+    const extras = {
+      resources: { cpu: { request: 250, limit: 500 } },
+      tolerations: [{ key: 'gpu', operator: 'Exists' as const }],
+      affinity: { node: { required: [{ key: 'disk', op: '=' as const, values: ['ssd'] }] } },
+      probes: { liveness: { periodS: 2, failureThreshold: 3 } },
+    };
+    const [change] = reconcileReplicaSets(ctxFor(storeWith(replicaSet('web-7f', 1, { template: { ...replicaSet('x', 0).template, ...extras } }))));
+    expect(change!.write!.object).toMatchObject(extras);
+  });
+
   it("ignores other owners' pods", () => {
     const changes = reconcileReplicaSets(ctxFor(storeWith(replicaSet('web-7f', 1), pod('web-9c-aaa', { owner: 'web-9c' }))));
     expect(changes.map((c) => c.event.kind)).toEqual(['create-pod']);

@@ -223,7 +223,7 @@ export function simulate(scenario: Scenario): SimResult {
     if (name === 'etcd') retry.clear();
   };
 
-  for (const node of scenario.nodes) store.write({ op: 'create', object: { kind: 'Node', name: node.name, cpu: node.cpu, ready: true, lastHeartbeat: 0 } });
+  for (const { name, cpu, ...extra } of scenario.nodes) store.write({ op: 'create', object: { kind: 'Node', name, cpu, ready: true, lastHeartbeat: 0, ...extra } });
   // Pushed first, so at equal times faults come before actions, and both before anything the run schedules.
   for (const f of scenario.faults) {
     if (f.kind === 'down') {

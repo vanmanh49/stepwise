@@ -43,6 +43,18 @@ const WHY: Record<TraceKind, string> = {
   fault: 'Something outside Kubernetes has gone wrong. Watch how long it takes the cluster to notice.',
   'component-down': 'While a control-plane component is down, the work it does waits.',
   'component-up': 'Controllers are level-triggered: when they come back they read the current state and fix everything at once, instead of replaying what they missed.',
+  filter: 'The scheduler first rules out nodes that can\'t take the pod, then scores the rest.',
+  metrics: 'Every few seconds the metrics pipeline reads each pod\'s CPU and memory use (every 5 s here; about 15 s in Kubernetes).',
+  throttle: 'The pod wants more CPU than its limit, so it is slowed down to the limit. CPU is shared, so going over it throttles; it never kills.',
+  'oom-kill': 'Memory can\'t be taken back, so a container that uses more than its memory limit is killed (OOMKilled, exit code 137) and restarted.',
+  evict: 'The pod is evicted: removed from its node so it can be replaced somewhere else.',
+  'evict-refused': 'Evicting this pod would leave fewer pods ready than the PodDisruptionBudget allows, so the eviction is refused and tried again later.',
+  'probe-fail': 'The kubelet\'s probe got no healthy answer. After enough failures in a row it acts.',
+  hpa: 'The HPA compares the pods\' average CPU with its target and sets the Deployment\'s replicas to bring them together.',
+  'node-add': 'Pods are Pending for lack of room, and a new node would fit them, so the Cluster Autoscaler adds one.',
+  'node-remove': 'This node has been mostly idle for a while and its pods fit elsewhere, so the Cluster Autoscaler drains and removes it.',
+  cordon: 'A cordoned node keeps its pods but gets no new ones.',
+  taint: 'A taint repels pods that don\'t tolerate it.',
   summary: 'This is where the run ends.',
 };
 

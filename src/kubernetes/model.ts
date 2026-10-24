@@ -19,6 +19,20 @@ export const EVICT_S = 10;
 export const BACKOFF_FIRST_S = 10;
 export const BACKOFF_CAP_S = 160;
 export const BACKOFF_RESET_S = 60;
+// Phase 2 timings, shortened the same way (Kubernetes defaults in the lessons).
+export const METRICS_S = 5;
+export const HPA_SYNC_S = 5;
+export const HPA_STABILISE_S = 30;
+export const HPA_TOLERANCE = 0.1;
+export const CA_SCAN_S = 5;
+export const NODE_BOOT_S = 20;
+export const CA_UNNEEDED_S = 60;
+export const CA_UTILISATION = 0.5;
+export const EVICT_RETRY_S = 5;
+export const PROBE_PERIOD_S = 2;
+export const PROBE_THRESHOLD = 3;
+export const BASE_MEMORY_MI = 64;
+export const NODE_MEMORY_MI = 8192;
 
 export type Component = 'kubectl' | 'api-server' | 'etcd' | 'scheduler' | 'controllers' | 'kubelet' | 'kube-proxy';
 export type Labels = Record<string, string>;
@@ -30,7 +44,44 @@ export interface Requirement {
 export type Selector = Requirement[];
 /** A pod count, or a percentage of the replicas. */
 export type Amount = number | `${number}%`;
-export interface Template {
+export interface Taint {
+  key: string;
+  value: string;
+  effect: 'NoSchedule' | 'PreferNoSchedule' | 'NoExecute';
+}
+export interface Toleration {
+  key: string;
+  operator: 'Equal' | 'Exists';
+  value?: string;
+  effect?: Taint['effect'];
+  /** For NoExecute: how long the pod may stay after the taint appears. */
+  seconds?: number;
+}
+export interface AntiTerm {
+  selector: Selector;
+  topologyKey: 'kubernetes.io/hostname' | 'zone';
+}
+export interface Probe {
+  periodS: number;
+  failureThreshold: number;
+  initialDelayS?: number;
+}
+/** CPU in millicores, memory in MiB. */
+export interface Resources {
+  cpu?: { request?: number; limit?: number };
+  memory?: { request?: number; limit?: number };
+}
+/** Optional pod settings phase 2 adds; leaving them out keeps phase 1 behaviour. */
+export interface PodExtras {
+  resources?: Resources;
+  tolerations?: Toleration[];
+  affinity?: {
+    node?: { required?: Selector; preferred?: { weight: number; selector: Selector }[] };
+    podAnti?: { required?: AntiTerm; preferred?: { weight: number; term: AntiTerm }[] };
+  };
+  probes?: { liveness?: Probe; readiness?: Probe; startup?: Probe };
+}
+export interface Template extends PodExtras {
   labels: Labels;
   image: string;
   cpu: number;
@@ -44,8 +95,18 @@ export interface NodeObj {
   cpu: number;
   ready: boolean;
   lastHeartbeat: number;
+  labels?: Labels;
+  taints?: Taint[];
+  /** Cordoned: no new pods. */
+  unschedulable?: boolean;
+  /** MiB; NODE_MEMORY_MI when absent. */
+  memory?: number;
+  /** Added by the autoscaler and still starting. */
+  booting?: boolean;
+  /** Belongs to the autoscaler's node pool. */
+  pool?: boolean;
 }
-export interface Pod {
+export interface Pod extends PodExtras {
   kind: 'Pod';
   name: string;
   labels: Labels;
@@ -59,6 +120,12 @@ export interface Pod {
   restartPolicy: Template['restartPolicy'];
   createdAt: number;
   reason?: string;
+  /** Millicores, from the latest metrics tick. */
+  cpuUsage?: number;
+  /** MiB, from the latest metrics tick. */
+  memoryUsage?: number;
+  throttled?: boolean;
+  lastTermination?: 'OOMKilled' | 'Error' | 'Evicted' | 'Liveness';
 }
 export interface ReplicaSet {
   kind: 'ReplicaSet';
@@ -91,12 +158,30 @@ export interface Endpoints {
   name: string;
   pods: string[];
 }
-export type Obj = NodeObj | Pod | ReplicaSet | Deployment | Service | Endpoints;
+export interface HorizontalPodAutoscaler {
+  kind: 'HorizontalPodAutoscaler';
+  name: string;
+  /** A Deployment. */
+  target: string;
+  min: number;
+  max: number;
+  targetCpuPercent: number;
+  desired?: number;
+  note?: string;
+}
+export interface PodDisruptionBudget {
+  kind: 'PodDisruptionBudget';
+  name: string;
+  selector: Selector;
+  minAvailable?: number;
+  maxUnavailable?: number;
+}
+export type Obj = NodeObj | Pod | ReplicaSet | Deployment | Service | Endpoints | HorizontalPodAutoscaler | PodDisruptionBudget;
 export type Kind = Obj['kind'];
 export type ObjOf<K extends Kind> = Extract<Obj, { kind: K }>;
 
 export type Action = { at: number } & (
-  | { kind: 'apply'; object: Pod | ReplicaSet | Deployment | Service }
+  | { kind: 'apply'; object: Pod | ReplicaSet | Deployment | Service | HorizontalPodAutoscaler | PodDisruptionBudget }
   /** A Deployment, else the ReplicaSet of that name. */
   | { kind: 'scale'; target: string; replicas: number }
   | { kind: 'set-image'; target: string; image: string }
@@ -104,6 +189,8 @@ export type Action = { at: number } & (
   | { kind: 'delete-pods'; owner: string; count: number }
   | { kind: 'rollback'; target: string }
   | { kind: 'request'; id: string; service: string }
+  | { kind: 'cordon' | 'uncordon' | 'drain'; node: string }
+  | { kind: 'taint'; node: string; taint: Taint }
 );
 
 export type Fault =
@@ -113,14 +200,27 @@ export type Fault =
   | { kind: 'bad-image'; image: string }
   /** The first Running pod (name order) whose name starts with prefix. */
   | { kind: 'not-ready'; prefix: string; at: number }
-  | { kind: 'down'; component: 'scheduler' | 'controllers' | 'etcd'; from: number; to: number };
+  | { kind: 'down'; component: 'scheduler' | 'controllers' | 'etcd'; from: number; to: number }
+  /** The app answers probes only `seconds` after its container starts. */
+  | { kind: 'slow-start'; prefix: string; seconds: number }
+  /** The app stops answering liveness probes from `at`. */
+  | { kind: 'hang'; prefix: string; at: number }
+  /** Memory grows by `miPerS` while the container runs. */
+  | { kind: 'leak'; prefix: string; miPerS: number };
 
 export interface Scenario {
-  nodes: { name: string; cpu: number }[];
+  nodes: { name: string; cpu: number; labels?: Labels; taints?: Taint[]; memory?: number }[];
   actions: Action[];
   faults: Fault[];
   /** Defaults to MAX_TIME. */
   until?: number;
+  /** Keep running to `until` even when only periodic work (metrics, HPA, autoscaler, probes) is left. */
+  runToEnd?: boolean;
+  /** Request rate over time, aimed at a Deployment's ready pods. */
+  load?: { target: string; points: [number, number][]; cpuPerRequest: number };
+  /** The Cluster Autoscaler's node pool. */
+  pool?: { cpu: number; memory: number; labels?: Labels; min: number; max: number };
+  schedulerStrategy?: 'LeastAllocated' | 'MostAllocated';
 }
 
 export type TraceKind =
@@ -149,7 +249,25 @@ export type TraceKind =
   | 'fault'
   | 'component-down'
   | 'component-up'
+  | 'filter'
+  | 'metrics'
+  | 'throttle'
+  | 'oom-kill'
+  | 'evict'
+  | 'evict-refused'
+  | 'probe-fail'
+  | 'hpa'
+  | 'node-add'
+  | 'node-remove'
+  | 'cordon'
+  | 'taint'
   | 'summary';
+
+/** The scheduler's view of one pod: each node's filter result or scores. */
+export interface Breakdown {
+  pod: string;
+  rows: { node: string; filtered?: string; scores?: Record<string, number>; total?: number; chosen?: boolean }[];
+}
 
 export interface TraceEvent {
   t: number;
@@ -161,6 +279,7 @@ export interface TraceEvent {
   /** Default narration with real values, e.g. "ReplicaSet web-7f creates web-7f-m4p". */
   text: string;
   reason?: string;
+  breakdown?: Breakdown;
 }
 
 export interface RequestState {
@@ -179,6 +298,10 @@ export interface Snapshot {
   deployments: Deployment[];
   services: Service[];
   endpoints: Endpoints[];
+  hpas: HorizontalPodAutoscaler[];
+  pdbs: PodDisruptionBudget[];
+  /** The traffic so far: current req/s and one value per metrics tick. */
+  load?: { rps: number; points: number[] };
   down: Component[];
   /** Nodes that are really down, whether or not the control plane has noticed yet. */
   offline: string[];
@@ -205,4 +328,38 @@ export function resolveAmount(amount: Amount, replicas: number, round: 'up' | 'd
   if (typeof amount === 'number') return amount;
   const exact = (parseFloat(amount) / 100) * replicas;
   return round === 'up' ? Math.ceil(exact) : Math.floor(exact);
+}
+
+/** CPU request in millicores: the explicit request, else the limit (Kubernetes copies it), else phase 1 cores. */
+export function cpuRequestM(p: Pick<Pod, 'cpu' | 'resources'>): number {
+  return p.resources?.cpu?.request ?? p.resources?.cpu?.limit ?? p.cpu * 1000;
+}
+
+export function memoryRequestMi(p: Pick<Pod, 'resources'>): number {
+  return p.resources?.memory?.request ?? p.resources?.memory?.limit ?? 0;
+}
+
+/** Guaranteed: CPU and memory limits equal to their requests; BestEffort: nothing set; otherwise Burstable. */
+export function qosOf(r: Resources | undefined): 'BestEffort' | 'Burstable' | 'Guaranteed' {
+  const set = [r?.cpu?.request, r?.cpu?.limit, r?.memory?.request, r?.memory?.limit].some((v) => v !== undefined);
+  if (!set) return 'BestEffort';
+  const pinned = (x?: { request?: number; limit?: number }) => x?.limit !== undefined && (x.request ?? x.limit) === x.limit;
+  return pinned(r?.cpu) && pinned(r?.memory) ? 'Guaranteed' : 'Burstable';
+}
+
+export function tolerates(tolerations: Toleration[] | undefined, taint: Taint): boolean {
+  return (tolerations ?? []).some(
+    (t) => t.key === taint.key && (t.effect === undefined || t.effect === taint.effect) && (t.operator === 'Exists' || t.value === taint.value),
+  );
+}
+
+/** The request rate at t: linear between points, constant before the first and after the last. */
+export function loadAt(points: [number, number][], t: number): number {
+  if (points.length === 0) return 0;
+  const after = points.findIndex(([at]) => at > t);
+  if (after === 0) return points[0]![1];
+  if (after === -1) return points.at(-1)![1];
+  const [t0, r0] = points[after - 1]!;
+  const [t1, r1] = points[after]!;
+  return r0 + ((r1 - r0) * (t - t0)) / (t1 - t0);
 }
