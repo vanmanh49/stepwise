@@ -33,7 +33,7 @@ const WHY: Record<TraceKind, string> = {
   ready: 'The pod passes its readiness check and can now receive traffic.',
   'not-ready': "A pod that isn't ready keeps running, but it should get no new traffic.",
   exit: "The container's process has ended. The pod's restart policy decides what happens next.",
-  'back-off': 'Restarting a crashing container straight away wastes effort, so the kubelet waits, doubling the wait after each crash (up to 160 s).',
+  'back-off': 'Restarting a crashing container straight away wastes effort, so the kubelet waits, doubling the wait after each crash (up to 160 s here; 5 minutes by default).',
   restart: 'The wait is over, so the kubelet starts the container again.',
   'node-not-ready': `The control plane only learns that a node is gone when its heartbeats stop for longer than the grace period (${GRACE_S} s here; 40 s by default).`,
   lost: `Pods on a NotReady node can't be reached. After a short wait (${EVICT_S} s here; 5 minutes by default) they are deleted so they can be replaced.`,
@@ -61,6 +61,13 @@ const WHY: Record<TraceKind, string> = {
 
 const names = (frames: Frame[]) => frames.map((f) => f.event.subjects[0]).join(', ');
 
+/** What a merged step is about: node events by node, pod events by the pod's ReplicaSet (or the node it is on). */
+function ownerOf({ event, state }: Frame): string {
+  if (event.kind === 'lost' || event.kind === 'node-not-ready' || event.kind === 'evict') return event.node ?? '';
+  if (event.kind === 'create-pod' || event.kind === 'delete-pod') return event.subjects[1] ?? event.node ?? '';
+  return state.pods.find((p) => p.name === event.subjects[0])?.owner ?? event.node ?? '';
+}
+
 /** One title for several events of the same kind at the same second. */
 function mergedTitle(frames: Frame[]): string {
   const [first] = frames as [Frame, ...Frame[]];
@@ -82,6 +89,8 @@ function mergedTitle(frames: Frame[]): string {
       return `${n} pods on ${e.node} are Lost: ${names(frames)}`;
     case 'delete-pod':
       return `${n} pods are deleted: ${names(frames)}`;
+    case 'evict':
+      return `${n} pods are evicted from ${e.node}: ${names(frames)}`;
     case 'pull-fail': {
       const image = first.state.pods.find((p) => p.name === e.subjects[0])?.image ?? 'the image';
       return `kubelets can't pull ${image} for ${n} pods: ${names(frames)} (${e.reason})`;
@@ -114,8 +123,9 @@ export function traceSteps(result: SimResult, options: StepOptions): Step[] {
   const groups: Frame[][] = [];
   for (const frame of frames) {
     const group = groups.at(-1);
-    const head = group?.[0]?.event;
-    if (head && head.kind === frame.event.kind && head.by === frame.event.by && head.t === frame.event.t) group!.push(frame);
+    const head = group?.[0];
+    const same = head && head.event.kind === frame.event.kind && head.event.by === frame.event.by && head.event.t === frame.event.t && ownerOf(head) === ownerOf(frame);
+    if (same) group!.push(frame);
     else groups.push([frame]);
   }
 

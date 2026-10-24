@@ -34,9 +34,10 @@ describe('rolesInView', () => {
         { id: '#2', label: 'to web', status: 'failed' },
         { id: '#3', label: 'to web', status: 'pending' },
       ],
+      scoring: { pod: 'web-b', rows: [{ node: 'node-1', role: 'found' }, { node: 'node-2', role: 'discarded' }] },
       log: [],
     };
-    expect(rolesInView(view)).toEqual(['active', 'default', 'found', 'frontier', 'compare', 'found', 'discarded']);
+    expect(rolesInView(view)).toEqual(['active', 'default', 'found', 'frontier', 'compare', 'found', 'discarded', 'found', 'discarded']);
   });
 
   it('collects the roles of every row in a table view', () => {

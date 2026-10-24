@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { ClusterView, Role } from '../../../types/visualization';
 import { ROLE_META, roleBoxStyle } from '../roles';
+import { Meter, ScoringTable, TrafficStrip } from './ClusterParts';
 import { EventLog } from './EventLog';
 import { RequestStatus } from './RequestStatus';
 
@@ -46,20 +47,41 @@ function PodChip({ pod }: { pod: PodView }) {
           {pod.phase}
           {pod.ready ? ' · ready' : ''}
           {pod.badge && ` · ${pod.badge}`}
+          {pod.qos && ` · ${pod.qos}`}
         </span>
+        {pod.note && <strong className="block text-[10px]">{pod.note}</strong>}
+        {pod.cpu && (
+          <Meter
+            label={`${pod.name} CPU use`}
+            used={pod.cpu.used}
+            max={Math.max(pod.cpu.limit ?? 0, pod.cpu.request ?? 0, pod.cpu.used, 1)}
+            limit={pod.cpu.limit}
+            text={`${pod.cpu.used}m${pod.cpu.request !== undefined ? `/${pod.cpu.request}m` : ''}`}
+          />
+        )}
       </Chip>
     </li>
   );
 }
 
 function NodeBox({ node }: { node: NodeBoxView }) {
-  const status = !node.ready ? '✕ NotReady' : node.offline ? '… no heartbeats' : 'Ready';
+  const status = node.booting ? '… booting' : !node.ready ? '✕ NotReady' : node.offline ? '… no heartbeats' : node.cordoned ? 'Ready · cordoned' : 'Ready';
+  const badges = [...(node.labels ?? []), ...(node.taints ?? [])];
   return (
     <section aria-label={`${node.name}, ${status}`} className="flex min-w-0 flex-col gap-2 rounded-lg border-2 p-2" style={roleBoxStyle(node.role)}>
       <header className="flex items-baseline justify-between gap-2 font-mono text-xs">
         <span className="font-semibold">{node.name}</span>
         <span className="text-[11px]">{status}</span>
       </header>
+      {badges.length > 0 && (
+        <ul aria-label={`${node.name} labels and taints`} className="flex flex-wrap gap-1 font-mono text-[10px]">
+          {badges.map((b) => (
+            <li key={b} className="rounded border border-current px-1 opacity-80">
+              {b}
+            </li>
+          ))}
+        </ul>
+      )}
       {node.pods.length > 0 ? (
         <ul className="flex flex-wrap gap-1">
           {node.pods.map((pod) => (
@@ -69,18 +91,9 @@ function NodeBox({ node }: { node: NodeBoxView }) {
       ) : (
         <p className="text-[11px] opacity-70">No pods</p>
       )}
-      <div
-        role="meter"
-        aria-label={`${node.name} CPU requested`}
-        aria-valuemin={0}
-        aria-valuemax={node.cpu.capacity}
-        aria-valuenow={node.cpu.used}
-        className="mt-auto flex items-center gap-2 font-mono text-[10px]"
-      >
-        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[color:var(--border)]">
-          <span className="block h-full rounded-full bg-[color:var(--text-muted)]" style={{ width: `${Math.min(100, (node.cpu.used / node.cpu.capacity) * 100)}%` }} />
-        </span>
-        {node.cpu.used}/{node.cpu.capacity} CPU
+      <div className="mt-auto flex flex-col gap-1">
+        <Meter label={`${node.name} CPU requested`} used={node.cpu.used} max={node.cpu.capacity} text={`${node.cpu.used}/${node.cpu.capacity} CPU`} />
+        {node.memory && <Meter label={`${node.name} memory used`} used={node.memory.used} max={node.memory.capacity} text={`${node.memory.used}/${node.memory.capacity} MiB`} />}
       </div>
     </section>
   );
@@ -179,6 +192,7 @@ export function ClusterRenderer({ view }: { view: ClusterView }) {
   return (
     <div className="flex w-full max-w-full flex-col gap-3">
       <ControlPlane components={view.controlPlane} />
+      {view.traffic && <TrafficStrip traffic={view.traffic} />}
       {view.nodes.length > 0 && (
         <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(10rem,1fr))]">
           {view.nodes.map((node) => (
@@ -187,6 +201,7 @@ export function ClusterRenderer({ view }: { view: ClusterView }) {
         </div>
       )}
       <PendingTray pods={view.pending} />
+      {view.scoring && <ScoringTable scoring={view.scoring} />}
       <ObjectsTable objects={view.objects} />
       {view.requests && <RequestList requests={view.requests} />}
       <EventLog lines={view.log} />
