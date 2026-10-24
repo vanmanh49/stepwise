@@ -9,7 +9,9 @@ export type Timer =
   | { kind: 'evict-retry'; pod: string; by: 'kubectl' | 'controllers' }
   | { kind: 'noexecute'; pod: string; node: string }
   | { kind: 'boot'; node: string }
-  | { kind: 'provision'; claim: string };
+  | { kind: 'provision'; claim: string }
+  /** Wakes the Job controller when a back-off or a deadline ends. */
+  | { kind: 'job-sync' };
 
 /** What the kubelet and node lifecycle get from the simulator. */
 export interface Env {
@@ -23,4 +25,6 @@ export interface Env {
   /** When etcd or the controller manager last came back: heartbeats missed while they were down don't count. */
   recoveredAt(): number;
   faults: Fault[];
+  /** The run's seeded random numbers, for generated names. */
+  rng: () => number;
 }

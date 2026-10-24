@@ -31,6 +31,8 @@ const freshProbes = () => ({ failures: { startup: 0, liveness: 0, readiness: 0 }
 /** One kubelet per node, run as one: starts the pods bound to each live node and keeps them running. */
 export function createKubelet(env: Env) {
   const work = new Map<string, Work>();
+  /** Failed runs per owner, for workloads that fail their first few times. */
+  const ownerFailures = new Map<string, number>();
   const by = (pod: Pod) => ({ by: 'kubelet' as const, node: pod.node!, subjects: [pod.name] });
   const crash = (pod: Pod) => env.faults.find((f) => f.kind === 'crash' && pod.name.startsWith(f.prefix)) as Extract<Env['faults'][number], { kind: 'crash' }> | undefined;
   const badImage = (image: string) => env.faults.some((f) => f.kind === 'bad-image' && f.image === image);
@@ -136,10 +138,21 @@ export function createKubelet(env: Env) {
     if (!pod.probes?.readiness && !pod.probes?.startup) timer(READY_S, 'ready', pod, w);
     const fault = crash(pod);
     if (fault) timer(fault.afterS, 'exit', pod, w);
+    else if (pod.run) timer(pod.run.seconds, 'exit', pod, w);
   }
 
   /** The container stops: on its own (a crash fault), or killed for using too much memory or failing its liveness probe. */
-  function exit(pod: Pod, w: Work, end: Termination = { code: crash(pod)!.exitCode }) {
+  /** How a container that exits on its own ends: a crash fault's code, or a finishing workload's (failing its owner's first failFirst runs). */
+  function endOf(pod: Pod): Termination {
+    if (!pod.run || crash(pod)) return { code: crash(pod)!.exitCode };
+    const key = pod.owner ?? pod.name;
+    const failed = ownerFailures.get(key) ?? 0;
+    const code = failed < (pod.run.failFirst ?? 0) ? 1 : pod.run.exitCode;
+    if (code !== 0) ownerFailures.set(key, failed + 1);
+    return { code };
+  }
+
+  function exit(pod: Pod, w: Work, end: Termination = endOf(pod)) {
     const ran = env.now() - w.startedAt;
     const again = pod.restartPolicy === 'Always' || (pod.restartPolicy === 'OnFailure' && end.code !== 0);
     const final: PodPhase = again ? 'CrashLoopBackOff' : end.code === 0 ? 'Completed' : 'Failed';

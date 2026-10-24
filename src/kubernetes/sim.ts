@@ -1,10 +1,12 @@
 import { EventQueue } from '../utils/eventQueue';
 import { seeded } from '../utils/random';
 import { autoscalerTick, bootNode, type AutoscalerState } from './controllers/autoscaler';
+import { cronTick } from './controllers/cronjob';
 import { reconcileDaemonSets } from './controllers/daemonset';
 import { reconcileDeployments, rolledBack, withImage } from './controllers/deployment';
 import { reconcileEndpoints } from './controllers/endpoints';
 import { reconcileHpas, type HpaHistory } from './controllers/hpa';
+import { reconcileJobs, type JobState } from './controllers/job';
 import { reconcileReplicaSets } from './controllers/replicaset';
 import { detachIdle, provision, reconcileVolumes, usersOf } from './controllers/volumes';
 import { schedule } from './controllers/scheduler';
@@ -17,6 +19,7 @@ import { createKubelet } from './kubelet';
 import {
   CA_SCAN_S,
   CONFIG_SYNC_S,
+  CRON_CHECK_S,
   DATA_S,
   HEARTBEAT_S,
   HPA_SYNC_S,
@@ -41,7 +44,7 @@ import { dataTick } from './storage';
 import { checkNodes, evict, heartbeat } from './nodes';
 import { Store } from './store';
 
-type Group = 'replicaset' | 'deployment' | 'endpoints' | 'scheduler' | 'kubelet' | 'volumes' | 'statefulset' | 'daemonset';
+type Group = 'replicaset' | 'deployment' | 'endpoints' | 'scheduler' | 'kubelet' | 'volumes' | 'statefulset' | 'daemonset' | 'job';
 
 const GROUPS: Record<Group, { component: Component; watches: Kind[] }> = {
   deployment: { component: 'controllers', watches: ['Deployment', 'ReplicaSet', 'Pod'] },
@@ -52,10 +55,11 @@ const GROUPS: Record<Group, { component: Component; watches: Kind[] }> = {
   volumes: { component: 'controllers', watches: ['PersistentVolumeClaim', 'PersistentVolume', 'StorageClass', 'Pod'] },
   statefulset: { component: 'controllers', watches: ['StatefulSet', 'Pod', 'PersistentVolumeClaim'] },
   daemonset: { component: 'controllers', watches: ['DaemonSet', 'Node', 'Pod'] },
+  job: { component: 'controllers', watches: ['Job', 'Pod'] },
 };
 const ORDER = Object.keys(GROUPS) as Group[];
 
-const RECONCILERS: Record<Exclude<Group, 'kubelet' | 'volumes'>, Reconcile> = {
+const RECONCILERS: Record<Exclude<Group, 'kubelet' | 'volumes' | 'job'>, Reconcile> = {
   deployment: reconcileDeployments,
   replicaset: reconcileReplicaSets,
   endpoints: reconcileEndpoints,
@@ -76,7 +80,8 @@ type Item =
   | { kind: 'hpa' }
   | { kind: 'autoscaler' }
   | { kind: 'config-sync' }
-  | { kind: 'data' };
+  | { kind: 'data' }
+  | { kind: 'cron' };
 
 /** Whether an object's pods write data: a claim, or a pod template with a volume other than a ConfigMap. */
 function storesData(object: Extract<Action, { kind: 'apply' }>['object']): boolean {
@@ -88,7 +93,7 @@ function storesData(object: Extract<Action, { kind: 'apply' }>['object']): boole
 
 /** Recurring work that never keeps a run alive on its own. */
 const periodic = (item: Item) =>
-  item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics' || item.kind === 'hpa' || item.kind === 'autoscaler' || item.kind === 'config-sync' || item.kind === 'data' || (item.kind === 'timer' && item.timer.kind === 'kubelet' && item.timer.step === 'probe');
+  item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics' || item.kind === 'hpa' || item.kind === 'autoscaler' || item.kind === 'config-sync' || item.kind === 'data' || item.kind === 'cron' || (item.kind === 'timer' && item.timer.kind === 'kubelet' && item.timer.step === 'probe');
 
 /** Runs a scenario: kubectl actions and faults at their times, then every controller reacting until the cluster settles. */
 export function simulate(scenario: Scenario): SimResult {
@@ -113,6 +118,7 @@ export function simulate(scenario: Scenario): SimResult {
   const hpaHistory: HpaHistory = new Map();
   /** Claims waiting for their StorageClass to provision a volume. */
   const provisioning = new Set<string>();
+  const jobs: JobState = { retryAt: new Map(), deadlines: new Set() };
   const autoscaler: AutoscalerState = { unneededSince: new Map(), maxNoted: false };
   let now = 0;
   let live = 0;
@@ -173,6 +179,7 @@ export function simulate(scenario: Scenario): SimResult {
     offline,
     faults: scenario.faults,
     recoveredAt: () => recoveredAt,
+    rng,
   };
   const kubelet = createKubelet(env);
   const ctx = (): Ctx => ({ now, store, rng, ...(scenario.schedulerStrategy && { strategy: scenario.schedulerStrategy }) });
@@ -187,6 +194,7 @@ export function simulate(scenario: Scenario): SimResult {
       applyNoExecute(env);
       detachIdle(env);
     } else if (group === 'volumes') reconcileVolumes(env, provisioning);
+    else if (group === 'job') reconcileJobs(env, jobs);
     else for (const change of RECONCILERS[group](ctx())) apply(change);
     current = undefined;
   };
@@ -344,6 +352,7 @@ export function simulate(scenario: Scenario): SimResult {
   if (pool) push(CA_SCAN_S, { kind: 'autoscaler' });
   if (scenario.actions.some((a) => a.kind === 'apply' && a.object.kind === 'ConfigMap')) push(CONFIG_SYNC_S, { kind: 'config-sync' });
   if (scenario.actions.some((a) => a.kind === 'apply' && storesData(a.object))) push(DATA_S, { kind: 'data' });
+  if (scenario.actions.some((a) => a.kind === 'apply' && a.object.kind === 'CronJob')) push(CRON_CHECK_S, { kind: 'cron' });
 
   let cutOff = false;
   let endedAt = 0;
@@ -389,6 +398,7 @@ export function simulate(scenario: Scenario): SimResult {
           if (pod && pod.node === timer.node && taint) evictForTaint(env, pod, taint);
         } else if (timer.kind === 'boot') bootNode(env, timer.node);
         else if (timer.kind === 'provision') provision(env, timer.claim, provisioning);
+        else if (timer.kind === 'job-sync') run('job');
         else kubelet.fire(timer);
         break;
       }
@@ -411,6 +421,11 @@ export function simulate(scenario: Scenario): SimResult {
       case 'autoscaler':
         if (!down.has('controllers') && store.etcdUp) autoscalerTick(env, pool!, autoscaler);
         push(now + CA_SCAN_S, item);
+        break;
+      case 'cron':
+        // The CronJob controller runs in the controller manager and needs etcd.
+        if (!down.has('controllers') && store.etcdUp) cronTick(env);
+        push(now + CRON_CHECK_S, item);
         break;
       case 'data':
         dataTick(env);

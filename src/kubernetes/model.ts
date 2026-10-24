@@ -279,7 +279,8 @@ export interface JobStatus {
   active: number;
   succeeded: number;
   failed: number;
-  startedAt: number;
+  /** Set by the Job controller when it first sees the Job. */
+  startedAt?: number;
   condition?: 'Complete' | 'Failed';
   reason?: 'BackoffLimitExceeded' | 'DeadlineExceeded';
 }
