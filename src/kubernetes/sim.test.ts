@@ -74,6 +74,8 @@ describe('simulate', () => {
     const restarts = of(frames, 'restart').map((f) => f.event.t);
     expect(restarts.slice(0, 4).map((t, i) => t - exits[i]!)).toEqual([10, 20, 40, 80]);
     expect(of(frames, 'back-off')[0]!.state.pods[0]!.phase).toBe('CrashLoopBackOff');
+    // The container has stopped, so the pod no longer shows Running from the exit on.
+    expect(of(frames, 'exit')[0]!.state.pods[0]).toMatchObject({ phase: 'CrashLoopBackOff', ready: false });
     expect(last(frames).pods[0]!.restarts).toBe(restarts.length);
     // The loop never ends, so the run stops at until.
     expect(cutOff).toBe(true);

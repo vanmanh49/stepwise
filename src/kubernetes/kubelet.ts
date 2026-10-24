@@ -40,16 +40,13 @@ export function createKubelet(env: Env) {
     const ran = env.now() - w.startedAt;
     w.gen++; // a pending "ready" for this run no longer applies
     const again = pod.restartPolicy === 'Always' || (pod.restartPolicy === 'OnFailure' && fault.exitCode !== 0);
-    const final = again ? pod.phase : fault.exitCode === 0 ? 'Completed' : 'Failed';
+    const final = again ? 'CrashLoopBackOff' : fault.exitCode === 0 ? 'Completed' : 'Failed';
     const exited = { ...pod, phase: final, ready: false };
     env.apply({ write: { op: 'update', object: exited }, event: { kind: 'exit', ...by(pod), text: `${pod.name}'s container exits with code ${fault.exitCode} after ${ran} s${again ? '' : `: ${final}`}` } });
     if (!again) return;
     if (ran >= BACKOFF_RESET_S) w.level = 0;
     const wait = backoffS(w.level++);
-    env.apply({
-      write: { op: 'update', object: { ...exited, phase: 'CrashLoopBackOff' } },
-      event: { kind: 'back-off', ...by(pod), text: `kubelet waits ${wait} s before restarting ${pod.name} (CrashLoopBackOff)` },
-    });
+    env.apply({ event: { kind: 'back-off', ...by(pod), text: `kubelet waits ${wait} s before restarting ${pod.name} (CrashLoopBackOff)` } });
     timer(wait, 'restart', pod, w);
   }
 

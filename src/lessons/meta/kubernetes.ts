@@ -12,4 +12,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['kubernetes', 'control plane', 'api server', 'etcd', 'scheduler', 'controller manager', 'kubelet', 'node'],
     prerequisites: [],
   },
+  {
+    id: 'pods',
+    title: 'Pods',
+    category: 'kubernetes',
+    difficulty: 'beginner',
+    group: 'Foundations',
+    description: 'Run one pod whose container keeps crashing, and see what each restart policy and CrashLoopBackOff do.',
+    keywords: ['pod', 'container', 'restart policy', 'crashloopbackoff', 'back-off', 'exit code', 'kubelet', 'phase'],
+    prerequisites: ['cluster-architecture'],
+  },
 ];

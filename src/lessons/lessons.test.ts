@@ -121,6 +121,7 @@ const EXPECTED_IDS = [
   'strangler-fig',
   'service-mesh',
   'cluster-architecture',
+  'pods',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -158,7 +159,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
     expect(lessonsIn('microservices')).toHaveLength(23);
-    expect(lessonsIn('kubernetes')).toHaveLength(1);
+    expect(lessonsIn('kubernetes')).toHaveLength(2);
   });
 
   it('links previous and next lessons within a category', () => {
