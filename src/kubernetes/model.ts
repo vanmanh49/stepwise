@@ -457,6 +457,7 @@ export type TraceKind =
   | 'taint'
   | 'config'
   | 'config-error'
+  | 'create-claim'
   | 'bind-volume'
   | 'provision'
   | 'attach'

@@ -58,6 +58,7 @@ const WHY: Record<TraceKind, string> = {
   taint: 'A taint repels pods that don\'t tolerate it.',
   config: 'The kubelet re-reads mounted ConfigMaps on its sync (every 10 s here; within about a minute by default), so files follow edits. Environment variables never do.',
   'config-error': "The container's settings come from a ConfigMap or Secret that doesn't exist yet, so the kubelet can't start it. It tries again on every sync.",
+  'create-claim': 'A StatefulSet gives each pod its own PersistentVolumeClaim, named after the pod, and keeps it when the pod goes.',
   'bind-volume': 'A PersistentVolumeClaim asks for storage; the volume controller binds it to the smallest free PersistentVolume that fits.',
   provision: 'No existing volume fits, but the claim names a StorageClass, so a new volume is created for it.',
   attach: 'Before the container starts, its volume is attached to the node.',

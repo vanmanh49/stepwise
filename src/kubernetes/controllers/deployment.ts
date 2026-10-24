@@ -5,7 +5,7 @@ import type { Change, Reconcile } from './types';
 const sameTemplate = (a: Template, b: Template) => JSON.stringify(a) === JSON.stringify(b);
 
 /** `kubectl set image`: the old template goes into history and the revision moves on. */
-export function withImage(d: Deployment, image: string): Deployment {
+export function withImage<T extends { template: Template; history: Template[]; revision: number }>(d: T, image: string): T {
   return { ...d, template: { ...d.template, image }, history: [...d.history, d.template], revision: d.revision + 1 };
 }
 

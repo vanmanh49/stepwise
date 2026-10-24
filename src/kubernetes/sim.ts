@@ -7,6 +7,7 @@ import { reconcileHpas, type HpaHistory } from './controllers/hpa';
 import { reconcileReplicaSets } from './controllers/replicaset';
 import { detachIdle, provision, reconcileVolumes, usersOf } from './controllers/volumes';
 import { schedule } from './controllers/scheduler';
+import { reconcileStatefulSets } from './controllers/statefulset';
 import type { Change, Ctx, Reconcile } from './controllers/types';
 import type { Env, Timer } from './env';
 import { applyNoExecute, evictForTaint, requestEviction } from './evict';
@@ -39,7 +40,7 @@ import { dataTick } from './storage';
 import { checkNodes, evict, heartbeat } from './nodes';
 import { Store } from './store';
 
-type Group = 'replicaset' | 'deployment' | 'endpoints' | 'scheduler' | 'kubelet' | 'volumes';
+type Group = 'replicaset' | 'deployment' | 'endpoints' | 'scheduler' | 'kubelet' | 'volumes' | 'statefulset';
 
 const GROUPS: Record<Group, { component: Component; watches: Kind[] }> = {
   deployment: { component: 'controllers', watches: ['Deployment', 'ReplicaSet', 'Pod'] },
@@ -48,6 +49,7 @@ const GROUPS: Record<Group, { component: Component; watches: Kind[] }> = {
   scheduler: { component: 'scheduler', watches: ['Pod', 'Node', 'PersistentVolumeClaim'] },
   kubelet: { component: 'kubelet', watches: ['Pod'] },
   volumes: { component: 'controllers', watches: ['PersistentVolumeClaim', 'PersistentVolume', 'StorageClass', 'Pod'] },
+  statefulset: { component: 'controllers', watches: ['StatefulSet', 'Pod', 'PersistentVolumeClaim'] },
 };
 const ORDER = Object.keys(GROUPS) as Group[];
 
@@ -56,6 +58,7 @@ const RECONCILERS: Record<Exclude<Group, 'kubelet' | 'volumes'>, Reconcile> = {
   replicaset: reconcileReplicaSets,
   endpoints: reconcileEndpoints,
   scheduler: schedule,
+  statefulset: reconcileStatefulSets,
 };
 
 type Item =
@@ -195,15 +198,15 @@ export function simulate(scenario: Scenario): SimResult {
         return;
       }
       case 'scale': {
-        const target = store.get('Deployment', action.target) ?? store.get('ReplicaSet', action.target);
+        const target = store.get('Deployment', action.target) ?? store.get('ReplicaSet', action.target) ?? store.get('StatefulSet', action.target);
         if (!target) return record(kubectl(`kubectl can't scale ${action.target}: not found`, [action.target]));
         apply({ write: { op: 'update', object: { ...target, replicas: action.replicas } }, event: kubectl(`kubectl scales ${target.kind} ${target.name} to ${action.replicas}`, [target.name]) });
         return;
       }
       case 'set-image': {
-        const d = store.get('Deployment', action.target);
+        const d = store.get('Deployment', action.target) ?? store.get('StatefulSet', action.target);
         if (!d) return record(kubectl(`kubectl can't update ${action.target}: not found`, [action.target]));
-        apply({ write: { op: 'update', object: withImage(d, action.image) }, event: kubectl(`kubectl sets Deployment ${d.name}'s image to ${action.image}`, [d.name]) });
+        apply({ write: { op: 'update', object: withImage(d, action.image) }, event: kubectl(`kubectl sets ${d.kind} ${d.name}'s image to ${action.image}`, [d.name]) });
         return;
       }
       case 'rollback': {
