@@ -20,6 +20,20 @@ function fitsPoolNode(pod: Pod, pool: Pool): boolean {
   return cpuRequestM(pod) <= pool.cpu * 1000 && memoryRequestMi(pod) <= pool.memory && (!required || matches(required, pool.labels ?? {}));
 }
 
+/** Pods a drain moves: DaemonSet pods stay with their node. */
+const movable = (p: Pod) => active(p) && p.ownerKind !== 'DaemonSet';
+
+/** Whether every pod can be placed on one of the other nodes, each on a single node (biggest first), not on CPU summed across them. */
+export function podsFitElsewhere(moving: Pod[], others: NodeObj[], pods: Pod[]): boolean {
+  const free = others.map((n) => n.cpu * 1000 - requested(n, pods));
+  for (const pod of moving.toSorted((a, b) => cpuRequestM(b) - cpuRequestM(a))) {
+    const i = free.findIndex((room) => room >= cpuRequestM(pod));
+    if (i === -1) return false;
+    free[i]! -= cpuRequestM(pod);
+  }
+  return true;
+}
+
 const requested = (node: NodeObj, pods: Pod[]) => pods.filter((p) => p.node === node.name && active(p)).reduce((s, p) => s + cpuRequestM(p), 0);
 
 /**
@@ -56,7 +70,7 @@ export function autoscalerTick(env: Env, pool: Pool, state: AutoscalerState) {
   // Finish a removal in progress once the node is empty.
   if (state.draining) {
     const node = env.store.get('Node', state.draining);
-    if (node && !pods.some((p) => p.node === node.name && active(p))) {
+    if (node && !pods.some((p) => p.node === node.name && movable(p))) {
       env.apply({ write: { op: 'delete', object: node }, event: { kind: 'node-remove', by: 'controllers', node: node.name, subjects: [node.name], text: `${node.name} is empty and is deleted` } });
       state.draining = undefined;
       state.unneededSince.delete(node.name);
@@ -76,14 +90,13 @@ export function autoscalerTick(env: Env, pool: Pool, state: AutoscalerState) {
     state.unneededSince.set(node.name, since);
     if (now - since < CA_UNNEEDED_S) continue;
     const others = nodes.filter((n) => n.name !== node.name && n.ready && !n.booting && !n.unschedulable);
-    const elsewhere = others.reduce((s, n) => s + n.cpu * 1000 - requested(n, pods), 0);
-    if (used > elsewhere) continue;
+    if (!podsFitElsewhere(pods.filter((p) => p.node === node.name && movable(p)), others, pods)) continue;
     state.draining = node.name;
     env.apply({
       write: { op: 'update', object: { ...node, unschedulable: true } },
       event: { kind: 'node-remove', by: 'controllers', node: node.name, subjects: [node.name], text: `Cluster Autoscaler removes ${node.name}: under ${CA_UTILISATION * 100}% requested for ${CA_UNNEEDED_S} s; it cordons and drains it first` },
     });
-    for (const pod of pods.filter((p) => p.node === node.name && active(p))) requestEviction(env, pod, 'controllers');
+    for (const pod of pods.filter((p) => p.node === node.name && movable(p))) requestEviction(env, pod, 'controllers');
     return;
   }
 }

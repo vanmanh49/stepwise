@@ -15,7 +15,7 @@ export const reconcileReplicaSets: Reconcile = (ctx) => {
   const notes: Change[] = [];
   const pods = ctx.store.list('Pod');
   for (const rs of ctx.store.list('ReplicaSet')) {
-    const mine = pods.filter((p) => p.owner === rs.name);
+    const mine = pods.filter((p) => p.owner === rs.name && (p.ownerKind ?? 'ReplicaSet') === 'ReplicaSet');
     const seen = `ReplicaSet ${rs.name} sees ${mine.length} of ${rs.replicas} pods`;
     if (mine.length < rs.replicas) {
       const taken = new Set<string>();

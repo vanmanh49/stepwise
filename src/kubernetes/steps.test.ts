@@ -114,3 +114,24 @@ describe('traceSteps', () => {
     expect(view.controlPlane.find((c) => c.id === 'scheduler')).toMatchObject({ role: 'discarded', badge: 'down' });
   });
 });
+
+describe('summary of phase 3 workloads', () => {
+  it('reports StatefulSets, DaemonSets and Jobs where the run ends', () => {
+    const tmpl = (app: string, extra = {}) => ({ labels: { app }, image: `${app}:1`, cpu: 1, restartPolicy: 'Never' as const, ...extra });
+    const sel = (app: string) => [{ key: 'app', op: '=' as const, values: [app] }];
+    const steps = traceSteps(
+      simulate({
+        nodes: [{ name: 'node-1', cpu: 4 }],
+        actions: [
+          { at: 0, kind: 'apply', object: { kind: 'StatefulSet', name: 'db', replicas: 2, selector: sel('db'), template: { ...tmpl('db'), restartPolicy: 'Always' }, serviceName: 'db', podManagementPolicy: 'OrderedReady', whenScaled: 'Retain', revision: 1, history: [] } },
+          { at: 0, kind: 'apply', object: { kind: 'DaemonSet', name: 'agent', selector: sel('agent'), template: { ...tmpl('agent'), restartPolicy: 'Always' }, revision: 1, history: [] } },
+          { at: 0, kind: 'apply', object: { kind: 'Job', name: 'report', template: tmpl('report', { run: { seconds: 100, exitCode: 0 } }), completions: 1, parallelism: 1, backoffLimit: 0, status: { active: 0, succeeded: 0, failed: 0 } } },
+        ],
+        faults: [],
+        until: 30,
+      }),
+      { code: 'x', lines: {} },
+    );
+    expect(steps.at(-1)!.title).toMatch(/StatefulSet db has 2 of 2 pods ready.*DaemonSet agent has 1 of 1 pods ready.*Job report has 0 of 1 completions/);
+  });
+});

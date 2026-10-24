@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { deploymentOf } from '../fixtures.testutil';
+import { deploymentOf, node, pod } from '../fixtures.testutil';
+import { podsFitElsewhere } from './autoscaler';
 import type { Frame, Scenario } from '../model';
 import { simulate } from '../sim';
 
@@ -52,5 +53,14 @@ describe('Cluster Autoscaler', () => {
     expect(removals[0]!.event.t).toBeGreaterThanOrEqual(80 + 60);
     expect(final!.nodes).toHaveLength(1);
     expect(final!.pods.filter((p) => p.ready)).toHaveLength(2);
+  });
+});
+
+describe('podsFitElsewhere', () => {
+  it('needs each pod to fit on one node, not on the free CPU summed across nodes', () => {
+    const others = [node('a', { cpu: 2 }), node('b', { cpu: 2 })];
+    const busy = [pod('x', { node: 'a', cpu: 1 }), pod('y', { node: 'b', cpu: 1 })];
+    expect(podsFitElsewhere([pod('big', { cpu: 1.5 })], others, busy)).toBe(false);
+    expect(podsFitElsewhere([pod('s1', { cpu: 1 }), pod('s2', { cpu: 1 })], others, busy)).toBe(true);
   });
 });

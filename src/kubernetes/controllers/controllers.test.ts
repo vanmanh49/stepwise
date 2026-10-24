@@ -135,3 +135,11 @@ describe('Endpoints controller', () => {
     expect(change!.event.text).toBe('Endpoints web: no ready pods');
   });
 });
+
+describe('ReplicaSet and pods of other owners', () => {
+  it("doesn't count a Job's pod that shares its name", () => {
+    const store = storeWith(replicaSet('web', 1), pod('web-abc', { owner: 'web', ownerKind: 'Job' }));
+    const changes = reconcileReplicaSets(ctxFor(store));
+    expect(changes.filter((c) => c.event.kind === 'create-pod')).toHaveLength(1);
+  });
+});

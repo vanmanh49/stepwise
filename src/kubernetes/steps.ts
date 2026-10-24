@@ -56,6 +56,21 @@ const WHY: Record<TraceKind, string> = {
   'node-remove': 'This node has been mostly idle for a while and its pods fit elsewhere, so the Cluster Autoscaler drains and removes it.',
   cordon: 'A cordoned node keeps its pods but gets no new ones.',
   taint: 'A taint repels pods that don\'t tolerate it.',
+  config: 'The kubelet re-reads mounted ConfigMaps on its sync (every 10 s here; within about a minute by default), so files follow edits. Environment variables never do.',
+  'config-error': "The container's settings come from a ConfigMap or Secret that doesn't exist yet, so the kubelet can't start it. It tries again on every sync.",
+  'create-claim': 'A StatefulSet gives each pod its own PersistentVolumeClaim, named after the pod, and keeps it when the pod goes.',
+  'bind-volume': 'A PersistentVolumeClaim asks for storage; the volume controller binds it to the smallest free PersistentVolume that fits.',
+  provision: 'No existing volume fits, but the claim names a StorageClass, so a new volume is created for it.',
+  attach: 'Before the container starts, its volume is attached to the node.',
+  'attach-fail': 'A ReadWriteOnce volume can be attached to one node at a time. While a pod on another node still uses it, this pod waits.',
+  reclaim: "The claim is gone, so the volume's reclaimPolicy decides: Delete removes it and its data, Retain keeps it for someone to recover.",
+  job: 'The Job controller keeps pods running until enough of them succeed, replacing failed ones up to its backoffLimit.',
+  cron: 'The CronJob controller checks every 10 s whether a scheduled run is due, and creates a Job for it.',
+  ingress: 'The Ingress controller matches the request\'s host and path against the Ingress rules and sends it to that Service\'s pods.',
+  'policy-drop': 'A NetworkPolicy selects this pod and none of its rules allows the traffic, so the packets are dropped. The client only sees a timeout.',
+  operator: 'The operator is a controller you install: it watches its custom resource and creates or fixes the ordinary objects that make it real.',
+  'node-join': 'A new node registers with the API server. Controllers that care about nodes react to it.',
+  records: 'The app keeps writing data. Watch where it is stored: on a volume that outlives the pod, or in the pod itself.',
   summary: 'This is where the run ends.',
 };
 
@@ -76,7 +91,7 @@ function mergedTitle(frames: Frame[]): string {
   const e = first.event;
   switch (e.kind) {
     case 'create-pod':
-      return `ReplicaSet ${e.subjects[1]} creates ${n} pods: ${names(frames)}`;
+      return `${first.state.pods.find((p) => p.name === e.subjects[0])?.ownerKind ?? 'ReplicaSet'} ${e.subjects[1]} creates ${n} pods: ${names(frames)}`;
     case 'bind':
       return `scheduler binds ${n} pods: ${frames.map((f) => `${f.event.subjects[0]} → ${f.event.node}`).join(', ')}`;
     case 'pull':
@@ -106,6 +121,8 @@ function mergedTitle(frames: Frame[]): string {
   }
 }
 
+const readyOf = (state: Snapshot, kind: 'StatefulSet' | 'DaemonSet', name: string) => state.pods.filter((p) => p.owner === name && p.ownerKind === kind && p.ready).length;
+
 /** Where a run ended: each workload's ready pods, then the requests. */
 function summary(state: Snapshot): string {
   const parts = [
@@ -115,6 +132,9 @@ function summary(state: Snapshot): string {
     }),
     ...state.replicaSets.filter((r) => !r.owner).map((r) => `ReplicaSet ${r.name} has ${state.pods.filter((p) => p.ready && p.owner === r.name).length} of ${r.replicas} pods ready`),
     ...state.pods.filter((p) => !p.owner).map((p) => `pod ${p.name} is ${p.phase}${p.restarts ? ` after ${p.restarts} restarts` : ''}`),
+    ...state.statefulSets.map((x) => `StatefulSet ${x.name} has ${readyOf(state, 'StatefulSet', x.name)} of ${x.replicas} pods ready`),
+    ...state.daemonSets.map((x) => `DaemonSet ${x.name} has ${readyOf(state, 'DaemonSet', x.name)} of ${state.pods.filter((p) => p.owner === x.name && p.ownerKind === 'DaemonSet').length} pods ready`),
+    ...state.jobs.map((j) => `Job ${j.name} has ${state.pods.filter((p) => p.owner === j.name && p.ownerKind === 'Job' && p.phase === 'Completed').length} of ${j.completions} completions${j.status.condition ? ` (${j.status.condition})` : ''}`),
   ];
   const ok = state.requests.filter((r) => r.status === 'ok').length;
   if (state.requests.length > 0) parts.push(`${ok} requests ok, ${state.requests.length - ok} failed`);

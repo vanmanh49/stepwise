@@ -1,9 +1,12 @@
-import { cpuRequestM, memoryRequestMi, NODE_MEMORY_MI, qosOf, tolerates, type AntiTerm, type Breakdown, type NodeObj, type Pod } from '../model';
+import { cpuRequestM, memoryRequestMi, NODE_MEMORY_MI, nodeLabels, qosOf, tolerates, type AntiTerm, type Breakdown, type NodeObj, type Pod, type Taint } from '../model';
 import { matches } from '../selector';
+import { claimsOf } from './volumes';
 import type { Change, Reconcile } from './types';
 
 /** Pods that no longer use their node's resources. */
 const finished = (p: Pod) => p.phase === 'Completed' || p.phase === 'Failed';
+/** The taint a cordoned node carries; DaemonSet pods tolerate it. */
+const UNSCHEDULABLE: Taint = { key: 'node.kubernetes.io/unschedulable', value: '', effect: 'NoSchedule' };
 const byName = (a: { name: string }, b: { name: string }) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 
 type Row = Breakdown['rows'][number];
@@ -25,6 +28,17 @@ export const schedule: Reconcile = (ctx) => {
   const most = ctx.strategy === 'MostAllocated';
 
   for (const pod of unbound) {
+    // VolumeBinding checks the pod's claims before any node is looked at.
+    const claim = claimsOf(pod).map((c) => ({ c, pvc: ctx.store.get('PersistentVolumeClaim', c) })).find(({ pvc }) => pvc?.phase !== 'Bound');
+    if (claim) {
+      const why = claim.pvc ? 'pod has unbound immediate PersistentVolumeClaims' : `persistentvolumeclaim "${claim.c}" not found`;
+      const reason = `0/${nodes.length} nodes are available: ${why}`;
+      if (pod.reason !== reason) {
+        const rows = nodes.toSorted(byName).map((n) => ({ node: n.name, filtered: why }));
+        changes.push({ write: { op: 'update', object: { ...pod, reason } }, event: { kind: 'unschedulable', by: 'scheduler', subjects: [pod.name], text: `scheduler can't place ${pod.name}: ${reason}`, reason, breakdown: { pod: pod.name, rows } } });
+      }
+      continue;
+    }
     const on = (node: NodeObj) => pods.filter((p) => bound.get(p.name) === node.name);
     const inDomain = (node: NodeObj, term: AntiTerm) => {
       const d = domain(node, term);
@@ -32,12 +46,12 @@ export const schedule: Reconcile = (ctx) => {
     };
     const filter = (node: NodeObj): string | undefined => {
       if (!node.ready || node.booting) return 'node(s) were not ready';
-      if (node.unschedulable) return 'node(s) were unschedulable';
+      if (node.unschedulable && !tolerates(pod.tolerations, UNSCHEDULABLE)) return 'node(s) were unschedulable';
       const taint = (node.taints ?? []).find((t) => t.effect !== 'PreferNoSchedule' && !tolerates(pod.tolerations, t));
       if (taint) return `node(s) had untolerated taint {${taint.key}: ${taint.value}}`;
       if (node.memoryPressure && qosOf(pod.resources) === 'BestEffort') return 'node(s) had memory pressure';
       const required = pod.affinity?.node?.required;
-      if (required && !matches(required, node.labels ?? {})) return "node(s) didn't match Pod's node affinity/selector";
+      if (required && !matches(required, nodeLabels(node))) return "node(s) didn't match Pod's node affinity/selector";
       const anti = pod.affinity?.podAnti?.required;
       if (anti && inDomain(node, anti) > 0) return "node(s) didn't match pod anti-affinity rules";
       const here = on(node);
@@ -65,7 +79,7 @@ export const schedule: Reconcile = (ctx) => {
       const scores: Record<string, number> = { NodeResourcesFit: Math.round(most ? 100 - least : least) };
       if (preferredNode.length > 0) {
         const total = preferredNode.reduce((s, p) => s + p.weight, 0);
-        const hit = preferredNode.filter((p) => matches(p.selector, node.labels ?? {})).reduce((s, p) => s + p.weight, 0);
+        const hit = preferredNode.filter((p) => matches(p.selector, nodeLabels(node))).reduce((s, p) => s + p.weight, 0);
         scores.NodeAffinity = Math.round((100 * hit) / total);
       }
       if (preferredAnti.length > 0) {

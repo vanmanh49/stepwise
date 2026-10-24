@@ -1,6 +1,8 @@
 import type { ClusterView, Role } from '../types/visualization';
 import { allowedDisruptions } from './evict';
-import { cpuRequestM, memoryRequestMi, NODE_MEMORY_MI, qosOf, type Frame, type Pod } from './model';
+import { daemonEligible } from './controllers/daemonset';
+import { cpuRequestM, memoryRequestMi, NODE_MEMORY_MI, qosOf, type Frame, type Pod, type Snapshot } from './model';
+import { formatSelector } from './selector';
 
 type Plane = ClusterView['controlPlane'][number];
 
@@ -26,11 +28,71 @@ function podRole(pod: Pod, touched: Set<string>): Role {
 
 const restarts = (pod: Pod) => (pod.restarts > 0 ? { badge: `↻ ${pod.restarts}` } : {});
 
-const NOTE: Record<NonNullable<Pod['lastTermination']>, string> = { OOMKilled: 'OOMKilled', Liveness: 'Liveness probe failed', Evicted: 'Evicted', Error: 'Error' };
+const NOTE: Record<NonNullable<Pod['lastTermination']>, string> = { OOMKilled: 'OOMKilled', Liveness: 'Liveness probe failed', Startup: 'Startup probe failed', Evicted: 'Evicted', Error: 'Error' };
+
+const format = (data: Record<string, string>) =>
+  Object.entries(data)
+    .map(([k, v]) => `${k}=${v}`)
+    .join(', ');
+const MODE = { ReadWriteOnce: 'RWO', ReadWriteMany: 'RWX' } as const;
+const RULE_ROLE = { match: 'found', deny: 'discarded' } as const;
+
+/** What phase 3 adds to a pod chip: the data it writes and the config it reads, and a StatefulSet pod's DNS name. */
+function podStorage(pod: Pod, state: Snapshot) {
+  const mounts = [
+    ...(pod.volumes ?? []).flatMap((v) => {
+      if ('emptyDir' in v) return [`emptyDir · ${pod.records ?? 0} records`];
+      if (!('claim' in v)) return [];
+      const pvc = state.claims.find((c) => c.name === v.claim);
+      const pv = pvc?.volume ? state.volumes.find((x) => x.name === pvc.volume) : undefined;
+      return [pv ? `${v.claim} · ${pv.records} records` : `${v.claim} · not bound`];
+    }),
+    ...(pod.config && Object.keys(pod.config).length > 0 ? [`config: ${format(pod.config)}`] : []),
+  ];
+  const set = pod.ownerKind === 'StatefulSet' ? state.statefulSets.find((s) => s.name === pod.owner) : undefined;
+  return { ...(mounts.length > 0 && { mounts }), ...(set && { dns: `${pod.name}.${set.serviceName}` }) };
+}
+
+/** Rows for the phase 3 kinds: storage, config, workloads that aren't Deployments, routing and the custom resource. */
+function phase3Rows(state: Snapshot, touched: Set<string>, row: (kind: string, name: string, desired: number, pods: Pod[], note?: string) => ClusterView['objects'][number]): ClusterView['objects'] {
+  const plain = (kind: string, name: string, note: string) => ({ kind, name, note, role: (touched.has(name) ? 'active' : 'default') as Role });
+  const ownedBy = (kind: Pod['ownerKind'], name: string) => state.pods.filter((p) => p.owner === name && p.ownerKind === kind);
+  return [
+    ...state.statefulSets.map((s) => row('StatefulSet', s.name, s.replicas, ownedBy('StatefulSet', s.name), s.template.image)),
+    ...state.daemonSets.map((d) => row('DaemonSet', d.name, state.nodes.filter((n) => daemonEligible(d, n)).length, ownedBy('DaemonSet', d.name), d.template.image)),
+    ...state.jobs.map((j) => {
+      const pods = ownedBy('Job', j.name);
+      const status = j.status.condition ? (j.status.reason ? `${j.status.condition}: ${j.status.reason}` : j.status.condition) : `${j.status.failed} failed`;
+      return { kind: 'Job', name: j.name, desired: j.completions, current: pods.filter((p) => p.phase !== 'Completed' && p.phase !== 'Failed').length, ready: pods.filter((p) => p.phase === 'Completed').length, note: status, role: (touched.has(j.name) || !j.status.condition ? 'active' : 'default') as Role };
+    }),
+    ...state.cronJobs.map((c) => plain('CronJob', c.name, `${c.schedule}, ${c.concurrencyPolicy}${c.lastScheduled ? `, last ${c.lastScheduled / 60} min` : ''}`)),
+    ...state.configMaps.map((c) => plain('ConfigMap', c.name, format(c.data))),
+    ...state.secrets.map((s) => plain('Secret', s.name, `${Object.entries(s.data).map(([k, v]) => `${k}: ${btoa(v)}`).join(', ')} (base64, not encrypted)`)),
+    ...state.storageClasses.map((c) => plain('StorageClass', c.name, `reclaimPolicy ${c.reclaimPolicy}`)),
+    ...state.claims.map((c) =>
+      plain('PersistentVolumeClaim', c.name, `${c.phase === 'Bound' ? `Bound to ${c.volume}` : 'Pending'}, ${c.requestGi}Gi ${MODE[c.accessMode]}${c.deleting ? ', Terminating (still in use)' : ''}`),
+    ),
+    ...state.volumes.map((v) =>
+      plain('PersistentVolume', v.name, `${v.phase === 'Bound' ? `Bound to ${v.claim}` : v.phase}, ${v.capacityGi}Gi ${MODE[v.accessMode]}, ${v.records} records${v.attachedTo ? `, attached to ${v.attachedTo}` : ''}`),
+    ),
+    ...state.ingresses.map((i) => {
+      const paths = i.rules.reduce((s, r) => s + r.paths.length, 0);
+      return plain('Ingress', i.name, state.ingressController ? `${paths} path${paths === 1 ? '' : 's'}${i.defaultBackend ? `, default ${i.defaultBackend}` : ''}` : 'no address: no ingress controller');
+    }),
+    ...state.networkPolicies.map((p) => plain('NetworkPolicy', p.name, `selects ${p.podSelector.length === 0 ? 'all pods' : formatSelector(p.podSelector)}, ${p.policyTypes.join(' + ')}`)),
+    ...state.crds.map((c) => plain('CustomResourceDefinition', c.name, `adds kind ${c.resource}`)),
+    ...state.databases.map((d) => {
+      const ready = state.pods.filter((p) => p.owner === d.name && p.ownerKind === 'StatefulSet' && p.phase === 'Running' && p.ready).length;
+      return { kind: 'Database', name: d.name, desired: d.spec.replicas, ready, note: `${d.status?.phase ?? 'new'}, v${d.status?.version ?? d.spec.version}`, role: (touched.has(d.name) ? 'active' : 'default') as Role };
+    }),
+  ];
+}
 
 /** What phase 2 adds to a pod chip, only when there is something to show. */
 function podExtras(pod: Pod) {
-  const note = pod.throttled ? 'throttled' : pod.lastTermination ? NOTE[pod.lastTermination] : undefined;
+  // A pod stuck before its container starts says why (Multi-Attach, a missing ConfigMap).
+  const waiting = (pod.phase === 'ContainerCreating' || pod.phase === 'CreateContainerConfigError') && pod.reason ? pod.reason : undefined;
+  const note = pod.throttled ? 'throttled' : (waiting ?? (pod.lastTermination ? NOTE[pod.lastTermination] : undefined));
   return {
     ...(pod.cpuUsage !== undefined && { cpu: { used: pod.cpuUsage, ...(pod.resources?.cpu?.request !== undefined && { request: pod.resources.cpu.request }), ...(pod.resources?.cpu?.limit !== undefined && { limit: pod.resources.cpu.limit }) } }),
     ...(pod.resources && { qos: qosOf(pod.resources) }),
@@ -45,6 +107,8 @@ export function emptyClusterView(): ClusterView {
 /** The cluster after a frame's event, with what that event (and any events merged with it) touched highlighted. */
 export function clusterView({ event, state }: Frame, log: string[], merged: Frame[] = []): ClusterView {
   const breakdown = [event, ...merged.map((f) => f.event)].find((e) => e.breakdown)?.breakdown;
+  const ruleTable = [event, ...merged.map((f) => f.event)].find((e) => e.rules)?.rules;
+  const rules = ruleTable && { ...ruleTable, rows: ruleTable.rows.map((r) => ({ cells: r.cells, role: (r.mark ? RULE_ROLE[r.mark] : 'default') as Role })) };
   const touched = new Set([event, ...merged.map((f) => f.event)].flatMap((e) => e.subjects));
   const kubeletNodes = new Set([event, ...merged.map((f) => f.event)].flatMap((e) => (e.by === 'kubelet' && e.node ? [e.node] : [])));
   const lit: Plane['id'] | undefined =
@@ -69,13 +133,13 @@ export function clusterView({ event, state }: Frame, log: string[], merged: Fram
       ...(node.unschedulable && { cordoned: true }),
       ...(node.booting && { booting: true }),
       ...(node.memoryPressure && { memoryPressure: true }),
-      pods: mine.map((p) => ({ name: p.name, phase: p.phase, ready: p.ready, role: podRole(p, touched), ...restarts(p), ...podExtras(p) })),
+      pods: mine.map((p) => ({ name: p.name, phase: p.phase, ready: p.ready, role: podRole(p, touched), ...restarts(p), ...podExtras(p), ...podStorage(p, state) })),
     };
   });
   const waiting = state.nodes.some((n) => n.booting);
   const pending = state.pods.filter((p) => !p.node).map((p) => ({ name: p.name, role: podRole(p, touched), ...(p.reason && { reason: p.reason }), ...(waiting && { badge: 'waiting for a node' }) }));
 
-  const podsOf = (owners: Set<string>) => state.pods.filter((p) => p.owner && owners.has(p.owner));
+  const podsOf = (owners: Set<string>) => state.pods.filter((p) => p.owner && owners.has(p.owner) && (p.ownerKind ?? 'ReplicaSet') === 'ReplicaSet');
   const row = (kind: string, name: string, desired: number, pods: Pod[], note?: string) => ({
     kind,
     name,
@@ -105,8 +169,10 @@ export function clusterView({ event, state }: Frame, log: string[], merged: Fram
       const count = state.endpoints.find((e) => e.name === s.name)?.pods.length ?? 0;
       return { kind: 'Service', name: s.name, note: `${count} endpoint${count === 1 ? '' : 's'}`, role: (touched.has(s.name) ? 'active' : 'default') as Role };
     }),
+    ...phase3Rows(state, touched, row),
   ];
-  const all = state.requests.map((r) => ({ id: r.id, label: `to ${r.service}`, status: r.status, ...(r.pod && { endpoint: r.pod }), ...(r.reason && { reason: r.reason }) }));
+  const label = (r: Snapshot['requests'][number]) => (r.host !== undefined ? `GET ${r.host}${r.path ?? '/'}` : r.from !== undefined ? `${r.from} → ${r.service}` : `to ${r.service}`);
+  const all = state.requests.map((r) => ({ id: r.id, label: label(r), status: r.status, ...(r.pod && { endpoint: r.pod }), ...(r.reason && { reason: r.reason }), ...(r.body && { body: r.body }) }));
   const requests = all.slice(-REQUEST_ROWS);
   const older = all.slice(0, -REQUEST_ROWS);
   const requestsEarlier = older.length > 0 && { count: older.length, ok: older.filter((r) => r.status === 'ok').length, failed: older.filter((r) => r.status === 'failed').length };
@@ -124,6 +190,7 @@ export function clusterView({ event, state }: Frame, log: string[], merged: Fram
     ...(requestsEarlier && { requestsEarlier }),
     ...(state.load && { traffic: state.load }),
     ...(scoring && { scoring }),
+    ...(rules && { rules }),
     log,
   };
 }

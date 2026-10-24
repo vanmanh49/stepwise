@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAmount, type Deployment, type Pod } from './model';
+import { resolveAmount, type CronJob, type Database, type Deployment, type Job, type Pod, type Template } from './model';
 import { Store } from './store';
 
 const pod = (name: string): Pod => ({
@@ -105,5 +105,38 @@ describe('resolveAmount', () => {
     expect(resolveAmount('25%', 2, 'down')).toBe(0);
     expect(resolveAmount('25%', 6, 'down')).toBe(1);
     expect(resolveAmount(1, 9, 'down')).toBe(1);
+  });
+});
+
+describe('Store, phase 3 validation', () => {
+  const job = (restartPolicy: Template['restartPolicy']): Job => ({
+    kind: 'Job',
+    name: 'report',
+    template: { labels: { app: 'report' }, image: 'report:v1', cpu: 1, restartPolicy },
+    completions: 1,
+    parallelism: 1,
+    backoffLimit: 2,
+    status: { active: 0, succeeded: 0, failed: 0, startedAt: 0 },
+  });
+  const always = 'Unsupported value: "Always": supported values: "OnFailure", "Never"';
+
+  it('refuses a Job whose pods would restart forever', () => {
+    expect(new Store().write({ op: 'create', object: job('Always') })).toEqual({ ok: false, reason: always });
+    expect(new Store().write({ op: 'create', object: job('Never') }).ok).toBe(true);
+  });
+
+  it("refuses a CronJob whose job template has restartPolicy Always", () => {
+    const { kind: _k, name: _n, status: _s, ...jobTemplate } = job('Always');
+    const cron: CronJob = { kind: 'CronJob', name: 'nightly', schedule: '*/1 * * * *', jobTemplate, concurrencyPolicy: 'Allow', successfulHistory: 3, failedHistory: 1 };
+    expect(new Store().write({ op: 'create', object: cron })).toEqual({ ok: false, reason: always });
+  });
+
+  it('serves Database only once its CRD exists', () => {
+    const store = new Store();
+    const db: Database = { kind: 'Database', name: 'db', spec: { replicas: 3, version: 15, backup: true } };
+    expect(store.write({ op: 'create', object: db })).toEqual({ ok: false, reason: 'no matches for kind "Database" in version "example.com/v1": ensure CRDs are installed first' });
+    store.write({ op: 'create', object: { kind: 'CustomResourceDefinition', name: 'databases.example.com', group: 'example.com', resource: 'Database' } });
+    expect(store.write({ op: 'create', object: db }).ok).toBe(true);
+    expect(store.snapshot().databases.map((d) => d.name)).toEqual(['db']);
   });
 });

@@ -50,7 +50,10 @@ export function metricsTick(env: Env, scenario: Scenario, hooks: MetricsHooks): 
     const used = pods.reduce((s, p) => s + (p.memoryUsage ?? 0), 0);
     const capacity = node.memory ?? NODE_MEMORY_MI;
     const pressure = used > capacity;
-    if (pressure !== !!node.memoryPressure) env.store.write({ op: 'update', object: { ...node, memoryPressure: pressure } });
+    if (pressure !== !!node.memoryPressure) {
+      const text = pressure ? `${node.name} is under memory pressure (${used} of ${capacity} MiB): the kubelet takes no new BestEffort pods there` : `${node.name}'s memory pressure is over: it takes BestEffort pods again`;
+      env.apply({ write: { op: 'update', object: { ...node, memoryPressure: pressure } }, event: { kind: 'taint', by: 'kubelet', node: node.name, subjects: [node.name], text } });
+    }
     if (!pressure) continue;
     const victim = pods.toSorted((a, b) => Number(overRequest(b) > 0) - Number(overRequest(a) > 0) || overRequest(b) - overRequest(a) || (a.name < b.name ? -1 : 1))[0]!;
     env.apply({

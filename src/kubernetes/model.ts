@@ -35,8 +35,19 @@ export const PROBE_PERIOD_S = 2;
 export const PROBE_THRESHOLD = 3;
 export const BASE_MEMORY_MI = 64;
 export const NODE_MEMORY_MI = 8192;
+// Phase 3 timings. Job back-off and CronJob checks use Kubernetes' real values; the config sync is shortened.
+/** The kubelet re-reads mounted ConfigMaps (within about a minute by default). */
+export const CONFIG_SYNC_S = 10;
+export const DATA_S = 5;
+/** A running app writes 1 record per second to each volume it mounts. */
+export const RECORDS_PER_TICK = 5;
+export const PROVISION_S = 3;
+export const ATTACH_S = 2;
+export const ATTACH_RETRY_S = 5;
+export const CRON_CHECK_S = 10;
+export const BACKUP_RUN_S = 20;
 
-export type Component = 'kubectl' | 'api-server' | 'etcd' | 'scheduler' | 'controllers' | 'kubelet' | 'kube-proxy';
+export type Component = 'kubectl' | 'api-server' | 'etcd' | 'scheduler' | 'controllers' | 'kubelet' | 'kube-proxy' | 'ingress' | 'operator';
 export type Labels = Record<string, string>;
 export interface Requirement {
   key: string;
@@ -82,6 +93,19 @@ export interface PodExtras {
     podAnti?: { required?: AntiTerm; preferred?: { weight: number; term: AntiTerm }[] };
   };
   probes?: { liveness?: Probe; readiness?: Probe; startup?: Probe };
+  /** Read once, when the container starts. */
+  env?: EnvVar[];
+  volumes?: Volume[];
+  /** A container that finishes: it exits after `seconds`; the owner's first `failFirst` containers exit 1. */
+  run?: { seconds: number; exitCode: 0 | 1; failFirst?: number };
+  /** `kubectl rollout restart` writes restartedAt here. */
+  annotations?: Labels;
+}
+export type OwnerKind = 'ReplicaSet' | 'StatefulSet' | 'DaemonSet' | 'Job';
+export type Volume = { name: string; emptyDir: true } | { name: string; claim: string } | { name: string; configMap: string };
+export interface EnvVar {
+  name: string;
+  from: { configMap: string; key: string } | { secret: string; key: string };
 }
 export interface Template extends PodExtras {
   labels: Labels;
@@ -89,7 +113,7 @@ export interface Template extends PodExtras {
   cpu: number;
   restartPolicy: 'Always' | 'OnFailure' | 'Never';
 }
-export type PodPhase = 'Pending' | 'ContainerCreating' | 'Running' | 'CrashLoopBackOff' | 'ImagePullBackOff' | 'Completed' | 'Failed' | 'Lost';
+export type PodPhase = 'Pending' | 'ContainerCreating' | 'Running' | 'CrashLoopBackOff' | 'ImagePullBackOff' | 'CreateContainerConfigError' | 'Completed' | 'Failed' | 'Lost';
 
 export interface NodeObj {
   kind: 'Node';
@@ -115,6 +139,8 @@ export interface Pod extends PodExtras {
   name: string;
   labels: Labels;
   owner?: string;
+  /** The owner's kind; absent means ReplicaSet. */
+  ownerKind?: OwnerKind;
   node?: string;
   phase: PodPhase;
   ready: boolean;
@@ -129,7 +155,11 @@ export interface Pod extends PodExtras {
   /** MiB, from the latest metrics tick. */
   memoryUsage?: number;
   throttled?: boolean;
-  lastTermination?: 'OOMKilled' | 'Error' | 'Evicted' | 'Liveness';
+  lastTermination?: 'OOMKilled' | 'Error' | 'Evicted' | 'Liveness' | 'Startup';
+  /** What the app reads from its ConfigMaps and Secrets now. */
+  config?: Record<string, string>;
+  /** Records in its emptyDir volumes: they go with the pod. */
+  records?: number;
 }
 export interface ReplicaSet {
   kind: 'ReplicaSet';
@@ -180,19 +210,178 @@ export interface PodDisruptionBudget {
   minAvailable?: number;
   maxUnavailable?: number;
 }
-export type Obj = NodeObj | Pod | ReplicaSet | Deployment | Service | Endpoints | HorizontalPodAutoscaler | PodDisruptionBudget;
+export interface ConfigMap {
+  kind: 'ConfigMap';
+  name: string;
+  data: Record<string, string>;
+}
+export interface Secret {
+  kind: 'Secret';
+  name: string;
+  /** Stored as given; the view shows it base64-encoded, which is all Kubernetes does by default. */
+  data: Record<string, string>;
+}
+export type AccessMode = 'ReadWriteOnce' | 'ReadWriteMany';
+export interface StorageClass {
+  kind: 'StorageClass';
+  name: string;
+  reclaimPolicy: 'Delete' | 'Retain';
+}
+export interface PersistentVolume {
+  kind: 'PersistentVolume';
+  name: string;
+  capacityGi: number;
+  accessMode: AccessMode;
+  storageClass?: string;
+  reclaimPolicy: 'Delete' | 'Retain';
+  phase: 'Available' | 'Bound' | 'Released';
+  claim?: string;
+  records: number;
+  /** The node it is attached to. */
+  attachedTo?: string;
+}
+export interface PersistentVolumeClaim {
+  kind: 'PersistentVolumeClaim';
+  name: string;
+  requestGi: number;
+  accessMode: AccessMode;
+  storageClass?: string;
+  phase: 'Pending' | 'Bound';
+  volume?: string;
+  /** Deleted while a pod still uses it: it goes once no pod does. */
+  deleting?: boolean;
+  /** The StatefulSet whose claim template made it. */
+  owner?: string;
+}
+export interface StatefulSet {
+  kind: 'StatefulSet';
+  name: string;
+  replicas: number;
+  selector: Selector;
+  template: Template;
+  serviceName: string;
+  podManagementPolicy: 'OrderedReady' | 'Parallel';
+  claims?: { name: string; requestGi: number; storageClass: string }[];
+  whenScaled: 'Retain' | 'Delete';
+  revision: number;
+  history: Template[];
+}
+export interface DaemonSet {
+  kind: 'DaemonSet';
+  name: string;
+  selector: Selector;
+  template: Template;
+  nodeSelector?: Labels;
+  revision: number;
+  history: Template[];
+}
+export interface JobStatus {
+  active: number;
+  succeeded: number;
+  failed: number;
+  /** Set by the Job controller when it first sees the Job. */
+  startedAt?: number;
+  condition?: 'Complete' | 'Failed';
+  reason?: 'BackoffLimitExceeded' | 'DeadlineExceeded';
+}
+export interface Job {
+  kind: 'Job';
+  name: string;
+  template: Template;
+  completions: number;
+  parallelism: number;
+  backoffLimit: number;
+  activeDeadlineS?: number;
+  /** The CronJob that made it. */
+  owner?: string;
+  status: JobStatus;
+}
+export interface CronJob {
+  kind: 'CronJob';
+  name: string;
+  /** "*\/N * * * *": every N minutes. */
+  schedule: string;
+  jobTemplate: Omit<Job, 'kind' | 'name' | 'status' | 'owner'>;
+  concurrencyPolicy: 'Allow' | 'Forbid' | 'Replace';
+  successfulHistory: number;
+  failedHistory: number;
+  /** The latest schedule time a Job was made (or skipped) for. */
+  lastScheduled?: number;
+}
+export interface IngressPath {
+  path: string;
+  pathType: 'Prefix' | 'Exact';
+  service: string;
+}
+export interface Ingress {
+  kind: 'Ingress';
+  name: string;
+  rules: { host?: string; paths: IngressPath[] }[];
+  defaultBackend?: string;
+}
+export interface NetworkPolicy {
+  kind: 'NetworkPolicy';
+  name: string;
+  /** [] selects every pod. */
+  podSelector: Selector;
+  policyTypes: ('Ingress' | 'Egress')[];
+  ingress?: { from: Selector[] }[];
+  /** dns: allow lookups (UDP 53 to kube-dns). */
+  egress?: { to: Selector[]; dns?: boolean }[];
+}
+export interface CustomResourceDefinition {
+  kind: 'CustomResourceDefinition';
+  name: string;
+  group: string;
+  resource: 'Database';
+}
+/** The one custom resource: the operator lesson's example. */
+export interface Database {
+  kind: 'Database';
+  name: string;
+  spec: { replicas: number; version: number; backup: boolean };
+  /** replicas: what the operator last set the StatefulSet to, so it can tell a hand edit from a spec change. */
+  status?: { phase: 'Creating' | 'Ready' | 'BackingUp' | 'Upgrading'; ready: number; version: number; replicas?: number };
+}
+export type Obj =
+  | NodeObj
+  | Pod
+  | ReplicaSet
+  | Deployment
+  | Service
+  | Endpoints
+  | HorizontalPodAutoscaler
+  | PodDisruptionBudget
+  | ConfigMap
+  | Secret
+  | StorageClass
+  | PersistentVolume
+  | PersistentVolumeClaim
+  | StatefulSet
+  | DaemonSet
+  | Job
+  | CronJob
+  | Ingress
+  | NetworkPolicy
+  | CustomResourceDefinition
+  | Database;
 export type Kind = Obj['kind'];
 export type ObjOf<K extends Kind> = Extract<Obj, { kind: K }>;
 
 export type Action = { at: number } & (
-  | { kind: 'apply'; object: Pod | ReplicaSet | Deployment | Service | HorizontalPodAutoscaler | PodDisruptionBudget }
+  | { kind: 'apply'; object: Exclude<Obj, NodeObj | Endpoints> }
   /** A Deployment, else the ReplicaSet of that name. */
   | { kind: 'scale'; target: string; replicas: number }
   | { kind: 'set-image'; target: string; image: string }
-  /** The first `count` pods owned by `owner`, in name order. */
+  /** The first `count` pods owned by `owner` (a ReplicaSet, or a Deployment's ReplicaSets), in name order. */
   | { kind: 'delete-pods'; owner: string; count: number }
   | { kind: 'rollback'; target: string }
-  | { kind: 'request'; id: string; service: string }
+  /** from: the source pod's name prefix (NetworkPolicies); host or path: sent through the Ingress controller. */
+  | { kind: 'request'; id: string; service: string; from?: string; host?: string; path?: string }
+  | { kind: 'rollout-restart'; target: string }
+  | { kind: 'delete'; object: { kind: Kind; name: string } }
+  | { kind: 'add-node'; node: Scenario['nodes'][number] }
+  | { kind: 'edit-config'; name: string; key: string; value: string }
   | { kind: 'cordon' | 'uncordon' | 'drain'; node: string }
   | { kind: 'taint'; node: string; taint: Taint }
 );
@@ -225,6 +414,8 @@ export interface Scenario {
   /** The Cluster Autoscaler's node pool. */
   pool?: { cpu: number; memory: number; labels?: Labels; min: number; max: number };
   schedulerStrategy?: 'LeastAllocated' | 'MostAllocated';
+  /** An Ingress controller (ingress-nginx) is installed. */
+  ingressController?: boolean;
 }
 
 export type TraceKind =
@@ -266,12 +457,34 @@ export type TraceKind =
   | 'node-remove'
   | 'cordon'
   | 'taint'
+  | 'config'
+  | 'config-error'
+  | 'create-claim'
+  | 'bind-volume'
+  | 'provision'
+  | 'attach'
+  | 'attach-fail'
+  | 'reclaim'
+  | 'job'
+  | 'cron'
+  | 'ingress'
+  | 'policy-drop'
+  | 'operator'
+  | 'node-join'
+  | 'records'
   | 'summary';
 
 /** The scheduler's view of one pod: each node's filter result or scores. */
 export interface Breakdown {
   pod: string;
   rows: { node: string; filtered?: string; scores?: Record<string, number>; total?: number; chosen?: boolean }[];
+}
+
+/** A table of rules for a step (Ingress paths, NetworkPolicies): the row that decided is marked. */
+export interface RuleTable {
+  title: string;
+  columns: string[];
+  rows: { cells: string[]; mark?: 'match' | 'deny' }[];
 }
 
 export interface TraceEvent {
@@ -285,6 +498,7 @@ export interface TraceEvent {
   text: string;
   reason?: string;
   breakdown?: Breakdown;
+  rules?: RuleTable;
 }
 
 export interface RequestState {
@@ -293,6 +507,11 @@ export interface RequestState {
   status: 'pending' | 'ok' | 'failed';
   pod?: string;
   reason?: string;
+  from?: string;
+  host?: string;
+  path?: string;
+  /** What the pod answered. */
+  body?: string;
 }
 
 export interface Snapshot {
@@ -305,12 +524,27 @@ export interface Snapshot {
   endpoints: Endpoints[];
   hpas: HorizontalPodAutoscaler[];
   pdbs: PodDisruptionBudget[];
+  configMaps: ConfigMap[];
+  secrets: Secret[];
+  storageClasses: StorageClass[];
+  volumes: PersistentVolume[];
+  claims: PersistentVolumeClaim[];
+  statefulSets: StatefulSet[];
+  daemonSets: DaemonSet[];
+  jobs: Job[];
+  cronJobs: CronJob[];
+  ingresses: Ingress[];
+  networkPolicies: NetworkPolicy[];
+  crds: CustomResourceDefinition[];
+  databases: Database[];
   /** The traffic so far: current req/s and one value per metrics tick. */
   load?: { rps: number; points: number[] };
   down: Component[];
   /** Nodes that are really down, whether or not the control plane has noticed yet. */
   offline: string[];
   requests: RequestState[];
+  /** An Ingress controller is installed. */
+  ingressController?: boolean;
 }
 
 export interface Frame {
@@ -372,3 +606,6 @@ export function loadAt(points: [number, number][], t: number): number {
   const [t1, r1] = points[after]!;
   return r0 + ((r1 - r0) * (t - t0)) / (t1 - t0);
 }
+
+/** A node's labels, with the hostname label every node has. */
+export const nodeLabels = (n: NodeObj): Labels => ({ 'kubernetes.io/hostname': n.name, ...n.labels });

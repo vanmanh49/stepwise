@@ -61,6 +61,8 @@ describe('metrics', () => {
     // be is 64 MiB over its (zero) request; the leaking bu is further over, so it goes and the pressure ends.
     expect(of(frames, 'evict').map((f) => f.event.subjects[0])).toEqual(['bu']);
     expect(frames.at(-1)!.state.pods.map((p) => p.name)).toEqual(['be', 'gu']);
+    // The pressure starting and ending are writes the scheduler watches.
+    expect(of(frames, 'taint').map((f) => f.event.text)).toEqual([expect.stringContaining('is under memory pressure'), expect.stringContaining('memory pressure is over')]);
   });
 
   it('adds no metrics to a run without load or leaks', () => {
