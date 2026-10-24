@@ -141,6 +141,7 @@ const EXPECTED_IDS = [
   'daemonsets',
   'jobs-cronjobs',
   'ingress',
+  'network-policies',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -178,7 +179,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
     expect(lessonsIn('microservices')).toHaveLength(23);
-    expect(lessonsIn('kubernetes')).toHaveLength(21);
+    expect(lessonsIn('kubernetes')).toHaveLength(22);
   });
 
   it('links previous and next lessons within a category', () => {

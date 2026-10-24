@@ -212,4 +212,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['ingress', 'ingress controller', 'ingress-nginx', 'host', 'path', 'Prefix', 'Exact', 'default backend', '404', '503', 'gateway api', 'http routing'],
     prerequisites: ['jobs-cronjobs'],
   },
+  {
+    id: 'network-policies',
+    title: 'Network Policies',
+    category: 'kubernetes',
+    difficulty: 'advanced',
+    group: 'Workloads & Operations',
+    description: 'Lock down pod-to-pod traffic one policy at a time, and see why egress rules need DNS.',
+    keywords: ['networkpolicy', 'network policy', 'firewall', 'default deny', 'ingress rules', 'egress', 'dns', 'podSelector', 'cni', 'zero trust'],
+    prerequisites: ['ingress'],
+  },
 ];
