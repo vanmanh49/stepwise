@@ -1,10 +1,12 @@
-import { cpuRequestM, memoryRequestMi, NODE_MEMORY_MI, nodeLabels, qosOf, tolerates, type AntiTerm, type Breakdown, type NodeObj, type Pod } from '../model';
+import { cpuRequestM, memoryRequestMi, NODE_MEMORY_MI, nodeLabels, qosOf, tolerates, type AntiTerm, type Breakdown, type NodeObj, type Pod, type Taint } from '../model';
 import { matches } from '../selector';
 import { claimsOf } from './volumes';
 import type { Change, Reconcile } from './types';
 
 /** Pods that no longer use their node's resources. */
 const finished = (p: Pod) => p.phase === 'Completed' || p.phase === 'Failed';
+/** The taint a cordoned node carries; DaemonSet pods tolerate it. */
+const UNSCHEDULABLE: Taint = { key: 'node.kubernetes.io/unschedulable', value: '', effect: 'NoSchedule' };
 const byName = (a: { name: string }, b: { name: string }) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 
 type Row = Breakdown['rows'][number];
@@ -44,7 +46,7 @@ export const schedule: Reconcile = (ctx) => {
     };
     const filter = (node: NodeObj): string | undefined => {
       if (!node.ready || node.booting) return 'node(s) were not ready';
-      if (node.unschedulable) return 'node(s) were unschedulable';
+      if (node.unschedulable && !tolerates(pod.tolerations, UNSCHEDULABLE)) return 'node(s) were unschedulable';
       const taint = (node.taints ?? []).find((t) => t.effect !== 'PreferNoSchedule' && !tolerates(pod.tolerations, t));
       if (taint) return `node(s) had untolerated taint {${taint.key}: ${taint.value}}`;
       if (node.memoryPressure && qosOf(pod.resources) === 'BestEffort') return 'node(s) had memory pressure';

@@ -1,6 +1,7 @@
 import { EventQueue } from '../utils/eventQueue';
 import { seeded } from '../utils/random';
 import { autoscalerTick, bootNode, type AutoscalerState } from './controllers/autoscaler';
+import { reconcileDaemonSets } from './controllers/daemonset';
 import { reconcileDeployments, rolledBack, withImage } from './controllers/deployment';
 import { reconcileEndpoints } from './controllers/endpoints';
 import { reconcileHpas, type HpaHistory } from './controllers/hpa';
@@ -40,7 +41,7 @@ import { dataTick } from './storage';
 import { checkNodes, evict, heartbeat } from './nodes';
 import { Store } from './store';
 
-type Group = 'replicaset' | 'deployment' | 'endpoints' | 'scheduler' | 'kubelet' | 'volumes' | 'statefulset';
+type Group = 'replicaset' | 'deployment' | 'endpoints' | 'scheduler' | 'kubelet' | 'volumes' | 'statefulset' | 'daemonset';
 
 const GROUPS: Record<Group, { component: Component; watches: Kind[] }> = {
   deployment: { component: 'controllers', watches: ['Deployment', 'ReplicaSet', 'Pod'] },
@@ -50,6 +51,7 @@ const GROUPS: Record<Group, { component: Component; watches: Kind[] }> = {
   kubelet: { component: 'kubelet', watches: ['Pod'] },
   volumes: { component: 'controllers', watches: ['PersistentVolumeClaim', 'PersistentVolume', 'StorageClass', 'Pod'] },
   statefulset: { component: 'controllers', watches: ['StatefulSet', 'Pod', 'PersistentVolumeClaim'] },
+  daemonset: { component: 'controllers', watches: ['DaemonSet', 'Node', 'Pod'] },
 };
 const ORDER = Object.keys(GROUPS) as Group[];
 
@@ -59,6 +61,7 @@ const RECONCILERS: Record<Exclude<Group, 'kubelet' | 'volumes'>, Reconcile> = {
   endpoints: reconcileEndpoints,
   scheduler: schedule,
   statefulset: reconcileStatefulSets,
+  daemonset: reconcileDaemonSets,
 };
 
 type Item =
@@ -204,7 +207,7 @@ export function simulate(scenario: Scenario): SimResult {
         return;
       }
       case 'set-image': {
-        const d = store.get('Deployment', action.target) ?? store.get('StatefulSet', action.target);
+        const d = store.get('Deployment', action.target) ?? store.get('StatefulSet', action.target) ?? store.get('DaemonSet', action.target);
         if (!d) return record(kubectl(`kubectl can't update ${action.target}: not found`, [action.target]));
         apply({ write: { op: 'update', object: withImage(d, action.image) }, event: kubectl(`kubectl sets ${d.kind} ${d.name}'s image to ${action.image}`, [d.name]) });
         return;
@@ -232,7 +235,7 @@ export function simulate(scenario: Scenario): SimResult {
         const cordon = action.kind !== 'uncordon';
         const text = action.kind === 'drain' ? `kubectl drain ${node.name}: cordons it, then evicts its pods` : cordon ? `kubectl cordons ${node.name}: it keeps its pods but gets no new ones` : `kubectl uncordons ${node.name}: it can take new pods again`;
         apply({ write: { op: 'update', object: { ...node, unschedulable: cordon } }, event: { kind: 'cordon', by: 'kubectl', node: node.name, subjects: [node.name], text } });
-        if (action.kind === 'drain') for (const pod of store.list('Pod').filter((p) => p.node === node.name && p.phase !== 'Completed' && p.phase !== 'Failed')) requestEviction(env, pod, 'kubectl');
+        if (action.kind === 'drain') for (const pod of store.list('Pod').filter((p) => p.node === node.name && p.phase !== 'Completed' && p.phase !== 'Failed' && p.ownerKind !== 'DaemonSet')) requestEviction(env, pod, 'kubectl');
         return;
       }
       case 'rollout-restart': {

@@ -1,5 +1,8 @@
 import type { Env } from './env';
-import { EVICT_S, GRACE_S } from './model';
+import { EVICT_S, GRACE_S, tolerates, type Taint } from './model';
+
+/** The taint a NotReady node gets; pods that tolerate it (DaemonSet pods) are never marked Lost. */
+const NOT_READY: Taint = { key: 'node.kubernetes.io/not-ready', value: '', effect: 'NoExecute' };
 
 /** Every live node reports in. Heartbeats aren't traced and wake no controller; only a missing one matters. */
 export function heartbeat(env: Env) {
@@ -26,7 +29,7 @@ export function checkNodes(env: Env) {
     });
     if (!ok) continue;
     for (const pod of env.store.list('Pod')) {
-      if (pod.node !== node.name || pod.phase === 'Completed' || pod.phase === 'Failed') continue;
+      if (pod.node !== node.name || pod.phase === 'Completed' || pod.phase === 'Failed' || tolerates(pod.tolerations, NOT_READY)) continue;
       env.apply({
         write: { op: 'update', object: { ...pod, phase: 'Lost', ready: false } },
         event: { kind: 'lost', by: 'controllers', node: node.name, subjects: [pod.name], text: `${pod.name} on ${node.name} is Lost; it is deleted in ${EVICT_S} s` },
