@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createLimiter, pickInstance, pickVersion } from './behaviours';
 import * as shared from './scenarios/shared';
 import type { NodeSpec, Scenario, Strategy } from './model';
-import { seeded, simulate } from './sim';
+import { seeded } from '../utils/random';
+import { simulate } from './sim';
 
 const client: Extract<NodeSpec, { type: 'client' }> = { id: 'client', label: 'Client', type: 'client', column: 0 };
 
