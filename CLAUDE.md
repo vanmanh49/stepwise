@@ -8,7 +8,7 @@ Stepwise is a static React app that teaches data structures, algorithms, SQL, mi
 
 ```bash
 npm run dev                              # Vite dev server
-npm test                                 # whole Vitest suite (src/**/*.test.ts), about 3,600 tests
+npm test                                 # whole Vitest suite (src/**/*.test.ts), about 3,800 tests
 npx vitest run src/sql/parse.test.ts     # one file
 npx vitest run -t "rotates left"         # tests whose name matches
 npm run typecheck                        # tsc --noEmit (strict, noUncheckedIndexedAccess)
@@ -57,10 +57,11 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
   - each lesson has a scenario module in `scenarios/` (`fooCode`, `fooScenario`, `fooSteps`) used by a `form` visualization with `codeLabel: 'Pseudocode'`;
   - `ServicesRenderer` picks columns or rows from the measured stage width (`chooseOrientation` in `servicesLayout.ts`).
 - **Kubernetes** (`src/kubernetes/`) is a seeded reconciliation simulator, in simulated seconds:
-  - `Store` (`store.ts`) stands in for the API server and etcd: versioned objects (Node, Pod, ReplicaSet, Deployment, Service, Endpoints); it clones on every read and write, and refuses writes while etcd is down;
-  - controllers (`controllers/`) are pure, level-triggered `(ctx) → Change[]` functions: ReplicaSet (deletes before creates), Deployment (rolling updates bounded by maxSurge / maxUnavailable from ReplicaSet sizes; `withImage` / `rolledBack`), scheduler (most free CPU), Endpoints; `kubelet.ts` (pull, start, ready, exit, CrashLoopBackOff back-off) and `nodes.ts` (heartbeats, NotReady, Lost, eviction) schedule their own timers through `env.ts`;
+  - `Store` (`store.ts`) stands in for the API server and etcd: versioned objects (Node, Pod, ReplicaSet, Deployment, Service, Endpoints, HorizontalPodAutoscaler, PodDisruptionBudget); it clones on every read and write, and refuses writes while etcd is down;
+  - controllers (`controllers/`) are pure, level-triggered `(ctx) → Change[]` functions: ReplicaSet (deletes before creates), Deployment (rolling updates bounded by maxSurge / maxUnavailable from ReplicaSet sizes; `withImage` / `rolledBack`), scheduler (filter → score with kube-scheduler's reasons and a per-node breakdown; LeastAllocated or MostAllocated), Endpoints, HPA (`hpa.ts`, 30 s stabilisation); `autoscaler.ts` (Cluster Autoscaler over a node pool), `kubelet.ts` (pull, start, ready, exit, CrashLoopBackOff back-off, probes from `probes.ts`), `metrics.ts` (traffic share, CPU throttle, memory, OOMKill, node-pressure eviction), `evict.ts` (eviction API with PDBs, drain, NoExecute) and `nodes.ts` (heartbeats, NotReady, Lost, eviction) work through `env.ts`;
+  - phase 2 fields are optional and absent ones keep phase 1 behaviour; CPU is millicores (`cpuRequestM` falls back to phase 1 cores); periodic work (heartbeats, node checks, metrics, HPA, autoscaler, probes) never keeps a run alive, so scenarios with it set `runToEnd`, and such runs end with a summary from `SimResult.final`;
   - `simulate(scenario)` runs kubectl actions and faults (faults first at equal times), fans each accepted write out to the watching groups after a 1 s watch delay (one pending run per group), and returns one frame per event with a full snapshot; a downed component's groups catch up in one pass when it returns; a "nothing to do" note isn't repeated until something it names changes;
-  - `traceSteps` (`steps.ts`) merges same-second events of one kind into one step, hides no-op notes unless `noops`, and ends long or cut-off runs with a summary, capped at `MAX_STEPS = 200` plus one; `view.ts` builds the `cluster` view;
+  - `traceSteps` (`steps.ts`) merges same-second events of one kind, actor and owner (ReplicaSet or node) into one step, hides no-op notes unless `noops`, and ends long or cut-off runs with a summary, capped at `MAX_STEPS = 200` plus one; `view.ts` builds the `cluster` view;
   - scenarios live in `scenarios/` (`fooCode`, `fooScenario`, `fooSteps`), the same contract as Microservices; `ClusterRenderer` is plain HTML (node boxes wrap in a CSS grid).
 - `seeded` (mulberry32) and `EventQueue` live in `src/utils/` and are shared by both simulators.
 - `algorithms/`, `data-structures/`, `sql/`, `microservices/` and `kubernetes/` contain no React. All lesson text lives in `lessons/`, not in components. Colours come from CSS variables in `src/index.css`, defined for both `:root` and `.dark`.

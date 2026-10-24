@@ -35,7 +35,7 @@ const WHY: Record<TraceKind, string> = {
   exit: "The container's process has ended. The pod's restart policy decides what happens next.",
   'back-off': 'Restarting a crashing container straight away wastes effort, so the kubelet waits, doubling the wait after each crash (up to 160 s here; 5 minutes by default).',
   restart: 'The wait is over, so the kubelet starts the container again.',
-  'node-not-ready': `The control plane only learns that a node is gone when its heartbeats stop for longer than the grace period (${GRACE_S} s here; 40 s by default).`,
+  'node-not-ready': `The control plane only learns that a node is gone when its heartbeats stop for longer than the grace period (${GRACE_S} s here; 50 s by default).`,
   lost: `Pods on a NotReady node can't be reached. After a short wait (${EVICT_S} s here; 5 minutes by default) they are deleted so they can be replaced.`,
   endpoints: "A Service's Endpoints list holds the ready pods its selector matches. kube-proxy only sends traffic to these.",
   route: 'kube-proxy picks one of the Service\'s endpoints at random for each new connection.',

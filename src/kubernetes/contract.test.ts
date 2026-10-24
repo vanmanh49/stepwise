@@ -61,10 +61,13 @@ describe.each(lessons)('kubernetes lesson %s', (_id, lesson) => {
     for (let run = 0; run < 20; run++) {
       const values: Record<string, string> = {};
       for (const field of config.fields) values[field.name] = valueFor(field, r, ranges[field.name]);
-      if (run % 5 === 4) values[pick(r, config.fields).name] = pick(r, GARBAGE);
+      const garbage = run % 5 === 4 ? pick(r, config.fields) : undefined;
+      if (garbage) values[garbage.name] = pick(r, GARBAGE);
       const label = JSON.stringify(values);
       const steps = config.generate(deepFreeze({ ...values }));
       checkSteps(steps, lines, label);
+      // Garbage in a number or choice field is refused with one explanatory step ("abc" can be a fine text value).
+      if (garbage && garbage.type !== 'text') expect(steps, label).toHaveLength(1);
       expect(config.generate({ ...values }), label).toEqual(steps);
     }
   });

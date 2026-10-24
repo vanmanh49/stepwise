@@ -12,7 +12,7 @@ export const START_S = 1;
 export const READY_S = 2;
 export const HEARTBEAT_S = 10;
 export const NODE_CHECK_S = 5;
-/** Kubernetes waits 40 s by default. */
+/** Kubernetes waits 50 s by default. */
 export const GRACE_S = 20;
 /** Kubernetes waits 5 min by default. */
 export const EVICT_S = 10;
