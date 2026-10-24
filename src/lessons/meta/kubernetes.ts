@@ -172,4 +172,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['volume', 'persistent volume', 'pv', 'pvc', 'persistentvolumeclaim', 'storageclass', 'emptyDir', 'reclaimPolicy', 'ReadWriteOnce', 'Multi-Attach', 'storage'],
     prerequisites: ['configmaps-secrets'],
   },
+  {
+    id: 'statefulsets',
+    title: 'StatefulSets',
+    category: 'kubernetes',
+    difficulty: 'advanced',
+    group: 'Workloads & Operations',
+    description: 'Pods with stable names and their own volumes, started in order and updated from the top.',
+    keywords: ['statefulset', 'stateful', 'ordinal', 'volumeClaimTemplates', 'headless service', 'OrderedReady', 'Parallel', 'database', 'stable identity'],
+    prerequisites: ['volumes-pv-pvc'],
+  },
 ];
