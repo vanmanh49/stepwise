@@ -128,6 +128,7 @@ const EXPECTED_IDS = [
   'deployments-rolling-updates',
   'services-kube-proxy',
   'scheduler',
+  'requests-limits',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -165,7 +166,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
     expect(lessonsIn('microservices')).toHaveLength(23);
-    expect(lessonsIn('kubernetes')).toHaveLength(8);
+    expect(lessonsIn('kubernetes')).toHaveLength(9);
   });
 
   it('links previous and next lessons within a category', () => {

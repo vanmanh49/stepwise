@@ -105,6 +105,8 @@ export interface NodeObj {
   booting?: boolean;
   /** Belongs to the autoscaler's node pool. */
   pool?: boolean;
+  /** The kubelet reports the node out of memory: no new BestEffort pods. */
+  memoryPressure?: boolean;
 }
 export interface Pod extends PodExtras {
   kind: 'Pod';

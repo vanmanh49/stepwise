@@ -247,6 +247,7 @@ export interface ClusterView {
     taints?: string[];
     cordoned?: boolean;
     booting?: boolean;
+    memoryPressure?: boolean;
     /** phase: Pending | ContainerCreating | Running | CrashLoopBackOff | ImagePullBackOff | Completed | Failed | Lost. */
     pods: {
       name: string;

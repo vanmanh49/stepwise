@@ -82,4 +82,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['scheduler', 'kube-scheduler', 'filter', 'score', 'LeastAllocated', 'MostAllocated', 'bin packing', 'Insufficient cpu'],
     prerequisites: ['services-kube-proxy'],
   },
+  {
+    id: 'requests-limits',
+    title: 'Requests & Limits',
+    category: 'kubernetes',
+    difficulty: 'intermediate',
+    group: 'Scheduling & Health',
+    description: 'Put pods under rising traffic and a memory leak: CPU is throttled, memory gets OOMKilled, and BestEffort goes first.',
+    keywords: ['requests', 'limits', 'QoS', 'Guaranteed', 'Burstable', 'BestEffort', 'OOMKilled', 'throttling', 'memory pressure', 'eviction'],
+    prerequisites: ['scheduler'],
+  },
 ];

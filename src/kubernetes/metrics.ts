@@ -54,7 +54,9 @@ export function metricsTick(env: Env, scenario: Scenario, hooks: MetricsHooks): 
     const pods = env.store.list('Pod').filter((p) => p.node === node.name && running(p));
     const used = pods.reduce((s, p) => s + (p.memoryUsage ?? 0), 0);
     const capacity = node.memory ?? NODE_MEMORY_MI;
-    if (used <= capacity) continue;
+    const pressure = used > capacity;
+    if (pressure !== !!node.memoryPressure) env.store.write({ op: 'update', object: { ...node, memoryPressure: pressure } });
+    if (!pressure) continue;
     const victim = pods.toSorted((a, b) => pressureRank(a) - pressureRank(b) || (b.memoryUsage ?? 0) - (a.memoryUsage ?? 0) || (a.name < b.name ? -1 : 1))[0]!;
     env.apply({
       write: { op: 'delete', object: victim },

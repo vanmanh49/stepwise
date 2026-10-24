@@ -65,7 +65,7 @@ function PodChip({ pod }: { pod: PodView }) {
 }
 
 function NodeBox({ node }: { node: NodeBoxView }) {
-  const status = node.booting ? '… booting' : !node.ready ? '✕ NotReady' : node.offline ? '… no heartbeats' : node.cordoned ? 'Ready · cordoned' : 'Ready';
+  const status = node.booting ? '… booting' : !node.ready ? '✕ NotReady' : node.offline ? '… no heartbeats' : node.memoryPressure ? 'Ready · MemoryPressure' : node.cordoned ? 'Ready · cordoned' : 'Ready';
   const badges = [...(node.labels ?? []), ...(node.taints ?? [])];
   return (
     <section aria-label={`${node.name}, ${status}`} className="flex min-w-0 flex-col gap-2 rounded-lg border-2 p-2" style={roleBoxStyle(node.role)}>
@@ -194,7 +194,7 @@ export function ClusterRenderer({ view }: { view: ClusterView }) {
       <ControlPlane components={view.controlPlane} />
       {view.traffic && <TrafficStrip traffic={view.traffic} />}
       {view.nodes.length > 0 && (
-        <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(10rem,1fr))]">
+        <div className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(10rem,1fr))]">
           {view.nodes.map((node) => (
             <NodeBox key={node.name} node={node} />
           ))}

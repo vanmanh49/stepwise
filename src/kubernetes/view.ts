@@ -65,6 +65,7 @@ export function clusterView({ event, state }: Frame, log: string[], merged: Fram
       ...(node.taints?.length && { taints: node.taints.map((t) => `${t.key}=${t.value}:${t.effect}`) }),
       ...(node.unschedulable && { cordoned: true }),
       ...(node.booting && { booting: true }),
+      ...(node.memoryPressure && { memoryPressure: true }),
       pods: mine.map((p) => ({ name: p.name, phase: p.phase, ready: p.ready, role: podRole(p, touched), ...restarts(p), ...podExtras(p) })),
     };
   });

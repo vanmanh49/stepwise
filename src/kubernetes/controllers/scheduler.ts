@@ -1,4 +1,4 @@
-import { cpuRequestM, memoryRequestMi, NODE_MEMORY_MI, tolerates, type AntiTerm, type Breakdown, type NodeObj, type Pod } from '../model';
+import { cpuRequestM, memoryRequestMi, NODE_MEMORY_MI, qosOf, tolerates, type AntiTerm, type Breakdown, type NodeObj, type Pod } from '../model';
 import { matches } from '../selector';
 import type { Change, Reconcile } from './types';
 
@@ -35,6 +35,7 @@ export const schedule: Reconcile = (ctx) => {
       if (node.unschedulable) return 'node(s) were unschedulable';
       const taint = (node.taints ?? []).find((t) => t.effect !== 'PreferNoSchedule' && !tolerates(pod.tolerations, t));
       if (taint) return `node(s) had untolerated taint {${taint.key}: ${taint.value}}`;
+      if (node.memoryPressure && qosOf(pod.resources) === 'BestEffort') return 'node(s) had memory pressure';
       const required = pod.affinity?.node?.required;
       if (required && !matches(required, node.labels ?? {})) return "node(s) didn't match Pod's node affinity/selector";
       const anti = pod.affinity?.podAnti?.required;
@@ -95,7 +96,7 @@ export const schedule: Reconcile = (ctx) => {
     }
     // Reasons grouped and counted in the order the filters run, as kube-scheduler prints them.
     const counts = new Map<string, number>();
-    for (const order of ['not ready', 'unschedulable', 'taint', 'node affinity', 'anti-affinity', 'Insufficient cpu', 'Insufficient memory']) {
+    for (const order of ['not ready', 'unschedulable', 'taint', 'memory pressure', 'node affinity', 'anti-affinity', 'Insufficient cpu', 'Insufficient memory']) {
       for (const r of rows) if (r.filtered?.includes(order)) counts.set(r.filtered, (counts.get(r.filtered) ?? 0) + 1);
     }
     const reason = `0/${nodes.length} nodes are available: ${[...counts].map(([text, n]) => `${n} ${text}`).join(', ')}`;

@@ -30,6 +30,16 @@ describe('scheduler filters', () => {
     ]);
   });
 
+  it('keeps BestEffort pods off a node under memory pressure, but not pods that request memory', () => {
+    const store = storeWith(node('node-1', { memoryPressure: true }), pending('be', { createdAt: 1, resources: {} }), pending('bu', { createdAt: 2, resources: { memory: { request: 64 } } }));
+    const changes = schedule(ctxFor(store));
+    expect(changes.map((c) => [c.event.kind, c.event.subjects[0]])).toEqual([
+      ['unschedulable', 'be'],
+      ['bind', 'bu'],
+    ]);
+    expect(changes[0]!.event.reason).toBe('0/1 nodes are available: 1 node(s) had memory pressure');
+  });
+
   it('lets a toleration through a NoSchedule taint', () => {
     const store = storeWith(node('node-1', { taints: [{ key: 'gpu', value: 'true', effect: 'NoSchedule' }] }), pending('p', { tolerations: [{ key: 'gpu', operator: 'Exists' }] }));
     expect(placed(schedule(ctxFor(store)))).toEqual([['p', 'node-1']]);
