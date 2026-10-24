@@ -45,6 +45,16 @@ describe('ReplicaSet controller', () => {
     expect(changes.map((c) => c.event.kind)).toEqual(['reconcile']);
   });
 
+  it('deletes surplus pods before creating any, across ReplicaSets, so pods never exceed what the sets ask for', () => {
+    const store = storeWith(
+      replicaSet('web-aa', 2),
+      replicaSet('web-zz', 0),
+      pod('web-aa-one', { owner: 'web-aa', node: 'node-1' }),
+      pod('web-zz-one', { owner: 'web-zz', node: 'node-1' }),
+    );
+    expect(reconcileReplicaSets(ctxFor(store)).map((c) => c.event.kind)).toEqual(['delete-pod', 'create-pod']);
+  });
+
   it("ignores other owners' pods", () => {
     const changes = reconcileReplicaSets(ctxFor(storeWith(replicaSet('web-7f', 1), pod('web-9c-aaa', { owner: 'web-9c' }))));
     expect(changes.map((c) => c.event.kind)).toEqual(['create-pod']);

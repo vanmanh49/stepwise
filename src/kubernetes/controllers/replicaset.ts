@@ -9,7 +9,10 @@ function deletionOrder(a: Pod, b: Pod): number {
 }
 
 export const reconcileReplicaSets: Reconcile = (ctx) => {
-  const changes: Change[] = [];
+  // Every deletion goes before any creation, so the pod count never passes what the sets ask for in total.
+  const deletes: Change[] = [];
+  const creates: Change[] = [];
+  const notes: Change[] = [];
   const pods = ctx.store.list('Pod');
   for (const rs of ctx.store.list('ReplicaSet')) {
     const mine = pods.filter((p) => p.owner === rs.name);
@@ -19,15 +22,15 @@ export const reconcileReplicaSets: Reconcile = (ctx) => {
       for (let i = mine.length; i < rs.replicas; i++) {
         const name = podName(ctx, rs.name, taken);
         const pod: Pod = { kind: 'Pod', name, labels: { ...rs.template.labels }, owner: rs.name, phase: 'Pending', ready: false, restarts: 0, image: rs.template.image, cpu: rs.template.cpu, restartPolicy: rs.template.restartPolicy, createdAt: ctx.now };
-        changes.push({ write: { op: 'create', object: pod }, event: { kind: 'create-pod', by: 'controllers', subjects: [name, rs.name], text: `${seen} and creates ${name}` } });
+        creates.push({ write: { op: 'create', object: pod }, event: { kind: 'create-pod', by: 'controllers', subjects: [name, rs.name], text: `${seen} and creates ${name}` } });
       }
     } else if (mine.length > rs.replicas) {
       for (const pod of mine.toSorted(deletionOrder).slice(0, mine.length - rs.replicas)) {
-        changes.push({ write: { op: 'delete', object: pod }, event: { kind: 'delete-pod', by: 'controllers', subjects: [pod.name, rs.name], text: `${seen} and deletes ${pod.name}` } });
+        deletes.push({ write: { op: 'delete', object: pod }, event: { kind: 'delete-pod', by: 'controllers', subjects: [pod.name, rs.name], text: `${seen} and deletes ${pod.name}` } });
       }
     } else {
-      changes.push({ event: { kind: 'reconcile', by: 'controllers', subjects: [rs.name], text: `${seen}: nothing to do` } });
+      notes.push({ event: { kind: 'reconcile', by: 'controllers', subjects: [rs.name], text: `${seen}: nothing to do` } });
     }
   }
-  return changes;
+  return [...deletes, ...creates, ...notes];
 };

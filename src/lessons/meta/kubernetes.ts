@@ -52,4 +52,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['replicaset', 'replicas', 'scale', 'kubectl scale', 'pod template', 'node failure', 'eviction', 'heartbeat'],
     prerequisites: ['desired-state-controllers'],
   },
+  {
+    id: 'deployments-rolling-updates',
+    title: 'Deployments & Rolling Updates',
+    category: 'kubernetes',
+    difficulty: 'beginner',
+    group: 'Foundations',
+    description: 'Roll a new image out under maxSurge and maxUnavailable, ship a broken one, and roll it back.',
+    keywords: ['deployment', 'rolling update', 'maxSurge', 'maxUnavailable', 'rollout', 'rollback', 'rollout undo', 'imagepullbackoff'],
+    prerequisites: ['replicasets'],
+  },
 ];

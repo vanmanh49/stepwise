@@ -125,6 +125,7 @@ const EXPECTED_IDS = [
   'labels-selectors',
   'desired-state-controllers',
   'replicasets',
+  'deployments-rolling-updates',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -162,7 +163,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
     expect(lessonsIn('microservices')).toHaveLength(23);
-    expect(lessonsIn('kubernetes')).toHaveLength(5);
+    expect(lessonsIn('kubernetes')).toHaveLength(6);
   });
 
   it('links previous and next lessons within a category', () => {
