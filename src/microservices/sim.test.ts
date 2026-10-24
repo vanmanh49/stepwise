@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { deepFreeze } from '../data-structures/random.testutil';
 import type { Fault, NodeSpec, RequestSpec, Scenario, SimResult } from './model';
 import * as shared from './scenarios/shared';
-import { EventQueue } from './queue';
+import { EventQueue } from '../utils/eventQueue';
 import { simulate } from './sim';
 
 const client: NodeSpec = { id: 'client', label: 'Client', type: 'client', column: 0 };

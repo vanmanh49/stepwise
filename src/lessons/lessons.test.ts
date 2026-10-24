@@ -120,6 +120,13 @@ const EXPECTED_IDS = [
   'deployment-strategies',
   'strangler-fig',
   'service-mesh',
+  'cluster-architecture',
+  'pods',
+  'labels-selectors',
+  'desired-state-controllers',
+  'replicasets',
+  'deployments-rolling-updates',
+  'services-kube-proxy',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -157,6 +164,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
     expect(lessonsIn('microservices')).toHaveLength(23);
+    expect(lessonsIn('kubernetes')).toHaveLength(7);
   });
 
   it('links previous and next lessons within a category', () => {
@@ -188,7 +196,7 @@ describe.each(allLessons.map((l) => [l.id, l] as const))('lesson %s', (_id, less
     expect(lesson.applications.length).toBeGreaterThanOrEqual(3);
     expect(lesson.commonMistakes.length).toBeGreaterThanOrEqual(3);
     expect(lesson.summary.length).toBeGreaterThanOrEqual(3);
-    if (lesson.category !== 'sql' && lesson.category !== 'microservices') {
+    if (lesson.category !== 'sql' && lesson.category !== 'microservices' && lesson.category !== 'kubernetes') {
       expect(lesson.complexity!.rows.length).toBeGreaterThanOrEqual(1);
       expect(lesson.complexity!.curves.length).toBeGreaterThanOrEqual(1);
     }
@@ -350,6 +358,39 @@ describe('curriculum', () => {
       ...Array<string>(7).fill('Foundations'),
       ...Array<string>(8).fill('Communication & Resilience'),
       ...Array<string>(8).fill('Data & Operations'),
+    ]);
+  });
+
+  it('lists the Kubernetes course in order', () => {
+    expect(topicsIn('kubernetes').map((t) => t.id)).toEqual([
+      'cluster-architecture',
+      'pods',
+      'labels-selectors',
+      'desired-state-controllers',
+      'replicasets',
+      'deployments-rolling-updates',
+      'services-kube-proxy',
+      'scheduler',
+      'requests-limits',
+      'probes',
+      'taints-tolerations',
+      'affinity',
+      'hpa',
+      'cluster-autoscaler',
+      'draining-pdb',
+      'configmaps-secrets',
+      'volumes-pv-pvc',
+      'statefulsets',
+      'daemonsets',
+      'jobs-cronjobs',
+      'ingress',
+      'network-policies',
+      'operators-crds',
+    ]);
+    expect(topicsIn('kubernetes').map((t) => t.group)).toEqual([
+      ...Array<string>(7).fill('Foundations'),
+      ...Array<string>(8).fill('Scheduling & Health'),
+      ...Array<string>(8).fill('Workloads & Operations'),
     ]);
   });
 

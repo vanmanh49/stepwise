@@ -79,7 +79,7 @@ export default function Dashboard() {
         <h2 id="tracks-title" className="text-lg font-semibold">
           Tracks
         </h2>
-        {(['data-structures', 'algorithms', 'sql', 'microservices'] as const).map((category) => (
+        {(['data-structures', 'algorithms', 'sql', 'microservices', 'kubernetes'] as const).map((category) => (
           <ProgressBar
             key={category}
             label={CATEGORY_TITLE[category]}

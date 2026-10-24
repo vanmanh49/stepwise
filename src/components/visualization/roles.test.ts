@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BucketsView, CallsView, GridView, PanelsView, ServicesView, TrieView } from '../../types/visualization';
+import type { BucketsView, CallsView, ClusterView, GridView, PanelsView, ServicesView, TrieView } from '../../types/visualization';
 import { rolesInRun, rolesInView } from './roles';
 
 describe('rolesInView', () => {
@@ -20,6 +20,23 @@ describe('rolesInView', () => {
       log: [],
     };
     expect(rolesInView(view)).toEqual(['default', 'default', 'active', 'discarded', 'frontier', 'compare', 'found', 'discarded']);
+  });
+
+  it('lists the roles in a cluster view', () => {
+    const view: ClusterView = {
+      kind: 'cluster',
+      controlPlane: [{ id: 'scheduler', label: 'scheduler', role: 'active' }],
+      nodes: [{ name: 'node-1', ready: true, role: 'default', cpu: { used: 1, capacity: 4 }, pods: [{ name: 'web-a', phase: 'Running', ready: true, role: 'found' }] }],
+      pending: [{ name: 'web-b', role: 'frontier' }],
+      objects: [{ kind: 'Deployment', name: 'web', desired: 2, current: 2, ready: 1, role: 'compare' }],
+      requests: [
+        { id: '#1', label: 'to web', status: 'ok' },
+        { id: '#2', label: 'to web', status: 'failed' },
+        { id: '#3', label: 'to web', status: 'pending' },
+      ],
+      log: [],
+    };
+    expect(rolesInView(view)).toEqual(['active', 'default', 'found', 'frontier', 'compare', 'found', 'discarded']);
   });
 
   it('collects the roles of every row in a table view', () => {

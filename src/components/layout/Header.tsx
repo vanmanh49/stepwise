@@ -8,6 +8,7 @@ const links = [
   { to: '/algorithms', label: 'Algorithms' },
   { to: '/sql', label: 'SQL' },
   { to: '/microservices', label: 'Microservices' },
+  { to: '/kubernetes', label: 'Kubernetes' },
   { to: '/big-o', label: 'Big O' },
   { to: '/dashboard', label: 'Progress' },
 ];
@@ -25,13 +26,13 @@ export function Header({ onSearch }: { onSearch(): void }) {
           </span>
           Stepwise
         </Link>
-        <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
+        <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
           {links.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
               className={({ isActive }) =>
-                `rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-surface-2 ${
+                `whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-surface-2 ${
                   isActive ? 'text-text' : 'text-muted'
                 }`
               }
@@ -41,7 +42,7 @@ export function Header({ onSearch }: { onSearch(): void }) {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <Button icon={Search} onClick={onSearch} className="text-muted sm:w-56 sm:justify-start" aria-label="Search lessons" aria-keyshortcuts="Control+K">
+          <Button icon={Search} onClick={onSearch} className="text-muted sm:w-56 sm:justify-start lg:w-36 xl:w-56" aria-label="Search lessons" aria-keyshortcuts="Control+K">
             <span className="hidden sm:inline">Search</span>
             <kbd className="ml-auto hidden rounded border border-border bg-surface-2 px-1.5 font-mono text-[11px] sm:inline">
               Ctrl K
@@ -50,7 +51,7 @@ export function Header({ onSearch }: { onSearch(): void }) {
           <IconButton icon={theme === 'dark' ? Sun : Moon} label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle} />
         </div>
       </div>
-      <nav aria-label="Sections" className="flex gap-1 overflow-x-auto border-t border-border px-3 [scrollbar-width:none] md:hidden">
+      <nav aria-label="Sections" className="flex gap-1 overflow-x-auto border-t border-border px-3 [scrollbar-width:none] lg:hidden">
         {links.map((l) => (
           <NavLink
             key={l.to}

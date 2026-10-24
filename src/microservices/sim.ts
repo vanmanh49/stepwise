@@ -3,7 +3,8 @@ import { balancer, createDiscovery, gateway, registry } from './behaviours';
 import { broker } from './broker';
 import { relay } from './relay';
 import { sidecar } from './sidecar';
-import { EventQueue } from './queue';
+import { EventQueue } from '../utils/eventQueue';
+import { seeded } from '../utils/random';
 import { createCaller, type CallFn } from './resilience';
 
 type Distribute<T> = T extends unknown ? Omit<T, 't'> : never;
@@ -45,18 +46,6 @@ export interface SimContext {
 
 /** Built once per run for each node; returns what the node does with each message it receives. */
 export type Behaviour = (ctx: SimContext, node: NodeSpec) => (message: Message) => void;
-
-/** Seeded random numbers (mulberry32). */
-export function seeded(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 /** Fills {req}, {key} and {value} in a data call's key or value from the request it belongs to. */
 export function fill(template: string, request: { id: string; key?: string; value?: string }): string {

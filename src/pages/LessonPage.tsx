@@ -54,11 +54,16 @@ const CODE_COPY: Record<Category, { title: string; label?: string; intro: string
     label: 'Pseudocode',
     intro: 'The decisions the simulated services make, as short pseudocode. In the visualization above, the highlighted line follows the event that is happening.',
   },
+  kubernetes: {
+    title: 'Pseudocode',
+    label: 'Pseudocode',
+    intro: 'The decisions the simulated cluster makes, as short pseudocode. In the visualization above, the highlighted line follows the component that is acting.',
+  },
   'data-structures': { title: 'Code', intro: 'The full TypeScript implementation. In the visualization above, the highlighted line follows this code as each step runs.' },
   algorithms: { title: 'Code', intro: 'The full TypeScript implementation. In the visualization above, the highlighted line follows this code as each step runs.' },
 };
 
-/** The page sections a lesson shows: SQL and Microservices lessons have no complexity, and each category names its code. */
+/** The page sections a lesson shows: SQL, Microservices and Kubernetes lessons have no complexity, and each category names its code. */
 function sectionsFor(lesson: Lesson): (readonly [string, string])[] {
   return SECTIONS.filter(([id]) => id !== 'complexity' || lesson.complexity).map(([id, title]) =>
     id === 'code' ? ([id, CODE_COPY[lesson.category].title] as const) : ([id, title] as const),

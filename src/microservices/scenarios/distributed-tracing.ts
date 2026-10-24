@@ -1,7 +1,7 @@
 import { readChoice, readInt, type Read } from '../../algorithms/form';
 import type { ServicesView, Step } from '../../types/visualization';
 import type { Fault, Scenario, SimResult, TraceEvent } from '../model';
-import { seeded } from '../sim';
+import { seeded } from '../../utils/random';
 import type { StepOptions } from '../steps';
 import { spansOf } from '../tracing';
 import { client, db, gateway, link, scenarioSteps, service } from './shared';
