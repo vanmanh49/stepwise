@@ -1,6 +1,6 @@
 import type { ClusterView, Role } from '../types/visualization';
 import { allowedDisruptions } from './evict';
-import { cpuRequestM, NODE_MEMORY_MI, qosOf, type Frame, type Pod } from './model';
+import { cpuRequestM, memoryRequestMi, NODE_MEMORY_MI, qosOf, type Frame, type Pod } from './model';
 
 type Plane = ClusterView['controlPlane'][number];
 
@@ -60,7 +60,7 @@ export function clusterView({ event, state }: Frame, log: string[], merged: Fram
       ...(state.offline.includes(node.name) && { offline: true }),
       role,
       cpu: { used: Number((live.reduce((sum, p) => sum + cpuRequestM(p), 0) / 1000).toFixed(2)), capacity: node.cpu },
-      ...(reportsMemory && { memory: { used: live.reduce((sum, p) => sum + (p.memoryUsage ?? 0), 0), capacity: node.memory ?? NODE_MEMORY_MI } }),
+      ...(reportsMemory && { memory: { used: live.reduce((sum, p) => sum + (p.memoryUsage ?? memoryRequestMi(p)), 0), capacity: node.memory ?? NODE_MEMORY_MI } }),
       ...(node.labels && Object.keys(node.labels).length > 0 && { labels: Object.entries(node.labels).map(([k, v]) => `${k}=${v}`) }),
       ...(node.taints?.length && { taints: node.taints.map((t) => `${t.key}=${t.value}:${t.effect}`) }),
       ...(node.unschedulable && { cordoned: true }),

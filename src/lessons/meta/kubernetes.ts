@@ -72,4 +72,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['service', 'kube-proxy', 'clusterip', 'endpoints', 'readiness', 'load balancing', 'iptables', 'selector'],
     prerequisites: ['deployments-rolling-updates'],
   },
+  {
+    id: 'scheduler',
+    title: 'The Scheduler',
+    category: 'kubernetes',
+    difficulty: 'intermediate',
+    group: 'Scheduling & Health',
+    description: 'Place a pod on three nodes and read the scheduler\'s table: why each node was ruled out, or how it scored.',
+    keywords: ['scheduler', 'kube-scheduler', 'filter', 'score', 'LeastAllocated', 'MostAllocated', 'bin packing', 'Insufficient cpu'],
+    prerequisites: ['services-kube-proxy'],
+  },
 ];
