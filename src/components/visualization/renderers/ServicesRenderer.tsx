@@ -3,6 +3,8 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import type { Role, ServicesView } from '../../../types/visualization';
 import { ROLE_META, roleBorder, roleFill, roleText } from '../roles';
 import { chooseOrientation, HEADER, layoutServices, linkEnds, MARGIN, NARROW_WIDTH, placeBadge, stackMessages, type PlacedBox } from './servicesLayout';
+import { EventLog } from './EventLog';
+import { RequestStatus } from './RequestStatus';
 import { SpanWaterfall } from './SpanWaterfall';
 import { spring } from './spring';
 
@@ -23,12 +25,6 @@ const TYPE_NAME: Record<ServicesView['nodes'][number]['type'], string> = {
   broker: 'message broker',
   relay: 'outbox relay',
   sidecar: 'sidecar proxy',
-};
-
-const STATUS: Record<ServicesView['requests'][number]['status'], { text: string; role: Role }> = {
-  pending: { text: 'in progress', role: 'frontier' },
-  ok: { text: 'ok', role: 'found' },
-  failed: { text: 'failed', role: 'discarded' },
 };
 
 /** A rectangle with a role's fill, border cue and mark, like ValueBox but in SVG. */
@@ -221,39 +217,26 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
               </tr>
             </thead>
             <tbody>
-              {view.requests.map((r) => {
-                const status = STATUS[r.status];
-                return (
-                  <tr key={r.id} className="border-t border-border align-top">
-                    <td className="py-1 pr-2">{r.id}</td>
-                    <td className="whitespace-nowrap py-1 pr-2">{r.label}</td>
-                    <td className="py-1 pr-2">
-                      <span className="rounded px-1.5 py-0.5" style={{ background: roleFill(status.role), color: roleText(status.role) }}>
-                        {status.text}
-                      </span>
-                      {r.attempts !== undefined && r.attempts > 1 && <span className="ml-1 text-muted">· {r.attempts} tries</span>}
-                      {r.value !== undefined && <span className="ml-1 text-muted">→ {r.value}</span>}
-                      {r.reason && <div className="mt-0.5 font-sans text-[11px] text-muted">{r.reason}</div>}
-                    </td>
-                    <td className="break-words py-1 pr-2 text-muted">{r.hops}</td>
-                    <td className="whitespace-nowrap py-1 text-right">{r.ms === undefined ? '' : `${r.ms} ms`}</td>
-                  </tr>
-                );
-              })}
+              {view.requests.map((r) => (
+                <tr key={r.id} className="border-t border-border align-top">
+                  <td className="py-1 pr-2">{r.id}</td>
+                  <td className="whitespace-nowrap py-1 pr-2">{r.label}</td>
+                  <td className="py-1 pr-2">
+                    <RequestStatus status={r.status} />
+                    {r.attempts !== undefined && r.attempts > 1 && <span className="ml-1 text-muted">· {r.attempts} tries</span>}
+                    {r.value !== undefined && <span className="ml-1 text-muted">→ {r.value}</span>}
+                    {r.reason && <div className="mt-0.5 font-sans text-[11px] text-muted">{r.reason}</div>}
+                  </td>
+                  <td className="break-words py-1 pr-2 text-muted">{r.hops}</td>
+                  <td className="whitespace-nowrap py-1 text-right">{r.ms === undefined ? '' : `${r.ms} ms`}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
 
-      {view.log.length > 0 && (
-        <ol aria-label="Recent events" className="space-y-0.5 border-t border-border pt-2 font-mono text-[11px] text-muted">
-          {view.log.map((line, i) => (
-            <li key={`${view.log.length}-${i}`} className={i === view.log.length - 1 ? 'text-text' : ''}>
-              {line}
-            </li>
-          ))}
-        </ol>
-      )}
+      <EventLog lines={view.log} />
     </div>
   );
 }
