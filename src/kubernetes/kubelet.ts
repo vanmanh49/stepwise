@@ -33,6 +33,8 @@ export function createKubelet(env: Env) {
   const work = new Map<string, Work>();
   /** Failed runs per owner, for workloads that fail their first few times. */
   const ownerFailures = new Map<string, number>();
+  /** One counter for every container the kubelet runs, so a pod recreated under the same name (a StatefulSet's) never matches an old timer. */
+  let generation = 0;
   const by = (pod: Pod) => ({ by: 'kubelet' as const, node: pod.node!, subjects: [pod.name] });
   const crash = (pod: Pod) => env.faults.find((f) => f.kind === 'crash' && pod.name.startsWith(f.prefix)) as Extract<Env['faults'][number], { kind: 'crash' }> | undefined;
   const badImage = (image: string) => env.faults.some((f) => f.kind === 'bad-image' && f.image === image);
@@ -161,7 +163,7 @@ export function createKubelet(env: Env) {
     if (!env.apply({ write: { op: 'update', object: exited }, event: { kind: end.kind ?? 'exit', ...by(pod), text: `${text}${again ? '' : `: ${final}`}` } })) {
       return end.cause ? undefined : timer(RETRY_S, 'exit', pod, w);
     }
-    w.gen++; // a pending "ready" for this run no longer applies
+    w.gen = ++generation; // a pending "ready" for this run no longer applies
     if (!again) return;
     if (ran >= BACKOFF_RESET_S) w.level = 0;
     const wait = backoffS(w.level++);
@@ -190,7 +192,7 @@ export function createKubelet(env: Env) {
       for (const name of work.keys()) if (!names.has(name)) work.delete(name);
       for (const pod of pods) {
         if (!pod.node || work.has(pod.name) || env.offline.has(pod.node) || pod.phase !== 'Pending') continue;
-        const w = { gen: 0, level: 0, startedAt: 0, ...freshProbes() };
+        const w = { gen: ++generation, level: 0, startedAt: 0, ...freshProbes() };
         work.set(pod.name, w);
         attach(pod, w);
       }

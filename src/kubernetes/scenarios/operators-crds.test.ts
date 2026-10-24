@@ -61,3 +61,29 @@ describe('Operators & CRDs', () => {
     }
   });
 });
+
+describe('Operators & CRDs: status and narration', () => {
+  it('scales for a spec change instead of calling it a hand edit', () => {
+    const { frames } = run({ change: 'replicas 3 → 5', outage: 'on' });
+    expect(frames.some((f) => f.event.text.includes('sets it back'))).toBe(false);
+    expect(frames.some((f) => f.event.by === 'operator' && f.event.text.includes('scales StatefulSet db to 5'))).toBe(true);
+  });
+
+  it('keeps the Database status through kubectl apply, and reports v15 Upgrading until every pod runs v16', () => {
+    const { frames, final } = run({ change: 'version 15 → 16' });
+    const allNew = frames.findIndex((f) => dbPods(f.state).length === 3 && dbPods(f.state).every((p) => p.image === 'postgres:16' && p.ready));
+    for (const f of frames.slice(0, allNew)) {
+      const status = f.state.databases[0]?.status;
+      if (status) expect(status.version).toBe(15);
+    }
+    const phases = frames.filter((f) => f.event.t > 90).map((f) => f.state.databases[0]?.status?.phase);
+    const firstUpgrade = phases.indexOf('Upgrading');
+    expect(firstUpgrade).toBeGreaterThan(-1);
+    expect(phases.slice(firstUpgrade).includes('Creating')).toBe(false);
+    expect(final!.databases[0]!.status).toMatchObject({ phase: 'Ready', version: 16 });
+  });
+
+  it("writes data to the database's volumes", () => {
+    expect(run({}).final!.volumes.every((v) => v.records > 0)).toBe(true);
+  });
+});

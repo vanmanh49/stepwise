@@ -35,7 +35,8 @@ const content: LessonContent = {
     presets: [
       { label: 'One pod per node', values: base },
       { label: 'A new node gets one', values: { ...base, join: 'on' } },
-      { label: 'Taint and nodeSelector limit it', values: { ...base, nodeSelector: 'disk=ssd', toleration: 'on' } },
+      { label: 'A toleration adds node-3', values: { ...base, toleration: 'on' } },
+      { label: 'nodeSelector limits it', values: { ...base, nodeSelector: 'disk=ssd', toleration: 'on' } },
       { label: 'Drain leaves it in place', values: { ...base, drain: 'on' } },
       { label: 'Rolling update node by node', values: { ...base, update: 'on' } },
     ],

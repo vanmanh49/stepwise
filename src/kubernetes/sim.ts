@@ -91,7 +91,7 @@ type Item =
 
 /** Whether an object's pods write data: a claim, or a pod template with a volume other than a ConfigMap. */
 function storesData(object: Extract<Action, { kind: 'apply' }>['object']): boolean {
-  if (object.kind === 'PersistentVolumeClaim') return true;
+  if (object.kind === 'PersistentVolumeClaim' || object.kind === 'Database') return true;
   if (object.kind === 'StatefulSet' && object.claims?.length) return true;
   const template = object.kind === 'Pod' ? object : 'template' in object ? object.template : object.kind === 'CronJob' ? object.jobTemplate.template : undefined;
   return (template?.volumes ?? []).some((v) => !('configMap' in v));
@@ -217,9 +217,11 @@ export function simulate(scenario: Scenario): SimResult {
     const kubectl = (text: string, subjects: string[]) => ({ kind: 'action' as const, by: 'kubectl' as const, subjects, text });
     switch (action.kind) {
       case 'apply': {
-        const { object } = action;
-        const exists = !!store.get(object.kind, object.name);
-        apply({ write: { op: exists ? 'update' : 'create', object }, event: kubectl(`kubectl applies ${object.kind} ${object.name}`, [object.name]) });
+        const stored = store.get(action.object.kind, action.object.name);
+        const exists = !!stored;
+        // kubectl apply changes the spec; status belongs to the controller (a status subresource).
+        const object = stored && 'status' in stored && (stored.kind === 'Database' || stored.kind === 'Job') ? { ...action.object, status: stored.status } : action.object;
+        apply({ write: { op: exists ? 'update' : 'create', object: object as typeof action.object }, event: kubectl(`kubectl applies ${object.kind} ${object.name}`, [object.name]) });
         return;
       }
       case 'scale': {

@@ -95,3 +95,18 @@ describe('StatefulSet controller', () => {
     expect(result.endedAt).toBe(150);
   });
 });
+
+describe('StatefulSet pods that come back under the same name', () => {
+  it("are not restarted early by the deleted pod's leftover timers", () => {
+    // Deleted at 28 s, mid back-off: the old pod's restart timer is still queued when the new db-1 first exits.
+    const { frames } = run({}, [{ at: 28, kind: 'delete', object: { kind: 'Pod', name: 'db-1' } }], [{ kind: 'crash', prefix: 'db-1', afterS: 1, exitCode: 1 }]);
+    const after = frames.filter((f) => f.event.t > 28 && f.event.subjects[0] === 'db-1');
+    const exits = after.filter((f) => f.event.kind === 'exit');
+    const restarts = after.filter((f) => f.event.kind === 'restart');
+    expect(exits.length).toBeGreaterThan(0);
+    for (const r of restarts) {
+      const exit = exits.filter((e) => e.event.t <= r.event.t).at(-1)!;
+      expect(r.event.t - exit.event.t).toBeGreaterThanOrEqual(10);
+    }
+  });
+});

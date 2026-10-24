@@ -63,3 +63,13 @@ describe('Jobs & CronJobs', () => {
     }
   });
 });
+
+describe('Jobs & CronJobs: the Job row matches the narration', () => {
+  it('counts the failure in the status by the time the back-off is told', () => {
+    const read = jobsCronjobsScenario({ ...batch, completions: '1', parallelism: '1', failures: 'first 2 fail' });
+    if (!read.ok) throw new Error(read.why);
+    const waits = simulate(read.value).frames.filter((f) => f.event.kind === 'job' && f.event.text.includes('waits until'));
+    expect(waits.length).toBeGreaterThan(0);
+    for (const f of waits) expect(f.event.text).toContain(`has ${f.state.jobs[0]!.status.failed} failure`);
+  });
+});

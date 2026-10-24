@@ -49,13 +49,18 @@ export const reconcileDatabases: Reconcile = (ctx) => {
     const set = store.get('StatefulSet', db.name);
     if (!set) {
       create(statefulSet(db), `Database ${db.name} wants ${db.spec.replicas} replicas of ${image(db.spec.version)}: it creates StatefulSet ${db.name}`);
-      changes.push({ write: { op: 'update', object: { ...db, status: { phase: 'Creating', ready: 0, version: db.spec.version } } }, event: say(`Database ${db.name} is Creating`, []) });
+      changes.push({ write: { op: 'update', object: { ...db, status: { phase: 'Creating', ready: 0, version: db.spec.version, replicas: db.spec.replicas } } }, event: say(`Database ${db.name} is Creating`, []) });
       continue;
     }
     let next = set;
     if (set.replicas !== db.spec.replicas) {
       next = { ...next, replicas: db.spec.replicas };
-      changes.push({ write: { op: 'update', object: next }, event: say(`Database ${db.name} wants ${db.spec.replicas} replicas, StatefulSet ${set.name} has ${set.replicas}: it sets it back to ${db.spec.replicas}`, [set.name]) });
+      // The spec still says what the operator last set: someone changed the StatefulSet by hand.
+      const handEdit = db.status?.replicas === db.spec.replicas;
+      const text = handEdit
+        ? `Database ${db.name} wants ${db.spec.replicas} replicas, StatefulSet ${set.name} has ${set.replicas}: it sets it back to ${db.spec.replicas}`
+        : `Database ${db.name} now wants ${db.spec.replicas} replicas: it scales StatefulSet ${set.name} to ${db.spec.replicas}`;
+      changes.push({ write: { op: 'update', object: next }, event: say(text, [set.name]) });
     }
     let backingUp = false;
     const wanted = image(db.spec.version);
@@ -72,11 +77,14 @@ export const reconcileDatabases: Reconcile = (ctx) => {
     // Status: phase and version change rarely, so they are written (and told) only when they change.
     const pods = store.list('Pod').filter((p) => p.owner === set.name && p.ownerKind === 'StatefulSet');
     const ready = pods.filter((p) => p.phase === 'Running' && p.ready).length;
-    const upgrading = next.template.image !== set.template.image || pods.some((p) => p.image !== next.template.image);
-    const phase = backingUp ? 'BackingUp' : upgrading ? 'Upgrading' : ready < db.spec.replicas ? 'Creating' : 'Ready';
-    const version = phase === 'Ready' ? db.spec.version : (db.status?.version ?? db.spec.version);
-    if (db.status?.phase !== phase || db.status.version !== version) {
-      changes.push({ write: { op: 'update', object: { ...db, status: { phase, ready, version } } }, event: say(`Database ${db.name} is ${phase} (${ready} of ${db.spec.replicas} ready, v${version})`, []) });
+    // A version change lasts until every pod runs the new image and is ready; until then the old version is reported.
+    const running = db.status?.version ?? db.spec.version;
+    const done = pods.length === db.spec.replicas && pods.every((p) => p.image === wanted && p.phase === 'Running' && p.ready);
+    const changing = running !== db.spec.version && !done;
+    const phase = backingUp ? 'BackingUp' : changing ? 'Upgrading' : ready < db.spec.replicas ? 'Creating' : 'Ready';
+    const version = changing ? running : db.spec.version;
+    if (db.status?.phase !== phase || db.status.version !== version || db.status.replicas !== next.replicas) {
+      changes.push({ write: { op: 'update', object: { ...db, status: { phase, ready, version, replicas: next.replicas } } }, event: say(`Database ${db.name} is ${phase} (${ready} of ${db.spec.replicas} ready, v${version})`, []) });
     }
   }
   return changes;

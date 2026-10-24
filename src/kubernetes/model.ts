@@ -340,7 +340,8 @@ export interface Database {
   kind: 'Database';
   name: string;
   spec: { replicas: number; version: number; backup: boolean };
-  status?: { phase: 'Creating' | 'Ready' | 'BackingUp' | 'Upgrading'; ready: number; version: number };
+  /** replicas: what the operator last set the StatefulSet to, so it can tell a hand edit from a spec change. */
+  status?: { phase: 'Creating' | 'Ready' | 'BackingUp' | 'Upgrading'; ready: number; version: number; replicas?: number };
 }
 export type Obj =
   | NodeObj

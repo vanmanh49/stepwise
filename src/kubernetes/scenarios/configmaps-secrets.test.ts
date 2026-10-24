@@ -53,3 +53,13 @@ describe('ConfigMaps & Secrets', () => {
     }
   });
 });
+
+describe('ConfigMaps & Secrets: secrets stay inside the pod', () => {
+  it('never echoes the password in answers or pod chips', () => {
+    for (const consume of ['env', 'volume']) {
+      const steps = configmapsSecretsSteps({ ...env, consume });
+      const text = JSON.stringify(steps.map((s) => [s.title, s.why, s.view]));
+      expect(text).not.toContain('s3cr3t');
+    }
+  });
+});

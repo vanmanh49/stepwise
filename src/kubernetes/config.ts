@@ -13,7 +13,8 @@ export function resolveConfig(store: Store, pod: Pod): Resolved {
     if (!object) return { ok: false, reason: `${kind.toLowerCase()} "${source}" not found`, mount: false };
     const value = object.data[from.key];
     if (value === undefined) return { ok: false, reason: `couldn't find key ${from.key} in ${kind} ${source}`, mount: false };
-    env[name] = value;
+    // A Secret's value reaches the container but is never shown: the app doesn't hand its password out.
+    if (kind === 'ConfigMap') env[name] = value;
   }
   const mounted = mountedConfig(store, pod);
   if (!mounted.ok) return mounted;

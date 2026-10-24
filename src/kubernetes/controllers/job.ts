@@ -68,6 +68,8 @@ export function reconcileJobs(env: Env, state: JobState) {
         if (env.apply({ write: { op: 'create', object: pod }, event: { kind: 'create-pod', ...by, subjects: [name, job.name], text: `Job ${job.name} has ${status.succeeded} of ${job.completions} done and ${running.length + i} running: it creates ${name}` } })) created.push(name);
       }
     } else if (wanted > 0) {
+      // The row counts the failure before the step tells of the wait.
+      if (!sameStatus(status, job.status)) env.store.write({ op: 'update', object: { ...job, status } });
       env.apply({ event: { kind: 'job', ...by, subjects: [job.name], text: `Job ${job.name} has ${status.failed} failure${status.failed === 1 ? '' : 's'}: it waits until ${waitUntil} s before the next pod (back-off)` } });
     }
     const next = { ...status, active: running.length + created.length };

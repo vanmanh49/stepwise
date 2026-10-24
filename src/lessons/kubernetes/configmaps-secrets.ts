@@ -22,7 +22,7 @@ const content: LessonContent = {
     'Deployment web runs 2 pods. Each reads color from ConfigMap web-config (blue) and DB_PASSWORD from Secret db. A client sends a request every 3 s, and each pod answers with the config it sees.',
     'At 22 s, kubectl edits web-config: color=green.',
     'Read as env, the pods keep answering blue. Read as a volume, they switch to green after the kubelet\'s next sync.',
-    'With rollout restart on, kubectl rollout restart at 40 s replaces the pods; the new ones read green. With the ConfigMap created at 30 s, the pods wait in CreateContainerConfigError until then.',
+    'With rollout restart on, kubectl rollout restart at 40 s replaces the pods; the new ones read green. With the ConfigMap created at 30 s, the pods can\'t start until then: CreateContainerConfigError when it is read as env, ContainerCreating when it is a volume.',
   ],
   visualization: {
     kind: 'form',
