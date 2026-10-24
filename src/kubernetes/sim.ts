@@ -15,6 +15,7 @@ import type { Change, Ctx, Reconcile } from './controllers/types';
 import type { Env, Timer } from './env';
 import { applyNoExecute, evictForTaint, requestEviction } from './evict';
 import { answerOf, configSync } from './config';
+import { ingressRows, matchIngress } from './ingress';
 import { createKubelet } from './kubelet';
 import {
   CA_SCAN_S,
@@ -234,7 +235,7 @@ export function simulate(scenario: Scenario): SimResult {
         return;
       }
       case 'request':
-        return route(action.id, action.service);
+        return route(action);
       case 'cordon':
       case 'uncordon':
       case 'drain': {
@@ -288,14 +289,16 @@ export function simulate(scenario: Scenario): SimResult {
     }
   };
 
-  // kube-proxy: a seeded pick among the Service's endpoints, as iptables mode picks at random.
-  const route = (id: string, service: string) => {
+  // kube-proxy (or the Ingress controller): a seeded pick among the Service's endpoints, as iptables mode picks at random.
+  const deliver = (request: RequestState, service: string, by: { by: Component; subjects: string[] }, via: string, extra: Partial<TraceEvent> = {}) => {
+    const { id } = request;
     const endpoints = store.get('Endpoints', service)?.pods ?? [];
-    const by = { by: 'kube-proxy' as const, subjects: [id, service] };
+    const fail = (reason: string, text: string) => {
+      requests.set(id, { ...request, status: 'failed', reason });
+      record({ kind: 'request-fail', ...by, ...extra, text, reason });
+    };
     if (endpoints.length === 0) {
-      const reason = `no endpoints for ${service}: connection refused`;
-      requests.set(id, { id, service, status: 'failed', reason });
-      return record({ kind: 'request-fail', ...by, text: `Request ${id} to ${service} fails: ${reason}`, reason });
+      return by.by === 'ingress' ? fail('503 Service Unavailable', `${via} has no ready pods behind ${service}: 503 Service Unavailable`) : fail(`no endpoints for ${service}: connection refused`, `Request ${id} to ${service} fails: no endpoints for ${service}: connection refused`);
     }
     const name = endpoints[Math.floor(rng() * endpoints.length)]!;
     const pod = store.get('Pod', name);
@@ -304,8 +307,30 @@ export function simulate(scenario: Scenario): SimResult {
     const ok = running && kubelet.answers(name);
     const reason = ok ? undefined : running ? `${name} doesn't answer: the request times out` : `${name} is not running: connection refused`;
     const body = ok ? answerOf(pod) : undefined;
-    requests.set(id, { id, service, status: ok ? 'ok' : 'failed', pod: name, ...(reason && { reason }), ...(body && { body }) });
-    record({ kind: 'route', ...by, ...(pod?.node && { node: pod.node }), subjects: [id, service, name], text: ok ? `kube-proxy sends request ${id} to ${name}${body ? `, which answers ${body}` : ''}` : `kube-proxy sends request ${id} to ${name}, which fails: ${reason}`, ...(reason && { reason }) });
+    requests.set(id, { ...request, status: ok ? 'ok' : 'failed', pod: name, ...(reason && { reason }), ...(body && { body }) });
+    record({ kind: by.by === 'ingress' ? 'ingress' : 'route', ...by, ...extra, ...(pod?.node && { node: pod.node }), subjects: [...by.subjects, name], text: ok ? `${via} to ${name}${body ? `, which answers ${body}` : ''}` : `${via} to ${name}, which fails: ${reason}`, ...(reason && { reason }) });
+  };
+
+  const route = (action: Extract<Action, { kind: 'request' }>) => {
+    const { id, service, host, path } = action;
+    if (host === undefined && path === undefined) return deliver({ id, service, status: 'pending' }, service, { by: 'kube-proxy', subjects: [id, service] }, `kube-proxy sends request ${id}`);
+    const request: RequestState = { id, service, status: 'pending', host: host ?? '', path: path ?? '/' };
+    const label = `GET ${request.host}${request.path}`;
+    const by = { by: 'ingress' as const, subjects: [id] };
+    if (!scenario.ingressController) {
+      const reason = 'connection refused: no ingress controller is running';
+      requests.set(id, { ...request, status: 'failed', reason });
+      return record({ kind: 'request-fail', ...by, text: `${label} fails: ${reason}`, reason });
+    }
+    const ingresses = store.list('Ingress');
+    const match = matchIngress(ingresses, request.host!, request.path!);
+    const rules = ingressRows(ingresses, match);
+    if (!match) {
+      requests.set(id, { ...request, status: 'failed', reason: '404 Not Found' });
+      return record({ kind: 'request-fail', ...by, rules, text: `No Ingress rule matches ${label}: 404 Not Found`, reason: '404 Not Found' });
+    }
+    const why = match.rule === 'default' ? 'the default backend' : `${match.rule.pathType} ${match.rule.path}`;
+    deliver({ ...request, service: match.service }, match.service, { by: 'ingress', subjects: [id, match.service] }, `ingress-nginx sends ${label} to ${match.service} (${why}), then`, { rules });
   };
 
   const fault = (f: Extract<Item, { kind: 'fault' }>['fault']) => {

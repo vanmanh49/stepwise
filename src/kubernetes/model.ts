@@ -479,6 +479,13 @@ export interface Breakdown {
   rows: { node: string; filtered?: string; scores?: Record<string, number>; total?: number; chosen?: boolean }[];
 }
 
+/** A table of rules for a step (Ingress paths, NetworkPolicies): the row that decided is marked. */
+export interface RuleTable {
+  title: string;
+  columns: string[];
+  rows: { cells: string[]; mark?: 'match' | 'deny' }[];
+}
+
 export interface TraceEvent {
   t: number;
   kind: TraceKind;
@@ -490,6 +497,7 @@ export interface TraceEvent {
   text: string;
   reason?: string;
   breakdown?: Breakdown;
+  rules?: RuleTable;
 }
 
 export interface RequestState {
