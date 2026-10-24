@@ -122,4 +122,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['affinity', 'anti-affinity', 'node affinity', 'pod anti-affinity', 'topologyKey', 'required', 'preferred', 'zones'],
     prerequisites: ['taints-tolerations'],
   },
+  {
+    id: 'hpa',
+    title: 'Horizontal Pod Autoscaler',
+    category: 'kubernetes',
+    difficulty: 'intermediate',
+    group: 'Scheduling & Health',
+    description: 'Send a spike, a ramp or flapping load and watch the HPA add pods fast and remove them slowly.',
+    keywords: ['hpa', 'horizontal pod autoscaler', 'autoscaling', 'cpu target', 'replicas', 'stabilization window', 'metrics', 'scale'],
+    prerequisites: ['affinity'],
+  },
 ];
