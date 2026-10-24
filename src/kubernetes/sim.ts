@@ -16,6 +16,7 @@ import type { Env, Timer } from './env';
 import { applyNoExecute, evictForTaint, requestEviction } from './evict';
 import { answerOf, configSync } from './config';
 import { ingressRows, matchIngress } from './ingress';
+import { checkTraffic, dnsAllowed, policyRows } from './network';
 import { createKubelet } from './kubelet';
 import {
   CA_SCAN_S,
@@ -34,6 +35,7 @@ import {
   type Fault,
   type Frame,
   type Kind,
+  type Pod,
   type RequestState,
   type Scenario,
   type SimResult,
@@ -290,7 +292,7 @@ export function simulate(scenario: Scenario): SimResult {
   };
 
   // kube-proxy (or the Ingress controller): a seeded pick among the Service's endpoints, as iptables mode picks at random.
-  const deliver = (request: RequestState, service: string, by: { by: Component; subjects: string[] }, via: string, extra: Partial<TraceEvent> = {}) => {
+  const deliver = (request: RequestState, service: string, by: { by: Component; subjects: string[] }, via: string, extra: Partial<TraceEvent> = {}, from?: Pod) => {
     const { id } = request;
     const endpoints = store.get('Endpoints', service)?.pods ?? [];
     const fail = (reason: string, text: string) => {
@@ -303,6 +305,18 @@ export function simulate(scenario: Scenario): SimResult {
     const name = endpoints[Math.floor(rng() * endpoints.length)]!;
     const pod = store.get('Pod', name);
     const node = pod?.node ? store.get('Node', pod.node) : undefined;
+    if (from && pod) {
+      // NetworkPolicies are enforced on the packets: what they deny is dropped, so the client only sees a timeout.
+      const policies = store.list('NetworkPolicy');
+      const verdict = checkTraffic(policies, from, pod);
+      if (!verdict.ok) {
+        const reason = 'connection timed out';
+        requests.set(id, { ...request, status: 'failed', pod: name, reason });
+        const side = verdict.stage === 'egress' ? `${from.name} may not send to it` : `${name} may not receive from ${from.name}`;
+        return record({ kind: 'policy-drop', ...by, ...(pod.node && { node: pod.node }), subjects: [...by.subjects, name], rules: policyRows(policies, verdict), text: `${via} to ${name}, but ${side} (${verdict.policies.join(', ')}): the packets are dropped and the request times out`, reason });
+      }
+      if (policies.length > 0) extra = { ...extra, rules: policyRows(policies, verdict) };
+    }
     const running = pod?.phase === 'Running' && !!node?.ready && !offline.has(node.name);
     const ok = running && kubelet.answers(name);
     const reason = ok ? undefined : running ? `${name} doesn't answer: the request times out` : `${name} is not running: connection refused`;
@@ -312,7 +326,21 @@ export function simulate(scenario: Scenario): SimResult {
   };
 
   const route = (action: Extract<Action, { kind: 'request' }>) => {
-    const { id, service, host, path } = action;
+    const { id, service, host, path, from } = action;
+    if (from !== undefined) {
+      const request: RequestState = { id, service, status: 'pending', from };
+      const source = store.list('Pod').find((p) => p.name.startsWith(from) && p.phase === 'Running');
+      const by = { by: 'kube-proxy' as const, subjects: [id, service] };
+      const fail = (reason: string, text: string, extra: Partial<TraceEvent> = {}) => {
+        requests.set(id, { ...request, status: 'failed', reason });
+        record({ kind: 'request-fail', ...by, ...extra, text, reason });
+      };
+      if (!source) return fail(`no running pod starting with ${from} to send from`, `Request ${id} from ${from} to ${service} can't be sent: no running pod starting with ${from}`);
+      const policies = store.list('NetworkPolicy');
+      const dns = dnsAllowed(policies, source);
+      if (!dns.ok) return fail(`DNS lookup for ${service} timed out`, `${source.name} can't look up ${service}: its egress is isolated by ${dns.policies.join(', ')} and no rule allows DNS, so the lookup times out`, { kind: 'policy-drop', rules: policyRows(policies, { ok: false, stage: 'dns', policies: dns.policies }) });
+      return deliver({ ...request, from }, service, by, `${source.name} sends request ${id} to ${service}; kube-proxy picks`, {}, source);
+    }
     if (host === undefined && path === undefined) return deliver({ id, service, status: 'pending' }, service, { by: 'kube-proxy', subjects: [id, service] }, `kube-proxy sends request ${id}`);
     const request: RequestState = { id, service, status: 'pending', host: host ?? '', path: path ?? '/' };
     const label = `GET ${request.host}${request.path}`;
