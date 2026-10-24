@@ -142,4 +142,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['cluster autoscaler', 'node pool', 'node group', 'scale up', 'scale down', 'pending pods', 'nodes', 'cost'],
     prerequisites: ['hpa'],
   },
+  {
+    id: 'draining-pdb',
+    title: 'Draining & PodDisruptionBudgets',
+    category: 'kubernetes',
+    difficulty: 'intermediate',
+    group: 'Scheduling & Health',
+    description: 'Drain a node holding two of four pods, with and without a PodDisruptionBudget.',
+    keywords: ['drain', 'cordon', 'uncordon', 'PodDisruptionBudget', 'pdb', 'minAvailable', 'maxUnavailable', 'eviction', 'maintenance'],
+    prerequisites: ['cluster-autoscaler'],
+  },
 ];

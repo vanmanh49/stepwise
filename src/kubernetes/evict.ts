@@ -1,15 +1,19 @@
 import type { Env } from './env';
-import { EVICT_RETRY_S, tolerates, type Pod, type PodDisruptionBudget, type Taint } from './model';
+import { EVICT_RETRY_S, tolerates, type Pod, type PodDisruptionBudget, type ReplicaSet, type Taint } from './model';
 import { matches } from './selector';
 import type { Store } from './store';
 
 const REFUSED = "Cannot evict pod as it would violate the pod's disruption budget";
 
-/** How many more matching pods may be disrupted now: ready pods beyond minAvailable, or maxUnavailable minus those already down. */
-export function allowedDisruptions(pdb: PodDisruptionBudget, pods: Pod[]): number {
+/**
+ * How many more matching pods may be disrupted now: ready pods beyond minAvailable, or maxUnavailable minus those down.
+ * "Down" counts against the pods the ReplicaSets expect, so a pod already evicted and not yet replaced still counts.
+ */
+export function allowedDisruptions(pdb: PodDisruptionBudget, pods: Pod[], replicaSets: ReplicaSet[] = []): number {
   const matching = pods.filter((p) => matches(pdb.selector, p.labels));
   const healthy = matching.filter((p) => p.ready).length;
-  const allowed = pdb.minAvailable !== undefined ? healthy - pdb.minAvailable : (pdb.maxUnavailable ?? 0) - (matching.length - healthy);
+  const expected = Math.max(matching.length, replicaSets.filter((rs) => matches(pdb.selector, rs.template.labels)).reduce((s, rs) => s + rs.replicas, 0));
+  const allowed = pdb.minAvailable !== undefined ? healthy - pdb.minAvailable : (pdb.maxUnavailable ?? 0) - (expected - healthy);
   return Math.max(0, allowed);
 }
 
@@ -17,7 +21,8 @@ export function allowedDisruptions(pdb: PodDisruptionBudget, pods: Pod[]): numbe
 export function evictionAllowed(store: Store, pod: Pod): { ok: true } | { ok: false; reason: string } {
   if (!pod.ready) return { ok: true };
   const pods = store.list('Pod');
-  const blocked = store.list('PodDisruptionBudget').some((pdb) => matches(pdb.selector, pod.labels) && allowedDisruptions(pdb, pods) < 1);
+  const replicaSets = store.list('ReplicaSet');
+  const blocked = store.list('PodDisruptionBudget').some((pdb) => matches(pdb.selector, pod.labels) && allowedDisruptions(pdb, pods, replicaSets) < 1);
   return blocked ? { ok: false, reason: REFUSED } : { ok: true };
 }
 

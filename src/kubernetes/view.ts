@@ -99,7 +99,7 @@ export function clusterView({ event, state }: Frame, log: string[], merged: Fram
     }),
     ...state.pdbs.map((b) => {
       const rule = b.minAvailable !== undefined ? `minAvailable ${b.minAvailable}` : `maxUnavailable ${b.maxUnavailable ?? 0}`;
-      return { kind: 'PodDisruptionBudget', name: b.name, note: `${rule}, allowed disruptions: ${allowedDisruptions(b, state.pods)}`, role: 'default' as Role };
+      return { kind: 'PodDisruptionBudget', name: b.name, note: `${rule}, allowed disruptions: ${allowedDisruptions(b, state.pods, state.replicaSets)}`, role: 'default' as Role };
     }),
     ...state.services.map((s) => {
       const count = state.endpoints.find((e) => e.name === s.name)?.pods.length ?? 0;
