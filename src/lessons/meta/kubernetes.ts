@@ -102,4 +102,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['probes', 'liveness', 'readiness', 'startup', 'health check', 'periodSeconds', 'failureThreshold', 'hang'],
     prerequisites: ['requests-limits'],
   },
+  {
+    id: 'taints-tolerations',
+    title: 'Taints & Tolerations',
+    category: 'kubernetes',
+    difficulty: 'intermediate',
+    group: 'Scheduling & Health',
+    description: 'Taint a node and watch pods with and without a toleration: skipped, allowed, or evicted.',
+    keywords: ['taints', 'tolerations', 'NoSchedule', 'NoExecute', 'PreferNoSchedule', 'tolerationSeconds', 'dedicated nodes', 'eviction'],
+    prerequisites: ['probes'],
+  },
 ];
