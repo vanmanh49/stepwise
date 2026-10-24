@@ -128,13 +128,13 @@ function ObjectsTable({ objects }: { objects: ClusterView['objects'] }) {
           {objects.map((o) => (
             <tr key={`${o.kind}/${o.name}`} className="border-t border-border">
               <td className={cell}>{o.kind}</td>
-              <td className={cell}>
+              <td className={`${cell} whitespace-nowrap`}>
                 <Chip role={o.role}>{o.name}</Chip>
               </td>
               <td className={cell}>{o.desired ?? ''}</td>
               <td className={cell}>{o.current ?? ''}</td>
               <td className={cell}>{o.ready ?? ''}</td>
-              <td className={`${cell} text-muted`}>{o.note ?? ''}</td>
+              <td className={`${cell} whitespace-nowrap text-muted`}>{o.note ?? ''}</td>
             </tr>
           ))}
         </tbody>

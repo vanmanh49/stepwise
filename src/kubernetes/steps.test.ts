@@ -23,6 +23,13 @@ describe('traceSteps', () => {
     expect(steps.filter((s) => s.title.startsWith('scheduler binds 3 pods'))).toHaveLength(1);
   });
 
+  it('highlights every pod and node of a merged step', () => {
+    const steps = traceSteps(simulate(scenario()), options);
+    const view = steps.find((s) => s.title.startsWith('3 pods are ready'))!.view as ClusterView;
+    expect(view.nodes.map((n) => n.role)).toEqual(['active', 'active', 'active']);
+    expect(view.nodes.flatMap((n) => n.pods.map((p) => p.role))).toEqual(['active', 'active', 'active']);
+  });
+
   it('hides no-op reconciles unless asked', () => {
     const result = simulate(scenario());
     expect(traceSteps(result, options).some((s) => s.title.includes('nothing to do'))).toBe(false);

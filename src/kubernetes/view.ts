@@ -26,9 +26,10 @@ export function emptyClusterView(): ClusterView {
   return { kind: 'cluster', controlPlane: [], nodes: [], pending: [], objects: [], log: [] };
 }
 
-/** The cluster after a frame's event, with what that event touched highlighted. */
-export function clusterView({ event, state }: Frame, log: string[]): ClusterView {
-  const touched = new Set(event.subjects);
+/** The cluster after a frame's event, with what that event (and any events merged with it) touched highlighted. */
+export function clusterView({ event, state }: Frame, log: string[], merged: Frame[] = []): ClusterView {
+  const touched = new Set([event, ...merged.map((f) => f.event)].flatMap((e) => e.subjects));
+  const kubeletNodes = new Set([event, ...merged.map((f) => f.event)].flatMap((e) => (e.by === 'kubelet' && e.node ? [e.node] : [])));
   const lit: Plane['id'] | undefined =
     event.kind === 'refuse-write' ? 'etcd' : event.by === 'kubectl' || event.by === 'api-server' ? 'api-server' : event.by === 'scheduler' || event.by === 'controllers' || event.by === 'etcd' ? event.by : undefined;
   const controlPlane = PLANE.map(({ id, label }): Plane =>
@@ -36,7 +37,7 @@ export function clusterView({ event, state }: Frame, log: string[]): ClusterView
   );
   const nodes = state.nodes.map((node) => {
     const mine = state.pods.filter((p) => p.node === node.name);
-    const role: Role = event.node === node.name && event.by === 'kubelet' ? 'active' : node.ready ? 'default' : 'discarded';
+    const role: Role = kubeletNodes.has(node.name) ? 'active' : node.ready ? 'default' : 'discarded';
     return {
       name: node.name,
       ready: node.ready,

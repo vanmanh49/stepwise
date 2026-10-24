@@ -38,7 +38,7 @@ const WHY: Record<TraceKind, string> = {
   'node-not-ready': `The control plane only learns that a node is gone when its heartbeats stop for longer than the grace period (${GRACE_S} s here; 40 s by default).`,
   lost: `Pods on a NotReady node can't be reached. After a short wait (${EVICT_S} s here; 5 minutes by default) they are deleted so they can be replaced.`,
   endpoints: "A Service's Endpoints list holds the ready pods its selector matches. kube-proxy only sends traffic to these.",
-  route: 'kube-proxy picks one of the Service’s endpoints at random for each new connection.',
+  route: 'kube-proxy picks one of the Service\'s endpoints at random for each new connection.',
   'request-fail': 'With no endpoints there is nowhere to send the request.',
   fault: 'Something outside Kubernetes has gone wrong. Watch how long it takes the cluster to notice.',
   'component-down': 'While a control-plane component is down, the work it does waits.',
@@ -115,13 +115,14 @@ export function traceSteps(result: SimResult, options: StepOptions): Step[] {
   const drafts = shown.map((group) => {
     const last = group.at(-1)!;
     const custom = options.explain?.(group[0]!.event, last.state);
-    return { frame: last, title: custom?.title ?? mergedTitle(group), why: custom?.why ?? WHY[last.event.kind], next: custom?.next, codeLine: line(custom?.line ?? options.lines[last.event.kind]) };
+    return { frame: last, group, title: custom?.title ?? mergedTitle(group), why: custom?.why ?? WHY[last.event.kind], next: custom?.next, codeLine: line(custom?.line ?? options.lines[last.event.kind]) };
   });
   const endState = result.frames.at(-1)?.state;
   if (endState && (groups.length > MAX_STEPS || result.cutOff)) {
     const state = { ...endState, t: result.endedAt };
     drafts.push({
       frame: { event: { t: result.endedAt, kind: 'summary', by: 'api-server', subjects: [], text: '' }, state },
+      group: [],
       title: `After ${result.endedAt} s: ${summary(endState)}`,
       why: result.cutOff ? `The run stops at ${result.endedAt} s, though the cluster would keep going.` : 'The run has more steps than are shown. This is how it ends.',
       next: undefined,
@@ -139,7 +140,7 @@ export function traceSteps(result: SimResult, options: StepOptions): Step[] {
       ...(next && { next }),
       codeLine: draft.codeLine,
       variables: variables(draft.frame.state),
-      view: clusterView(draft.frame, log.slice(-LOG_LINES)),
+      view: clusterView(draft.frame, log.slice(-LOG_LINES), draft.group),
     };
   });
 }
