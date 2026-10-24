@@ -1,4 +1,4 @@
-import { resolveAmount, type Kind, type Obj, type ObjOf, type Snapshot } from './model';
+import { isZero, type Kind, type Obj, type ObjOf, type Snapshot } from './model';
 
 export type Write = { op: 'create' | 'update' | 'delete'; object: Obj };
 export type WriteResult = { ok: true; version: number } | { ok: false; reason: string };
@@ -29,8 +29,7 @@ export class Store {
     if (op === 'create' && exists) return { ok: false, reason: `${object.kind} ${object.name} already exists` };
     if (op !== 'create' && !exists) return { ok: false, reason: `${object.kind} ${object.name} not found` };
     if (op !== 'delete' && object.kind === 'Deployment') {
-      const { maxSurge, maxUnavailable, replicas } = object;
-      if (resolveAmount(maxSurge, replicas, 'up') === 0 && resolveAmount(maxUnavailable, replicas, 'down') === 0) {
+      if (isZero(object.maxSurge) && isZero(object.maxUnavailable)) {
         return { ok: false, reason: "maxSurge and maxUnavailable can't both be 0: the rollout could never start" };
       }
     }

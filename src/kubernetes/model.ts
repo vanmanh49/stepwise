@@ -197,6 +197,9 @@ export interface SimResult {
   cutOff: boolean;
 }
 
+/** True for 0 or "0%": the values Kubernetes refuses when both maxSurge and maxUnavailable have them. */
+export const isZero = (amount: Amount) => amount === 0 || amount === '0%';
+
 /** A count, or a percentage of `replicas` rounded the way Kubernetes rounds it (surge up, unavailable down). */
 export function resolveAmount(amount: Amount, replicas: number, round: 'up' | 'down'): number {
   if (typeof amount === 'number') return amount;

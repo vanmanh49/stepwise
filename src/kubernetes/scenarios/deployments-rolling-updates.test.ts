@@ -58,15 +58,17 @@ describe('Deployments & Rolling Updates', () => {
   });
 
   it('refuses maxSurge and maxUnavailable that are both 0', () => {
-    for (const bad of [
-      { surge: '0', unavailable: '0' },
-      { replicas: '2', surge: '0', unavailable: '25%' },
-    ]) {
+    for (const bad of [{ surge: '0', unavailable: '0' }]) {
       const steps = deploymentsRollingUpdatesSteps({ ...base, ...bad });
       expect(steps).toHaveLength(1);
       expect(steps[0]!.title).toBe("Can't run this rollout");
       expect(steps[0]!.why).toBe("maxSurge and maxUnavailable can't both be 0: the rollout could never start.");
     }
+  });
+
+  it('runs surge 0 with unavailable 25% at 2 replicas, which rounds to 0 but is allowed', () => {
+    const state = final(run({ replicas: '2', surge: '0', unavailable: '25%' }));
+    expect(state.pods.map((p) => [p.image, p.ready])).toEqual(Array.from({ length: 2 }, () => ['app:v2', true]));
   });
 
   it('refuses out-of-range values', () => {

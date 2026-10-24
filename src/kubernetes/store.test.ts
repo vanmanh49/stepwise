@@ -72,9 +72,10 @@ describe('Store', () => {
     const store = new Store();
     const why = "maxSurge and maxUnavailable can't both be 0: the rollout could never start";
     expect(store.write({ op: 'create', object: deployment(0, 0) })).toEqual({ ok: false, reason: why });
-    // 25% of 2 replicas rounds down to 0 for maxUnavailable.
-    expect(store.write({ op: 'create', object: deployment(0, '25%') })).toEqual({ ok: false, reason: why });
-    expect(store.write({ op: 'create', object: deployment('25%', '25%') }).ok).toBe(true);
+    expect(store.write({ op: 'create', object: deployment('0%', 0) })).toEqual({ ok: false, reason: why });
+    // Only literal zeros are refused: 25% of 2 rounds down to 0, but Kubernetes accepts it.
+    expect(store.write({ op: 'create', object: deployment(0, '25%') }).ok).toBe(true);
+    expect(store.write({ op: 'update', object: { ...deployment('25%', '25%'), replicas: 0 } }).ok).toBe(true);
   });
 
   it("keeps stored objects apart from the caller's", () => {

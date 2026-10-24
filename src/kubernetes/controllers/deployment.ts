@@ -26,8 +26,11 @@ export const reconcileDeployments: Reconcile = (ctx) => {
   const replicaSets = ctx.store.list('ReplicaSet');
   for (const d of ctx.store.list('Deployment')) {
     const owned = replicaSets.filter((rs) => rs.owner === d.name);
-    const maxTotal = d.replicas + resolveAmount(d.maxSurge, d.replicas, 'up');
-    const minReady = d.replicas - resolveAmount(d.maxUnavailable, d.replicas, 'down');
+    const surge = resolveAmount(d.maxSurge, d.replicas, 'up');
+    // Percentages that both round to 0 would never move, so Kubernetes lets one pod be unavailable.
+    const unavailable = surge === 0 ? Math.max(1, resolveAmount(d.maxUnavailable, d.replicas, 'down')) : resolveAmount(d.maxUnavailable, d.replicas, 'down');
+    const maxTotal = d.replicas + surge;
+    const minReady = d.replicas - unavailable;
     let total = owned.reduce((sum, rs) => sum + rs.replicas, 0);
     const scale = (rs: ReplicaSet, replicas: number, why: string) => {
       const direction = replicas > rs.replicas ? 'up' : 'down';

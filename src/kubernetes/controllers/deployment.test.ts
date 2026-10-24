@@ -53,8 +53,11 @@ function rollout(replicas: number, maxSurge: Amount, maxUnavailable: Amount, ima
   converge(store);
   const d = store.get('Deployment', 'web')!;
   store.write({ op: 'update', object: withImage(d, image) });
-  const maxTotal = replicas + resolveAmount(maxSurge, replicas, 'up');
-  const minReady = replicas - resolveAmount(maxUnavailable, replicas, 'down');
+  const surge = resolveAmount(maxSurge, replicas, 'up');
+  const unavailable = resolveAmount(maxUnavailable, replicas, 'down');
+  const maxTotal = replicas + surge;
+  // Both rounding to 0 means one pod may be unavailable.
+  const minReady = replicas - (surge === 0 && unavailable === 0 ? 1 : unavailable);
   converge(store, {
     bad,
     check: () => {
@@ -122,6 +125,14 @@ describe('Deployment controller', () => {
     for (let pass = 0; pass < 2; pass++) for (const change of reconcileDeployments(ctxFor(store))) store.write(change.write!);
     expect(counts(store).toSorted()).toEqual([
       ['app:v1', 3],
+      ['app:v2', 2],
+    ]);
+  });
+
+  it('rolls out when both percentages round to 0, as if maxUnavailable were 1', () => {
+    const store = rollout(2, 0, '25%');
+    expect(counts(store).toSorted()).toEqual([
+      ['app:v1', 0],
       ['app:v2', 2],
     ]);
   });

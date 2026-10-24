@@ -1,6 +1,6 @@
 import { readChoice, readInt, type Read } from '../../algorithms/form';
 import type { Step } from '../../types/visualization';
-import { resolveAmount, type Action, type Amount, type Scenario } from '../model';
+import { isZero, type Action, type Amount, type Scenario } from '../model';
 import { deployment, nodes, scenarioSteps } from './shared';
 
 export const deploymentsRollingUpdatesCode = `// Deployment controller, on every change
@@ -38,7 +38,7 @@ export function deploymentsRollingUpdatesScenario(values: Record<string, string>
   if (!rollback.ok) return rollback;
   const maxSurge = amount(surge.value);
   const maxUnavailable = amount(unavailable.value);
-  if (resolveAmount(maxSurge, replicas.value, 'up') === 0 && resolveAmount(maxUnavailable, replicas.value, 'down') === 0) {
+  if (isZero(maxSurge) && isZero(maxUnavailable)) {
     return { ok: false, why: "maxSurge and maxUnavailable can't both be 0: the rollout could never start." };
   }
   const v2 = image.value === 'good' ? 'app:v2' : 'app:v2-typo';

@@ -58,7 +58,7 @@ const content: LessonContent = {
   ],
   commonMistakes: [
     'Setting maxSurge and maxUnavailable both to 0: the rollout can never make progress.',
-    'Using maxUnavailable 0 and maxSurge 0% on a full cluster: there is no room for the extra pod.',
+    'Using maxUnavailable 0 on a full cluster: the extra pod has nowhere to go, so the rollout waits.',
     'Watching only the Deployment\'s status and missing that new pods are stuck in ImagePullBackOff.',
     'Expecting a rollback to restore data: it only changes which pod template runs.',
   ],
