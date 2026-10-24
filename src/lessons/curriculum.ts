@@ -143,6 +143,35 @@ export const curriculum: Topic[] = [
     ['strangler-fig', 'Strangler Fig Migration', 'Data & Operations'],
     ['service-mesh', 'Sidecar & Service Mesh', 'Data & Operations'],
   ]),
+  ...topics('kubernetes', 'beginner', [
+    ['cluster-architecture', 'Cluster Architecture', 'Foundations'],
+    ['pods', 'Pods', 'Foundations'],
+    ['labels-selectors', 'Labels & Selectors', 'Foundations'],
+    ['desired-state-controllers', 'Desired State & Controllers', 'Foundations'],
+    ['replicasets', 'ReplicaSets', 'Foundations'],
+    ['deployments-rolling-updates', 'Deployments & Rolling Updates', 'Foundations'],
+    ['services-kube-proxy', 'Services & kube-proxy', 'Foundations'],
+  ]),
+  ...topics('kubernetes', 'intermediate', [
+    ['scheduler', 'The Scheduler', 'Scheduling & Health'],
+    ['requests-limits', 'Requests & Limits', 'Scheduling & Health'],
+    ['probes', 'Liveness, Readiness & Startup Probes', 'Scheduling & Health'],
+    ['taints-tolerations', 'Taints & Tolerations', 'Scheduling & Health'],
+    ['affinity', 'Affinity & Anti-affinity', 'Scheduling & Health'],
+    ['hpa', 'Horizontal Pod Autoscaler', 'Scheduling & Health'],
+    ['cluster-autoscaler', 'Cluster Autoscaler', 'Scheduling & Health'],
+    ['draining-pdb', 'Draining & PodDisruptionBudgets', 'Scheduling & Health'],
+  ]),
+  ...topics('kubernetes', 'advanced', [
+    ['configmaps-secrets', 'ConfigMaps & Secrets', 'Workloads & Operations'],
+    ['volumes-pv-pvc', 'Volumes, PV & PVC', 'Workloads & Operations'],
+    ['statefulsets', 'StatefulSets', 'Workloads & Operations'],
+    ['daemonsets', 'DaemonSets', 'Workloads & Operations'],
+    ['jobs-cronjobs', 'Jobs & CronJobs', 'Workloads & Operations'],
+    ['ingress', 'Ingress', 'Workloads & Operations'],
+    ['network-policies', 'Network Policies', 'Workloads & Operations'],
+    ['operators-crds', 'Operators & CRDs', 'Workloads & Operations'],
+  ]),
 ];
 
 export const DIFFICULTIES: Difficulty[] = ['beginner', 'intermediate', 'advanced'];
