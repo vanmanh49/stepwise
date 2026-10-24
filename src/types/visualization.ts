@@ -260,6 +260,10 @@ export interface ClusterView {
       qos?: string;
       /** "throttled", "OOMKilled", "Liveness probe failed". */
       note?: string;
+      /** What it mounts and reads: "data-db-0 · 45 records", "emptyDir · 20 records", "config: color=green". */
+      mounts?: string[];
+      /** A StatefulSet pod's stable DNS name: "db-0.db". */
+      dns?: string;
     }[];
   }[];
   /** Pods not bound to any node yet. */
@@ -267,13 +271,15 @@ export interface ClusterView {
   /** Workload objects: desired vs current vs ready. */
   objects: { kind: string; name: string; desired?: number; current?: number; ready?: number; note?: string; role: Role }[];
   /** Client requests to a Service. */
-  requests?: { id: string; label: string; status: 'pending' | 'ok' | 'failed'; endpoint?: string; reason?: string }[];
+  requests?: { id: string; label: string; status: 'pending' | 'ok' | 'failed'; endpoint?: string; reason?: string; body?: string }[];
   /** Requests older than the ones listed, folded into counts. */
   requestsEarlier?: { count: number; ok: number; failed: number };
   /** Requests per second now, and one value per metrics tick so far. */
   traffic?: { rps: number; points: number[] };
   /** The scheduler's filters and scores for one pod. */
   scoring?: { pod: string; rows: { node: string; filtered?: string; scores?: Record<string, number>; total?: number; chosen?: boolean; role: Role }[] };
+  /** Rules that decided this step (Ingress paths, NetworkPolicies), the deciding row highlighted. */
+  rules?: { title: string; columns: string[]; rows: { cells: string[]; role: Role }[] };
   /** The last few steps, newest last. */
   log: string[];
 }

@@ -4,6 +4,7 @@ import { ROLE_META, roleBoxStyle } from '../roles';
 import { Meter, ScoringTable, TrafficStrip } from './ClusterParts';
 import { EventLog } from './EventLog';
 import { RequestStatus } from './RequestStatus';
+import { RuleTable } from './RuleTable';
 
 type NodeBoxView = ClusterView['nodes'][number];
 type PodView = NodeBoxView['pods'][number];
@@ -49,7 +50,13 @@ function PodChip({ pod }: { pod: PodView }) {
           {pod.badge && ` · ${pod.badge}`}
           {pod.qos && ` · ${pod.qos}`}
         </span>
+        {pod.dns && <span className="block text-[10px] opacity-80">{pod.dns}</span>}
         {pod.note && <strong className="block text-[10px]">{pod.note}</strong>}
+        {pod.mounts?.map((m) => (
+          <span key={m} className="mt-0.5 block rounded border border-current px-1 text-[10px] opacity-80">
+            {m}
+          </span>
+        ))}
         {pod.cpu && (
           <Meter
             label={`${pod.name} CPU use`}
@@ -185,6 +192,7 @@ function RequestList({ requests, earlier }: { requests: NonNullable<ClusterView[
               <td className="py-1">
                 <RequestStatus status={r.status} />
                 {r.reason && <div className="mt-0.5 font-sans text-[11px] text-muted">{r.reason}</div>}
+                {r.body && <div className="mt-0.5 text-[11px] text-muted">answers {r.body}</div>}
               </td>
             </tr>
           ))}
@@ -209,6 +217,7 @@ export function ClusterRenderer({ view }: { view: ClusterView }) {
       )}
       <PendingTray pods={view.pending} />
       {view.scoring && <ScoringTable scoring={view.scoring} />}
+      {view.rules && <RuleTable rules={view.rules} />}
       <ObjectsTable objects={view.objects} />
       {view.requests && <RequestList requests={view.requests} earlier={view.requestsEarlier} />}
       <EventLog lines={view.log} />

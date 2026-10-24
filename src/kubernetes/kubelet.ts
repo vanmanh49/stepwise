@@ -12,7 +12,7 @@ export function backoffS(level: number): number {
 /** How a container stopped; a kill names its cause and narration, a crash fault needs only the code. */
 export interface Termination {
   code: number;
-  cause?: 'OOMKilled' | 'Liveness';
+  cause?: 'OOMKilled' | 'Liveness' | 'Startup';
   kind?: TraceKind;
   text?: string;
 }
@@ -78,7 +78,7 @@ export function createKubelet(env: Env) {
     }
     env.apply({ event: { kind: 'probe-fail', ...by(pod), text: `${name} probe failed for ${pod.name} (${n}/${limit})` } });
     if (n < limit) return probeTimer(spec.periodS, kind, pod, w);
-    exit(pod, w, { code: 137, cause: 'Liveness', text: `${name} probe failed ${limit} times: kubelet restarts ${pod.name}` });
+    exit(pod, w, { code: 137, cause: kind === 'startup' ? 'Startup' : 'Liveness', text: `${name} probe failed ${limit} times: kubelet restarts ${pod.name}` });
   }
 
   /** A write etcd refused is tried again a second later, so the pod never moves on from a state that wasn't saved. */

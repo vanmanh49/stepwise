@@ -155,7 +155,7 @@ export interface Pod extends PodExtras {
   /** MiB, from the latest metrics tick. */
   memoryUsage?: number;
   throttled?: boolean;
-  lastTermination?: 'OOMKilled' | 'Error' | 'Evicted' | 'Liveness';
+  lastTermination?: 'OOMKilled' | 'Error' | 'Evicted' | 'Liveness' | 'Startup';
   /** What the app reads from its ConfigMaps and Secrets now. */
   config?: Record<string, string>;
   /** Records in its emptyDir volumes: they go with the pod. */
@@ -542,6 +542,8 @@ export interface Snapshot {
   /** Nodes that are really down, whether or not the control plane has noticed yet. */
   offline: string[];
   requests: RequestState[];
+  /** An Ingress controller is installed. */
+  ingressController?: boolean;
 }
 
 export interface Frame {

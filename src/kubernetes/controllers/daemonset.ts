@@ -13,7 +13,7 @@ export const DAEMON_TOLERATIONS: Toleration[] = [
 ];
 
 /** Whether a DaemonSet belongs on a node: it matches the nodeSelector and tolerates every taint that would repel it. */
-function eligible(ds: DaemonSet, node: NodeObj): boolean {
+export function daemonEligible(ds: DaemonSet, node: NodeObj): boolean {
   const labels = nodeLabels(node);
   if (Object.entries(ds.nodeSelector ?? {}).some(([k, v]) => labels[k] !== v)) return false;
   return (node.taints ?? []).every((t: Taint) => t.effect === 'PreferNoSchedule' || tolerates(ds.template.tolerations, t));
@@ -38,12 +38,12 @@ export const reconcileDaemonSets: Reconcile = (ctx) => {
     const taken = new Set<string>();
     for (const pod of mine) {
       const node = nodes.find((n) => n.name === targetOf(pod));
-      if (node && eligible(ds, node)) continue;
+      if (node && daemonEligible(ds, node)) continue;
       changes.push({ write: { op: 'delete', object: pod }, event: { kind: 'delete-pod', ...by(pod.name, node?.name), text: `DaemonSet ${ds.name} no longer belongs on ${targetOf(pod)}, so it deletes ${pod.name}` } });
     }
     for (const node of nodes) {
       // Only Ready nodes get a new pod; one already on a NotReady node stays, as it tolerates not-ready.
-      if (!node.ready || node.booting || !eligible(ds, node) || mine.some((p) => targetOf(p) === node.name)) continue;
+      if (!node.ready || node.booting || !daemonEligible(ds, node) || mine.some((p) => targetOf(p) === node.name)) continue;
       const t = structuredClone(ds.template);
       const name = podName(ctx, ds.name, taken);
       const pod: Pod = {

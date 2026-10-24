@@ -91,7 +91,7 @@ function mergedTitle(frames: Frame[]): string {
   const e = first.event;
   switch (e.kind) {
     case 'create-pod':
-      return `ReplicaSet ${e.subjects[1]} creates ${n} pods: ${names(frames)}`;
+      return `${first.state.pods.find((p) => p.name === e.subjects[0])?.ownerKind ?? 'ReplicaSet'} ${e.subjects[1]} creates ${n} pods: ${names(frames)}`;
     case 'bind':
       return `scheduler binds ${n} pods: ${frames.map((f) => `${f.event.subjects[0]} → ${f.event.node}`).join(', ')}`;
     case 'pull':
@@ -121,6 +121,8 @@ function mergedTitle(frames: Frame[]): string {
   }
 }
 
+const readyOf = (state: Snapshot, kind: 'StatefulSet' | 'DaemonSet', name: string) => state.pods.filter((p) => p.owner === name && p.ownerKind === kind && p.ready).length;
+
 /** Where a run ended: each workload's ready pods, then the requests. */
 function summary(state: Snapshot): string {
   const parts = [
@@ -130,6 +132,9 @@ function summary(state: Snapshot): string {
     }),
     ...state.replicaSets.filter((r) => !r.owner).map((r) => `ReplicaSet ${r.name} has ${state.pods.filter((p) => p.ready && p.owner === r.name).length} of ${r.replicas} pods ready`),
     ...state.pods.filter((p) => !p.owner).map((p) => `pod ${p.name} is ${p.phase}${p.restarts ? ` after ${p.restarts} restarts` : ''}`),
+    ...state.statefulSets.map((x) => `StatefulSet ${x.name} has ${readyOf(state, 'StatefulSet', x.name)} of ${x.replicas} pods ready`),
+    ...state.daemonSets.map((x) => `DaemonSet ${x.name} has ${readyOf(state, 'DaemonSet', x.name)} of ${state.pods.filter((p) => p.owner === x.name && p.ownerKind === 'DaemonSet').length} pods ready`),
+    ...state.jobs.map((j) => `Job ${j.name} has ${state.pods.filter((p) => p.owner === j.name && p.ownerKind === 'Job' && p.phase === 'Completed').length} of ${j.completions} completions${j.status.condition ? ` (${j.status.condition})` : ''}`),
   ];
   const ok = state.requests.filter((r) => r.status === 'ok').length;
   if (state.requests.length > 0) parts.push(`${ok} requests ok, ${state.requests.length - ok} failed`);

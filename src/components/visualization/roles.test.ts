@@ -40,6 +40,11 @@ describe('rolesInView', () => {
     expect(rolesInView(view)).toEqual(['active', 'default', 'found', 'frontier', 'compare', 'found', 'discarded', 'found', 'discarded']);
   });
 
+  it('lists the roles of a cluster view\'s rule table', () => {
+    const view: ClusterView = { kind: 'cluster', controlPlane: [], nodes: [], pending: [], objects: [], rules: { title: 'Ingress rules', columns: ['Host'], rows: [{ cells: ['a'], role: 'found' }, { cells: ['b'], role: 'discarded' }] }, log: [] };
+    expect(rolesInView(view)).toEqual(['found', 'discarded']);
+  });
+
   it('collects the roles of every row in a table view', () => {
     const view = {
       kind: 'table' as const,

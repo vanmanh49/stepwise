@@ -377,3 +377,17 @@ describe('simulate, phase 3 actions', () => {
     expect(last(frames).pods[0]!.node).toBe('node-2');
   });
 });
+
+describe('kubectl taint', () => {
+  it('replaces a taint with the same key and effect instead of adding a second', () => {
+    const { frames } = simulate(
+      basic({
+        actions: [
+          { at: 0, kind: 'taint', node: 'node-1', taint: { key: 'gpu', value: 'a', effect: 'NoSchedule' } },
+          { at: 1, kind: 'taint', node: 'node-1', taint: { key: 'gpu', value: 'b', effect: 'NoSchedule' } },
+        ],
+      }),
+    );
+    expect(last(frames).nodes.find((n) => n.name === 'node-1')!.taints).toEqual([{ key: 'gpu', value: 'b', effect: 'NoSchedule' }]);
+  });
+});

@@ -142,6 +142,7 @@ export function simulate(scenario: Scenario): SimResult {
     down: [...down],
     offline: [...offline].toSorted(),
     requests: [...requests.values()].map((r) => ({ ...r })),
+    ...(scenario.ingressController && { ingressController: true }),
   });
   const record = (event: Omit<TraceEvent, 't'>) => frames.push({ event: { t: now, ...event }, state: snapshot() });
 
@@ -294,7 +295,9 @@ export function simulate(scenario: Scenario): SimResult {
         const node = store.get('Node', action.node);
         if (!node) return record(kubectl(`kubectl can't find ${action.node}`, [action.node]));
         const { key, value, effect } = action.taint;
-        apply({ write: { op: 'update', object: { ...node, taints: [...(node.taints ?? []), action.taint] } }, event: { kind: 'taint', by: 'kubectl', node: node.name, subjects: [node.name], text: `kubectl taints ${node.name} with {${key}: ${value}}:${effect}` } });
+        // A taint with the same key and effect is replaced, as kubectl taint --overwrite does.
+        const taints = [...(node.taints ?? []).filter((t) => t.key !== key || t.effect !== effect), action.taint];
+        apply({ write: { op: 'update', object: { ...node, taints } }, event: { kind: 'taint', by: 'kubectl', node: node.name, subjects: [node.name], text: `kubectl taints ${node.name} with {${key}: ${value}}:${effect}` } });
         if (effect === 'NoExecute') applyNoExecute(env);
         return;
       }

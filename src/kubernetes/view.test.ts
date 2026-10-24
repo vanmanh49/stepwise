@@ -80,3 +80,88 @@ describe('phase 2 cluster view', () => {
     expect(end.nodes[0]!.pods[0]).not.toHaveProperty('cpu');
   });
 });
+
+describe('phase 3 cluster view', () => {
+  const app = (name: string) => [{ key: 'app', op: '=' as const, values: [name] }];
+  const all = (s: Scenario) => views(s);
+
+  it('shows the Ingress rules with the matched one highlighted, and the request as GET host/path', () => {
+    const ingress = { kind: 'Ingress' as const, name: 'shop', rules: [{ host: 'shop.example.com', paths: [{ path: '/', pathType: 'Prefix' as const, service: 'web' }, { path: '/api', pathType: 'Prefix' as const, service: 'api' }] }] };
+    const steps = all({
+      nodes: nodesOf(2),
+      ingressController: true,
+      actions: [
+        { at: 0, kind: 'apply', object: deploymentOf('api', 1) },
+        { at: 0, kind: 'apply', object: { kind: 'Service', name: 'api', selector: app('api') } },
+        { at: 0, kind: 'apply', object: ingress },
+        { at: 20, kind: 'request', id: '#1', service: '', host: 'shop.example.com', path: '/api' },
+      ],
+      faults: [],
+    });
+    const step = steps.find((v) => v.view.rules)!;
+    expect(step.view.rules!.rows.map((r) => r.role)).toEqual(['default', 'found']);
+    expect(step.view.requests![0]!.label).toBe('GET shop.example.com/api');
+    expect(steps.at(-1)!.view.objects.find((o) => o.kind === 'Ingress')!.note).toBe('2 paths');
+  });
+
+  it('marks the policy that dropped a request, and labels requests between pods', () => {
+    const steps = all({
+      nodes: nodesOf(2),
+      actions: [
+        { at: 0, kind: 'apply', object: deploymentOf('api', 1) },
+        { at: 0, kind: 'apply', object: deploymentOf('debug', 1) },
+        { at: 0, kind: 'apply', object: { kind: 'Service', name: 'api', selector: app('api') } },
+        { at: 0, kind: 'apply', object: { kind: 'NetworkPolicy', name: 'default-deny', podSelector: [], policyTypes: ['Ingress'] } },
+        { at: 20, kind: 'request', id: '#1', service: 'api', from: 'debug' },
+      ],
+      faults: [],
+    });
+    const drop = steps.find((v) => v.view.rules)!;
+    expect(drop.view.rules!.rows).toEqual([{ cells: ['default-deny', 'all pods', 'Ingress', 'nothing'], role: 'discarded' }]);
+    expect(drop.view.requests![0]!.label).toBe('debug → api');
+  });
+
+  it('shows config, secret, claim and volume rows, and what each pod mounts', () => {
+    const d = deploymentOf('db', 1);
+    d.template.volumes = [{ name: 'data', claim: 'data' }];
+    d.template.env = [{ name: 'color', from: { configMap: 'cfg', key: 'color' } }];
+    const end = all({
+      nodes: nodesOf(1),
+      actions: [
+        { at: 0, kind: 'apply', object: { kind: 'ConfigMap', name: 'cfg', data: { color: 'blue' } } },
+        { at: 0, kind: 'apply', object: { kind: 'Secret', name: 'db', data: { password: 'secret' } } },
+        { at: 0, kind: 'apply', object: { kind: 'PersistentVolume', name: 'pv-1', capacityGi: 2, accessMode: 'ReadWriteOnce', reclaimPolicy: 'Retain', phase: 'Available', records: 0 } },
+        { at: 0, kind: 'apply', object: { kind: 'PersistentVolumeClaim', name: 'data', requestGi: 1, accessMode: 'ReadWriteOnce', phase: 'Pending' } },
+        { at: 0, kind: 'apply', object: d },
+      ],
+      faults: [],
+      until: 30,
+      runToEnd: true,
+    }).at(-1)!.view;
+    const note = (kind: string) => end.objects.find((o) => o.kind === kind)!.note;
+    expect(note('ConfigMap')).toBe('color=blue');
+    expect(note('Secret')).toBe('password: c2VjcmV0 (base64, not encrypted)');
+    expect(note('PersistentVolumeClaim')).toBe('Bound to pv-1, 1Gi RWO');
+    expect(note('PersistentVolume')).toMatch(/^Bound to data, 2Gi RWO, \d+ records, attached to node-1$/);
+    const pod = end.nodes[0]!.pods[0]!;
+    expect(pod.mounts).toEqual([expect.stringMatching(/^data · \d+ records$/), 'config: color=blue']);
+  });
+
+  it('gives StatefulSet pods their DNS names, and narrates a DaemonSet creating pods by its own kind', () => {
+    const ds = { kind: 'DaemonSet' as const, name: 'agent', selector: app('agent'), template: { labels: { app: 'agent' }, image: 'a:1', cpu: 1, restartPolicy: 'Always' as const }, revision: 1, history: [] };
+    const ss = { kind: 'StatefulSet' as const, name: 'db', replicas: 1, selector: app('db'), template: { labels: { app: 'db' }, image: 'p:1', cpu: 1, restartPolicy: 'Always' as const }, serviceName: 'db', podManagementPolicy: 'OrderedReady' as const, whenScaled: 'Retain' as const, revision: 1, history: [] };
+    const steps = all({ nodes: nodesOf(2), actions: [{ at: 0, kind: 'apply', object: ds }, { at: 0, kind: 'apply', object: ss }], faults: [] });
+    expect(steps.some((v) => v.title.startsWith('DaemonSet agent creates 2 pods'))).toBe(true);
+    const end = steps.at(-1)!.view;
+    expect(end.nodes.flatMap((n) => n.pods).find((p) => p.name === 'db-0')!.dns).toBe('db-0.db');
+    expect(end.objects.find((o) => o.kind === 'DaemonSet')).toMatchObject({ desired: 2, current: 2, ready: 2 });
+    expect(end.objects.find((o) => o.kind === 'StatefulSet')).toMatchObject({ desired: 1, current: 1, ready: 1 });
+  });
+
+  it('notes a container restarted by its startup probe as such', () => {
+    const d = deploymentOf('web', 1);
+    d.template.probes = { startup: { periodS: 2, failureThreshold: 2 } };
+    const end = all({ nodes: nodesOf(1), actions: [{ at: 0, kind: 'apply', object: d }], faults: [{ kind: 'slow-start', prefix: 'web', seconds: 30 }], until: 20, runToEnd: true }).at(-1)!.view;
+    expect(end.nodes[0]!.pods[0]!.note).toBe('Startup probe failed');
+  });
+});
