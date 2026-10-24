@@ -18,6 +18,7 @@ function valueFor(field: FormField, r: () => number, range?: [number, number]): 
 const RANGES: Record<string, Record<string, [number, number]>> = {
   'cluster-architecture': { nodes: [1, 3], replicas: [1, 3] },
   'desired-state-controllers': { desired: [1, 5], deleted: [0, 3] },
+  replicasets: { replicas: [1, 6], scaleTo: [0, 6] },
 };
 
 function checkSteps(steps: Step[], lines: number, label: string) {

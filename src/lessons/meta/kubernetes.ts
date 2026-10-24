@@ -42,4 +42,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['desired state', 'controller', 'reconcile', 'reconciliation loop', 'level-triggered', 'self-healing', 'declarative', 'control loop'],
     prerequisites: ['labels-selectors'],
   },
+  {
+    id: 'replicasets',
+    title: 'ReplicaSets',
+    category: 'kubernetes',
+    difficulty: 'beginner',
+    group: 'Foundations',
+    description: 'Scale a ReplicaSet up and down, then kill a node and watch its pods move to the others.',
+    keywords: ['replicaset', 'replicas', 'scale', 'kubectl scale', 'pod template', 'node failure', 'eviction', 'heartbeat'],
+    prerequisites: ['desired-state-controllers'],
+  },
 ];
