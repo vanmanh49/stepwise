@@ -256,6 +256,7 @@ export type TraceKind =
   | 'evict'
   | 'evict-refused'
   | 'probe-fail'
+  | 'probe-ok'
   | 'hpa'
   | 'node-add'
   | 'node-remove'

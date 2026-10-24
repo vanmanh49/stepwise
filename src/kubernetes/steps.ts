@@ -50,6 +50,7 @@ const WHY: Record<TraceKind, string> = {
   evict: 'The pod is evicted: removed from its node so it can be replaced somewhere else.',
   'evict-refused': 'Evicting this pod would leave fewer pods ready than the PodDisruptionBudget allows, so the eviction is refused and tried again later.',
   'probe-fail': 'The kubelet\'s probe got no healthy answer. After enough failures in a row it acts.',
+  'probe-ok': 'The startup probe succeeded, so the app has finished starting. Only now do the liveness and readiness probes begin.',
   hpa: 'The HPA compares the pods\' average CPU with its target and sets the Deployment\'s replicas to bring them together.',
   'node-add': 'Pods are Pending for lack of room, and a new node would fit them, so the Cluster Autoscaler adds one.',
   'node-remove': 'This node has been mostly idle for a while and its pods fit elsewhere, so the Cluster Autoscaler drains and removes it.',

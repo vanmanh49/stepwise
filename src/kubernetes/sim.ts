@@ -58,7 +58,9 @@ type Item =
   | { kind: 'node-check' }
   | { kind: 'metrics' };
 
-const periodic = (item: Item) => item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics';
+/** Recurring work that never keeps a run alive on its own. */
+const periodic = (item: Item) =>
+  item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics' || (item.kind === 'timer' && item.timer.kind === 'kubelet' && item.timer.step === 'probe');
 
 /** Runs a scenario: kubectl actions and faults at their times, then every controller reacting until the cluster settles. */
 export function simulate(scenario: Scenario): SimResult {
@@ -222,8 +224,9 @@ export function simulate(scenario: Scenario): SimResult {
     const name = endpoints[Math.floor(rng() * endpoints.length)]!;
     const pod = store.get('Pod', name);
     const node = pod?.node ? store.get('Node', pod.node) : undefined;
-    const ok = pod?.phase === 'Running' && !!node?.ready && !offline.has(node.name);
-    const reason = ok ? undefined : `${name} is not running: connection refused`;
+    const running = pod?.phase === 'Running' && !!node?.ready && !offline.has(node.name);
+    const ok = running && kubelet.answers(name);
+    const reason = ok ? undefined : running ? `${name} doesn't answer: the request times out` : `${name} is not running: connection refused`;
     requests.set(id, { id, service, status: ok ? 'ok' : 'failed', pod: name, ...(reason && { reason }) });
     record({ kind: 'route', ...by, ...(pod?.node && { node: pod.node }), subjects: [id, service, name], text: ok ? `kube-proxy sends request ${id} to ${name}` : `kube-proxy sends request ${id} to ${name}, which fails: ${reason}`, ...(reason && { reason }) });
   };

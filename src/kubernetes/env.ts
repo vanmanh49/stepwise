@@ -4,7 +4,7 @@ import type { Store } from './store';
 
 /** Timed work the kubelet and node lifecycle schedule for themselves. */
 export type Timer =
-  | { kind: 'kubelet'; step: 'pull' | 'pulled' | 'started' | 'ready' | 'exit' | 'restart'; pod: string; gen: number }
+  | { kind: 'kubelet'; step: 'pull' | 'pulled' | 'started' | 'ready' | 'exit' | 'restart' | 'probe'; pod: string; gen: number; probe?: 'startup' | 'liveness' | 'readiness' }
   | { kind: 'evict'; node: string }
   | { kind: 'evict-retry'; pod: string; by: 'kubectl' | 'controllers' }
   | { kind: 'noexecute'; pod: string; node: string };

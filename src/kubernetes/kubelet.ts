@@ -1,4 +1,5 @@
 import type { Env, Timer } from './env';
+import { answers, PROBE_NAME, type ProbeKind } from './probes';
 import { BACKOFF_CAP_S, BACKOFF_FIRST_S, BACKOFF_RESET_S, PULL_S, READY_S, START_S, type Pod, type PodPhase, type TraceKind } from './model';
 
 /** The wait before retry number level + 1: 10 s, doubling, capped at 160 s. */
@@ -18,7 +19,12 @@ interface Work {
   gen: number;
   level: number;
   startedAt: number;
+  /** Failures in a row per probe, and whether the startup probe has succeeded, for the current container. */
+  failures: Record<ProbeKind, number>;
+  started: boolean;
 }
+
+const freshProbes = () => ({ failures: { startup: 0, liveness: 0, readiness: 0 }, started: false });
 
 /** One kubelet per node, run as one: starts the pods bound to each live node and keeps them running. */
 export function createKubelet(env: Env) {
@@ -27,6 +33,49 @@ export function createKubelet(env: Env) {
   const crash = (pod: Pod) => env.faults.find((f) => f.kind === 'crash' && pod.name.startsWith(f.prefix)) as Extract<Env['faults'][number], { kind: 'crash' }> | undefined;
   const badImage = (image: string) => env.faults.some((f) => f.kind === 'bad-image' && f.image === image);
   const timer = (delay: number, step: Extract<Timer, { kind: 'kubelet' }>['step'], pod: Pod, w: Work) => env.later(delay, { kind: 'kubelet', step, pod: pod.name, gen: w.gen });
+  const probeTimer = (delay: number, kind: ProbeKind, pod: Pod, w: Work) => env.later(delay, { kind: 'kubelet', step: 'probe', probe: kind, pod: pod.name, gen: w.gen });
+
+  /** Liveness and readiness start once the container runs, or once the startup probe succeeds. */
+  function startProbes(pod: Pod, w: Work, kinds: ProbeKind[]) {
+    for (const kind of kinds) {
+      const p = pod.probes?.[kind];
+      if (p) probeTimer((p.initialDelayS ?? 0) + p.periodS, kind, pod, w);
+    }
+  }
+
+  function probe(pod: Pod, w: Work, kind: ProbeKind) {
+    const spec = pod.probes![kind]!;
+    const ok = pod.phase === 'Running' && answers(env.faults, pod.name, w.startedAt, env.now());
+    const name = PROBE_NAME[kind];
+    if (ok) {
+      w.failures[kind] = 0;
+      if (kind === 'startup') {
+        w.started = true;
+        env.apply({ event: { kind: 'probe-ok', ...by(pod), text: `${pod.name} passes its startup probe: liveness and readiness probes start` } });
+        startProbes(pod, w, ['liveness', 'readiness']);
+        if (!pod.probes?.readiness) env.apply({ write: { op: 'update', object: { ...pod, ready: true } }, event: { kind: 'ready', ...by(pod), text: `${pod.name} is ready` } });
+        return;
+      }
+      if (kind === 'readiness' && !pod.ready) env.apply({ write: { op: 'update', object: { ...pod, ready: true } }, event: { kind: 'ready', ...by(pod), text: `${pod.name} passes its readiness probe: ready` } });
+      return probeTimer(spec.periodS, kind, pod, w);
+    }
+    const n = ++w.failures[kind];
+    const limit = spec.failureThreshold;
+    if (kind === 'readiness') {
+      // Only a ready pod's failures matter to traffic; a pod that never got ready fails quietly.
+      if (pod.ready) {
+        env.apply(
+          n >= limit
+            ? { write: { op: 'update', object: { ...pod, ready: false } }, event: { kind: 'not-ready', ...by(pod), text: `${pod.name} failed its readiness probe ${limit} times: not ready` } }
+            : { event: { kind: 'probe-fail', ...by(pod), text: `Readiness probe failed for ${pod.name} (${n}/${limit})` } },
+        );
+      }
+      return probeTimer(spec.periodS, kind, pod, w);
+    }
+    env.apply({ event: { kind: 'probe-fail', ...by(pod), text: `${name} probe failed for ${pod.name} (${n}/${limit})` } });
+    if (n < limit) return probeTimer(spec.periodS, kind, pod, w);
+    exit(pod, w, { code: 137, cause: 'Liveness', text: `${name} probe failed ${limit} times: kubelet restarts ${pod.name}` });
+  }
 
   /** A write etcd refused is tried again a second later, so the pod never moves on from a state that wasn't saved. */
   const RETRY_S = 1;
@@ -38,12 +87,16 @@ export function createKubelet(env: Env) {
 
   function run(pod: Pod, w: Work, restart: boolean) {
     w.startedAt = env.now();
+    Object.assign(w, freshProbes());
     const restarts = pod.restarts + (restart ? 1 : 0);
     const text = restart ? `kubelet restarts ${pod.name} (restart ${restarts})` : `${pod.name} is Running on ${pod.node} (not ready yet)`;
     if (!env.apply({ write: { op: 'update', object: { ...pod, phase: 'Running', ready: false, restarts } }, event: { kind: restart ? 'restart' : 'start', ...by(pod), text } })) {
       return timer(RETRY_S, restart ? 'restart' : 'started', pod, w);
     }
-    timer(READY_S, 'ready', pod, w);
+    if (pod.probes?.startup) startProbes(pod, w, ['startup']);
+    else startProbes(pod, w, ['liveness', 'readiness']);
+    // With no probe deciding readiness, the pod is ready shortly after it starts, as in phase 1.
+    if (!pod.probes?.readiness && !pod.probes?.startup) timer(READY_S, 'ready', pod, w);
     const fault = crash(pod);
     if (fault) timer(fault.afterS, 'exit', pod, w);
   }
@@ -67,6 +120,11 @@ export function createKubelet(env: Env) {
   }
 
   return {
+    /** Whether the pod's app answers requests now (not starting slowly, not hung). */
+    answers: (name: string) => {
+      const w = work.get(name);
+      return !w || answers(env.faults, name, w.startedAt, env.now());
+    },
     /** When the pod's current container started, if the kubelet is running it. */
     startedAt: (name: string) => work.get(name)?.startedAt,
     /** Kills a running container (OOMKilled, a failed liveness probe); its restart policy decides what follows. */
@@ -82,7 +140,7 @@ export function createKubelet(env: Env) {
       for (const name of work.keys()) if (!names.has(name)) work.delete(name);
       for (const pod of pods) {
         if (!pod.node || work.has(pod.name) || env.offline.has(pod.node) || pod.phase !== 'Pending') continue;
-        const w = { gen: 0, level: 0, startedAt: 0 };
+        const w = { gen: 0, level: 0, startedAt: 0, ...freshProbes() };
         work.set(pod.name, w);
         pull(pod, w);
       }
@@ -115,6 +173,8 @@ export function createKubelet(env: Env) {
           return;
         case 'exit':
           return exit(pod, w);
+        case 'probe':
+          return probe(pod, w, t.probe!);
       }
     },
   };
