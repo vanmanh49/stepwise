@@ -333,3 +333,47 @@ describe('simulate', () => {
     expect(simulate({ nodes: [], actions: [], faults: [] }).frames).toEqual([]);
   });
 });
+
+describe('simulate, phase 3 actions', () => {
+  it('rollout restart makes the Deployment roll out a new ReplicaSet', () => {
+    const { frames } = simulate(basic({ actions: [...basic().actions, { at: 20, kind: 'rollout-restart', target: 'web' }] }));
+    expect(of(frames, 'rollout')).toHaveLength(2);
+    const d = last(frames).deployments[0]!;
+    expect(d.template.annotations?.restartedAt).toBe('20');
+    expect(last(frames).replicaSets).toHaveLength(2);
+  });
+
+  it('add-node gives a Pending pod somewhere to go', () => {
+    const { frames } = simulate({
+      nodes: nodesOf(1, 1),
+      actions: [
+        { at: 0, kind: 'apply', object: deploymentOf('web', 2) },
+        { at: 20, kind: 'add-node', node: { name: 'node-2', cpu: 1 } },
+      ],
+      faults: [],
+    });
+    expect(of(frames, 'node-join')).toHaveLength(1);
+    expect(last(frames).pods.map((p) => p.node).toSorted()).toEqual(['node-1', 'node-2']);
+  });
+
+  it('delete removes any object, and says so when there is none', () => {
+    const { frames } = simulate(
+      basic({
+        actions: [
+          { at: 0, kind: 'apply', object: serviceOf('web') },
+          { at: 5, kind: 'delete', object: { kind: 'Service', name: 'web' } },
+          { at: 6, kind: 'delete', object: { kind: 'Service', name: 'nope' } },
+        ],
+      }),
+    );
+    expect(last(frames).services).toEqual([]);
+    expect(frames.some((f) => f.event.text.includes('nope') && f.event.text.includes('not found'))).toBe(true);
+  });
+
+  it('matches kubernetes.io/hostname in required node affinity', () => {
+    const d = deploymentOf('web', 1);
+    d.template.affinity = { node: { required: [{ key: 'kubernetes.io/hostname', op: '=', values: ['node-2'] }] } };
+    const { frames } = simulate(basic({ actions: [{ at: 0, kind: 'apply', object: d }] }));
+    expect(last(frames).pods[0]!.node).toBe('node-2');
+  });
+});

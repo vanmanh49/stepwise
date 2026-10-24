@@ -1,4 +1,4 @@
-import { cpuRequestM, memoryRequestMi, NODE_MEMORY_MI, qosOf, tolerates, type AntiTerm, type Breakdown, type NodeObj, type Pod } from '../model';
+import { cpuRequestM, memoryRequestMi, NODE_MEMORY_MI, nodeLabels, qosOf, tolerates, type AntiTerm, type Breakdown, type NodeObj, type Pod } from '../model';
 import { matches } from '../selector';
 import type { Change, Reconcile } from './types';
 
@@ -37,7 +37,7 @@ export const schedule: Reconcile = (ctx) => {
       if (taint) return `node(s) had untolerated taint {${taint.key}: ${taint.value}}`;
       if (node.memoryPressure && qosOf(pod.resources) === 'BestEffort') return 'node(s) had memory pressure';
       const required = pod.affinity?.node?.required;
-      if (required && !matches(required, node.labels ?? {})) return "node(s) didn't match Pod's node affinity/selector";
+      if (required && !matches(required, nodeLabels(node))) return "node(s) didn't match Pod's node affinity/selector";
       const anti = pod.affinity?.podAnti?.required;
       if (anti && inDomain(node, anti) > 0) return "node(s) didn't match pod anti-affinity rules";
       const here = on(node);
@@ -65,7 +65,7 @@ export const schedule: Reconcile = (ctx) => {
       const scores: Record<string, number> = { NodeResourcesFit: Math.round(most ? 100 - least : least) };
       if (preferredNode.length > 0) {
         const total = preferredNode.reduce((s, p) => s + p.weight, 0);
-        const hit = preferredNode.filter((p) => matches(p.selector, node.labels ?? {})).reduce((s, p) => s + p.weight, 0);
+        const hit = preferredNode.filter((p) => matches(p.selector, nodeLabels(node))).reduce((s, p) => s + p.weight, 0);
         scores.NodeAffinity = Math.round((100 * hit) / total);
       }
       if (preferredAnti.length > 0) {

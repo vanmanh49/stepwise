@@ -213,6 +213,31 @@ export function simulate(scenario: Scenario): SimResult {
         if (action.kind === 'drain') for (const pod of store.list('Pod').filter((p) => p.node === node.name && p.phase !== 'Completed' && p.phase !== 'Failed')) requestEviction(env, pod, 'kubectl');
         return;
       }
+      case 'rollout-restart': {
+        const d = store.get('Deployment', action.target);
+        if (!d) return record(kubectl(`kubectl can't restart ${action.target}: not found`, [action.target]));
+        const template = { ...d.template, annotations: { ...d.template.annotations, restartedAt: String(now) } };
+        apply({ write: { op: 'update', object: { ...d, template, history: [...d.history, d.template], revision: d.revision + 1 } }, event: kubectl(`kubectl rollout restart deployment ${d.name}: the pod template changes, so a rollout starts`, [d.name]) });
+        return;
+      }
+      case 'delete': {
+        const { kind, name } = action.object;
+        const object = store.get(kind, name);
+        if (!object) return record(kubectl(`kubectl can't delete ${kind} ${name}: not found`, [name]));
+        apply({ write: { op: 'delete', object }, event: kubectl(`kubectl deletes ${kind} ${name}`, [name]) });
+        return;
+      }
+      case 'add-node': {
+        const { name, cpu, ...extra } = action.node;
+        apply({ write: { op: 'create', object: { kind: 'Node', name, cpu, ready: true, lastHeartbeat: now, ...extra } }, event: { kind: 'node-join', by: 'kubelet', node: name, subjects: [name], text: `${name} joins the cluster: its kubelet registers it` } });
+        return;
+      }
+      case 'edit-config': {
+        const cm = store.get('ConfigMap', action.name);
+        if (!cm) return record(kubectl(`kubectl can't edit ConfigMap ${action.name}: not found`, [action.name]));
+        apply({ write: { op: 'update', object: { ...cm, data: { ...cm.data, [action.key]: action.value } } }, event: kubectl(`kubectl edits ConfigMap ${cm.name}: ${action.key}=${action.value}`, [cm.name]) });
+        return;
+      }
       case 'taint': {
         const node = store.get('Node', action.node);
         if (!node) return record(kubectl(`kubectl can't find ${action.node}`, [action.node]));

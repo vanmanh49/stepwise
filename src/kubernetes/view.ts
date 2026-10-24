@@ -75,7 +75,7 @@ export function clusterView({ event, state }: Frame, log: string[], merged: Fram
   const waiting = state.nodes.some((n) => n.booting);
   const pending = state.pods.filter((p) => !p.node).map((p) => ({ name: p.name, role: podRole(p, touched), ...(p.reason && { reason: p.reason }), ...(waiting && { badge: 'waiting for a node' }) }));
 
-  const podsOf = (owners: Set<string>) => state.pods.filter((p) => p.owner && owners.has(p.owner));
+  const podsOf = (owners: Set<string>) => state.pods.filter((p) => p.owner && owners.has(p.owner) && (p.ownerKind ?? 'ReplicaSet') === 'ReplicaSet');
   const row = (kind: string, name: string, desired: number, pods: Pod[], note?: string) => ({
     kind,
     name,
