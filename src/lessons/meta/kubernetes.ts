@@ -62,4 +62,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['deployment', 'rolling update', 'maxSurge', 'maxUnavailable', 'rollout', 'rollback', 'rollout undo', 'imagepullbackoff'],
     prerequisites: ['replicasets'],
   },
+  {
+    id: 'services-kube-proxy',
+    title: 'Services & kube-proxy',
+    category: 'kubernetes',
+    difficulty: 'beginner',
+    group: 'Foundations',
+    description: 'Send requests to a Service and watch kube-proxy pick ready pods, then make a pod unready or break the selector.',
+    keywords: ['service', 'kube-proxy', 'clusterip', 'endpoints', 'readiness', 'load balancing', 'iptables', 'selector'],
+    prerequisites: ['deployments-rolling-updates'],
+  },
 ];
