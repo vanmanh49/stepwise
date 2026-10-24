@@ -133,6 +133,7 @@ const EXPECTED_IDS = [
   'taints-tolerations',
   'affinity',
   'hpa',
+  'cluster-autoscaler',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -170,7 +171,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
     expect(lessonsIn('microservices')).toHaveLength(23);
-    expect(lessonsIn('kubernetes')).toHaveLength(13);
+    expect(lessonsIn('kubernetes')).toHaveLength(14);
   });
 
   it('links previous and next lessons within a category', () => {

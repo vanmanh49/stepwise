@@ -24,6 +24,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   scheduler: { cpu: [1, 4] },
   affinity: { replicas: [2, 6] },
   hpa: { max: [4, 8] },
+  'cluster-autoscaler': { replicas: [2, 14], max: [2, 4] },
 };
 
 function checkSteps(steps: Step[], lines: number, label: string) {

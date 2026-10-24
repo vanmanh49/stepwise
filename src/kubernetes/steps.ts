@@ -89,6 +89,10 @@ function mergedTitle(frames: Frame[]): string {
       return `${n} pods on ${e.node} are Lost: ${names(frames)}`;
     case 'delete-pod':
       return `${n} pods are deleted: ${names(frames)}`;
+    case 'unschedulable': {
+      const reasons = new Set(frames.map((f) => f.event.reason));
+      return reasons.size === 1 ? `scheduler can't place ${n} pods: ${e.reason}` : `scheduler can't place ${n} pods: ${names(frames)}`;
+    }
     case 'evict':
       return `${n} pods are evicted from ${e.node}: ${names(frames)}`;
     case 'pull-fail': {

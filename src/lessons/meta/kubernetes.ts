@@ -132,4 +132,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['hpa', 'horizontal pod autoscaler', 'autoscaling', 'cpu target', 'replicas', 'stabilization window', 'metrics', 'scale'],
     prerequisites: ['affinity'],
   },
+  {
+    id: 'cluster-autoscaler',
+    title: 'Cluster Autoscaler',
+    category: 'kubernetes',
+    difficulty: 'intermediate',
+    group: 'Scheduling & Health',
+    description: 'Scale pods beyond one node and watch new nodes boot for them, then idle nodes drain and disappear.',
+    keywords: ['cluster autoscaler', 'node pool', 'node group', 'scale up', 'scale down', 'pending pods', 'nodes', 'cost'],
+    prerequisites: ['hpa'],
+  },
 ];
