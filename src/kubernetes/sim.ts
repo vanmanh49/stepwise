@@ -5,6 +5,7 @@ import { reconcileDeployments, rolledBack, withImage } from './controllers/deplo
 import { reconcileEndpoints } from './controllers/endpoints';
 import { reconcileHpas, type HpaHistory } from './controllers/hpa';
 import { reconcileReplicaSets } from './controllers/replicaset';
+import { detachIdle, provision, reconcileVolumes, usersOf } from './controllers/volumes';
 import { schedule } from './controllers/scheduler';
 import type { Change, Ctx, Reconcile } from './controllers/types';
 import type { Env, Timer } from './env';
@@ -14,6 +15,7 @@ import { createKubelet } from './kubelet';
 import {
   CA_SCAN_S,
   CONFIG_SYNC_S,
+  DATA_S,
   HEARTBEAT_S,
   HPA_SYNC_S,
   MAX_TIME,
@@ -33,21 +35,23 @@ import {
   type TraceEvent,
 } from './model';
 import { metricsTick } from './metrics';
+import { dataTick } from './storage';
 import { checkNodes, evict, heartbeat } from './nodes';
 import { Store } from './store';
 
-type Group = 'replicaset' | 'deployment' | 'endpoints' | 'scheduler' | 'kubelet';
+type Group = 'replicaset' | 'deployment' | 'endpoints' | 'scheduler' | 'kubelet' | 'volumes';
 
 const GROUPS: Record<Group, { component: Component; watches: Kind[] }> = {
   deployment: { component: 'controllers', watches: ['Deployment', 'ReplicaSet', 'Pod'] },
   replicaset: { component: 'controllers', watches: ['Pod', 'ReplicaSet'] },
   endpoints: { component: 'controllers', watches: ['Pod', 'Service'] },
-  scheduler: { component: 'scheduler', watches: ['Pod', 'Node'] },
+  scheduler: { component: 'scheduler', watches: ['Pod', 'Node', 'PersistentVolumeClaim'] },
   kubelet: { component: 'kubelet', watches: ['Pod'] },
+  volumes: { component: 'controllers', watches: ['PersistentVolumeClaim', 'PersistentVolume', 'StorageClass', 'Pod'] },
 };
 const ORDER = Object.keys(GROUPS) as Group[];
 
-const RECONCILERS: Record<Exclude<Group, 'kubelet'>, Reconcile> = {
+const RECONCILERS: Record<Exclude<Group, 'kubelet' | 'volumes'>, Reconcile> = {
   deployment: reconcileDeployments,
   replicaset: reconcileReplicaSets,
   endpoints: reconcileEndpoints,
@@ -65,11 +69,20 @@ type Item =
   | { kind: 'metrics' }
   | { kind: 'hpa' }
   | { kind: 'autoscaler' }
-  | { kind: 'config-sync' };
+  | { kind: 'config-sync' }
+  | { kind: 'data' };
+
+/** Whether an object's pods write data: a claim, or a pod template with a volume other than a ConfigMap. */
+function storesData(object: Extract<Action, { kind: 'apply' }>['object']): boolean {
+  if (object.kind === 'PersistentVolumeClaim') return true;
+  if (object.kind === 'StatefulSet' && object.claims?.length) return true;
+  const template = object.kind === 'Pod' ? object : 'template' in object ? object.template : object.kind === 'CronJob' ? object.jobTemplate.template : undefined;
+  return (template?.volumes ?? []).some((v) => !('configMap' in v));
+}
 
 /** Recurring work that never keeps a run alive on its own. */
 const periodic = (item: Item) =>
-  item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics' || item.kind === 'hpa' || item.kind === 'autoscaler' || item.kind === 'config-sync' || (item.kind === 'timer' && item.timer.kind === 'kubelet' && item.timer.step === 'probe');
+  item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics' || item.kind === 'hpa' || item.kind === 'autoscaler' || item.kind === 'config-sync' || item.kind === 'data' || (item.kind === 'timer' && item.timer.kind === 'kubelet' && item.timer.step === 'probe');
 
 /** Runs a scenario: kubectl actions and faults at their times, then every controller reacting until the cluster settles. */
 export function simulate(scenario: Scenario): SimResult {
@@ -92,6 +105,8 @@ export function simulate(scenario: Scenario): SimResult {
   /** Requests per second at each metrics tick, for the traffic strip. */
   const traffic: number[] = [];
   const hpaHistory: HpaHistory = new Map();
+  /** Claims waiting for their StorageClass to provision a volume. */
+  const provisioning = new Set<string>();
   const autoscaler: AutoscalerState = { unneededSince: new Map(), maxNoted: false };
   let now = 0;
   let live = 0;
@@ -164,7 +179,8 @@ export function simulate(scenario: Scenario): SimResult {
       kubelet.reconcile();
       // The taint manager watches pods too: one bound to a NoExecute node it tolerates for a while starts its countdown.
       applyNoExecute(env);
-    }
+      detachIdle(env);
+    } else if (group === 'volumes') reconcileVolumes(env, provisioning);
     else for (const change of RECONCILERS[group](ctx())) apply(change);
     current = undefined;
   };
@@ -227,6 +243,12 @@ export function simulate(scenario: Scenario): SimResult {
         const { kind, name } = action.object;
         const object = store.get(kind, name);
         if (!object) return record(kubectl(`kubectl can't delete ${kind} ${name}: not found`, [name]));
+        // Storage-object-in-use protection: a claim a pod still uses goes only once no pod does.
+        const users = object.kind === 'PersistentVolumeClaim' ? usersOf(store.list('Pod'), name) : [];
+        if (object.kind === 'PersistentVolumeClaim' && users.length > 0) {
+          apply({ write: { op: 'update', object: { ...object, deleting: true } }, event: kubectl(`kubectl deletes PVC ${name}, but ${users.map((p) => p.name).join(', ')} still uses it: it stays until no pod does`, [name]) });
+          return;
+        }
         apply({ write: { op: 'delete', object }, event: kubectl(`kubectl deletes ${kind} ${name}`, [name]) });
         return;
       }
@@ -315,6 +337,7 @@ export function simulate(scenario: Scenario): SimResult {
   if (scenario.actions.some((a) => a.kind === 'apply' && a.object.kind === 'HorizontalPodAutoscaler')) push(HPA_SYNC_S, { kind: 'hpa' });
   if (pool) push(CA_SCAN_S, { kind: 'autoscaler' });
   if (scenario.actions.some((a) => a.kind === 'apply' && a.object.kind === 'ConfigMap')) push(CONFIG_SYNC_S, { kind: 'config-sync' });
+  if (scenario.actions.some((a) => a.kind === 'apply' && storesData(a.object))) push(DATA_S, { kind: 'data' });
 
   let cutOff = false;
   let endedAt = 0;
@@ -359,6 +382,7 @@ export function simulate(scenario: Scenario): SimResult {
           const taint = store.get('Node', timer.node)?.taints?.find((t) => t.effect === 'NoExecute');
           if (pod && pod.node === timer.node && taint) evictForTaint(env, pod, taint);
         } else if (timer.kind === 'boot') bootNode(env, timer.node);
+        else if (timer.kind === 'provision') provision(env, timer.claim, provisioning);
         else kubelet.fire(timer);
         break;
       }
@@ -381,6 +405,10 @@ export function simulate(scenario: Scenario): SimResult {
       case 'autoscaler':
         if (!down.has('controllers') && store.etcdUp) autoscalerTick(env, pool!, autoscaler);
         push(now + CA_SCAN_S, item);
+        break;
+      case 'data':
+        dataTick(env);
+        push(now + DATA_S, item);
         break;
       case 'config-sync':
         configSync(env);

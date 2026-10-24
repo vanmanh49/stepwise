@@ -4,11 +4,12 @@ import type { Store } from './store';
 
 /** Timed work the kubelet and node lifecycle schedule for themselves. */
 export type Timer =
-  | { kind: 'kubelet'; step: 'pull' | 'pulled' | 'started' | 'ready' | 'exit' | 'restart' | 'probe'; pod: string; gen: number; probe?: 'startup' | 'liveness' | 'readiness' }
+  | { kind: 'kubelet'; step: 'attach' | 'pull' | 'pulled' | 'started' | 'ready' | 'exit' | 'restart' | 'probe'; pod: string; gen: number; probe?: 'startup' | 'liveness' | 'readiness' }
   | { kind: 'evict'; node: string }
   | { kind: 'evict-retry'; pod: string; by: 'kubectl' | 'controllers' }
   | { kind: 'noexecute'; pod: string; node: string }
-  | { kind: 'boot'; node: string };
+  | { kind: 'boot'; node: string }
+  | { kind: 'provision'; claim: string };
 
 /** What the kubelet and node lifecycle get from the simulator. */
 export interface Env {

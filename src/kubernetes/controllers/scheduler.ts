@@ -1,5 +1,6 @@
 import { cpuRequestM, memoryRequestMi, NODE_MEMORY_MI, nodeLabels, qosOf, tolerates, type AntiTerm, type Breakdown, type NodeObj, type Pod } from '../model';
 import { matches } from '../selector';
+import { claimsOf } from './volumes';
 import type { Change, Reconcile } from './types';
 
 /** Pods that no longer use their node's resources. */
@@ -25,6 +26,17 @@ export const schedule: Reconcile = (ctx) => {
   const most = ctx.strategy === 'MostAllocated';
 
   for (const pod of unbound) {
+    // VolumeBinding checks the pod's claims before any node is looked at.
+    const claim = claimsOf(pod).map((c) => ({ c, pvc: ctx.store.get('PersistentVolumeClaim', c) })).find(({ pvc }) => pvc?.phase !== 'Bound');
+    if (claim) {
+      const why = claim.pvc ? 'pod has unbound immediate PersistentVolumeClaims' : `persistentvolumeclaim "${claim.c}" not found`;
+      const reason = `0/${nodes.length} nodes are available: ${why}`;
+      if (pod.reason !== reason) {
+        const rows = nodes.toSorted(byName).map((n) => ({ node: n.name, filtered: why }));
+        changes.push({ write: { op: 'update', object: { ...pod, reason } }, event: { kind: 'unschedulable', by: 'scheduler', subjects: [pod.name], text: `scheduler can't place ${pod.name}: ${reason}`, reason, breakdown: { pod: pod.name, rows } } });
+      }
+      continue;
+    }
     const on = (node: NodeObj) => pods.filter((p) => bound.get(p.name) === node.name);
     const inDomain = (node: NodeObj, term: AntiTerm) => {
       const d = domain(node, term);

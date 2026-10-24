@@ -1,7 +1,8 @@
 import type { Env, Timer } from './env';
 import { resolveConfig } from './config';
+import { attachFor, claimsOf } from './controllers/volumes';
 import { answers, PROBE_NAME, type ProbeKind } from './probes';
-import { CONFIG_SYNC_S, BACKOFF_CAP_S, BACKOFF_FIRST_S, BACKOFF_RESET_S, PULL_S, READY_S, START_S, type Pod, type PodPhase, type TraceKind } from './model';
+import { ATTACH_RETRY_S, ATTACH_S, CONFIG_SYNC_S, BACKOFF_CAP_S, BACKOFF_FIRST_S, BACKOFF_RESET_S, PULL_S, READY_S, START_S, type Pod, type PodPhase, type TraceKind } from './model';
 
 /** The wait before retry number level + 1: 10 s, doubling, capped at 160 s. */
 export function backoffS(level: number): number {
@@ -81,7 +82,30 @@ export function createKubelet(env: Env) {
   /** A write etcd refused is tried again a second later, so the pod never moves on from a state that wasn't saved. */
   const RETRY_S = 1;
 
+  /** Volumes first: a pod with claims waits until each of its volumes can be attached to its node. */
+  function attach(pod: Pod, w: Work) {
+    if (claimsOf(pod).length === 0) return pull(pod, w);
+    const check = attachFor(env.store, pod);
+    if (!check.ok) {
+      // Told once; the kubelet keeps retrying quietly.
+      if (pod.reason !== check.reason) {
+        env.apply({ write: { op: 'update', object: { ...pod, phase: 'ContainerCreating', reason: check.reason } }, event: { kind: 'attach-fail', ...by(pod), text: `kubelet on ${pod.node} can't start ${pod.name}: ${check.reason}`, reason: check.reason } });
+      }
+      return timer(ATTACH_RETRY_S, 'attach', pod, w);
+    }
+    const needed = check.volumes.filter((v) => v.attachedTo !== pod.node);
+    if (needed.length === 0) return pull(pod, w);
+    for (const v of needed) {
+      env.apply({ write: { op: 'update', object: { ...v, attachedTo: pod.node! } }, event: { kind: 'attach', ...by(pod), subjects: [pod.name, v.name], text: `${v.name} is attached to ${pod.node} for ${pod.name}` } });
+    }
+    timer(ATTACH_S, 'pull', pod, w);
+  }
+
   function pull(pod: Pod, w: Work) {
+    if (pod.reason?.startsWith('Multi-Attach')) {
+      const { reason: _reason, ...rest } = pod;
+      pod = rest;
+    }
     const ok = env.apply({ write: { op: 'update', object: { ...pod, phase: pod.phase === 'ImagePullBackOff' ? pod.phase : 'ContainerCreating' } }, event: { kind: 'pull', ...by(pod), text: `kubelet on ${pod.node} pulls ${pod.image} for ${pod.name}` } });
     timer(ok ? PULL_S : RETRY_S, ok ? 'pulled' : 'pull', pod, w);
   }
@@ -155,7 +179,7 @@ export function createKubelet(env: Env) {
         if (!pod.node || work.has(pod.name) || env.offline.has(pod.node) || pod.phase !== 'Pending') continue;
         const w = { gen: 0, level: 0, startedAt: 0, ...freshProbes() };
         work.set(pod.name, w);
-        pull(pod, w);
+        attach(pod, w);
       }
     },
     fire(t: Extract<Timer, { kind: 'kubelet' }>) {
@@ -163,6 +187,8 @@ export function createKubelet(env: Env) {
       const pod = env.store.get('Pod', t.pod);
       if (!w || !pod || w.gen !== t.gen || env.offline.has(pod.node!)) return;
       switch (t.step) {
+        case 'attach':
+          return attach(pod, w);
         case 'pull':
           return pull(pod, w);
         case 'pulled':
