@@ -222,4 +222,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['networkpolicy', 'network policy', 'firewall', 'default deny', 'ingress rules', 'egress', 'dns', 'podSelector', 'cni', 'zero trust'],
     prerequisites: ['ingress'],
   },
+  {
+    id: 'operators-crds',
+    title: 'Operators & CRDs',
+    category: 'kubernetes',
+    difficulty: 'advanced',
+    group: 'Workloads & Operations',
+    description: 'A Database custom resource and the operator that turns it into a StatefulSet and keeps it right.',
+    keywords: ['operator', 'crd', 'customresourcedefinition', 'custom resource', 'controller', 'reconcile', 'database operator', 'backup', 'upgrade'],
+    prerequisites: ['network-policies'],
+  },
 ];

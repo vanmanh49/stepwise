@@ -354,7 +354,7 @@ export function simulate(scenario: Scenario): SimResult {
       const policies = store.list('NetworkPolicy');
       const dns = dnsAllowed(policies, source);
       if (!dns.ok) return fail(`DNS lookup for ${service} timed out`, `${source.name} can't look up ${service}: its egress is isolated by ${dns.policies.join(', ')} and no rule allows DNS, so the lookup times out`, { kind: 'policy-drop', rules: policyRows(policies, { ok: false, stage: 'dns', policies: dns.policies }) });
-      return deliver({ ...request, from }, service, by, `${source.name} sends request ${id} to ${service}; kube-proxy picks`, {}, source);
+      return deliver({ ...request, from }, service, by, `${source.name} sends request ${id} to ${service}, and kube-proxy sends it on`, {}, source);
     }
     if (host === undefined && path === undefined) return deliver({ id, service, status: 'pending' }, service, { by: 'kube-proxy', subjects: [id, service] }, `kube-proxy sends request ${id}`);
     const request: RequestState = { id, service, status: 'pending', host: host ?? '', path: path ?? '/' };
