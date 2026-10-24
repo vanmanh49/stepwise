@@ -11,6 +11,7 @@ import { createKubelet } from './kubelet';
 import {
   HEARTBEAT_S,
   MAX_TIME,
+  METRICS_S,
   NODE_CHECK_S,
   SEED,
   WATCH_S,
@@ -22,8 +23,10 @@ import {
   type RequestState,
   type Scenario,
   type SimResult,
+  type Snapshot,
   type TraceEvent,
 } from './model';
+import { metricsTick } from './metrics';
 import { checkNodes, evict, heartbeat } from './nodes';
 import { Store } from './store';
 
@@ -52,9 +55,10 @@ type Item =
   | { kind: 'reconcile'; group: Group }
   | { kind: 'timer'; timer: Timer }
   | { kind: 'heartbeat' }
-  | { kind: 'node-check' };
+  | { kind: 'node-check' }
+  | { kind: 'metrics' };
 
-const periodic = (item: Item) => item.kind === 'heartbeat' || item.kind === 'node-check';
+const periodic = (item: Item) => item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics';
 
 /** Runs a scenario: kubectl actions and faults at their times, then every controller reacting until the cluster settles. */
 export function simulate(scenario: Scenario): SimResult {
@@ -74,6 +78,8 @@ export function simulate(scenario: Scenario): SimResult {
   /** Refusals already narrated, by actor and object, so a write retried during an outage is told once. */
   const refused = new Set<string>();
   let recoveredAt = 0;
+  /** Requests per second at each metrics tick, for the traffic strip. */
+  const traffic: number[] = [];
   let now = 0;
   let live = 0;
   let current: Group | undefined;
@@ -83,12 +89,15 @@ export function simulate(scenario: Scenario): SimResult {
     queue.push(time, item);
   };
 
-  const record = (event: Omit<TraceEvent, 't'>) => {
-    frames.push({
-      event: { t: now, ...event },
-      state: { t: now, ...store.snapshot(), down: [...down], offline: [...offline].toSorted(), requests: [...requests.values()].map((r) => ({ ...r })) },
-    });
-  };
+  const snapshot = (): Snapshot => ({
+    t: now,
+    ...store.snapshot(),
+    ...(scenario.load && { load: { rps: traffic.at(-1) ?? 0, points: [...traffic] } }),
+    down: [...down],
+    offline: [...offline].toSorted(),
+    requests: [...requests.values()].map((r) => ({ ...r })),
+  });
+  const record = (event: Omit<TraceEvent, 't'>) => frames.push({ event: { t: now, ...event }, state: snapshot() });
 
   const watch = (kind: Kind) => {
     for (const group of ORDER) {
@@ -254,6 +263,7 @@ export function simulate(scenario: Scenario): SimResult {
   for (const action of scenario.actions) push(action.at, { kind: 'action', action });
   push(0, { kind: 'heartbeat' });
   push(NODE_CHECK_S, { kind: 'node-check' });
+  if (scenario.load || scenario.faults.some((f) => f.kind === 'leak')) push(METRICS_S, { kind: 'metrics' });
 
   let cutOff = false;
   let endedAt = 0;
@@ -304,6 +314,10 @@ export function simulate(scenario: Scenario): SimResult {
         heartbeat(env);
         push(now + HEARTBEAT_S, item);
         break;
+      case 'metrics':
+        metricsTick(env, scenario, { startedAt: kubelet.startedAt, kill: kubelet.kill, traffic });
+        push(now + METRICS_S, item);
+        break;
       case 'node-check':
         // Node lifecycle runs in the controller manager and needs etcd.
         if (!down.has('controllers') && store.etcdUp) checkNodes(env);
@@ -311,5 +325,7 @@ export function simulate(scenario: Scenario): SimResult {
         break;
     }
   }
-  return { frames, endedAt, cutOff };
+  const ranToEnd = !!scenario.runToEnd && endedAt === until;
+  now = endedAt;
+  return { frames, endedAt, cutOff, ...(ranToEnd && { ranToEnd }), final: snapshot() };
 }

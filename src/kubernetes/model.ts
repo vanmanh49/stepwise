@@ -318,6 +318,10 @@ export interface SimResult {
   endedAt: number;
   /** True when until/MAX_TIME cut off work still scheduled. */
   cutOff: boolean;
+  /** True when a runToEnd scenario ran to its until. */
+  ranToEnd?: boolean;
+  /** The cluster when the run ended, which can be later than the last frame. */
+  final?: Snapshot;
 }
 
 /** True for 0 or "0%": the values Kubernetes refuses when both maxSurge and maxUnavailable have them. */

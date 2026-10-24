@@ -135,14 +135,18 @@ export function traceSteps(result: SimResult, options: StepOptions): Step[] {
     const custom = options.explain?.(group[0]!.event, last.state);
     return { frame: last, group, title: custom?.title ?? mergedTitle(group), why: custom?.why ?? WHY[last.event.kind], next: custom?.next, codeLine: line(custom?.line ?? options.lines[last.event.kind]) };
   });
-  const endState = result.frames.at(-1)?.state;
-  if (endState && (groups.length > MAX_STEPS || result.cutOff)) {
+  const endState = result.final ?? result.frames.at(-1)?.state;
+  if (endState && result.frames.length > 0 && (groups.length > MAX_STEPS || result.cutOff || result.ranToEnd)) {
     const state = { ...endState, t: result.endedAt };
     drafts.push({
       frame: { event: { t: result.endedAt, kind: 'summary', by: 'api-server', subjects: [], text: '' }, state },
       group: [],
       title: `After ${result.endedAt} s: ${summary(endState)}`,
-      why: result.cutOff ? `The run stops at ${result.endedAt} s, though the cluster would keep going.` : 'The run has more steps than are shown. This is how it ends.',
+      why: result.cutOff
+        ? `The run stops at ${result.endedAt} s, though the cluster would keep going.`
+        : result.ranToEnd
+          ? `This is the cluster at ${result.endedAt} s, when the run ends.`
+          : 'The run has more steps than are shown. This is how it ends.',
       next: undefined,
       codeLine: 1,
     });

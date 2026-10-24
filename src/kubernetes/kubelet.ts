@@ -1,9 +1,17 @@
 import type { Env, Timer } from './env';
-import { BACKOFF_CAP_S, BACKOFF_FIRST_S, BACKOFF_RESET_S, PULL_S, READY_S, START_S, type Pod, type PodPhase } from './model';
+import { BACKOFF_CAP_S, BACKOFF_FIRST_S, BACKOFF_RESET_S, PULL_S, READY_S, START_S, type Pod, type PodPhase, type TraceKind } from './model';
 
 /** The wait before retry number level + 1: 10 s, doubling, capped at 160 s. */
 export function backoffS(level: number): number {
   return Math.min(BACKOFF_FIRST_S * 2 ** level, BACKOFF_CAP_S);
+}
+
+/** How a container stopped; a kill names its cause and narration, a crash fault needs only the code. */
+export interface Termination {
+  code: number;
+  cause?: 'OOMKilled' | 'Liveness';
+  kind?: TraceKind;
+  text?: string;
 }
 
 interface Work {
@@ -40,14 +48,15 @@ export function createKubelet(env: Env) {
     if (fault) timer(fault.afterS, 'exit', pod, w);
   }
 
-  function exit(pod: Pod, w: Work) {
-    const fault = crash(pod)!;
+  /** The container stops: on its own (a crash fault), or killed for using too much memory or failing its liveness probe. */
+  function exit(pod: Pod, w: Work, end: Termination = { code: crash(pod)!.exitCode }) {
     const ran = env.now() - w.startedAt;
-    const again = pod.restartPolicy === 'Always' || (pod.restartPolicy === 'OnFailure' && fault.exitCode !== 0);
-    const final: PodPhase = again ? 'CrashLoopBackOff' : fault.exitCode === 0 ? 'Completed' : 'Failed';
-    const exited = { ...pod, phase: final, ready: false };
-    if (!env.apply({ write: { op: 'update', object: exited }, event: { kind: 'exit', ...by(pod), text: `${pod.name}'s container exits with code ${fault.exitCode} after ${ran} s${again ? '' : `: ${final}`}` } })) {
-      return timer(RETRY_S, 'exit', pod, w);
+    const again = pod.restartPolicy === 'Always' || (pod.restartPolicy === 'OnFailure' && end.code !== 0);
+    const final: PodPhase = again ? 'CrashLoopBackOff' : end.code === 0 ? 'Completed' : 'Failed';
+    const exited: Pod = { ...pod, phase: final, ready: false, ...(end.cause && { lastTermination: end.cause }) };
+    const text = end.text ?? `${pod.name}'s container exits with code ${end.code} after ${ran} s`;
+    if (!env.apply({ write: { op: 'update', object: exited }, event: { kind: end.kind ?? 'exit', ...by(pod), text: `${text}${again ? '' : `: ${final}`}` } })) {
+      return end.cause ? undefined : timer(RETRY_S, 'exit', pod, w);
     }
     w.gen++; // a pending "ready" for this run no longer applies
     if (!again) return;
@@ -58,6 +67,14 @@ export function createKubelet(env: Env) {
   }
 
   return {
+    /** When the pod's current container started, if the kubelet is running it. */
+    startedAt: (name: string) => work.get(name)?.startedAt,
+    /** Kills a running container (OOMKilled, a failed liveness probe); its restart policy decides what follows. */
+    kill(name: string, end: Termination) {
+      const w = work.get(name);
+      const pod = env.store.get('Pod', name);
+      if (w && pod && pod.phase === 'Running') exit(pod, w, end);
+    },
     /** Picks up pods newly bound to a live node and forgets deleted ones. */
     reconcile() {
       const pods = env.store.list('Pod');
