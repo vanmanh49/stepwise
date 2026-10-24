@@ -2,13 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Stepwise is a static React app that teaches data structures, algorithms, SQL and microservices with step-by-step visualizations. It has no backend; progress is saved in LocalStorage. The live site is https://vanmanh49.github.io/stepwise/.
+Stepwise is a static React app that teaches data structures, algorithms, SQL, microservices and Kubernetes with step-by-step visualizations. It has no backend; progress is saved in LocalStorage. The live site is https://vanmanh49.github.io/stepwise/.
 
 ## Commands
 
 ```bash
 npm run dev                              # Vite dev server
-npm test                                 # whole Vitest suite (src/**/*.test.ts), about 3,400 tests
+npm test                                 # whole Vitest suite (src/**/*.test.ts), about 3,600 tests
 npx vitest run src/sql/parse.test.ts     # one file
 npx vitest run -t "rotates left"         # tests whose name matches
 npm run typecheck                        # tsc --noEmit (strict, noUncheckedIndexedAccess)
@@ -27,7 +27,7 @@ Every push to `main` deploys to GitHub Pages (`.github/workflows/deploy.yml`), a
 The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visualizer> → renderer for step.view.kind`.
 
 - **Steps are data.** Each `Step` (`src/types/visualization.ts`) carries a `title`, a `why`, an optional `next`, a 1-based `codeLine` into the lesson's code string, `variables`, and a complete `View` snapshot. The player (`src/engine/`) is a pure reducer that only moves an index. The renderer for a view kind can therefore draw any step on its own.
-- **`View` is a discriminated union** of 16 kinds, including `array`, `tree`, `heap`, `graph`, `table`, `grid`, `panels`, `buckets`, `btree`, `trie`, `calls`, `sessions` and `services`. Every element has a `Role`. Role colours, border cues, marks and legend labels are defined only in `components/visualization/roles.ts`, and `rolesInView` there must handle every view kind. Elements keep stable ids across steps, so renderers can animate a value as it moves.
+- **`View` is a discriminated union** of 17 kinds, including `array`, `tree`, `heap`, `graph`, `table`, `grid`, `panels`, `buckets`, `btree`, `trie`, `calls`, `sessions`, `services` and `cluster`. Every element has a `Role`. Role colours, border cues, marks and legend labels are defined only in `components/visualization/roles.ts`, and `rolesInView` there must handle every view kind. Elements keep stable ids across steps, so renderers can animate a value as it moves.
 - **Lessons are data**, in two parts, so pages can list lessons without downloading their content:
   - **Metadata** (`LessonMeta`: title, keywords, complexity…) lives in `src/lessons/meta/<category>.ts`, in learning order. These modules import only types.
   - **Content** (`LessonContent`: text, visualization, code, quiz) is the default export of `src/lessons/<category>/<id>.ts`, and the file name is the id.
@@ -56,7 +56,14 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
   - `traceSteps` (`steps.ts`) replays the trace into steps with a `services` view, folding arrivals and merging heartbeat rounds, capped at `MAX_STEPS = 200` plus one summary step; `StepOptions.extend` adds extra view data, such as the trace waterfall from `spansOf` (`tracing.ts`);
   - each lesson has a scenario module in `scenarios/` (`fooCode`, `fooScenario`, `fooSteps`) used by a `form` visualization with `codeLabel: 'Pseudocode'`;
   - `ServicesRenderer` picks columns or rows from the measured stage width (`chooseOrientation` in `servicesLayout.ts`).
-- `algorithms/`, `data-structures/`, `sql/` and `microservices/` contain no React. All lesson text lives in `lessons/`, not in components. Colours come from CSS variables in `src/index.css`, defined for both `:root` and `.dark`.
+- **Kubernetes** (`src/kubernetes/`) is a seeded reconciliation simulator, in simulated seconds:
+  - `Store` (`store.ts`) stands in for the API server and etcd: versioned objects (Node, Pod, ReplicaSet, Deployment, Service, Endpoints); it clones on every read and write, and refuses writes while etcd is down;
+  - controllers (`controllers/`) are pure, level-triggered `(ctx) → Change[]` functions: ReplicaSet (deletes before creates), Deployment (rolling updates bounded by maxSurge / maxUnavailable from ReplicaSet sizes; `withImage` / `rolledBack`), scheduler (most free CPU), Endpoints; `kubelet.ts` (pull, start, ready, exit, CrashLoopBackOff back-off) and `nodes.ts` (heartbeats, NotReady, Lost, eviction) schedule their own timers through `env.ts`;
+  - `simulate(scenario)` runs kubectl actions and faults (faults first at equal times), fans each accepted write out to the watching groups after a 1 s watch delay (one pending run per group), and returns one frame per event with a full snapshot; a downed component's groups catch up in one pass when it returns; a "nothing to do" note isn't repeated until something it names changes;
+  - `traceSteps` (`steps.ts`) merges same-second events of one kind into one step, hides no-op notes unless `noops`, and ends long or cut-off runs with a summary, capped at `MAX_STEPS = 200` plus one; `view.ts` builds the `cluster` view;
+  - scenarios live in `scenarios/` (`fooCode`, `fooScenario`, `fooSteps`), the same contract as Microservices; `ClusterRenderer` is plain HTML (node boxes wrap in a CSS grid).
+- `seeded` (mulberry32) and `EventQueue` live in `src/utils/` and are shared by both simulators.
+- `algorithms/`, `data-structures/`, `sql/`, `microservices/` and `kubernetes/` contain no React. All lesson text lives in `lessons/`, not in components. Colours come from CSS variables in `src/index.css`, defined for both `:root` and `.dark`.
 - **Shared UI controls** live in `src/components/ui/`:
   - `Field` (label, help or error text, and the id and aria wiring, shared with its control through context), `FieldGrid`, `FormMessage`;
   - `Select`, `TextField`, `TextArea` (Ctrl/⌘+Enter via `onRunShortcut`), `Slider`;
@@ -71,6 +78,7 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
 - `src/data-structures/contract.test.ts` runs random operations against every structure lesson. It checks that no operation mutates its input, every operation yields at least one step, and every step's code line is valid. Seeded randomness comes from `random.testutil.ts`.
 - SQL differential tests (`differential*.test.ts`, `scriptDifferential*.test.ts`) run query corpora (`*Corpus*.testutil.ts`) through both the interpreter and real SQLite via `sql.js`. New SQL features add their queries to a corpus. `sql.js` is a dev dependency and is never bundled.
 - `src/microservices/contract.test.ts` runs every microservices lesson with random and garbage settings. It checks that every run ends with every request and delivery finished, stays within `MAX_STEPS + 1` steps, has valid code lines and view references, and repeats exactly. Each scenario's teaching moment is tested in `microservices/scenarios/*.test.ts`.
+- `src/kubernetes/contract.test.ts` does the same for every Kubernetes lesson: runs end within `MAX_STEPS + 1` steps, pod names and object rows are unique in every view, requests all finish, code lines are valid, and runs repeat exactly. Number fields' ranges go in its `RANGES`.
 - Look up code lines with `lineOf(code, snippet)` (`data-structures/shared.ts`) rather than hard-coding numbers. It throws if the snippet is missing.
 - Vitest's on-disk cache (`node_modules/.vitest-cache`) can keep a stale `import.meta.glob` after a new lesson file is added, which shows up as "No content module for <id>". Delete the folder and run again.
 - Renderers and components have no DOM tests; UI changes are checked by hand in a browser, including at phone width (375px) and in dark mode.

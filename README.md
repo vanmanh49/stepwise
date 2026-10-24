@@ -1,6 +1,6 @@
 # Stepwise
 
-An interactive platform for learning data structures, algorithms, SQL and microservices by watching them run.
+An interactive platform for learning data structures, algorithms, SQL, microservices and Kubernetes by watching them run.
 
 Every lesson has a visualization you control: play, pause, step forward and back, change the speed, and run it on your own data. Each step explains what happened and why, and highlights the line of code responsible.
 
@@ -8,12 +8,14 @@ Every lesson has a visualization you control: play, pause, step forward and back
 
 ## Features
 
-- **109 interactive lessons**
+- **116 interactive lessons**
   - Data structures (19): Array, String, Linked List, Stack, Queue, Hash Table, Binary Tree, Binary Search Tree, Heap, Priority Queue, Graph, Trie, AVL Tree, Red-Black Tree, Disjoint Set / Union Find, Segment Tree, Fenwick Tree, B-Tree / B+ Tree, Graph Representations
   - Algorithms (39): Linear Search, Binary Search, Bubble Sort, Selection Sort, Insertion Sort, Two Pointers, Sliding Window, Prefix Sum, Merge Sort, Quick Sort, Heap Sort, Counting Sort, Radix Sort, Recursion Fundamentals, Backtracking, Divide and Conquer, BFS, DFS, Topological Sort, Tree Traversal, Lowest Common Ancestor, Dijkstra, Bellman-Ford, Floyd-Warshall, Kruskal, Prim, Fibonacci DP, 0/1 Knapsack, Coin Change, Longest Common Subsequence, Longest Increasing Subsequence, Grid DP, Greedy Algorithms, Union Find, KMP, Rabin-Karp, A*, Network Flow, Advanced Graph Algorithms
   - SQL (28): SELECT and FROM, WHERE, NULL and three-valued logic, ORDER BY and LIMIT, DISTINCT, aggregates, INSERT / UPDATE / DELETE, GROUP BY and HAVING, INNER JOIN, LEFT JOIN, subqueries, self joins, many-to-many joins, CREATE TABLE, constraints, CASE, UNION / INTERSECT / EXCEPT, CTEs, recursive CTEs, window functions, views, indexes, query plans, transactions, isolation levels, normalization
   - Microservices (23): Monolith vs Microservices, Service Boundaries, Synchronous Calls, API Gateway, Service Discovery, Load Balancing, Database per Service, Timeouts, Retries with Backoff & Jitter, Circuit Breaker, Bulkhead, Rate Limiting, Message Queues, Publish/Subscribe & Events, Idempotency & Delivery Guarantees, Saga, Transactional Outbox, CQRS, Event Sourcing, Distributed Tracing, Deployment Strategies, Strangler Fig Migration, Sidecar & Service Mesh
+  - Kubernetes (7 of 23 live): Cluster Architecture, Pods, Labels & Selectors, Desired State & Controllers, ReplicaSets, Deployments & Rolling Updates, Services & kube-proxy; Scheduling & Health and Workloads & Operations are coming soon
 - **Simulated microservices**: change the settings, break an instance or a schema, take a service down, flood it or lose a reply, deploy a buggy version or crash between two writes, and watch requests, queued messages and database records change one message at a time, with each request's path, tries, time, value and failure reason, and a trace waterfall for tracing
+- **A simulated Kubernetes cluster**: apply workloads, delete pods, crash containers, ship a bad image, kill a node or take the scheduler, controllers or etcd down, and watch the controllers, scheduler and kubelets reconcile the cluster one change at a time
 - **SQL you can step through**: write any query against a sample shop or school database and watch it run clause by clause (FROM → JOIN → WHERE → GROUP BY → HAVING → SELECT → DISTINCT → ORDER BY → LIMIT), with each row the clause keeps, joins, groups or removes highlighted
 - **SQL exercises** checked by comparing your result with the expected one, with hints and friendly errors that point at the line and suggest misspelled names
 - **One visualization engine** for all of them: play, pause, next, previous, restart, 0.5x–2x speed, timeline scrubber, keyboard control (Space, ←, →)
@@ -76,9 +78,11 @@ src/
     datasets/        the read-only sample databases
   microservices/     seeded discrete-event simulator, its trace-to-steps narration, one scenario per lesson
     scenarios/
+  kubernetes/        seeded reconciliation simulator: API-server store, controllers, kubelet, node lifecycle; one scenario per lesson
+    controllers/  scenarios/
   lessons/           one content file per lesson, meta/ (metadata per category), the registry and the curriculum
   store/             progress and theme state
-  utils/             input parsing
+  utils/             input parsing, seeded random numbers, the event queue
   components/
     ui/              shared controls: Field, Select, TextField, TextArea, Button, ButtonLink, PresetRow, SegmentedControl…
     visualization/   Visualizer, controls, explanation, legend, renderers, inputs
@@ -90,7 +94,7 @@ src/
 
 Rules the code follows:
 
-- `algorithms/`, `data-structures/`, `sql/` and `microservices/` contain no React. They only produce data.
+- `algorithms/`, `data-structures/`, `sql/`, `microservices/` and `kubernetes/` contain no React. They only produce data.
 - Lesson text lives in `lessons/`, never in components.
 - Components read colours from CSS variables in `src/index.css`, so both themes work everywhere.
 
@@ -187,6 +191,17 @@ Microservices lessons run a simulated system in `src/microservices/`: `simulate(
 
 `src/microservices/contract.test.ts` runs every microservices lesson with random and garbage settings: each run must end with every request and delivery finished, stay within 201 steps, give valid code lines and repeat exactly.
 
+## How to add a Kubernetes lesson
+
+Kubernetes lessons run a simulated cluster in `src/kubernetes/`: `simulate(scenario)` applies kubectl actions and faults at their times and lets the controllers react until the cluster settles, returning one frame (event + cluster snapshot) per change; `traceSteps` turns the frames into steps with a `cluster` view.
+
+1. Write `src/kubernetes/scenarios/<id>.ts`, exporting `fooCode` (pseudocode), `fooScenario(values)` (form values → nodes, actions, faults and an optional `until`, read with `readInt`/`readChoice`) and `fooSteps(values)` (`scenarioSteps(fooScenario(values), title, options)`). In `options`, `lines` maps trace kinds to snippets of `fooCode`, `explain` changes an event's wording or line, `focus` names the workload whose desired / current / ready go in the variables, and `noops` shows reconciles that found nothing to do. Builders for nodes, Deployments, ReplicaSets, Services and pods are in `scenarios/shared.ts`.
+   - **Actions** (`by: kubectl`): `apply`, `scale`, `set-image`, `rollback`, `delete-pods`, and `request` (routed by kube-proxy).
+   - **Faults**: `node-down`, `crash` (exit code after N s), `bad-image`, `not-ready`, and `down` for the scheduler, the controller manager or etcd.
+   - Timings are seconds and shortened from Kubernetes' defaults (constants in `model.ts`); say so in the lesson text.
+2. Test each preset's point in `scenarios/<id>.test.ts` with `fooScenario` + `simulate`.
+3. Add the metadata to `src/lessons/meta/kubernetes.ts` without `complexity`, and the content to `src/lessons/kubernetes/<id>.ts`: a `form` visualization with `codeLabel: 'Pseudocode'`. Add the number fields' ranges to `RANGES` in `src/kubernetes/contract.test.ts`, which runs every Kubernetes lesson with random and garbage settings.
+
 ## How to add an algorithm
 
 1. Create a file under `src/algorithms/<group>/`.
@@ -243,6 +258,7 @@ Unit tests cover:
 - the player reducer, input parsing, tree layout, search ranking, Big O maths and the progress store
 - every registered lesson's content
 - the microservices simulator (timing, faults, the gateway, registry, balancer, rate limiter, broker, relay and sidecars, call policies, records and sagas, deploys and canaries), spans, its narration, the services layout and message stacking, and each lesson's teaching moment
+- the Kubernetes simulator (the store, each controller, kubelet back-off, node lifecycle, rolling-update bounds, kube-proxy routing), its narration, and each lesson's teaching moment
 - the SQL interpreter: tokenizer, parser, executor, grouping, subqueries, error messages, the step generator and the exercise checker
 - **differential tests**: over 120 queries run through both the interpreter and real SQLite ([sql.js](https://github.com/sql-js/sql.js)), whose results must match. sql.js is a dev dependency used only by tests; it is never bundled into the app.
 
