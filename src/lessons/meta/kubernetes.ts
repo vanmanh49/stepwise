@@ -162,4 +162,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['configmap', 'secret', 'environment variables', 'env', 'volume', 'config', 'base64', 'rollout restart', 'CreateContainerConfigError'],
     prerequisites: ['draining-pdb'],
   },
+  {
+    id: 'volumes-pv-pvc',
+    title: 'Volumes, PV & PVC',
+    category: 'kubernetes',
+    difficulty: 'advanced',
+    group: 'Workloads & Operations',
+    description: 'Replace a pod that writes data: an emptyDir loses it, a PersistentVolumeClaim keeps it.',
+    keywords: ['volume', 'persistent volume', 'pv', 'pvc', 'persistentvolumeclaim', 'storageclass', 'emptyDir', 'reclaimPolicy', 'ReadWriteOnce', 'Multi-Attach', 'storage'],
+    prerequisites: ['configmaps-secrets'],
+  },
 ];

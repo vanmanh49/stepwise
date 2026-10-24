@@ -372,7 +372,7 @@ export type Action = { at: number } & (
   /** A Deployment, else the ReplicaSet of that name. */
   | { kind: 'scale'; target: string; replicas: number }
   | { kind: 'set-image'; target: string; image: string }
-  /** The first `count` pods owned by `owner`, in name order. */
+  /** The first `count` pods owned by `owner` (a ReplicaSet, or a Deployment's ReplicaSets), in name order. */
   | { kind: 'delete-pods'; owner: string; count: number }
   | { kind: 'rollback'; target: string }
   /** from: the source pod's name prefix (NetworkPolicies); host or path: sent through the Ingress controller. */

@@ -242,7 +242,9 @@ export function simulate(scenario: Scenario): SimResult {
         return;
       }
       case 'delete-pods': {
-        for (const pod of store.list('Pod').filter((p) => p.owner === action.owner).slice(0, action.count)) {
+        // The owner may be a ReplicaSet, or a Deployment standing for its ReplicaSets.
+        const owners = new Set([action.owner, ...store.list('ReplicaSet').filter((rs) => rs.owner === action.owner).map((rs) => rs.name)]);
+        for (const pod of store.list('Pod').filter((p) => p.owner && owners.has(p.owner)).slice(0, action.count)) {
           apply({ write: { op: 'delete', object: pod }, event: kubectl(`kubectl deletes pod ${pod.name}`, [pod.name, action.owner]) });
         }
         return;

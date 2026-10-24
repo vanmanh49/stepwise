@@ -136,6 +136,7 @@ const EXPECTED_IDS = [
   'cluster-autoscaler',
   'draining-pdb',
   'configmaps-secrets',
+  'volumes-pv-pvc',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -173,7 +174,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
     expect(lessonsIn('microservices')).toHaveLength(23);
-    expect(lessonsIn('kubernetes')).toHaveLength(16);
+    expect(lessonsIn('kubernetes')).toHaveLength(17);
   });
 
   it('links previous and next lessons within a category', () => {

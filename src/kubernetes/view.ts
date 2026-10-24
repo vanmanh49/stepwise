@@ -90,7 +90,9 @@ function phase3Rows(state: Snapshot, touched: Set<string>, row: (kind: string, n
 
 /** What phase 2 adds to a pod chip, only when there is something to show. */
 function podExtras(pod: Pod) {
-  const note = pod.throttled ? 'throttled' : pod.lastTermination ? NOTE[pod.lastTermination] : undefined;
+  // A pod stuck before its container starts says why (Multi-Attach, a missing ConfigMap).
+  const waiting = (pod.phase === 'ContainerCreating' || pod.phase === 'CreateContainerConfigError') && pod.reason ? pod.reason : undefined;
+  const note = pod.throttled ? 'throttled' : (waiting ?? (pod.lastTermination ? NOTE[pod.lastTermination] : undefined));
   return {
     ...(pod.cpuUsage !== undefined && { cpu: { used: pod.cpuUsage, ...(pod.resources?.cpu?.request !== undefined && { request: pod.resources.cpu.request }), ...(pod.resources?.cpu?.limit !== undefined && { limit: pod.resources.cpu.limit }) } }),
     ...(pod.resources && { qos: qosOf(pod.resources) }),
