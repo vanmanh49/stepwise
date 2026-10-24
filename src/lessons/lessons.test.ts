@@ -135,6 +135,7 @@ const EXPECTED_IDS = [
   'hpa',
   'cluster-autoscaler',
   'draining-pdb',
+  'configmaps-secrets',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -172,7 +173,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('algorithms')).toHaveLength(39);
     expect(lessonsIn('sql')).toHaveLength(28);
     expect(lessonsIn('microservices')).toHaveLength(23);
-    expect(lessonsIn('kubernetes')).toHaveLength(15);
+    expect(lessonsIn('kubernetes')).toHaveLength(16);
   });
 
   it('links previous and next lessons within a category', () => {

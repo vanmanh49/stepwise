@@ -152,4 +152,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['drain', 'cordon', 'uncordon', 'PodDisruptionBudget', 'pdb', 'minAvailable', 'maxUnavailable', 'eviction', 'maintenance'],
     prerequisites: ['cluster-autoscaler'],
   },
+  {
+    id: 'configmaps-secrets',
+    title: 'ConfigMaps & Secrets',
+    category: 'kubernetes',
+    difficulty: 'advanced',
+    group: 'Workloads & Operations',
+    description: 'Change a setting while the app serves: env variables keep the old value, mounted files follow.',
+    keywords: ['configmap', 'secret', 'environment variables', 'env', 'volume', 'config', 'base64', 'rollout restart', 'CreateContainerConfigError'],
+    prerequisites: ['draining-pdb'],
+  },
 ];
