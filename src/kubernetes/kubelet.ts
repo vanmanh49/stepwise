@@ -1,5 +1,5 @@
 import type { Env, Timer } from './env';
-import { BACKOFF_CAP_S, BACKOFF_FIRST_S, BACKOFF_RESET_S, PULL_S, READY_S, START_S, type Pod } from './model';
+import { BACKOFF_CAP_S, BACKOFF_FIRST_S, BACKOFF_RESET_S, PULL_S, READY_S, START_S, type Pod, type PodPhase } from './model';
 
 /** The wait before retry number level + 1: 10 s, doubling, capped at 160 s. */
 export function backoffS(level: number): number {
@@ -40,7 +40,7 @@ export function createKubelet(env: Env) {
     const ran = env.now() - w.startedAt;
     w.gen++; // a pending "ready" for this run no longer applies
     const again = pod.restartPolicy === 'Always' || (pod.restartPolicy === 'OnFailure' && fault.exitCode !== 0);
-    const final = again ? 'CrashLoopBackOff' : fault.exitCode === 0 ? 'Completed' : 'Failed';
+    const final: PodPhase = again ? 'CrashLoopBackOff' : fault.exitCode === 0 ? 'Completed' : 'Failed';
     const exited = { ...pod, phase: final, ready: false };
     env.apply({ write: { op: 'update', object: exited }, event: { kind: 'exit', ...by(pod), text: `${pod.name}'s container exits with code ${fault.exitCode} after ${ran} s${again ? '' : `: ${final}`}` } });
     if (!again) return;
