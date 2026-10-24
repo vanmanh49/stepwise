@@ -29,18 +29,7 @@ export const replicaSet = (name: string, replicas: number): ReplicaSet => ({ kin
 
 export const service = (name: string, selector: Selector = appSelector(name)): Service => ({ kind: 'Service', name, selector });
 
-export const pod = (name: string, template: Template): Pod => ({
-  kind: 'Pod',
-  name,
-  labels: { ...template.labels },
-  phase: 'Pending',
-  ready: false,
-  restarts: 0,
-  image: template.image,
-  cpu: template.cpu,
-  restartPolicy: template.restartPolicy,
-  createdAt: 0,
-});
+export const pod = (name: string, template: Template): Pod => ({ ...structuredClone(template), kind: 'Pod', name, phase: 'Pending', ready: false, restarts: 0, createdAt: 0 });
 
 /** The steps for a form lesson: one refusal step for unusable values, else the simulated run. */
 export function scenarioSteps(read: Read<Scenario>, refusalTitle: string, options: StepOptions | ((result: SimResult) => StepOptions)): Step[] {

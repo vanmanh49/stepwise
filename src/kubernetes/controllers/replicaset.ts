@@ -21,7 +21,7 @@ export const reconcileReplicaSets: Reconcile = (ctx) => {
       const taken = new Set<string>();
       for (let i = mine.length; i < rs.replicas; i++) {
         const name = podName(ctx, rs.name, taken);
-        const pod: Pod = { kind: 'Pod', name, labels: { ...rs.template.labels }, owner: rs.name, phase: 'Pending', ready: false, restarts: 0, image: rs.template.image, cpu: rs.template.cpu, restartPolicy: rs.template.restartPolicy, createdAt: ctx.now };
+        const pod: Pod = { ...structuredClone(rs.template), kind: 'Pod', name, owner: rs.name, phase: 'Pending', ready: false, restarts: 0, createdAt: ctx.now };
         creates.push({ write: { op: 'create', object: pod }, event: { kind: 'create-pod', by: 'controllers', subjects: [name, rs.name], text: `${seen} and creates ${name}` } });
       }
     } else if (mine.length > rs.replicas) {

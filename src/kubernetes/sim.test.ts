@@ -232,6 +232,103 @@ describe('simulate', () => {
     expect(new Set(refusals).size).toBe(refusals.length);
   });
 
+  describe('drain, cordon, taints and PDBs', () => {
+    const webPdb = (extra: object) => ({ kind: 'PodDisruptionBudget' as const, name: 'web', selector: [{ key: 'app', op: '=' as const, values: ['web'] }], ...extra });
+    const drain = (pdb?: object, until = 120): Scenario => ({
+      nodes: nodesOf(3),
+      actions: [{ at: 0, kind: 'apply', object: deploymentOf('web', 4) }, ...(pdb ? [{ at: 0, kind: 'apply' as const, object: webPdb(pdb) }] : []), { at: 20, kind: 'drain', node: 'node-1' }],
+      faults: [],
+      until,
+    });
+    const ready = (f: Frame) => f.state.pods.filter((p) => p.ready).length;
+
+    it('puts two of four pods on node-1, so the drain has two to evict', () => {
+      const before = simulate(drain()).frames.filter((f) => f.event.t < 20).at(-1)!;
+      expect(before.state.pods.filter((p) => p.node === 'node-1')).toHaveLength(2);
+    });
+
+    it('evicts every pod on the node at once without a PDB', () => {
+      const { frames } = simulate(drain());
+      expect(of(frames, 'cordon')[0]!.event.t).toBe(20);
+      expect(of(frames, 'evict').map((f) => f.event.t)).toEqual([20, 20]);
+      expect(Math.min(...frames.filter((f) => f.event.t >= 20).map(ready))).toBe(2);
+      expect(last(frames).pods.every((p) => p.node !== 'node-1' && p.ready)).toBe(true);
+    });
+
+    it('keeps 3 ready with minAvailable 3: one eviction waits for a replacement', () => {
+      const { frames } = simulate(drain({ minAvailable: 3 }));
+      expect(frames.filter((f) => f.event.t >= 20).every((f) => ready(f) >= 3)).toBe(true);
+      const evicts = of(frames, 'evict').map((f) => f.event.t);
+      expect(evicts[0]).toBe(20);
+      expect(evicts[1]).toBeGreaterThan(20);
+      expect((evicts[1]! - 20) % 5).toBe(0);
+      const refused = of(frames, 'evict-refused');
+      expect(refused).toHaveLength(1);
+      expect(refused[0]!.event.reason).toBe("Cannot evict pod as it would violate the pod's disruption budget");
+      expect(last(frames).pods.every((p) => p.node !== 'node-1')).toBe(true);
+    });
+
+    it('blocks forever with minAvailable 4, and ends at until with a summary', () => {
+      const { frames, cutOff, endedAt } = simulate(drain({ minAvailable: 4 }, 100));
+      expect(of(frames, 'evict')).toEqual([]);
+      expect(cutOff).toBe(true);
+      expect(endedAt).toBe(100);
+      expect(last(frames).pods.filter((p) => p.node === 'node-1')).toHaveLength(2);
+      expect(last(frames).nodes.find((n) => n.name === 'node-1')!.unschedulable).toBe(true);
+    });
+
+    it('cordons and uncordons', () => {
+      const { frames } = simulate({
+        nodes: nodesOf(2),
+        actions: [
+          { at: 0, kind: 'apply', object: deploymentOf('web', 1) },
+          { at: 10, kind: 'cordon', node: 'node-2' },
+          { at: 20, kind: 'scale', target: 'web', replicas: 3 },
+          { at: 40, kind: 'uncordon', node: 'node-2' },
+          { at: 50, kind: 'scale', target: 'web', replicas: 4 },
+        ],
+        faults: [],
+      });
+      const at45 = frames.filter((f) => f.event.t < 45).at(-1)!.state;
+      expect(at45.pods.every((p) => p.node === 'node-1')).toBe(true);
+      expect(last(frames).pods.some((p) => p.node === 'node-2')).toBe(true);
+    });
+
+    it('evicts untolerated pods when a NoExecute taint appears, and tolerated ones after tolerationSeconds', () => {
+      const tolerant = { ...deploymentOf('api', 1), template: { ...deploymentOf('api', 1).template, tolerations: [{ key: 'maint', operator: 'Exists' as const, seconds: 10 }] } };
+      const forever = { ...deploymentOf('db', 1), template: { ...deploymentOf('db', 1).template, tolerations: [{ key: 'maint', operator: 'Exists' as const }] } };
+      const { frames } = simulate({
+        nodes: nodesOf(1).concat([{ name: 'node-2', cpu: 4 }]),
+        actions: [
+          { at: 0, kind: 'cordon', node: 'node-2' },
+          { at: 0, kind: 'apply', object: deploymentOf('web', 1) },
+          { at: 0, kind: 'apply', object: tolerant },
+          { at: 0, kind: 'apply', object: forever },
+          { at: 15, kind: 'uncordon', node: 'node-2' },
+          { at: 20, kind: 'taint', node: 'node-1', taint: { key: 'maint', value: 'now', effect: 'NoExecute' } },
+        ],
+        faults: [],
+        until: 45,
+      });
+      const evicted = of(frames, 'evict').map((f) => [f.event.t, f.event.subjects[0]!.split('-')[0]]);
+      // api's replacement tolerates the taint, so it can land on node-1 again; its own 10 s start when it is bound.
+      const rebound = of(frames, 'bind').find((f) => f.event.t > 30 && f.event.subjects[0]!.startsWith('api'))!;
+      expect(rebound.event.node).toBe('node-1');
+      expect(evicted).toEqual([
+        [20, 'web'],
+        [30, 'api'],
+        [rebound.event.t + 10, 'api'],
+      ]);
+      expect(last(frames).pods.find((p) => p.owner?.startsWith('db'))!.node).toBe('node-1');
+    });
+
+    it('runs to until when asked, even with only periodic work left', () => {
+      const result = simulate({ ...basic(), until: 90, runToEnd: true });
+      expect(result.endedAt).toBe(90);
+      expect(result.cutOff).toBe(false);
+    });
+  });
+
   it('never throws on an empty scenario', () => {
     expect(simulate({ nodes: [], actions: [], faults: [] }).frames).toEqual([]);
   });

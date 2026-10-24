@@ -83,6 +83,7 @@ export function rolesInView(view: View): Role[] {
         ...view.pending.map((p) => p.role),
         ...view.objects.map((o) => o.role),
         ...(view.requests ?? []).flatMap((r): Role[] => (r.status === 'ok' ? ['found'] : r.status === 'failed' ? ['discarded'] : [])),
+        ...(view.scoring?.rows.map((r) => r.role) ?? []),
       ];
     case 'panels':
       return view.panels.flatMap((p) => rolesInView(p.view));

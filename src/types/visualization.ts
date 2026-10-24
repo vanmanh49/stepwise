@@ -240,8 +240,27 @@ export interface ClusterView {
     role: Role;
     /** CPU requested by its pods vs capacity, in cores. */
     cpu: { used: number; capacity: number };
+    /** Memory used by its pods vs capacity, in MiB, once anything reports memory. */
+    memory?: { used: number; capacity: number };
+    /** Shown as badges: "zone=a", "gpu=true:NoSchedule". */
+    labels?: string[];
+    taints?: string[];
+    cordoned?: boolean;
+    booting?: boolean;
+    memoryPressure?: boolean;
     /** phase: Pending | ContainerCreating | Running | CrashLoopBackOff | ImagePullBackOff | Completed | Failed | Lost. */
-    pods: { name: string; phase: string; ready: boolean; role: Role; badge?: string }[];
+    pods: {
+      name: string;
+      phase: string;
+      ready: boolean;
+      role: Role;
+      badge?: string;
+      /** CPU use against request and limit, in millicores, once metrics run. */
+      cpu?: { used: number; request?: number; limit?: number };
+      qos?: string;
+      /** "throttled", "OOMKilled", "Liveness probe failed". */
+      note?: string;
+    }[];
   }[];
   /** Pods not bound to any node yet. */
   pending: { name: string; role: Role; reason?: string; badge?: string }[];
@@ -249,6 +268,12 @@ export interface ClusterView {
   objects: { kind: string; name: string; desired?: number; current?: number; ready?: number; note?: string; role: Role }[];
   /** Client requests to a Service. */
   requests?: { id: string; label: string; status: 'pending' | 'ok' | 'failed'; endpoint?: string; reason?: string }[];
+  /** Requests older than the ones listed, folded into counts. */
+  requestsEarlier?: { count: number; ok: number; failed: number };
+  /** Requests per second now, and one value per metrics tick so far. */
+  traffic?: { rps: number; points: number[] };
+  /** The scheduler's filters and scores for one pod. */
+  scoring?: { pod: string; rows: { node: string; filtered?: string; scores?: Record<string, number>; total?: number; chosen?: boolean; role: Role }[] };
   /** The last few steps, newest last. */
   log: string[];
 }

@@ -1,15 +1,21 @@
 import { EventQueue } from '../utils/eventQueue';
 import { seeded } from '../utils/random';
+import { autoscalerTick, bootNode, type AutoscalerState } from './controllers/autoscaler';
 import { reconcileDeployments, rolledBack, withImage } from './controllers/deployment';
 import { reconcileEndpoints } from './controllers/endpoints';
+import { reconcileHpas, type HpaHistory } from './controllers/hpa';
 import { reconcileReplicaSets } from './controllers/replicaset';
 import { schedule } from './controllers/scheduler';
 import type { Change, Ctx, Reconcile } from './controllers/types';
 import type { Env, Timer } from './env';
+import { applyNoExecute, evictForTaint, requestEviction } from './evict';
 import { createKubelet } from './kubelet';
 import {
+  CA_SCAN_S,
   HEARTBEAT_S,
+  HPA_SYNC_S,
   MAX_TIME,
+  METRICS_S,
   NODE_CHECK_S,
   SEED,
   WATCH_S,
@@ -21,8 +27,10 @@ import {
   type RequestState,
   type Scenario,
   type SimResult,
+  type Snapshot,
   type TraceEvent,
 } from './model';
+import { metricsTick } from './metrics';
 import { checkNodes, evict, heartbeat } from './nodes';
 import { Store } from './store';
 
@@ -51,9 +59,14 @@ type Item =
   | { kind: 'reconcile'; group: Group }
   | { kind: 'timer'; timer: Timer }
   | { kind: 'heartbeat' }
-  | { kind: 'node-check' };
+  | { kind: 'node-check' }
+  | { kind: 'metrics' }
+  | { kind: 'hpa' }
+  | { kind: 'autoscaler' };
 
-const periodic = (item: Item) => item.kind === 'heartbeat' || item.kind === 'node-check';
+/** Recurring work that never keeps a run alive on its own. */
+const periodic = (item: Item) =>
+  item.kind === 'heartbeat' || item.kind === 'node-check' || item.kind === 'metrics' || item.kind === 'hpa' || item.kind === 'autoscaler' || (item.kind === 'timer' && item.timer.kind === 'kubelet' && item.timer.step === 'probe');
 
 /** Runs a scenario: kubectl actions and faults at their times, then every controller reacting until the cluster settles. */
 export function simulate(scenario: Scenario): SimResult {
@@ -73,6 +86,10 @@ export function simulate(scenario: Scenario): SimResult {
   /** Refusals already narrated, by actor and object, so a write retried during an outage is told once. */
   const refused = new Set<string>();
   let recoveredAt = 0;
+  /** Requests per second at each metrics tick, for the traffic strip. */
+  const traffic: number[] = [];
+  const hpaHistory: HpaHistory = new Map();
+  const autoscaler: AutoscalerState = { unneededSince: new Map(), maxNoted: false };
   let now = 0;
   let live = 0;
   let current: Group | undefined;
@@ -82,12 +99,15 @@ export function simulate(scenario: Scenario): SimResult {
     queue.push(time, item);
   };
 
-  const record = (event: Omit<TraceEvent, 't'>) => {
-    frames.push({
-      event: { t: now, ...event },
-      state: { t: now, ...store.snapshot(), down: [...down], offline: [...offline].toSorted(), requests: [...requests.values()].map((r) => ({ ...r })) },
-    });
-  };
+  const snapshot = (): Snapshot => ({
+    t: now,
+    ...store.snapshot(),
+    ...(scenario.load && { load: { rps: traffic.at(-1) ?? 0, points: [...traffic] } }),
+    down: [...down],
+    offline: [...offline].toSorted(),
+    requests: [...requests.values()].map((r) => ({ ...r })),
+  });
+  const record = (event: Omit<TraceEvent, 't'>) => frames.push({ event: { t: now, ...event }, state: snapshot() });
 
   const watch = (kind: Kind) => {
     for (const group of ORDER) {
@@ -131,13 +151,17 @@ export function simulate(scenario: Scenario): SimResult {
     recoveredAt: () => recoveredAt,
   };
   const kubelet = createKubelet(env);
-  const ctx = (): Ctx => ({ now, store, rng });
+  const ctx = (): Ctx => ({ now, store, rng, ...(scenario.schedulerStrategy && { strategy: scenario.schedulerStrategy }) });
 
   const run = (group: Group) => {
     pending.delete(group);
     if (down.has(GROUPS[group].component)) return;
     current = group;
-    if (group === 'kubelet') kubelet.reconcile();
+    if (group === 'kubelet') {
+      kubelet.reconcile();
+      // The taint manager watches pods too: one bound to a NoExecute node it tolerates for a while starts its countdown.
+      applyNoExecute(env);
+    }
     else for (const change of RECONCILERS[group](ctx())) apply(change);
     current = undefined;
   };
@@ -178,6 +202,25 @@ export function simulate(scenario: Scenario): SimResult {
       }
       case 'request':
         return route(action.id, action.service);
+      case 'cordon':
+      case 'uncordon':
+      case 'drain': {
+        const node = store.get('Node', action.node);
+        if (!node) return record(kubectl(`kubectl can't find ${action.node}`, [action.node]));
+        const cordon = action.kind !== 'uncordon';
+        const text = action.kind === 'drain' ? `kubectl drain ${node.name}: cordons it, then evicts its pods` : cordon ? `kubectl cordons ${node.name}: it keeps its pods but gets no new ones` : `kubectl uncordons ${node.name}: it can take new pods again`;
+        apply({ write: { op: 'update', object: { ...node, unschedulable: cordon } }, event: { kind: 'cordon', by: 'kubectl', node: node.name, subjects: [node.name], text } });
+        if (action.kind === 'drain') for (const pod of store.list('Pod').filter((p) => p.node === node.name && p.phase !== 'Completed' && p.phase !== 'Failed')) requestEviction(env, pod, 'kubectl');
+        return;
+      }
+      case 'taint': {
+        const node = store.get('Node', action.node);
+        if (!node) return record(kubectl(`kubectl can't find ${action.node}`, [action.node]));
+        const { key, value, effect } = action.taint;
+        apply({ write: { op: 'update', object: { ...node, taints: [...(node.taints ?? []), action.taint] } }, event: { kind: 'taint', by: 'kubectl', node: node.name, subjects: [node.name], text: `kubectl taints ${node.name} with {${key}: ${value}}:${effect}` } });
+        if (effect === 'NoExecute') applyNoExecute(env);
+        return;
+      }
     }
   };
 
@@ -193,8 +236,9 @@ export function simulate(scenario: Scenario): SimResult {
     const name = endpoints[Math.floor(rng() * endpoints.length)]!;
     const pod = store.get('Pod', name);
     const node = pod?.node ? store.get('Node', pod.node) : undefined;
-    const ok = pod?.phase === 'Running' && !!node?.ready && !offline.has(node.name);
-    const reason = ok ? undefined : `${name} is not running: connection refused`;
+    const running = pod?.phase === 'Running' && !!node?.ready && !offline.has(node.name);
+    const ok = running && kubelet.answers(name);
+    const reason = ok ? undefined : running ? `${name} doesn't answer: the request times out` : `${name} is not running: connection refused`;
     requests.set(id, { id, service, status: ok ? 'ok' : 'failed', pod: name, ...(reason && { reason }) });
     record({ kind: 'route', ...by, ...(pod?.node && { node: pod.node }), subjects: [id, service, name], text: ok ? `kube-proxy sends request ${id} to ${name}` : `kube-proxy sends request ${id} to ${name}, which fails: ${reason}`, ...(reason && { reason }) });
   };
@@ -223,7 +267,11 @@ export function simulate(scenario: Scenario): SimResult {
     if (name === 'etcd') retry.clear();
   };
 
-  for (const node of scenario.nodes) store.write({ op: 'create', object: { kind: 'Node', name: node.name, cpu: node.cpu, ready: true, lastHeartbeat: 0 } });
+  for (const { name, cpu, ...extra } of scenario.nodes) store.write({ op: 'create', object: { kind: 'Node', name, cpu, ready: true, lastHeartbeat: 0, ...extra } });
+  const pool = scenario.pool;
+  for (let i = 1; i <= (pool?.min ?? 0); i++) {
+    store.write({ op: 'create', object: { kind: 'Node', name: `pool-${i}`, cpu: pool!.cpu, memory: pool!.memory, ready: true, lastHeartbeat: 0, pool: true, ...(pool!.labels && { labels: pool!.labels }) } });
+  }
   // Pushed first, so at equal times faults come before actions, and both before anything the run schedules.
   for (const f of scenario.faults) {
     if (f.kind === 'down') {
@@ -234,17 +282,20 @@ export function simulate(scenario: Scenario): SimResult {
   for (const action of scenario.actions) push(action.at, { kind: 'action', action });
   push(0, { kind: 'heartbeat' });
   push(NODE_CHECK_S, { kind: 'node-check' });
+  if (scenario.load || scenario.faults.some((f) => f.kind === 'leak')) push(METRICS_S, { kind: 'metrics' });
+  if (scenario.actions.some((a) => a.kind === 'apply' && a.object.kind === 'HorizontalPodAutoscaler')) push(HPA_SYNC_S, { kind: 'hpa' });
+  if (pool) push(CA_SCAN_S, { kind: 'autoscaler' });
 
   let cutOff = false;
   let endedAt = 0;
   for (;;) {
     // A dead node nobody has noticed yet keeps the run going until the node lifecycle does.
     const unnoticed = store.list('Node').some((n) => n.ready && offline.has(n.name));
-    if (live === 0 && !unnoticed) break;
+    if (live === 0 && !unnoticed && !scenario.runToEnd) break;
     const next = queue.pop();
     if (!next) break;
     if (next.time > until) {
-      cutOff = true;
+      cutOff = !scenario.runToEnd;
       endedAt = until;
       break;
     }
@@ -267,13 +318,39 @@ export function simulate(scenario: Scenario): SimResult {
       case 'reconcile':
         run(item.group);
         break;
-      case 'timer':
-        if (item.timer.kind === 'evict') evict(env, item.timer.node);
-        else kubelet.fire(item.timer);
+      case 'timer': {
+        const timer = item.timer;
+        if (timer.kind === 'evict') evict(env, timer.node);
+        else if (timer.kind === 'evict-retry') {
+          const pod = store.get('Pod', timer.pod);
+          if (pod) requestEviction(env, pod, timer.by);
+        } else if (timer.kind === 'noexecute') {
+          const pod = store.get('Pod', timer.pod);
+          const taint = store.get('Node', timer.node)?.taints?.find((t) => t.effect === 'NoExecute');
+          if (pod && pod.node === timer.node && taint) evictForTaint(env, pod, taint);
+        } else if (timer.kind === 'boot') bootNode(env, timer.node);
+        else kubelet.fire(timer);
         break;
+      }
       case 'heartbeat':
         heartbeat(env);
         push(now + HEARTBEAT_S, item);
+        break;
+      case 'metrics':
+        metricsTick(env, scenario, { startedAt: kubelet.startedAt, kill: kubelet.kill, traffic });
+        push(now + METRICS_S, item);
+        break;
+      case 'hpa':
+        // The HPA runs in the controller manager.
+        if (!down.has('controllers')) {
+          current = undefined;
+          for (const change of reconcileHpas(ctx(), hpaHistory)) apply(change);
+        }
+        push(now + HPA_SYNC_S, item);
+        break;
+      case 'autoscaler':
+        if (!down.has('controllers') && store.etcdUp) autoscalerTick(env, pool!, autoscaler);
+        push(now + CA_SCAN_S, item);
         break;
       case 'node-check':
         // Node lifecycle runs in the controller manager and needs etcd.
@@ -282,5 +359,7 @@ export function simulate(scenario: Scenario): SimResult {
         break;
     }
   }
-  return { frames, endedAt, cutOff };
+  const ranToEnd = !!scenario.runToEnd && endedAt === until;
+  now = endedAt;
+  return { frames, endedAt, cutOff, ...(ranToEnd && { ranToEnd }), final: snapshot() };
 }
