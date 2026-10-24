@@ -13,7 +13,7 @@ function Chip({ role, children, title }: { role: Role; children: ReactNode; titl
   return (
     <span title={title} className="inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] leading-tight" style={roleBoxStyle(role)}>
       {mark && <span aria-hidden="true">{mark}</span>}
-      <span className="min-w-0 break-all">{children}</span>
+      <span className="min-w-0 [overflow-wrap:anywhere]">{children}</span>
     </span>
   );
 }

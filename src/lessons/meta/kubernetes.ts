@@ -22,4 +22,14 @@ export const kubernetesMeta: LessonMeta[] = [
     keywords: ['pod', 'container', 'restart policy', 'crashloopbackoff', 'back-off', 'exit code', 'kubelet', 'phase'],
     prerequisites: ['cluster-architecture'],
   },
+  {
+    id: 'labels-selectors',
+    title: 'Labels & Selectors',
+    category: 'kubernetes',
+    difficulty: 'beginner',
+    group: 'Foundations',
+    description: 'Check a selector against six labelled pods, one pod at a time, and see which label decides.',
+    keywords: ['labels', 'selectors', 'label selector', 'equality', 'set-based', 'matchLabels', 'matchExpressions', 'kubectl -l'],
+    prerequisites: ['pods'],
+  },
 ];
