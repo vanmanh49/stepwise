@@ -42,4 +42,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['attention', 'query', 'key', 'value', 'causal mask', 'softmax', 'transformer'],
     prerequisites: ['next-token-prediction'],
   },
+  {
+    id: 'transformer-block',
+    title: 'The Transformer Block',
+    category: 'ai',
+    difficulty: 'beginner',
+    group: 'How LLMs Work',
+    description: 'Follow one token through attention, residuals, layer norm and the MLP to its next-word prediction.',
+    keywords: ['transformer', 'residual connection', 'layer norm', 'mlp', 'feed-forward', 'unembedding', 'tied embeddings'],
+    prerequisites: ['self-attention'],
+  },
 ];
