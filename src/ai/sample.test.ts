@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { seeded } from '../utils/random';
 import { draw, reshape } from './sample';
+import { tokenId, VOCAB } from './corpus';
+import { forward } from './model';
 import { softmax } from './tensor';
 
 const L = [2, 1, 0.5, 0.5, -1];
@@ -25,6 +27,12 @@ describe('reshape', () => {
     const r = reshape(L, none);
     expect([...r.topKCut, ...r.topPCut]).toEqual([]);
     expect(r.final).toEqual(r.scaled);
+  });
+
+  it('keeps every word with top-p 1, even at temperature 0.1 where the tail underflows', () => {
+    const logits = forward([tokenId('the')!]).logits.at(-1)!;
+    const r = reshape(logits, { temperature: 0.1, topK: VOCAB.length, topP: 1 });
+    expect(r.topPCut).toEqual([]);
   });
 
   it('renormalises what is left', () => {

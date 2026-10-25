@@ -2,22 +2,13 @@ import { LayoutGroup, motion } from 'motion/react';
 import { useId } from 'react';
 import type { GridCell as Cell, GridView } from '../../../types/visualization';
 import { ROLE_META } from '../roles';
-import { gridCellStyle } from './gridCellStyle';
+import { gridCellStyle, heatStyle } from './gridCellStyle';
 import { spring } from './spring';
 
 // Fixed cell geometry so arrows can be drawn from row and column indexes alone.
 const CELL = 44;
 const GAP = 6;
 const STEP = CELL + GAP;
-
-/** Shades a default-role cell by its heat (0–1), mixing the accent into the surface. */
-function heatStyle(cell: Cell) {
-  if (cell.heat === undefined || cell.role !== 'default') return {};
-  return {
-    background: `color-mix(in oklab, var(--accent) ${Math.round(cell.heat * 70)}%, var(--surface))`,
-    color: cell.heat >= 0.5 ? 'var(--accent-fg)' : 'var(--text)',
-  };
-}
 
 function GridCell({ cell }: { cell: Cell }) {
   const meta = ROLE_META[cell.role];

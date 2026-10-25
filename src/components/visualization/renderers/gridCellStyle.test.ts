@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Role } from '../../../types/visualization';
 import { ROLE_META } from '../roles';
-import { gridCellStyle } from './gridCellStyle';
+import { gridCellStyle, heatStyle } from './gridCellStyle';
 
 describe('gridCellStyle', () => {
   // Motion keeps the last animated value of a style key that disappears, so a ring
@@ -13,5 +13,20 @@ describe('gridCellStyle', () => {
   it('draws a ring only for ring roles', () => {
     expect(gridCellStyle('default').boxShadow).toBe('none');
     expect(gridCellStyle('active').boxShadow).not.toBe('none');
+  });
+});
+
+describe('heatStyle', () => {
+  it('keeps the normal text colour on the hottest cell, so the number stays readable', () => {
+    expect(heatStyle({ id: 'a', value: '1.00', role: 'default', heat: 1 }).color).toBe('var(--text)');
+  });
+
+  it('mixes at most 60% accent into the surface', () => {
+    expect(heatStyle({ id: 'a', value: '1.00', role: 'default', heat: 1 }).background).toContain('var(--accent) 60%');
+  });
+
+  it('leaves cells without heat, or with a role, alone', () => {
+    expect(heatStyle({ id: 'a', value: 1, role: 'default' })).toEqual({});
+    expect(heatStyle({ id: 'a', value: 1, role: 'found', heat: 1 })).toEqual({});
   });
 });

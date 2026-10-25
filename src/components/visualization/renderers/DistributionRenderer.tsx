@@ -9,7 +9,7 @@ export function DistributionRenderer({ view }: { view: DistributionView }) {
   return (
     <figure className="mx-auto w-full max-w-xl">
       {view.title && <figcaption className="mb-3 text-center font-mono text-xs text-muted">{view.title}</figcaption>}
-      <div className="grid grid-cols-[minmax(3.5rem,auto)_1fr_3rem] items-center gap-x-2 gap-y-1.5 font-mono text-xs">
+      <div className="grid grid-cols-[minmax(3.5rem,auto)_1fr_4rem] items-center gap-x-2 gap-y-1.5 font-mono text-xs">
         {view.bars.map((bar, i) => (
           <Fragment key={bar.id}>
             {showCut && i === view.cutoff && (
@@ -34,8 +34,13 @@ export function DistributionRenderer({ view }: { view: DistributionView }) {
                 }}
               />
             </div>
-            <span className="text-right tabular-nums">
+            <span className="flex items-center justify-end gap-1 tabular-nums">
               {bar.value.toFixed(2)}
+              {bar.role !== 'default' && ROLE_META[bar.role].mark && (
+                <span aria-hidden className="flex h-4 min-w-4 items-center justify-center rounded-full border border-border bg-surface px-0.5 text-[9px] leading-none text-text">
+                  {ROLE_META[bar.role].mark}
+                </span>
+              )}
               {bar.role !== 'default' && <span className="sr-only"> ({ROLE_META[bar.role].label})</span>}
             </span>
           </Fragment>
