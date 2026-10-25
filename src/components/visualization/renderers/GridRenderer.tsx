@@ -1,6 +1,6 @@
 import { LayoutGroup, motion } from 'motion/react';
 import { useId } from 'react';
-import type { Cell, GridView } from '../../../types/visualization';
+import type { GridCell as Cell, GridView } from '../../../types/visualization';
 import { ROLE_META } from '../roles';
 import { gridCellStyle } from './gridCellStyle';
 import { spring } from './spring';
@@ -10,6 +10,15 @@ const CELL = 44;
 const GAP = 6;
 const STEP = CELL + GAP;
 
+/** Shades a default-role cell by its heat (0–1), mixing the accent into the surface. */
+function heatStyle(cell: Cell) {
+  if (cell.heat === undefined || cell.role !== 'default') return {};
+  return {
+    background: `color-mix(in oklab, var(--accent) ${Math.round(cell.heat * 70)}%, var(--surface))`,
+    color: cell.heat >= 0.5 ? 'var(--accent-fg)' : 'var(--text)',
+  };
+}
+
 function GridCell({ cell }: { cell: Cell }) {
   const meta = ROLE_META[cell.role];
   return (
@@ -17,7 +26,7 @@ function GridCell({ cell }: { cell: Cell }) {
       layoutId={cell.id}
       transition={spring}
       className="relative flex items-center justify-center rounded-lg font-mono text-sm font-semibold transition-colors duration-200"
-      style={{ width: CELL, height: CELL, ...gridCellStyle(cell.role) }}
+      style={{ width: CELL, height: CELL, ...gridCellStyle(cell.role), ...heatStyle(cell) }}
     >
       {cell.value}
       {meta.mark && cell.role !== 'default' && (

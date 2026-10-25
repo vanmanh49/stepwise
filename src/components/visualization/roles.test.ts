@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import type { BucketsView, CallsView, ClusterView, GridView, PanelsView, ServicesView, TrieView } from '../../types/visualization';
+import type { BucketsView, CallsView, ClusterView, DistributionView, GridView, PanelsView, ServicesView, TrieView } from '../../types/visualization';
 import { rolesInRun, rolesInView } from './roles';
 
 describe('rolesInView', () => {
+  it('lists the roles in a distribution view', () => {
+    const view: DistributionView = {
+      kind: 'distribution',
+      bars: [
+        { id: 'a', label: 'a', value: 0.6, role: 'found' },
+        { id: 'b', label: 'b', value: 0.4, role: 'discarded' },
+      ],
+    };
+    expect(rolesInView(view)).toEqual(['found', 'discarded']);
+  });
+
   it('lists the roles in a services view', () => {
     const view: ServicesView = {
       kind: 'services',

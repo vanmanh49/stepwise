@@ -86,6 +86,8 @@ export function rolesInView(view: View): Role[] {
         ...(view.scoring?.rows.map((r) => r.role) ?? []),
         ...(view.rules?.rows.map((r) => r.role) ?? []),
       ];
+    case 'distribution':
+      return view.bars.map((b) => b.role);
     case 'panels':
       return view.panels.flatMap((p) => rolesInView(p.view));
   }
