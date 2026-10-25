@@ -31,8 +31,6 @@ export const NODE_BOOT_S = 20;
 export const CA_UNNEEDED_S = 60;
 export const CA_UTILISATION = 0.5;
 export const EVICT_RETRY_S = 5;
-export const PROBE_PERIOD_S = 2;
-export const PROBE_THRESHOLD = 3;
 export const BASE_MEMORY_MI = 64;
 export const NODE_MEMORY_MI = 8192;
 // Phase 3 timings. Job back-off and CronJob checks use Kubernetes' real values; the config sync is shortened.

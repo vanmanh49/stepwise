@@ -165,6 +165,33 @@ describe('blocked storage', () => {
   });
 });
 
+describe('another tab', () => {
+  it('reloads progress another tab saved, so the next save keeps it', async () => {
+    vi.resetModules();
+    const saved = new Map<string, string>();
+    const localStorage = {
+      getItem: (key: string) => saved.get(key) ?? null,
+      setItem: (key: string, value: string) => saved.set(key, value),
+      removeItem: (key: string) => saved.delete(key),
+    };
+    // Zustand reads window.localStorage; the store's own check reads the global.
+    const window = Object.assign(new EventTarget(), { localStorage });
+    vi.stubGlobal('localStorage', localStorage);
+    vi.stubGlobal('window', window);
+    try {
+      const { useProgress: fresh } = await import('./progress');
+      // The other tab completes "array"; this tab only hears a storage event.
+      saved.set('dsa-progress', JSON.stringify({ state: { ...emptyProgress, completed: ['array'] }, version: 1 }));
+      window.dispatchEvent(Object.assign(new Event('storage'), { key: 'dsa-progress' }));
+      await vi.waitFor(() => expect(fresh.getState().completed).toEqual(['array']));
+      fresh.getState().markComplete('stack');
+      expect(JSON.parse(saved.get('dsa-progress')!).state.completed).toEqual(['array', 'stack']);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
 describe('countDone', () => {
   it('counts listed lessons only, once each', () => {
     expect(countDone([{ id: 'a' }, { id: 'b' }], ['b', 'gone', 'b'])).toBe(1);
