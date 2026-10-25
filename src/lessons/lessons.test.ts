@@ -144,6 +144,7 @@ const EXPECTED_IDS = [
   'network-policies',
   'operators-crds',
   'tokenization',
+  'embeddings',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
