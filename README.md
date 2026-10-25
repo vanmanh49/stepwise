@@ -34,7 +34,7 @@ React 19, TypeScript (strict), Vite, Tailwind CSS v4, React Router, Motion, Luci
 
 ## Getting started
 
-Requires Node.js 20 or newer.
+Requires Node.js 22.12 or newer (Vitest 5 needs it).
 
 ```bash
 npm install
@@ -72,7 +72,7 @@ src/
   types/             Step, View, Lesson and related types
   engine/            playerReducer (pure) and the usePlayer hook
   algorithms/        pure algorithms and their step generators
-    sorting/  searching/  graph/
+    sorting/  searching/  techniques/  recursion/  graph/  tree/  dp/  greedy/  strings/
   data-structures/   step generators for structure operations
   sql/               SQL interpreter: tokenizer, parser, executor, step generator, exercise checker
     datasets/        the read-only sample databases
@@ -196,7 +196,7 @@ Microservices lessons run a simulated system in `src/microservices/`: `simulate(
 Kubernetes lessons run a simulated cluster in `src/kubernetes/`: `simulate(scenario)` applies kubectl actions and faults at their times and lets the controllers react until the cluster settles, returning one frame (event + cluster snapshot) per change; `traceSteps` turns the frames into steps with a `cluster` view.
 
 1. Write `src/kubernetes/scenarios/<id>.ts`, exporting `fooCode` (pseudocode), `fooScenario(values)` (form values → nodes, actions, faults and an optional `until`, read with `readInt`/`readChoice`) and `fooSteps(values)` (`scenarioSteps(fooScenario(values), title, options)`). In `options`, `lines` maps trace kinds to snippets of `fooCode`, `explain` changes an event's wording or line, `focus` names the workload whose desired / current / ready go in the variables, and `noops` shows reconciles that found nothing to do. Builders for nodes, Deployments, ReplicaSets, Services and pods are in `scenarios/shared.ts`.
-   - **Actions** (`by: kubectl`): `apply` (also HPAs and PDBs), `scale`, `set-image`, `rollback`, `delete-pods`, `cordon` / `uncordon` / `drain`, `taint`, and `request` (routed by kube-proxy).
+   - **Actions** (`by: kubectl`): `apply` (any object kind, from Deployments and HPAs to Jobs, Ingresses and custom resources), `delete`, `scale`, `set-image`, `rollback`, `rollout-restart`, `delete-pods`, `edit-config` (one ConfigMap key), `add-node`, `cordon` / `uncordon` / `drain`, `taint`, and `request` (routed by kube-proxy, or through the Ingress with `host` / `path`, and from a pod with `from` for NetworkPolicies).
    - **Faults**: `node-down`, `crash` (exit code after N s), `bad-image`, `not-ready`, `slow-start`, `hang`, `leak`, and `down` for the scheduler, the controller manager or etcd.
    - **Scenario options**: node labels, taints and memory; pod resources, tolerations, affinity and probes (template fields); a `load` traffic curve; a `pool` for the Cluster Autoscaler; `schedulerStrategy`; and `runToEnd` for runs whose remaining work is periodic (metrics, HPA, autoscaler, probes).
    - Timings are seconds and shortened from Kubernetes' defaults (constants in `model.ts`); say so in the lesson text.
@@ -215,7 +215,7 @@ Kubernetes lessons run a simulated cluster in `src/kubernetes/`: `simulate(scena
 
 Helpers worth reusing: `toCells`, `arrayView` and `swapCells` in `algorithms/sorting/cells.ts`, and `graphView` and `neighbours` in `algorithms/graph/view.ts`.
 
-For a data structure, export a `StructureDef` from `src/data-structures/`: an initial state, a `view(state)` function, the code, and a list of operations. Each operation's `run(state, args)` returns `{ steps, state }` and must not mutate its input.
+For a data structure, export a `StructureDef` from `src/data-structures/`: an initial state, a `view(state)` function, the code, and a list of operations. Each operation's `run(state, args, words)` (numbers, plus words for `text: true` arguments) returns `{ steps, state }` and must not mutate its input.
 
 ## How to add a visualization
 
@@ -239,7 +239,7 @@ TypeScript reports every place that must handle the new kind. The engine, contro
 - `activeDays`: dates on which a lesson was opened, used to compute the streak
 - `exercises`: solved SQL exercises, as `lessonId/exerciseId`
 
-A lesson is completed with the "Mark as complete" button, by a perfect quiz score, or, for SQL lessons, by solving every exercise. Stored data is validated when loaded, so corrupted or outdated data falls back to empty progress.
+A lesson is completed with the "Mark as complete" button, by a perfect quiz score, or, for SQL lessons, by solving every exercise. Stored data is validated when loaded, so corrupted or outdated data falls back to empty progress. When another tab saves progress, the store reloads it, so a tab with an old copy never overwrites newer work.
 
 Components only use the store's selectors and actions (`markComplete`, `recordQuiz`, `solveExercise`, `visit`, `reset`). To move progress to a backend, replace the persistence inside this one file.
 
@@ -261,7 +261,7 @@ Unit tests cover:
 - the microservices simulator (timing, faults, the gateway, registry, balancer, rate limiter, broker, relay and sidecars, call policies, records and sagas, deploys and canaries), spans, its narration, the services layout and message stacking, and each lesson's teaching moment
 - the Kubernetes simulator (the store, each controller, the scheduler's filters and scores, kubelet back-off and probes, metrics, limits and OOMKill, node pressure, the HPA, the Cluster Autoscaler, the eviction API and PDBs, node lifecycle, rolling-update bounds, kube-proxy routing, ConfigMaps and Secrets, PV binding and reclaim, StatefulSets, DaemonSets, Jobs and CronJobs, Ingress matching, NetworkPolicies, the operator), its narration, and each lesson's teaching moment
 - the SQL interpreter: tokenizer, parser, executor, grouping, subqueries, error messages, the step generator and the exercise checker
-- **differential tests**: over 120 queries run through both the interpreter and real SQLite ([sql.js](https://github.com/sql-js/sql.js)), whose results must match. sql.js is a dev dependency used only by tests; it is never bundled into the app.
+- **differential tests**: over 400 queries run through both the interpreter and real SQLite ([sql.js](https://github.com/sql-js/sql.js)), whose results must match. sql.js is a dev dependency used only by tests; it is never bundled into the app.
 
 Tests run in Node without a browser. Component behaviour is checked manually in the browser.
 
