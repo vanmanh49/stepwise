@@ -41,7 +41,7 @@ export function distributionView(probs: Vec, o: { title?: string; chosen?: numbe
   const rest = order.filter((i) => !shown.includes(i));
   const role = (i: number): Role => (i === o.chosen ? 'found' : cut.has(i) ? 'discarded' : 'default');
   const bars = shown.map((i) => ({ id: VOCAB[i]!, label: VOCAB[i]!, value: probs[i]!, role: role(i) }));
-  if (rest.length > 0) bars.push({ id: 'others', label: `${rest.length} others`, value: rest.reduce((s, i) => s + probs[i]!, 0), role: 'default' });
+  if (rest.length > 0) bars.push({ id: 'others', label: `${rest.length} others`, value: rest.reduce((s, i) => s + probs[i]!, 0), role: rest.every((i) => cut.has(i)) ? 'discarded' : 'default' });
   const target = o.target === undefined ? -1 : shown.indexOf(o.target);
   return {
     kind: 'distribution',

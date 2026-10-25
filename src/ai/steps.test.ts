@@ -48,6 +48,12 @@ describe('distributionView', () => {
     expect(view.bars.reduce((s, b) => s + b.value, 0)).toBeCloseTo(1, 12);
   });
 
+  it('marks the others bar as cut when every word in it was cut', () => {
+    const cut = new Set(VOCAB.map((_, i) => i).slice(0, 30));
+    expect(distributionView(probs, { cut }).bars.at(-1)!.role).toBe('discarded');
+    expect(distributionView(probs).bars.at(-1)!.role).toBe('default');
+  });
+
   it('points at the target bar', () => {
     expect(distributionView(probs, { target: VOCAB.length - 2 }).target).toBe(1);
   });

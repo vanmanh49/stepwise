@@ -43,9 +43,9 @@ export function Header({ onSearch }: { onSearch(): void }) {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <Button icon={Search} onClick={onSearch} className="text-muted sm:w-56 sm:justify-start lg:w-36 xl:w-56" aria-label="Search lessons" aria-keyshortcuts="Control+K">
-            <span className="hidden sm:inline">Search</span>
-            <kbd className="ml-auto hidden rounded border border-border bg-surface-2 px-1.5 font-mono text-[11px] sm:inline">
+          <Button icon={Search} onClick={onSearch} className="text-muted sm:w-56 sm:justify-start lg:w-auto xl:w-56" aria-label="Search lessons" aria-keyshortcuts="Control+K">
+            <span className="hidden sm:inline lg:hidden xl:inline">Search</span>
+            <kbd className="ml-auto hidden rounded border border-border bg-surface-2 px-1.5 font-mono text-[11px] sm:inline lg:hidden xl:inline">
               Ctrl K
             </kbd>
           </Button>
