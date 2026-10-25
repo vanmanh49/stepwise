@@ -8,7 +8,7 @@ export const CONTEXT = 6;
 export const SEED = 7;
 
 export interface Weights {
-  /** VOCAB × D */
+  /** VOCAB × D; also scores each next token at the end (tied embeddings, as in GPT-2). */
   tokenEmbed: Mat;
   /** CONTEXT × D */
   posEmbed: Mat;
@@ -22,8 +22,6 @@ export interface Weights {
   b1: Vec;
   w2: Mat;
   b2: Vec;
-  /** VOCAB × D */
-  unembed: Mat;
   bUnembed: Vec;
 }
 
@@ -70,6 +68,6 @@ export function forward(tokens: number[], w: Weights = WEIGHTS): Forward {
   const mlp = norm1.map((row) => add(matVec(w.w2, relu(add(matVec(w.w1, row), w.b1))), w.b2));
   const resid2 = norm1.map((row, i) => add(row, mlp[i]!));
   const norm2 = resid2.map(layerNorm);
-  const logits = norm2.map((row) => add(matVec(w.unembed, row), w.bUnembed));
+  const logits = norm2.map((row) => add(matVec(w.tokenEmbed, row), w.bUnembed));
   return { tokens, x, q, k, v, scores, scaled, masked, weights, attn, resid1, norm1, mlp, resid2, norm2, logits, probs: logits.map(softmax) };
 }
