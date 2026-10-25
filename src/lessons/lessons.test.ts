@@ -143,6 +143,7 @@ const EXPECTED_IDS = [
   'ingress',
   'network-policies',
   'operators-crds',
+  'tokenization',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -181,6 +182,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('sql')).toHaveLength(28);
     expect(lessonsIn('microservices')).toHaveLength(23);
     expect(lessonsIn('kubernetes')).toHaveLength(23);
+    expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, lessonsIn('ai').length).map((t) => t.id));
   });
 
   it('links previous and next lessons within a category', () => {
