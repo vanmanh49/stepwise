@@ -62,4 +62,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['sampling', 'temperature', 'top-k', 'top-p', 'nucleus sampling', 'decoding', 'randomness'],
     prerequisites: ['next-token-prediction'],
   },
+  {
+    id: 'training-loss',
+    title: 'Training & Loss',
+    category: 'ai',
+    difficulty: 'beginner',
+    group: 'How LLMs Work',
+    description: 'Train a bigram model live: the loss, the gradient and one step of gradient descent at a time.',
+    keywords: ['training', 'loss', 'cross-entropy', 'gradient', 'gradient descent', 'learning rate', 'bigram'],
+    prerequisites: ['next-token-prediction'],
+  },
 ];

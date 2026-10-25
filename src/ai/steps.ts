@@ -29,14 +29,16 @@ export function readPrompt(values: Record<string, string>, name: string, label: 
   return { ok: true, value: ids };
 }
 
-/** Kept ids first, then cut ones, each most likely first; at most 12 bars plus one "others" bar. */
+/** Kept ids first, then cut ones, each most likely first; at most 12 bars (the target always among them) plus one "others" bar. */
 export function distributionView(probs: Vec, o: { title?: string; chosen?: number; cut?: ReadonlySet<number>; target?: number } = {}): DistributionView {
   const cut = o.cut ?? new Set<number>();
   const byProb = (a: number, b: number) => probs[b]! - probs[a]! || a - b;
   const ids = probs.map((_, i) => i);
   const order = [...ids.filter((i) => !cut.has(i)).toSorted(byProb), ...ids.filter((i) => cut.has(i)).toSorted(byProb)];
   const shown = order.slice(0, SHOWN_BARS);
-  const rest = order.slice(SHOWN_BARS);
+  // The target always gets a bar, in place of the last one shown.
+  if (o.target !== undefined && !shown.includes(o.target)) shown[SHOWN_BARS - 1] = o.target;
+  const rest = order.filter((i) => !shown.includes(i));
   const role = (i: number): Role => (i === o.chosen ? 'found' : cut.has(i) ? 'discarded' : 'default');
   const bars = shown.map((i) => ({ id: VOCAB[i]!, label: VOCAB[i]!, value: probs[i]!, role: role(i) }));
   if (rest.length > 0) bars.push({ id: 'others', label: `${rest.length} others`, value: rest.reduce((s, i) => s + probs[i]!, 0), role: 'default' });

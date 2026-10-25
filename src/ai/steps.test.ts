@@ -40,6 +40,14 @@ describe('distributionView', () => {
     expect(view.bars.slice(4, 12).every((b) => b.role === 'discarded')).toBe(true);
   });
 
+  it('always shows the target bar, even when it is not among the 12 most likely', () => {
+    const uniform = VOCAB.map(() => 1 / VOCAB.length);
+    const view = distributionView(uniform, { target: VOCAB.length - 1 });
+    expect(view.bars).toHaveLength(13);
+    expect(view.bars[view.target!]!.label).toBe(VOCAB.at(-1));
+    expect(view.bars.reduce((s, b) => s + b.value, 0)).toBeCloseTo(1, 12);
+  });
+
   it('points at the target bar', () => {
     expect(distributionView(probs, { target: VOCAB.length - 2 }).target).toBe(1);
   });
