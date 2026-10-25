@@ -127,12 +127,23 @@ const hasStorage = (() => {
   }
 })();
 
-export const useProgress = hasStorage
-  ? create(
-      persist(creator, {
-        name: 'dsa-progress',
-        version: 1,
-        merge: (persisted, current) => ({ ...current, ...sanitizeProgress(persisted) }),
-      }),
-    )
-  : create(creator);
+const STORAGE_KEY = 'dsa-progress';
+
+function persistedStore() {
+  const store = create(
+    persist(creator, {
+      name: STORAGE_KEY,
+      version: 1,
+      merge: (persisted, current) => ({ ...current, ...sanitizeProgress(persisted) }),
+    }),
+  );
+  // Each save writes the whole state, so a tab must reload what another tab saved before its own next save erases it.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', (event) => {
+      if (event.key === STORAGE_KEY) void store.persist.rehydrate();
+    });
+  }
+  return store;
+}
+
+export const useProgress = hasStorage ? persistedStore() : create(creator);
