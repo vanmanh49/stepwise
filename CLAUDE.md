@@ -72,7 +72,7 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
   - `Button`, `IconButton`, `RunButton`, `ButtonLink` (a router link styled as a button), `PresetRow` ("Try:" chips), `SegmentedControl` (one choice), `ToggleChip` (on/off).
 
   Components use these instead of raw `<select>`/`<input>`/`<textarea>` or `btn`/`field` class strings. The `.btn`, `.field` and `select.field` styles in `src/index.css` are their only styling.
-- Progress (`store/progress.ts`, key `dsa-progress`) runs stored data through `sanitizeProgress` on load. The theme is stored as `dsa-theme` and applied in `index.html` before first paint.
+- Progress (`store/progress.ts`, key `dsa-progress`) runs stored data through `sanitizeProgress` on load, and reloads on another tab's `storage` event because every save writes the whole state. The theme is stored as `dsa-theme` and applied in `index.html` before first paint.
 
 ## Tests that guard the whole codebase
 
