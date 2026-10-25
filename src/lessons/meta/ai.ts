@@ -32,4 +32,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['language model', 'next token', 'logits', 'softmax', 'greedy decoding', 'generation', 'context window'],
     prerequisites: ['embeddings'],
   },
+  {
+    id: 'self-attention',
+    title: 'Self-Attention',
+    category: 'ai',
+    difficulty: 'beginner',
+    group: 'How LLMs Work',
+    description: 'Compute queries, keys, values, the causal mask and the attention weights for your prompt.',
+    keywords: ['attention', 'query', 'key', 'value', 'causal mask', 'softmax', 'transformer'],
+    prerequisites: ['next-token-prediction'],
+  },
 ];

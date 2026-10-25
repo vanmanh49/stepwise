@@ -146,6 +146,7 @@ const EXPECTED_IDS = [
   'tokenization',
   'embeddings',
   'next-token-prediction',
+  'self-attention',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
