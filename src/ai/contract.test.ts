@@ -18,6 +18,7 @@ function valueFor(field: FormField, r: () => number, range?: [number, number]): 
 const RANGES: Record<string, Record<string, [number, number]>> = {
   tokenization: { merges: [0, 30] },
   'next-token-prediction': { count: [1, 8] },
+  sampling: { topK: [1, 34], seed: [1, 99] },
 };
 
 function checkView(view: View, label: string) {

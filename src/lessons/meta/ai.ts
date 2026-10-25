@@ -52,4 +52,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['transformer', 'residual connection', 'layer norm', 'mlp', 'feed-forward', 'unembedding', 'tied embeddings'],
     prerequisites: ['self-attention'],
   },
+  {
+    id: 'sampling',
+    title: 'Sampling: Temperature, Top-k & Top-p',
+    category: 'ai',
+    difficulty: 'beginner',
+    group: 'How LLMs Work',
+    description: 'Reshape the next-word probabilities with temperature, top-k and top-p, then draw a word with a seeded random number.',
+    keywords: ['sampling', 'temperature', 'top-k', 'top-p', 'nucleus sampling', 'decoding', 'randomness'],
+    prerequisites: ['next-token-prediction'],
+  },
 ];

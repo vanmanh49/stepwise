@@ -148,6 +148,7 @@ const EXPECTED_IDS = [
   'next-token-prediction',
   'self-attention',
   'transformer-block',
+  'sampling',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
