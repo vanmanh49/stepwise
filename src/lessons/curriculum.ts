@@ -172,6 +172,35 @@ export const curriculum: Topic[] = [
     ['network-policies', 'Network Policies', 'Workloads & Operations'],
     ['operators-crds', 'Operators & CRDs', 'Workloads & Operations'],
   ]),
+  ...topics('ai', 'beginner', [
+    ['tokenization', 'Tokenization (BPE)', 'How LLMs Work'],
+    ['embeddings', 'Embeddings & Similarity', 'How LLMs Work'],
+    ['next-token-prediction', 'Next-Token Prediction', 'How LLMs Work'],
+    ['self-attention', 'Self-Attention', 'How LLMs Work'],
+    ['transformer-block', 'The Transformer Block', 'How LLMs Work'],
+    ['sampling', 'Sampling: Temperature, Top-k & Top-p', 'How LLMs Work'],
+    ['training-loss', 'Training & Loss', 'How LLMs Work'],
+  ]),
+  ...topics('ai', 'intermediate', [
+    ['chat-templates', 'Chat Templates & Roles', 'Building with LLMs'],
+    ['context-window', 'The Context Window', 'Building with LLMs'],
+    ['kv-cache', 'KV Cache', 'Building with LLMs'],
+    ['structured-output', 'Structured Output', 'Building with LLMs'],
+    ['vector-search', 'Vector Search', 'Building with LLMs'],
+    ['rag', 'Retrieval-Augmented Generation', 'Building with LLMs'],
+    ['function-calling', 'Function Calling', 'Building with LLMs'],
+    ['evals', 'Evals', 'Building with LLMs'],
+  ]),
+  ...topics('ai', 'advanced', [
+    ['agent-loop', 'The Agent Loop (ReAct)', 'AI Agents'],
+    ['agent-memory', 'Agent Memory', 'AI Agents'],
+    ['planning-decomposition', 'Planning & Decomposition', 'AI Agents'],
+    ['reflection', 'Reflection & Self-Correction', 'AI Agents'],
+    ['multi-agent', 'Multi-Agent Orchestration', 'AI Agents'],
+    ['mcp', 'MCP & Tool Protocols', 'AI Agents'],
+    ['prompt-injection-guardrails', 'Prompt Injection & Guardrails', 'AI Agents'],
+    ['human-in-the-loop', 'Human-in-the-Loop', 'AI Agents'],
+  ]),
 ];
 
 export const DIFFICULTIES: Difficulty[] = ['beginner', 'intermediate', 'advanced'];

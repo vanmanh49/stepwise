@@ -26,6 +26,8 @@ export default function App() {
           <Route path="microservices/:lessonId" element={<LessonPage category="microservices" />} />
           <Route path="kubernetes" element={<Catalog category="kubernetes" />} />
           <Route path="kubernetes/:lessonId" element={<LessonPage category="kubernetes" />} />
+          <Route path="ai" element={<Catalog category="ai" />} />
+          <Route path="ai/:lessonId" element={<LessonPage category="ai" />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="big-o" element={<BigO />} />
           <Route path="*" element={<NotFound />} />

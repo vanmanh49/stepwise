@@ -212,7 +212,7 @@ describe.each(allLessons.map((l) => [l.id, l] as const))('lesson %s', (_id, less
     expect(lesson.applications.length).toBeGreaterThanOrEqual(3);
     expect(lesson.commonMistakes.length).toBeGreaterThanOrEqual(3);
     expect(lesson.summary.length).toBeGreaterThanOrEqual(3);
-    if (lesson.category !== 'sql' && lesson.category !== 'microservices' && lesson.category !== 'kubernetes') {
+    if (lesson.category !== 'sql' && lesson.category !== 'microservices' && lesson.category !== 'kubernetes' && lesson.category !== 'ai') {
       expect(lesson.complexity!.rows.length).toBeGreaterThanOrEqual(1);
       expect(lesson.complexity!.curves.length).toBeGreaterThanOrEqual(1);
     }
@@ -407,6 +407,39 @@ describe('curriculum', () => {
       ...Array<string>(7).fill('Foundations'),
       ...Array<string>(8).fill('Scheduling & Health'),
       ...Array<string>(8).fill('Workloads & Operations'),
+    ]);
+  });
+
+  it('lists the AI course in order', () => {
+    expect(topicsIn('ai').map((t) => t.id)).toEqual([
+      'tokenization',
+      'embeddings',
+      'next-token-prediction',
+      'self-attention',
+      'transformer-block',
+      'sampling',
+      'training-loss',
+      'chat-templates',
+      'context-window',
+      'kv-cache',
+      'structured-output',
+      'vector-search',
+      'rag',
+      'function-calling',
+      'evals',
+      'agent-loop',
+      'agent-memory',
+      'planning-decomposition',
+      'reflection',
+      'multi-agent',
+      'mcp',
+      'prompt-injection-guardrails',
+      'human-in-the-loop',
+    ]);
+    expect(topicsIn('ai').map((t) => t.group)).toEqual([
+      ...Array<string>(7).fill('How LLMs Work'),
+      ...Array<string>(8).fill('Building with LLMs'),
+      ...Array<string>(8).fill('AI Agents'),
     ]);
   });
 

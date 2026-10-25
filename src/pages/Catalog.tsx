@@ -18,6 +18,7 @@ const INTRO: Record<Category, string> = {
     'How a system made of many small services stays fast and keeps working when parts of it fail. Each lesson runs a simulated system on your settings, one message at a time.',
   kubernetes:
     'How Kubernetes keeps your apps running: you declare what you want, and controllers keep working until the cluster matches. Each lesson runs a simulated cluster on your settings, one change at a time.',
+  ai: 'How large language models work, from the first token to AI agents. Each lesson runs a tiny model on your input, so you can see every number it computes.',
 };
 
 const LEVEL_NOTE = {

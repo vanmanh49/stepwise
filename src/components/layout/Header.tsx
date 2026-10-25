@@ -9,6 +9,7 @@ const links = [
   { to: '/sql', label: 'SQL' },
   { to: '/microservices', label: 'Microservices' },
   { to: '/kubernetes', label: 'Kubernetes' },
+  { to: '/ai', label: 'AI' },
   { to: '/big-o', label: 'Big O' },
   { to: '/dashboard', label: 'Progress' },
 ];
