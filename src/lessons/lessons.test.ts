@@ -145,6 +145,7 @@ const EXPECTED_IDS = [
   'operators-crds',
   'tokenization',
   'embeddings',
+  'next-token-prediction',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {

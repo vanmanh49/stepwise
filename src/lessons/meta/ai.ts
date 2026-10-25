@@ -22,4 +22,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['embedding', 'vector', 'cosine similarity', 'dot product', 'word vectors', 'tied embeddings'],
     prerequisites: ['tokenization'],
   },
+  {
+    id: 'next-token-prediction',
+    title: 'Next-Token Prediction',
+    category: 'ai',
+    difficulty: 'beginner',
+    group: 'How LLMs Work',
+    description: 'Run the tiny model on your prompt: logits, softmax, and the most likely word appended one at a time.',
+    keywords: ['language model', 'next token', 'logits', 'softmax', 'greedy decoding', 'generation', 'context window'],
+    prerequisites: ['embeddings'],
+  },
 ];
