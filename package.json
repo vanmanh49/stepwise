@@ -12,7 +12,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --deny-warnings",
-    "bench": "vitest bench --run"
+    "bench": "vitest bench --run",
+    "train:ai": "AI_TRAIN=1 vitest run scripts/train-ai-model.test.ts"
   },
   "dependencies": {
     "lucide-react": "^1.55.0",

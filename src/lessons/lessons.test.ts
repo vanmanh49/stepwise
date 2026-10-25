@@ -143,6 +143,13 @@ const EXPECTED_IDS = [
   'ingress',
   'network-policies',
   'operators-crds',
+  'tokenization',
+  'embeddings',
+  'next-token-prediction',
+  'self-attention',
+  'transformer-block',
+  'sampling',
+  'training-loss',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -181,6 +188,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('sql')).toHaveLength(28);
     expect(lessonsIn('microservices')).toHaveLength(23);
     expect(lessonsIn('kubernetes')).toHaveLength(23);
+    expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, lessonsIn('ai').length).map((t) => t.id));
   });
 
   it('links previous and next lessons within a category', () => {
@@ -212,7 +220,7 @@ describe.each(allLessons.map((l) => [l.id, l] as const))('lesson %s', (_id, less
     expect(lesson.applications.length).toBeGreaterThanOrEqual(3);
     expect(lesson.commonMistakes.length).toBeGreaterThanOrEqual(3);
     expect(lesson.summary.length).toBeGreaterThanOrEqual(3);
-    if (lesson.category !== 'sql' && lesson.category !== 'microservices' && lesson.category !== 'kubernetes') {
+    if (lesson.category !== 'sql' && lesson.category !== 'microservices' && lesson.category !== 'kubernetes' && lesson.category !== 'ai') {
       expect(lesson.complexity!.rows.length).toBeGreaterThanOrEqual(1);
       expect(lesson.complexity!.curves.length).toBeGreaterThanOrEqual(1);
     }
@@ -410,6 +418,39 @@ describe('curriculum', () => {
     ]);
   });
 
+  it('lists the AI course in order', () => {
+    expect(topicsIn('ai').map((t) => t.id)).toEqual([
+      'tokenization',
+      'embeddings',
+      'next-token-prediction',
+      'self-attention',
+      'transformer-block',
+      'sampling',
+      'training-loss',
+      'chat-templates',
+      'context-window',
+      'kv-cache',
+      'structured-output',
+      'vector-search',
+      'rag',
+      'function-calling',
+      'evals',
+      'agent-loop',
+      'agent-memory',
+      'planning-decomposition',
+      'reflection',
+      'multi-agent',
+      'mcp',
+      'prompt-injection-guardrails',
+      'human-in-the-loop',
+    ]);
+    expect(topicsIn('ai').map((t) => t.group)).toEqual([
+      ...Array<string>(7).fill('How LLMs Work'),
+      ...Array<string>(8).fill('Building with LLMs'),
+      ...Array<string>(8).fill('AI Agents'),
+    ]);
+  });
+
   it('drops the topic that duplicated the Binary Search Tree lesson', () => {
     expect(curriculum.some((t) => t.id === 'bst-operations')).toBe(false);
     expect(getLesson('binary-search-tree')!.keywords).toContain('bst operations');
@@ -423,6 +464,10 @@ describe('curriculum', () => {
   it('has a live lesson for every algorithms topic', () => {
     expect(topicsIn('algorithms').filter((t) => !getLesson(t.id)).map((t) => t.id)).toEqual([]);
     expect(lessonsIn('algorithms').map((l) => l.id)).toEqual(topicsIn('algorithms').map((t) => t.id));
+  });
+
+  it('has the 7 How LLMs Work lessons live', () => {
+    expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, 7).map((t) => t.id));
   });
 
   it('has a live lesson for every microservices topic', () => {

@@ -155,12 +155,17 @@ export interface SessionsView {
   tables: SqlTable[];
 }
 
+/** A grid cell; `heat` (0–1) shades a default-role cell, e.g. an attention weight. */
+export interface GridCell extends Cell {
+  heat?: number;
+}
+
 /** A labelled 2-D table: DP tables, boards, and text rows aligned with null gaps. */
 export interface GridView {
   kind: 'grid';
   /** Column headers, e.g. capacities 0..C or the characters of a string. */
   colLabels?: string[];
-  rows: { label?: string; cells: (Cell | null)[] }[];
+  rows: { label?: string; cells: (GridCell | null)[] }[];
   /** Dependency arrows between cells, as [row, col] pairs. */
   arrows?: { from: [number, number]; to: [number, number] }[];
 }
@@ -284,6 +289,18 @@ export interface ClusterView {
   log: string[];
 }
 
+/** A probability distribution as labelled horizontal bars, e.g. a model's next-token probabilities. */
+export interface DistributionView {
+  kind: 'distribution';
+  /** e.g. "P(next word | the cat sat on the)". */
+  title?: string;
+  bars: { id: string; label: string; value: number; role: Role }[];
+  /** Bars from this index on were cut (top-k / top-p); drawn as a marker between bars. */
+  cutoff?: number;
+  /** Index of the training target, marked with a label. */
+  target?: number;
+}
+
 /** Several views shown together in one step. Panels do not nest. */
 export interface PanelsView {
   kind: 'panels';
@@ -307,6 +324,7 @@ export type View =
   | BucketsView
   | ServicesView
   | ClusterView
+  | DistributionView
   | PanelsView;
 
 export interface Step {

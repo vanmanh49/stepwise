@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Stepwise is a static React app that teaches data structures, algorithms, SQL, microservices and Kubernetes with step-by-step visualizations. It has no backend; progress is saved in LocalStorage. The live site is https://vanmanh49.github.io/stepwise/.
+Stepwise is a static React app that teaches data structures, algorithms, SQL, microservices, Kubernetes and AI with step-by-step visualizations. It has no backend; progress is saved in LocalStorage. The live site is https://vanmanh49.github.io/stepwise/.
 
 ## Commands
 
@@ -14,6 +14,7 @@ npx vitest run -t "rotates left"         # tests whose name matches
 npm run typecheck                        # tsc --noEmit (strict, noUncheckedIndexedAccess)
 npm run lint                             # oxlint --deny-warnings (config: .oxlintrc.json)
 npm run bench                            # SQL engine timings (src/sql/*.bench.ts, Vitest bench fixture)
+npm run train:ai                         # retrain the tiny AI model and rewrite src/ai/weights.ts (seeded; ~45 s)
 npm run build                            # typecheck + production build
 npm run build:pages                      # build under /stepwise/ and copy index.html to 404.html
 ```
@@ -27,7 +28,7 @@ Every push to `main` deploys to GitHub Pages (`.github/workflows/deploy.yml`), a
 The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visualizer> → renderer for step.view.kind`.
 
 - **Steps are data.** Each `Step` (`src/types/visualization.ts`) carries a `title`, a `why`, an optional `next`, a 1-based `codeLine` into the lesson's code string, `variables`, and a complete `View` snapshot. The player (`src/engine/`) is a pure reducer that only moves an index. The renderer for a view kind can therefore draw any step on its own.
-- **`View` is a discriminated union** of 17 kinds, including `array`, `tree`, `heap`, `graph`, `table`, `grid`, `panels`, `buckets`, `btree`, `trie`, `calls`, `sessions`, `services` and `cluster`. Every element has a `Role`. Role colours, border cues, marks and legend labels are defined only in `components/visualization/roles.ts`, and `rolesInView` there must handle every view kind. Elements keep stable ids across steps, so renderers can animate a value as it moves.
+- **`View` is a discriminated union** of 18 kinds, including `array`, `tree`, `heap`, `graph`, `table`, `grid` (cells may carry `heat` 0–1), `panels`, `buckets`, `btree`, `trie`, `calls`, `sessions`, `services`, `cluster` and `distribution` (probability bars with an optional cut-off and target). Every element has a `Role`. Role colours, border cues, marks and legend labels are defined only in `components/visualization/roles.ts`, and `rolesInView` there must handle every view kind. Elements keep stable ids across steps, so renderers can animate a value as it moves.
 - **Lessons are data**, in two parts, so pages can list lessons without downloading their content:
   - **Metadata** (`LessonMeta`: title, keywords, complexity…) lives in `src/lessons/meta/<category>.ts`, in learning order. These modules import only types.
   - **Content** (`LessonContent`: text, visualization, code, quiz) is the default export of `src/lessons/<category>/<id>.ts`, and the file name is the id.
@@ -64,8 +65,14 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
   - `simulate(scenario)` runs kubectl actions and faults (faults first at equal times), fans each accepted write out to the watching groups after a 1 s watch delay (one pending run per group), and returns one frame per event with a full snapshot; a downed component's groups catch up in one pass when it returns; a "nothing to do" note isn't repeated until something it names changes;
   - `traceSteps` (`steps.ts`) merges same-second events of one kind, actor and owner (ReplicaSet or node) into one step, hides no-op notes unless `noops`, and ends long or cut-off runs with a summary, capped at `MAX_STEPS = 200` plus one; `view.ts` builds the `cluster` view;
   - scenarios live in `scenarios/` (`fooCode`, `fooScenario`, `fooSteps`), the same contract as Microservices; `ClusterRenderer` is plain HTML (node boxes wrap in a CSS grid).
-- `seeded` (mulberry32) and `EventQueue` live in `src/utils/` and are shared by both simulators.
-- `algorithms/`, `data-structures/`, `sql/`, `microservices/` and `kubernetes/` contain no React. All lesson text lives in `lessons/`, not in components. Colours come from CSS variables in `src/index.css`, defined for both `:root` and `.dark`.
+- **AI** (`src/ai/`) is a tiny transparent language model, no React:
+  - `corpus.ts` (30 toy sentences, a 34-token word vocabulary ending in `<end>`), `bpe.ts` (real byte-pair encoding over characters; `▁` marks a word start and a pair never merges onto it), `tensor.ts` (plain `Vec`/`Mat` helpers), `autograd.ts` (scalar `Value`, used only by training and tests);
+  - `model.ts`: 1 layer, 1 head, d = 8, MLP 16, context 6, layer norm without gain or bias, tied embeddings (`tokenEmbed` also scores the next token). `forward(tokens)` returns every intermediate per position;
+  - `weights.ts` is generated by `npm run train:ai` (`scripts/train-ai-model.test.ts`, skipped unless `AI_TRAIN=1`; Adam, seed 7, with a parity check against `forward`) and committed; reruns write the same bytes;
+  - `sample.ts` (temperature → top-k → top-p → renormalise, seeded `draw`), `bigram.ts` (the live trainer, closed-form gradient p − one-hot), `steps.ts` (`readPrompt`, `distributionView`, which always shows the target bar, `vectorGrid`, `matrixGrid`, `fmt`, `EMPTY`, `MAX_STEPS = 200`);
+  - scenarios live in `scenarios/` (`fooCode`, `fooSteps`), used by `form` visualizations with `codeLabel: 'Pseudocode'`; decimal knobs are `choice` fields.
+- `seeded` (mulberry32) and `EventQueue` live in `src/utils/` and are shared by the simulators and the AI model.
+- `algorithms/`, `data-structures/`, `sql/`, `microservices/`, `kubernetes/` and `ai/` contain no React. All lesson text lives in `lessons/`, not in components. Colours come from CSS variables in `src/index.css`, defined for both `:root` and `.dark`.
 - **Shared UI controls** live in `src/components/ui/`:
   - `Field` (label, help or error text, and the id and aria wiring, shared with its control through context), `FieldGrid`, `FormMessage`;
   - `Select`, `TextField`, `TextArea` (Ctrl/⌘+Enter via `onRunShortcut`), `Slider`;
@@ -81,6 +88,7 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
 - SQL differential tests (`differential*.test.ts`, `scriptDifferential*.test.ts`) run query corpora (`*Corpus*.testutil.ts`) through both the interpreter and real SQLite via `sql.js`. New SQL features add their queries to a corpus. `sql.js` is a dev dependency and is never bundled.
 - `src/microservices/contract.test.ts` runs every microservices lesson with random and garbage settings. It checks that every run ends with every request and delivery finished, stays within `MAX_STEPS + 1` steps, has valid code lines and view references, and repeats exactly. Each scenario's teaching moment is tested in `microservices/scenarios/*.test.ts`.
 - `src/kubernetes/contract.test.ts` does the same for every Kubernetes lesson: runs end within `MAX_STEPS + 1` steps, pod names and object rows are unique in every view, requests all finish, code lines are valid, and runs repeat exactly. Number fields' ranges go in its `RANGES`.
+- `src/ai/contract.test.ts` runs every AI lesson with random and garbage settings: runs stay within `MAX_STEPS`, code lines are valid, distribution bar ids are unique, heat stays in 0–1, garbage in a number or choice field gives one refusal step, and runs repeat exactly. Number fields' ranges go in its `RANGES`.
 - Look up code lines with `lineOf(code, snippet)` (`data-structures/shared.ts`) rather than hard-coding numbers. It throws if the snippet is missing.
 - Vitest's on-disk cache (`node_modules/.vitest-cache`) can keep a stale `import.meta.glob` after a new lesson file is added, which shows up as "No content module for <id>". Delete the folder and run again.
 - Renderers and components have no DOM tests; UI changes are checked by hand in a browser, including at phone width (375px) and in dark mode.

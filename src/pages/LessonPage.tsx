@@ -59,6 +59,11 @@ const CODE_COPY: Record<Category, { title: string; label?: string; intro: string
     label: 'Pseudocode',
     intro: 'The decisions the simulated cluster makes, as short pseudocode. In the visualization above, the highlighted line follows the component that is acting.',
   },
+  ai: {
+    title: 'Pseudocode',
+    label: 'Pseudocode',
+    intro: 'The steps the tiny model takes, as short pseudocode. In the visualization above, the highlighted line follows the step that is running.',
+  },
   'data-structures': { title: 'Code', intro: 'The full TypeScript implementation. In the visualization above, the highlighted line follows this code as each step runs.' },
   algorithms: { title: 'Code', intro: 'The full TypeScript implementation. In the visualization above, the highlighted line follows this code as each step runs.' },
 };
