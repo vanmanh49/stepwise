@@ -212,4 +212,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['mcp', 'model context protocol', 'json-rpc', 'tools/list', 'tools/call', 'tool server'],
     prerequisites: ['function-calling'],
   },
+  {
+    id: 'prompt-injection-guardrails',
+    title: 'Prompt Injection & Guardrails',
+    category: 'ai',
+    difficulty: 'advanced',
+    group: 'AI Agents',
+    description: 'Plant a hidden instruction in a note and watch spotlighting and a tool allowlist stop the agent from leaking it.',
+    keywords: ['prompt injection', 'guardrails', 'security', 'spotlighting', 'allowlist', 'untrusted input'],
+    prerequisites: ['agent-loop'],
+  },
 ];
