@@ -158,6 +158,14 @@ const EXPECTED_IDS = [
   'rag',
   'function-calling',
   'evals',
+  'agent-loop',
+  'agent-memory',
+  'planning-decomposition',
+  'reflection',
+  'multi-agent',
+  'mcp',
+  'prompt-injection-guardrails',
+  'human-in-the-loop',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -474,8 +482,8 @@ describe('curriculum', () => {
     expect(lessonsIn('algorithms').map((l) => l.id)).toEqual(topicsIn('algorithms').map((t) => t.id));
   });
 
-  it('has the 15 How LLMs Work and Building with LLMs lessons live', () => {
-    expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, 15).map((t) => t.id));
+  it('has all 23 AI lessons live', () => {
+    expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, 23).map((t) => t.id));
   });
 
   it('has a live lesson for every microservices topic', () => {

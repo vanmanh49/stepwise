@@ -18,7 +18,7 @@ function GridCell({ cell, fluid = false }: { cell: Cell; fluid?: boolean }) {
       layoutId={cell.id}
       transition={spring}
       className={`relative flex items-center rounded-lg text-sm transition-colors duration-200 ${
-        fluid ? 'justify-start break-words px-2 py-1.5 font-medium' : 'justify-center font-mono font-semibold'
+        fluid ? 'justify-start px-2 py-1.5 font-medium [overflow-wrap:anywhere]' : 'justify-center font-mono font-semibold'
       }`}
       style={{ ...(fluid ? { minWidth: CELL, minHeight: CELL } : { width: CELL, height: CELL }), ...gridCellStyle(cell.role), ...heatStyle(cell) }}
     >
