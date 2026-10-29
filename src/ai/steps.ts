@@ -16,10 +16,12 @@ export function fmt(n: number): string {
   return text === '-0.00' ? '0.00' : text;
 }
 
-/** A prompt of 1–CONTEXT known words, lowercased; runs of spaces are fine. */
-export function readPrompt(values: Record<string, string>, name: string, label: string): Read<number[]> {
+/** A prompt of 1–max known words (CONTEXT by default), lowercased; runs of spaces are fine. */
+export function readPrompt(values: Record<string, string>, name: string, label: string, max = CONTEXT): Read<number[]> {
   const words = (values[name] ?? '').toLowerCase().split(/\s+/).filter(Boolean);
-  if (words.length === 0 || words.length > CONTEXT) return { ok: false, why: `${label} must be 1 to ${CONTEXT} words: the model sees ${CONTEXT} tokens at a time.` };
+  if (words.length === 0 || words.length > max) {
+    return { ok: false, why: max === CONTEXT ? `${label} must be 1 to ${CONTEXT} words: the model sees ${CONTEXT} tokens at a time.` : `${label} must be 1 to ${max} words.` };
+  }
   const ids: number[] = [];
   for (const word of words) {
     const id = tokenId(word);

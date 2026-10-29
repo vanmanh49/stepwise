@@ -82,4 +82,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['chat template', 'system prompt', 'roles', 'special tokens', 'generation prompt', 'chatml'],
     prerequisites: ['next-token-prediction'],
   },
+  {
+    id: 'context-window',
+    title: 'The Context Window',
+    category: 'ai',
+    difficulty: 'intermediate',
+    group: 'Building with LLMs',
+    description: 'Squeeze a long text into a small window and watch the tiny model lose what falls out.',
+    keywords: ['context window', 'context length', 'truncation', 'sliding window', 'tokens'],
+    prerequisites: ['next-token-prediction'],
+  },
 ];
