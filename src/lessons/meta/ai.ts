@@ -162,4 +162,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['agent', 'react', 'tool use', 'loop', 'observation', 'step limit'],
     prerequisites: ['function-calling'],
   },
+  {
+    id: 'agent-memory',
+    title: 'Agent Memory',
+    category: 'ai',
+    difficulty: 'advanced',
+    group: 'AI Agents',
+    description: 'Run two sessions and see what the agent remembers with no memory, chat memory and stored notes.',
+    keywords: ['memory', 'long-term memory', 'context', 'recall', 'notes', 'preferences'],
+    prerequisites: ['agent-loop'],
+  },
 ];
