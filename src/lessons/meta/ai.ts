@@ -202,4 +202,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['multi-agent', 'orchestrator', 'sub-agent', 'delegation', 'team', 'context size'],
     prerequisites: ['agent-loop'],
   },
+  {
+    id: 'mcp',
+    title: 'MCP & Tool Protocols',
+    category: 'ai',
+    difficulty: 'advanced',
+    group: 'AI Agents',
+    description: 'Send MCP-style JSON-RPC messages to a toy tool server: list its tools, call one, and read each kind of error.',
+    keywords: ['mcp', 'model context protocol', 'json-rpc', 'tools/list', 'tools/call', 'tool server'],
+    prerequisites: ['function-calling'],
+  },
 ];
