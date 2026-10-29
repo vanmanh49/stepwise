@@ -1,5 +1,6 @@
 import type { ToolCall } from '../standin';
-import { OFFICE_TOOLS, recall, RISKY, runOfficeTool, type Office } from './office';
+import { request, rpc, type RpcResponse } from './mcp';
+import { OFFICE_TOOLS, recall, RISKY, runOfficeTool, type Office, type ToolResult } from './office';
 import { decide, type Context, type Quirk } from './policy';
 import type { Requirement, Task } from './tasks';
 
@@ -66,6 +67,13 @@ export const CHAT_BUDGET = 24;
 /** Tool output that can carry text from outside, which spotlighting marks as data. */
 const UNTRUSTED = new Set(['read_note', 'search_docs']);
 
+/** A tools/call response as a tool result: protocol errors and isError results both fail. */
+function resultOf(response: RpcResponse): ToolResult {
+  if ('error' in response) return { ok: false, error: response.error.message };
+  const text = (response.result.content as { text: string }[])[0]?.text ?? '';
+  return response.result.isError ? { ok: false, error: text } : { ok: true, text };
+}
+
 const wordCount = (texts: string[]) => texts.reduce((n, t) => n + t.split(/\s+/).filter(Boolean).length, 0);
 
 /** Whole lines, newest first, while they fit the budget; returned oldest first. */
@@ -91,6 +99,25 @@ export function runAgent(task: Task, start: Office, o: AgentOptions): AgentRun {
   const quirks = o.quirks ?? [];
   const ctx: Context = {
     task, outcomes: {}, seen: [], notes: [], feedback: [], available: new Set(OFFICE_TOOLS.map((t) => t.name)), office, injected: [], planChecks: [],
+  };
+
+  const mcp = o.transport === 'mcp';
+  const server = o.server ?? 'office';
+  let rpcId = 0;
+  if (mcp) {
+    const req = request(++rpcId, 'tools/list');
+    const { response } = rpc(server, office, req);
+    push({ kind: 'rpc', request: req, response });
+    const listed = 'result' in response ? (response.result.tools as { name: string }[]) : [];
+    ctx.available = new Set(listed.map((t) => t.name));
+  }
+  /** One tool call, direct or as an MCP tools/call request. */
+  const callTool = (call: ToolCall): { office: Office; result: ToolResult } => {
+    if (!mcp) return runOfficeTool(office, call);
+    const req = request(++rpcId, 'tools/call', { name: call.name, arguments: call.args });
+    const out = rpc(server, office, req);
+    push({ kind: 'rpc', request: req, response: out.response });
+    return { office: out.office, result: resultOf(out.response) };
   };
 
   if (o.memory === 'chat' && o.history) {
@@ -172,7 +199,7 @@ export function runAgent(task: Task, start: Office, o: AgentOptions): AgentRun {
       }
     }
     push({ kind: 'action', call, injected: goal === 'injected' });
-    const out = runOfficeTool(office, call);
+    const out = callTool(call);
     toolCalls++;
     office = out.office;
     const raw = out.result.ok ? out.result.text : out.result.error;
