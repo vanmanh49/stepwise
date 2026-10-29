@@ -165,6 +165,7 @@ const EXPECTED_IDS = [
   'multi-agent',
   'mcp',
   'prompt-injection-guardrails',
+  'human-in-the-loop',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -481,8 +482,8 @@ describe('curriculum', () => {
     expect(lessonsIn('algorithms').map((l) => l.id)).toEqual(topicsIn('algorithms').map((t) => t.id));
   });
 
-  it('has the 22 AI lessons live', () => {
-    expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, 22).map((t) => t.id));
+  it('has all 23 AI lessons live', () => {
+    expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, 23).map((t) => t.id));
   });
 
   it('has a live lesson for every microservices topic', () => {

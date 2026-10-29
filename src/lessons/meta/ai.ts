@@ -222,4 +222,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['prompt injection', 'guardrails', 'security', 'spotlighting', 'allowlist', 'untrusted input'],
     prerequisites: ['agent-loop'],
   },
+  {
+    id: 'human-in-the-loop',
+    title: 'Human-in-the-Loop',
+    category: 'ai',
+    difficulty: 'advanced',
+    group: 'AI Agents',
+    description: 'Make the agent pause before risky tools and show a person the exact call to approve or deny.',
+    keywords: ['human-in-the-loop', 'approval', 'risky actions', 'oversight', 'confirmation', 'safety'],
+    prerequisites: ['agent-loop'],
+  },
 ];
