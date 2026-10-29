@@ -72,4 +72,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['training', 'loss', 'cross-entropy', 'gradient', 'gradient descent', 'learning rate', 'bigram'],
     prerequisites: ['next-token-prediction'],
   },
+  {
+    id: 'chat-templates',
+    title: 'Chat Templates & Roles',
+    category: 'ai',
+    difficulty: 'intermediate',
+    group: 'Building with LLMs',
+    description: 'Flatten system and user messages into one token stream with role markers, then see what the model writes.',
+    keywords: ['chat template', 'system prompt', 'roles', 'special tokens', 'generation prompt', 'chatml'],
+    prerequisites: ['next-token-prediction'],
+  },
 ];

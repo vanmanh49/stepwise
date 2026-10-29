@@ -74,3 +74,12 @@ export function vectorGrid(columns: { label: string; values: Vec }[], idPrefix: 
   const m = Array.from({ length: dims }, (_, d) => columns.map((c) => c.values[d]!));
   return matrixGrid(m, Array.from({ length: dims }, (_, d) => `d${d}`), columns.map((c) => c.label), idPrefix, 'abs');
 }
+
+/** Chat messages as a grid: one row per message, labelled by speaker. */
+export function messageGrid(messages: { speaker: string; content: string }[], idPrefix: string, roleOf: (i: number) => Role = () => 'default'): GridView {
+  return {
+    kind: 'grid',
+    colLabels: ['message'],
+    rows: messages.map((m, i) => ({ label: m.speaker, cells: [{ id: `${idPrefix}-${i}`, value: m.content, role: roleOf(i) }] })),
+  };
+}

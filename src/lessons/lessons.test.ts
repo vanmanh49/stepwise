@@ -150,6 +150,7 @@ const EXPECTED_IDS = [
   'transformer-block',
   'sampling',
   'training-loss',
+  'chat-templates',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -466,8 +467,8 @@ describe('curriculum', () => {
     expect(lessonsIn('algorithms').map((l) => l.id)).toEqual(topicsIn('algorithms').map((t) => t.id));
   });
 
-  it('has the 7 How LLMs Work lessons live', () => {
-    expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, 7).map((t) => t.id));
+  it('has the 8 How LLMs Work and Building with LLMs lessons live', () => {
+    expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, 8).map((t) => t.id));
   });
 
   it('has a live lesson for every microservices topic', () => {
