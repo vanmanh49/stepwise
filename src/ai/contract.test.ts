@@ -20,6 +20,11 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   'next-token-prediction': { count: [1, 8] },
   sampling: { topK: [1, 34], seed: [1, 99] },
   'training-loss': { steps: [1, 50] },
+  'context-window': { window: [3, 5] },
+  'kv-cache': { count: [1, 8] },
+  'vector-search': { k: [1, 5] },
+  rag: { k: [1, 5] },
+  evals: { k: [1, 5] },
 };
 
 function checkView(view: View, label: string) {

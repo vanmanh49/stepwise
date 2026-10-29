@@ -1,6 +1,6 @@
 import type { Read } from '../algorithms/form';
 import type { DistributionView, GridView, Role } from '../types/visualization';
-import { tokenId, VOCAB } from './corpus';
+import { CORPUS, tokenId, VOCAB } from './corpus';
 import { CONTEXT } from './model';
 import type { Mat, Vec } from './tensor';
 
@@ -16,10 +16,12 @@ export function fmt(n: number): string {
   return text === '-0.00' ? '0.00' : text;
 }
 
-/** A prompt of 1–CONTEXT known words, lowercased; runs of spaces are fine. */
-export function readPrompt(values: Record<string, string>, name: string, label: string): Read<number[]> {
+/** A prompt of 1–max known words (CONTEXT by default), lowercased; runs of spaces are fine. */
+export function readPrompt(values: Record<string, string>, name: string, label: string, max = CONTEXT): Read<number[]> {
   const words = (values[name] ?? '').toLowerCase().split(/\s+/).filter(Boolean);
-  if (words.length === 0 || words.length > CONTEXT) return { ok: false, why: `${label} must be 1 to ${CONTEXT} words: the model sees ${CONTEXT} tokens at a time.` };
+  if (words.length === 0 || words.length > max) {
+    return { ok: false, why: max === CONTEXT ? `${label} must be 1 to ${CONTEXT} words: the model sees ${CONTEXT} tokens at a time.` : `${label} must be 1 to ${max} words.` };
+  }
   const ids: number[] = [];
   for (const word of words) {
     const id = tokenId(word);
@@ -73,4 +75,29 @@ export function vectorGrid(columns: { label: string; values: Vec }[], idPrefix: 
   const dims = columns[0]?.values.length ?? 0;
   const m = Array.from({ length: dims }, (_, d) => columns.map((c) => c.values[d]!));
   return matrixGrid(m, Array.from({ length: dims }, (_, d) => `d${d}`), columns.map((c) => c.label), idPrefix, 'abs');
+}
+
+/** Chat messages as a grid: one row per message, labelled by speaker. */
+export function messageGrid(messages: { speaker: string; content: string }[], idPrefix: string, roleOf: (i: number) => Role = () => 'default'): GridView {
+  return {
+    kind: 'grid',
+    colLabels: ['message'],
+    rows: messages.map((m, i) => ({ label: m.speaker, cells: [{ id: `${idPrefix}-${i}`, value: m.content, role: roleOf(i) }] })),
+  };
+}
+
+/** Retrieved documents, best first: rank, 1-based document number, sentence and score. */
+export function resultsGrid(top: number[], scores: number[], idPrefix: string): GridView {
+  return {
+    kind: 'grid',
+    colLabels: ['doc', 'sentence', 'score'],
+    rows: top.map((d, r) => ({
+      label: `#${r + 1}`,
+      cells: [
+        { id: `${idPrefix}-${d}-doc`, value: `doc ${d + 1}`, role: 'found' },
+        { id: `${idPrefix}-${d}-text`, value: CORPUS[d]!, role: 'default' },
+        { id: `${idPrefix}-${d}-score`, value: fmt(scores[d]!), role: 'default' },
+      ],
+    })),
+  };
 }

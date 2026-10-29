@@ -52,6 +52,31 @@ export interface Forward {
   probs: Mat;
 }
 
+/** Everything after attention for one position. */
+export interface PositionOut {
+  resid1: Vec;
+  norm1: Vec;
+  mlp: Vec;
+  resid2: Vec;
+  norm2: Vec;
+  logits: Vec;
+}
+
+/** Attention weights · V, through wo. */
+export function attend(weights: Vec, v: Mat, w: Weights = WEIGHTS): Vec {
+  return matVec(w.wo, v[0]!.map((_, d) => weights.reduce((s, wij, j) => s + wij * v[j]![d]!, 0)));
+}
+
+/** One position's residual, norm, MLP, residual, norm and unembedding; shared with the KV cache. */
+export function positionOut(x: Vec, attn: Vec, w: Weights = WEIGHTS): PositionOut {
+  const resid1 = add(x, attn);
+  const norm1 = layerNorm(resid1);
+  const mlp = add(matVec(w.w2, relu(add(matVec(w.w1, norm1), w.b1))), w.b2);
+  const resid2 = add(norm1, mlp);
+  const norm2 = layerNorm(resid2);
+  return { resid1, norm1, mlp, resid2, norm2, logits: add(matVec(w.tokenEmbed, norm2), w.bUnembed) };
+}
+
 /** One layer, one head, decoder-only: 1 ≤ tokens.length ≤ CONTEXT (callers validate). */
 export function forward(tokens: number[], w: Weights = WEIGHTS): Forward {
   const x = tokens.map((t, i) => add(w.tokenEmbed[t]!, w.posEmbed[i]!));
@@ -62,12 +87,13 @@ export function forward(tokens: number[], w: Weights = WEIGHTS): Forward {
   const scaled = scores.map((row) => row.map((s) => s / Math.sqrt(D)));
   const masked = scaled.map((row, i) => row.map((s, j) => (j > i ? -Infinity : s)));
   const weights = masked.map(softmax);
-  const attn = weights.map((row) => matVec(w.wo, v[0]!.map((_, d) => row.reduce((s, wij, j) => s + wij * v[j]![d]!, 0))));
-  const resid1 = x.map((row, i) => add(row, attn[i]!));
-  const norm1 = resid1.map(layerNorm);
-  const mlp = norm1.map((row) => add(matVec(w.w2, relu(add(matVec(w.w1, row), w.b1))), w.b2));
-  const resid2 = norm1.map((row, i) => add(row, mlp[i]!));
-  const norm2 = resid2.map(layerNorm);
-  const logits = norm2.map((row) => add(matVec(w.tokenEmbed, row), w.bUnembed));
-  return { tokens, x, q, k, v, scores, scaled, masked, weights, attn, resid1, norm1, mlp, resid2, norm2, logits, probs: logits.map(softmax) };
+  const attn = weights.map((row) => attend(row, v, w));
+  const out = x.map((row, i) => positionOut(row, attn[i]!, w));
+  const pick = <K extends keyof PositionOut>(key: K) => out.map((o) => o[key]);
+  const logits = pick('logits');
+  return {
+    tokens, x, q, k, v, scores, scaled, masked, weights, attn,
+    resid1: pick('resid1'), norm1: pick('norm1'), mlp: pick('mlp'), resid2: pick('resid2'), norm2: pick('norm2'),
+    logits, probs: logits.map(softmax),
+  };
 }
