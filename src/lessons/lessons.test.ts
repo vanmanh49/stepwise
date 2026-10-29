@@ -160,6 +160,7 @@ const EXPECTED_IDS = [
   'evals',
   'agent-loop',
   'agent-memory',
+  'planning-decomposition',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -476,8 +477,8 @@ describe('curriculum', () => {
     expect(lessonsIn('algorithms').map((l) => l.id)).toEqual(topicsIn('algorithms').map((t) => t.id));
   });
 
-  it('has the 17 AI lessons live', () => {
-    expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, 17).map((t) => t.id));
+  it('has the 18 AI lessons live', () => {
+    expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, 18).map((t) => t.id));
   });
 
   it('has a live lesson for every microservices topic', () => {

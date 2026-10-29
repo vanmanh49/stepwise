@@ -172,4 +172,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['memory', 'long-term memory', 'context', 'recall', 'notes', 'preferences'],
     prerequisites: ['agent-loop'],
   },
+  {
+    id: 'planning-decomposition',
+    title: 'Planning & Decomposition',
+    category: 'ai',
+    difficulty: 'advanced',
+    group: 'AI Agents',
+    description: 'Split a task into a numbered plan and watch a plan check catch the step the agent forgot.',
+    keywords: ['planning', 'decomposition', 'sub-goals', 'plan check', 'to-do list', 'multi-step'],
+    prerequisites: ['agent-loop'],
+  },
 ];

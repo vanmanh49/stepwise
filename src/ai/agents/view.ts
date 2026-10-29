@@ -1,4 +1,4 @@
-import type { GridView, Role, Step } from '../../types/visualization';
+import type { GridView, PanelsView, Role, Step } from '../../types/visualization';
 import type { ToolCall } from '../standin';
 import type { AgentEvent, AgentRun } from './loop';
 import type { Office } from './office';
@@ -114,8 +114,10 @@ const WHY: Record<AgentEvent['kind'], string> = {
   stop: 'The loop ends when the model answers or the step limit is reached.',
 };
 
-/** The intro, then one step per event; a thought becomes part of the next step's explanation. */
-export function eventSteps(run: AgentRun, lineFor: (e: AgentEvent) => number, intro: Step): Step[] {
+type Panel = PanelsView['panels'][number];
+
+/** The intro, then one step per event; a thought becomes part of the next step's explanation. `extra` adds a lesson's own panel. */
+export function eventSteps(run: AgentRun, lineFor: (e: AgentEvent) => number, intro: Step, extra?: (upTo: number) => Panel | undefined): Step[] {
   const steps: Step[] = [intro];
   let thought: string | undefined;
   let modelCalls = 0;
@@ -137,6 +139,7 @@ export function eventSteps(run: AgentRun, lineFor: (e: AgentEvent) => number, in
       view: {
         kind: 'panels',
         panels: [
+          ...[extra?.(i)].filter((p) => p !== undefined),
           { label: 'Trace', view: traceGrid(run.events, i) },
           { label: 'Office', view: officeGrid(run.offices[i]!, i > 0 ? run.offices[i - 1] : undefined) },
         ],
