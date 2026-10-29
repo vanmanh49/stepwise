@@ -1,5 +1,6 @@
 import { evalsCode, evalsSteps, GRADERS } from '../../ai/scenarios/evals';
-import { K, RETRIEVERS } from '../../ai/scenarios/rag';
+import { RETRIEVERS } from '../../ai/scenarios/rag';
+import { K } from '../../ai/steps';
 import type { LessonContent } from '../../types/lesson';
 
 const defaults = { retriever: 'tfidf', k: '2', grader: 'contains' };

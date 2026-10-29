@@ -1,4 +1,5 @@
-import { chatTemplatesCode, chatTemplatesSteps, ON_OFF, SYSTEM_IDS, USER_IDS } from '../../ai/scenarios/chat-templates';
+import { chatTemplatesCode, chatTemplatesSteps, SYSTEM_IDS, USER_IDS } from '../../ai/scenarios/chat-templates';
+import { ON_OFF } from '../../ai/steps';
 import type { LessonContent } from '../../types/lesson';
 
 const defaults = { system: 'helpful', user: 'hello', generationPrompt: 'on' };

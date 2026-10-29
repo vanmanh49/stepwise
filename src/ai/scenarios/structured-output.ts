@@ -1,9 +1,9 @@
 import { readChoice, refusal } from '../../algorithms/form';
 import { lineOf } from '../../data-structures/shared';
-import type { ArrayView, GridView, Step } from '../../types/visualization';
+import type { GridView, Step } from '../../types/visualization';
 import { decode, SCHEMAS, type Slot } from '../constrain';
 import { VOCAB } from '../corpus';
-import { distributionView, EMPTY, fmt } from '../steps';
+import { distributionView, EMPTY, fmt, ON_OFF, tokenRow } from '../steps';
 
 export const structuredOutputCode = `tokens = ['the']   // the schema's first word starts the text
 for (const slot of schema.slots.slice(1)) {
@@ -19,15 +19,10 @@ for (const slot of schema.slots.slice(1)) {
 json = fill(schema, tokens)   // invalid if a word breaks a slot`;
 
 export const SCHEMA_IDS = SCHEMAS.map((s) => s.id);
-export const ON_OFF = ['on', 'off'];
 
 const line = (snippet: string) => lineOf(structuredOutputCode, snippet);
 const allowedText = (slot: Slot) => ('word' in slot ? slot.word : slot.allowed.join(' / '));
 const jsonText = (json: Record<string, string>) => `{${Object.entries(json).map(([k, v]) => `"${k}": "${v}"`).join(', ')}}`;
-
-function sentenceView(words: string[], invalid: ReadonlySet<number>): ArrayView {
-  return { kind: 'array', cells: words.map((w, i) => ({ id: `w-${i}`, value: w, role: invalid.has(i) ? 'discarded' : 'default' })) };
-}
 
 export function structuredOutputSteps(values: Record<string, string>): Step[] {
   const fail = (why: string) => refusal("Can't decode to this schema", why, EMPTY);
@@ -108,7 +103,7 @@ export function structuredOutputSteps(values: Record<string, string>): Step[] {
     view: {
       kind: 'panels',
       panels: [
-        { label: 'Output', view: sentenceView(out.words, invalid) },
+        { label: 'Output', view: tokenRow(out.words, (i) => (invalid.has(i) ? 'discarded' : 'default')) },
         { label: 'JSON', view: jsonGrid() },
       ],
     },

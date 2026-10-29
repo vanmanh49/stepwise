@@ -1,4 +1,5 @@
-import { kvCacheCode, kvCacheSteps, ON_OFF } from '../../ai/scenarios/kv-cache';
+import { kvCacheCode, kvCacheSteps } from '../../ai/scenarios/kv-cache';
+import { ON_OFF } from '../../ai/steps';
 import type { LessonContent } from '../../types/lesson';
 
 const defaults = { prompt: 'the cat', count: '4', cache: 'on' };

@@ -2,8 +2,8 @@ import { readChoice, readInt, refusal } from '../../algorithms/form';
 import { lineOf } from '../../data-structures/shared';
 import type { GridView, Step } from '../../types/visualization';
 import { QUESTIONS, type Question } from '../standin';
-import { EMPTY } from '../steps';
-import { K, RETRIEVERS, runRag } from './rag';
+import { EMPTY, K } from '../steps';
+import { RETRIEVERS, runRag } from './rag';
 
 export const evalsCode = `cases = [{ question, expected }, …]   // a fixed test set
 passed = 0

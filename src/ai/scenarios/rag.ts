@@ -3,7 +3,7 @@ import { lineOf } from '../../data-structures/shared';
 import type { Step } from '../../types/visualization';
 import { CORPUS, tokenId } from '../corpus';
 import { QUESTIONS, reply, type Message, type Question, type Reply } from '../standin';
-import { EMPTY, messageGrid, resultsGrid } from '../steps';
+import { EMPTY, K, messageGrid, resultsGrid } from '../steps';
 import { search, type SearchResult, type VectorKind } from '../vectors';
 
 export const ragCode = `words = rewrite(question)   // "What did the dog eat?" → "dog ate"
@@ -16,7 +16,6 @@ answer = model(prompt)   // a rule-based stand-in here`;
 
 export const RETRIEVERS = ['tfidf', 'dense', 'none'];
 export const QUESTION_IDS = QUESTIONS.map((q) => q.id);
-export const K = { min: 1, max: 5 };
 
 const line = (snippet: string) => lineOf(ragCode, snippet);
 const INSTRUCTION = 'Answer only from these documents and cite them:';

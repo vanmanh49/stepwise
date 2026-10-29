@@ -5,7 +5,7 @@ import { runAgent, type AgentEvent, type AgentRun } from '../agents/loop';
 import { INITIAL_OFFICE } from '../agents/office';
 import { taskById, type Task } from '../agents/tasks';
 import { eventSteps, taskIntro } from '../agents/view';
-import { EMPTY } from '../steps';
+import { EMPTY, ON_OFF } from '../steps';
 
 export const planningDecompositionCode = `plan = planner ? model.plan(task) : []   // numbered sub-goals
 context = [task, plan]
@@ -21,7 +21,6 @@ while (true) {
 
 /** Tasks with more than one sub-goal, where a plan has something to keep track of. */
 export const PLAN_TASKS = ['weather-compare', 'sam-weather', 'rag-note'];
-export const ON_OFF = ['off', 'on'];
 export const QUIRKS = ['none', 'skips-step'];
 
 const line = (snippet: string) => lineOf(planningDecompositionCode, snippet);

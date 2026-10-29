@@ -1,9 +1,9 @@
 import { readChoice, readInt, refusal } from '../../algorithms/form';
 import { lineOf } from '../../data-structures/shared';
-import type { ArrayView, Role, Step } from '../../types/visualization';
+import type { Step } from '../../types/visualization';
 import { VOCAB } from '../corpus';
 import { forward } from '../model';
-import { distributionView, EMPTY, fmt, readPrompt } from '../steps';
+import { distributionView, EMPTY, fmt, readPrompt, tokenRow } from '../steps';
 import { argmax } from '../tensor';
 
 export const contextWindowCode = `tokens = tokenize(text)
@@ -21,11 +21,8 @@ export const WINDOW = { min: 3, max: 5 };
 const KEEP_FIRST = 2;
 
 const line = (snippet: string) => lineOf(contextWindowCode, snippet);
-const words = (ids: number[]) => ids.map((t) => VOCAB[t]!).join(' ');
-
-function tokenRow(tokens: number[], role: (i: number) => Role): ArrayView {
-  return { kind: 'array', cells: tokens.map((t, i) => ({ id: `t-${i}`, value: VOCAB[t]!, role: role(i) })) };
-}
+const names = (ids: number[]) => ids.map((t) => VOCAB[t]!);
+const words = (ids: number[]) => names(ids).join(' ');
 
 /** Indexes of the tokens the window keeps. */
 function keptIndexes(n: number, window: number, strategy: string): number[] {
@@ -54,7 +51,7 @@ export function contextWindowSteps(values: Record<string, string>): Step[] {
       why: `A model reads a fixed number of tokens at a time: its context window. This toy model was trained on sentences of up to 6 words and predicts the end of a sentence after 6 tokens, so this lesson uses windows of 3 to 5. Real models have windows of thousands to millions of tokens, with the same rule: what is outside the window does not exist for the model.`,
       codeLine: line('tokens = tokenize(text)'),
       variables: { tokens: tokens.length, window: window.value },
-      view: tokenRow(tokens, () => 'default'),
+      view: tokenRow(names(tokens), () => 'default'),
     },
     fits
       ? {
@@ -62,7 +59,7 @@ export function contextWindowSteps(values: Record<string, string>): Step[] {
           why: 'Nothing has to be dropped, so the strategy makes no difference.',
           codeLine: line('} else kept = tokens'),
           variables: { kept: tokens.length },
-          view: tokenRow(tokens, () => 'active'),
+          view: tokenRow(names(tokens), () => 'active'),
         }
       : {
           title:
@@ -75,7 +72,7 @@ export function contextWindowSteps(values: Record<string, string>): Step[] {
               : 'Keeping the start protects what came first, as chat apps keep the system message. The tokens in the middle are dropped instead.',
           codeLine: strategy.value === 'oldest' ? line("kept = tokens.slice(-window)") : line('kept = [...tokens.slice(0, 2)'),
           variables: { kept: kept.length, dropped: tokens.length - kept.length },
-          view: tokenRow(tokens, (i) => (keptSet.has(i) ? 'active' : 'discarded')),
+          view: tokenRow(names(tokens), (i) => (keptSet.has(i) ? 'active' : 'discarded')),
         },
   ];
   const probs = forward(windowIds).probs.at(-1)!;

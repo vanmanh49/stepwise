@@ -2,7 +2,7 @@ import { readChoice, refusal } from '../../algorithms/form';
 import { lineOf } from '../../data-structures/shared';
 import type { ArrayView, Step } from '../../types/visualization';
 import { MARKERS, render, reply, SYSTEMS, USER_MESSAGES, type Message } from '../standin';
-import { EMPTY, messageGrid } from '../steps';
+import { EMPTY, messageGrid, ON_OFF, tokenRow } from '../steps';
 
 export const chatTemplatesCode = `messages = [
   { role: 'system', content: system },   // skipped when empty
@@ -17,16 +17,12 @@ reply = model.continue(tokens)   // a rule-based stand-in here`;
 
 export const SYSTEM_IDS = SYSTEMS.map((s) => s.id);
 export const USER_IDS = USER_MESSAGES.map((u) => u.id);
-export const ON_OFF = ['on', 'off'];
 
 const line = (snippet: string) => lineOf(chatTemplatesCode, snippet);
 const MARKER_SET = new Set(Object.values(MARKERS));
 
 function streamView(tokens: string[], replyFrom = tokens.length): ArrayView {
-  return {
-    kind: 'array',
-    cells: tokens.map((t, i) => ({ id: `t-${i}`, value: t, role: i >= replyFrom ? 'found' : MARKER_SET.has(t) ? 'active' : 'default' })),
-  };
+  return tokenRow(tokens, (i) => (i >= replyFrom ? 'found' : MARKER_SET.has(tokens[i]!) ? 'active' : 'default'));
 }
 
 export function chatTemplatesSteps(values: Record<string, string>): Step[] {

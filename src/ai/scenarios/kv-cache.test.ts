@@ -42,4 +42,10 @@ describe('kv cache lesson', () => {
   it('says nothing was generated when the prompt already ends the sentence', () => {
     expect(run('on', 'the cat sat on the mat', '8').at(-1)!.title).not.toContain('Generated ""');
   });
+
+  it('keeps the same cell ids for a cached row across steps', () => {
+    const ids = (s: ReturnType<typeof run>[number]) => (s.view.kind === 'panels' && s.view.panels[0]!.view.kind === 'grid' ? s.view.panels[0]!.view.rows[0]!.cells[0]!.id : '');
+    const steps = run('on').filter((s) => s.view.kind === 'panels');
+    expect(new Set(steps.map(ids)).size).toBe(1);
+  });
 });

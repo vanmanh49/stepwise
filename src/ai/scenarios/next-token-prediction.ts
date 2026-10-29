@@ -1,9 +1,9 @@
 import { readInt, refusal } from '../../algorithms/form';
 import { lineOf } from '../../data-structures/shared';
-import type { ArrayView, Step } from '../../types/visualization';
+import type { Step } from '../../types/visualization';
 import { END, tokenId, VOCAB } from '../corpus';
 import { CONTEXT, forward } from '../model';
-import { distributionView, EMPTY, fmt, matrixGrid, readPrompt } from '../steps';
+import { distributionView, EMPTY, fmt, generatedRow, matrixGrid, readPrompt } from '../steps';
 import { argmax } from '../tensor';
 
 export const nextTokenPredictionCode = `function generate(prompt, count) {
@@ -24,10 +24,6 @@ const SHOWN_LOGITS = 8;
 const line = (snippet: string) => lineOf(nextTokenPredictionCode, snippet);
 const words = (tokens: number[]) => tokens.map((t) => VOCAB[t]!).join(' ');
 
-function tokenRow(tokens: number[], promptLength: number): ArrayView {
-  return { kind: 'array', cells: tokens.map((t, i) => ({ id: `t-${i}`, value: VOCAB[t]!, role: i >= promptLength ? 'found' : 'default' })) };
-}
-
 export function nextTokenPredictionSteps(values: Record<string, string>): Step[] {
   const prompt = readPrompt(values, 'prompt', 'Prompt');
   if (!prompt.ok) return refusal("Can't run the model on this prompt", prompt.why, EMPTY);
@@ -42,7 +38,7 @@ export function nextTokenPredictionSteps(values: Record<string, string>): Step[]
       why: `Each word is looked up in the vocabulary of ${VOCAB.length} tokens. The model will now predict one word at a time and add it to the end.`,
       codeLine: line('tokens = tokenize(prompt)'),
       variables: { tokens: tokens.length },
-      view: tokenRow(tokens, promptLength),
+      view: generatedRow(tokens, promptLength),
     },
   ];
   for (let n = 0; n < count.value; n++) {
@@ -52,7 +48,7 @@ export function nextTokenPredictionSteps(values: Record<string, string>): Step[]
         why: `This model has ${CONTEXT} positions. Real models have much larger context windows (thousands to millions of tokens), but they have a limit too.`,
         codeLine: line('if (tokens.length > 6) break'),
         variables: { tokens: tokens.length },
-        view: tokenRow(tokens, promptLength),
+        view: generatedRow(tokens, promptLength),
       });
       return steps;
     }
@@ -82,7 +78,7 @@ export function nextTokenPredictionSteps(values: Record<string, string>): Step[]
         why: `In training, every sentence ended with ${END}, so the model learned when a sentence is finished.`,
         codeLine: line('if (next === END) break'),
         variables: { tokens: tokens.length },
-        view: tokenRow(tokens, promptLength),
+        view: generatedRow(tokens, promptLength),
       });
       return steps;
     }
@@ -93,7 +89,7 @@ export function nextTokenPredictionSteps(values: Record<string, string>): Step[]
     next: 'Taking the top word every time always gives the same text. The Sampling lesson picks words at random by their probabilities instead.',
     codeLine: line('return tokens'),
     variables: { tokens: tokens.length },
-    view: tokenRow(tokens, promptLength),
+    view: generatedRow(tokens, promptLength),
   });
   return steps;
 }
