@@ -142,4 +142,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['function calling', 'tool use', 'tools', 'json schema', 'arguments'],
     prerequisites: ['chat-templates'],
   },
+  {
+    id: 'evals',
+    title: 'Evals',
+    category: 'ai',
+    difficulty: 'intermediate',
+    group: 'Building with LLMs',
+    description: 'Grade the RAG pipeline on a fixed test set, and see how the retriever, k and the grader change the score.',
+    keywords: ['evals', 'evaluation', 'test set', 'grader', 'exact match', 'accuracy'],
+    prerequisites: ['rag'],
+  },
 ];

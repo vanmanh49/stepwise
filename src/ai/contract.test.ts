@@ -24,6 +24,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   'kv-cache': { count: [1, 8] },
   'vector-search': { k: [1, 5] },
   rag: { k: [1, 5] },
+  evals: { k: [1, 5] },
 };
 
 function checkView(view: View, label: string) {
