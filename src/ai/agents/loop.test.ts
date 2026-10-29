@@ -154,4 +154,16 @@ describe('agent loop', () => {
       expect(office(r)).toEqual({ notes: { team: INITIAL_OFFICE.notes.team, prefs: INITIAL_OFFICE.notes.prefs }, outbox: [] });
     });
   });
+
+  describe('fixes from the final review', () => {
+    it('counts the plan as a model call', () => {
+      expect(run(t('weather-compare'), { planner: true }).modelCalls).toBe(run(t('weather-compare')).modelCalls + 1);
+    });
+
+    it('limits an agent to the tools it is given', () => {
+      const r = run(t('weather-compare'), { tools: ['get_weather', 'search_docs'] });
+      expect(office(r).outbox).toEqual([]);
+      expect(r.answer).toContain('no send_email tool');
+    });
+  });
 });

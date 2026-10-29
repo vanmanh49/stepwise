@@ -38,4 +38,15 @@ describe('agent run → steps', () => {
     const { steps: s } = steps('weather-compare', { maxSteps: 1 });
     expect(s.at(-1)!.title).toBe('Stop: reached 1 model call without an answer');
   });
+
+  it('explains an approval of a safe tool as policy, not risk', () => {
+    const { steps: s } = steps('weather-compare', { approval: 'every' });
+    expect(s.find((x) => x.title === 'Ask the human before get_weather: approved')!.why).toContain('even safe ones');
+    expect(s.find((x) => x.title === 'Ask the human before send_email: approved')!.why).toContain('cannot be undone');
+  });
+
+  it('counts the plan in the model calls shown', () => {
+    const { run: r, steps: s } = steps('weather-compare', { planner: true });
+    expect(s.at(-1)!.variables).toMatchObject({ 'model calls': r.modelCalls });
+  });
 });

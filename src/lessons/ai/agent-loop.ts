@@ -62,7 +62,7 @@ const content: LessonContent = {
       view: firstObservation.view,
       options: ['Call get_weather for Tokyo', 'Answer straight away', 'Email Sam', 'Call get_weather for Paris again'],
       answer: 0,
-      explanation: 'To compare, it still needs Tokyo\'s weather; the plan only moves on to email Sam once it has both.',
+      explanation: 'To compare, it still needs Tokyo\'s weather; the task only moves on to emailing Sam once it has both.',
     },
     {
       id: 'q2',

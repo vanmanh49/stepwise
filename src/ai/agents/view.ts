@@ -1,7 +1,7 @@
 import type { GridView, PanelsView, Role, Step } from '../../types/visualization';
 import type { ToolCall } from '../standin';
 import type { AgentEvent, AgentRun } from './loop';
-import type { Office } from './office';
+import { RISKY, type Office } from './office';
 
 /** The newest trace rows shown, so long runs stay readable on a phone. */
 const TRACE_ROWS = 12;
@@ -123,13 +123,14 @@ export function eventSteps(run: AgentRun, lineFor: (e: AgentEvent) => number, in
   let modelCalls = 0;
   let toolCalls = 0;
   run.events.forEach((e, i) => {
+    if (e.kind === 'thought' || e.kind === 'plan') modelCalls++;
     if (e.kind === 'thought') {
-      modelCalls++;
       thought = e.text;
       return;
     }
     if (e.kind === 'action') toolCalls++;
-    const why = thought ? `The model thinks: "${thought}" ${WHY[e.kind]}` : WHY[e.kind];
+    const reason = e.kind === 'approval' && !RISKY.has(e.call.name) ? 'The policy asks before every tool, even safe ones like this.' : WHY[e.kind];
+    const why = thought ? `The model thinks: "${thought}" ${reason}` : reason;
     thought = undefined;
     steps.push({
       title: title(e, run),

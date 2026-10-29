@@ -26,3 +26,11 @@ describe.each(TEAM_TASKS)('team on %s', (id) => {
     expect(tools(team.writer).every((n) => ['read_note', 'write_note', 'send_email'].includes(n))).toBe(true);
   });
 });
+
+describe('team tools', () => {
+  it('gives the researcher no notes or email tools', () => {
+    const team = runTeam(taskById('weather-compare')!, INITIAL_OFFICE);
+    expect(team.tools.researcher).toEqual(['get_weather', 'search_docs']);
+    expect(team.tools.writer).toEqual(['read_note', 'write_note', 'send_email']);
+  });
+});

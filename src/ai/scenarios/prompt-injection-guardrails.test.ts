@@ -32,4 +32,8 @@ describe('prompt injection lesson', () => {
   it('refuses an unknown guard with one step', () => {
     expect(run('firewall')).toHaveLength(1);
   });
+
+  it('does not say "no guard" for a careful model behind a guard', () => {
+    expect(run('spotlight', 'none').at(-1)!.why).not.toContain('no guard');
+  });
 });

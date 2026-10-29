@@ -22,6 +22,8 @@ export interface AgentOptions {
   approval?: 'never' | 'risky' | 'every';
   /** The human's answer to every approval request. */
   decision?: 'approve' | 'deny';
+  /** The only tools this agent may call (direct transport); all office tools when left out. */
+  tools?: string[];
   transport?: 'direct' | 'mcp';
   server?: 'office' | 'weather';
 }
@@ -98,7 +100,7 @@ export function runAgent(task: Task, start: Office, o: AgentOptions): AgentRun {
   };
   const quirks = o.quirks ?? [];
   const ctx: Context = {
-    task, outcomes: {}, seen: [], notes: [], feedback: [], available: new Set(OFFICE_TOOLS.map((t) => t.name)), office, injected: [], planChecks: [],
+    task, outcomes: {}, seen: [], notes: [], feedback: [], available: new Set(o.tools ?? OFFICE_TOOLS.map((t) => t.name)), office, injected: [], planChecks: [],
   };
 
   const mcp = o.transport === 'mcp';
@@ -130,7 +132,6 @@ export function runAgent(task: Task, start: Office, o: AgentOptions): AgentRun {
     ctx.notes.push(...items.map((name) => office.notes[name]!));
     push({ kind: 'recall', source: 'notes', items });
   }
-  if (o.planner) push({ kind: 'plan', steps: task.goals.map((g) => g.label) });
 
   let retries = o.critic?.retries ?? 0;
   /** Records a critique; true when the draft failed and a retry is left, so the model should try again. */
@@ -153,6 +154,13 @@ export function runAgent(task: Task, start: Office, o: AgentOptions): AgentRun {
   };
 
   let modelCalls = 0;
+  if (o.planner) {
+    // Writing the plan is a model call of its own, and the plan stays in the context.
+    modelCalls++;
+    const steps = task.goals.map((g) => g.label);
+    ctx.notes.push(...steps.map((s, i) => `${i + 1}. ${s}`));
+    push({ kind: 'plan', steps });
+  }
   let toolCalls = 0;
   let maxContext = 0;
   const finish = (reason: 'answered' | 'max-steps', answer?: string): AgentRun => {

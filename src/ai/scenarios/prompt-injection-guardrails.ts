@@ -62,9 +62,11 @@ export function promptInjectionGuardrailsSteps(values: Record<string, string>): 
         ? stoppedBy === 'spotlighting'
           ? 'Marked as data, the hidden line never counted as an instruction, so the model just summarised the note.'
           : 'The model tried to obey, but this task only needs read_note, so the runtime refused list_notes and send_email.'
-        : 'Even with no guard, a model that keeps instructions and data apart is safe here. Real models are not that reliable, which is why guards are layered.',
+        : guards.length === 0
+          ? 'Even with no guard, a model that keeps instructions and data apart is safe here. Real models are not that reliable, which is why guards are layered.'
+          : 'This model keeps instructions and data apart, so the guard never had to act. Real models are not that reliable, which is why guards are layered.',
     next: 'Some actions are too risky to leave to any guard. The next lesson asks a person first.',
-    codeLine: leaked ? line('else run(move)') : stoppedBy === 'the tool allowlist' && trusting ? line('if (allowlist') : line('if (spotlight)'),
+    codeLine: leaked ? line('else run(move)') : !trusting ? line('move = model(context)') : stoppedBy === 'the tool allowlist' ? line('if (allowlist') : line('if (spotlight)'),
     variables: { guard: guard.value, leaked: leaked ? 'yes' : 'no' },
   });
   return steps;
