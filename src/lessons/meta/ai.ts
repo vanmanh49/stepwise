@@ -102,4 +102,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['kv cache', 'keys', 'values', 'inference', 'generation speed', 'attention'],
     prerequisites: ['self-attention'],
   },
+  {
+    id: 'structured-output',
+    title: 'Structured Output',
+    category: 'ai',
+    difficulty: 'intermediate',
+    group: 'Building with LLMs',
+    description: 'Force the tiny model into a schema by masking the words each slot does not allow, and watch free decoding break the shape.',
+    keywords: ['structured output', 'json', 'constrained decoding', 'grammar', 'schema', 'logit mask'],
+    prerequisites: ['sampling'],
+  },
 ];
