@@ -92,4 +92,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['context window', 'context length', 'truncation', 'sliding window', 'tokens'],
     prerequisites: ['next-token-prediction'],
   },
+  {
+    id: 'kv-cache',
+    title: 'KV Cache',
+    category: 'ai',
+    difficulty: 'intermediate',
+    group: 'Building with LLMs',
+    description: 'Generate text with the tiny model with a KV cache on and off, and count the key and value rows computed.',
+    keywords: ['kv cache', 'keys', 'values', 'inference', 'generation speed', 'attention'],
+    prerequisites: ['self-attention'],
+  },
 ];

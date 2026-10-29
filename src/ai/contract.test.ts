@@ -21,6 +21,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   sampling: { topK: [1, 34], seed: [1, 99] },
   'training-loss': { steps: [1, 50] },
   'context-window': { window: [3, 5] },
+  'kv-cache': { count: [1, 8] },
 };
 
 function checkView(view: View, label: string) {
