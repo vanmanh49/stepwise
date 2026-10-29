@@ -182,4 +182,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['planning', 'decomposition', 'sub-goals', 'plan check', 'to-do list', 'multi-step'],
     prerequisites: ['agent-loop'],
   },
+  {
+    id: 'reflection',
+    title: 'Reflection & Self-Correction',
+    category: 'ai',
+    difficulty: 'advanced',
+    group: 'AI Agents',
+    description: 'Let a critic check each draft against the task\'s requirements and send it back for revision before it counts.',
+    keywords: ['reflection', 'self-correction', 'critic', 'revision', 'requirements', 'retries'],
+    prerequisites: ['agent-loop'],
+  },
 ];

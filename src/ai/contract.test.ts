@@ -26,6 +26,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   rag: { k: [1, 5] },
   evals: { k: [1, 5] },
   'agent-loop': { maxSteps: [1, 12] },
+  reflection: { retries: [0, 2] },
 };
 
 function checkView(view: View, label: string) {
