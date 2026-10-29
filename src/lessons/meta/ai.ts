@@ -132,4 +132,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['rag', 'retrieval', 'grounding', 'citations', 'hallucination', 'context'],
     prerequisites: ['vector-search', 'chat-templates'],
   },
+  {
+    id: 'function-calling',
+    title: 'Function Calling',
+    category: 'ai',
+    difficulty: 'intermediate',
+    group: 'Building with LLMs',
+    description: 'Watch a model ask for a tool call, your code check and run it, and the answer come back from the result.',
+    keywords: ['function calling', 'tool use', 'tools', 'json schema', 'arguments'],
+    prerequisites: ['chat-templates'],
+  },
 ];
