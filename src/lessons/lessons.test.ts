@@ -155,6 +155,7 @@ const EXPECTED_IDS = [
   'kv-cache',
   'structured-output',
   'vector-search',
+  'rag',
 ];
 
 function defaultSteps(lesson: Lesson): Step[] {
@@ -471,8 +472,8 @@ describe('curriculum', () => {
     expect(lessonsIn('algorithms').map((l) => l.id)).toEqual(topicsIn('algorithms').map((t) => t.id));
   });
 
-  it('has the 12 How LLMs Work and Building with LLMs lessons live', () => {
-    expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, 12).map((t) => t.id));
+  it('has the 13 How LLMs Work and Building with LLMs lessons live', () => {
+    expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, 13).map((t) => t.id));
   });
 
   it('has a live lesson for every microservices topic', () => {

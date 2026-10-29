@@ -122,4 +122,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['vector search', 'embeddings', 'cosine similarity', 'tf-idf', 'dense retrieval', 'sparse retrieval'],
     prerequisites: ['embeddings'],
   },
+  {
+    id: 'rag',
+    title: 'Retrieval-Augmented Generation',
+    category: 'ai',
+    difficulty: 'intermediate',
+    group: 'Building with LLMs',
+    description: 'Retrieve toy documents, paste them into the prompt, and get an answer with a citation, or a made-up one without them.',
+    keywords: ['rag', 'retrieval', 'grounding', 'citations', 'hallucination', 'context'],
+    prerequisites: ['vector-search', 'chat-templates'],
+  },
 ];
