@@ -35,4 +35,9 @@ describe('function calling lesson', () => {
   it('refuses an unknown request with one step', () => {
     expect(run('weather-moon')).toHaveLength(1);
   });
+
+  it('explains each direct answer for what it is', () => {
+    expect(run('add', 'none').at(-1)!.why).not.toContain('instead of guessing');
+    expect(run('weather-paris', 'none').at(-1)!.why).toContain('instead of guessing');
+  });
 });

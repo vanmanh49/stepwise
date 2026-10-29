@@ -28,4 +28,16 @@ describe('vector search lesson', () => {
   it('refuses k = 6 with one step', () => {
     expect(vectorSearchSteps({ query: 'dog park', k: '6', vectors: 'dense' })).toHaveLength(1);
   });
+
+  it('says nothing matches when every TF-IDF score is 0', () => {
+    const steps = vectorSearchSteps({ query: 'the', k: '3', vectors: 'tfidf' });
+    const scores = steps.find((s) => s.view.kind === 'distribution')!;
+    expect(scores.title).toContain('every score is 0');
+    expect((scores.view as DistributionView).bars.some((b) => b.role === 'found')).toBe(false);
+    expect((steps.at(-1)!.view as GridView).rows).toHaveLength(0);
+  });
+
+  it('does not claim filler words were left out when all of them are kept', () => {
+    expect(vectorSearchSteps({ query: 'the on', k: '3', vectors: 'dense' })[0]!.why).not.toContain('left out');
+  });
 });

@@ -48,7 +48,9 @@ export function vectorSearchSteps(values: Record<string, string>): Step[] {
     const allFiller = ids.every((i) => FILLER.has(VOCAB[i]!));
     steps.push({
       title: allFiller ? `"${words(ids)}" has only filler words, so all of them are kept` : `Keep the content words of "${words(ids)}"`,
-      why: 'Words such as "the" and "on" appear in almost every sentence, so they would pull every vector toward the same place. They are left out of the average.',
+      why: allFiller
+        ? 'Filler words such as "the" are usually dropped, because they appear in almost every sentence. This query has nothing else, so every word stays in the average.'
+        : 'Words such as "the" and "on" appear in almost every sentence, so they would pull every vector toward the same place. They are left out of the average.',
       codeLine: line("if (kind === 'dense')"),
       view: { kind: 'array', cells: ids.map((t, i) => ({ id: `q-${i}`, value: VOCAB[t]!, role: !allFiller && FILLER.has(VOCAB[t]!) ? 'discarded' : 'active' })) },
     });
@@ -69,6 +71,23 @@ export function vectorSearchSteps(values: Record<string, string>): Step[] {
     });
   }
   const best = result.top[0]!;
+  if (result.scores.every((s) => s === 0)) {
+    steps.push({
+      title: `No document shares a weighted word with "${words(ids)}": every score is 0`,
+      why: 'A word in every document (such as "the") or in none gets weight 0, so the query vector is all zeros and nothing can match. Ranking ties would be meaningless, so nothing is returned.',
+      codeLine: line('scores = docs.map'),
+      view: scoresView(result.scores, []),
+    });
+    steps.push({
+      title: 'Nothing to return',
+      why: 'An empty result is the honest answer here. Try a rarer word, such as a verb or an animal.',
+      next: 'The next lesson pastes the top documents into the prompt, so the model can answer from them: retrieval-augmented generation.',
+      codeLine: line('top = sortByScore'),
+      variables: { k: k.value },
+      view: resultsGrid([], result.scores, 'res'),
+    });
+    return steps;
+  }
   steps.push({
     title: `Compare with all ${DOCS.length} documents: doc ${best + 1} scores highest (${fmt(result.scores[best]!)})`,
     why: 'Cosine similarity is 1 when two vectors point the same way and 0 when they share nothing. Search is just this score against every document, then a sort.',

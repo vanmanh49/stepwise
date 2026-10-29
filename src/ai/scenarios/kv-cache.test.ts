@@ -30,4 +30,16 @@ describe('kv cache lesson', () => {
   it('refuses a prompt of 7 words with one step', () => {
     expect(run('on', 'the cat sat on the mat the')).toHaveLength(1);
   });
+
+  it('stops when the context is full', () => {
+    for (const cache of ['on', 'off']) {
+      const steps = run(cache, 'flew to', '8');
+      expect(steps.map((s) => s.title)).toContain('Stop: the context is full at 6 tokens');
+      expect(steps.at(-1)!.variables).toMatchObject({ 'with cache': 6, 'without cache': 21 });
+    }
+  });
+
+  it('says nothing was generated when the prompt already ends the sentence', () => {
+    expect(run('on', 'the cat sat on the mat', '8').at(-1)!.title).not.toContain('Generated ""');
+  });
 });

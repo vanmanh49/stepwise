@@ -21,6 +21,15 @@ export const TOOL_CHOICES = ['all', 'none'];
 const line = (snippet: string) => lineOf(functionCallingCode, snippet);
 const callText = (call: ToolCall) => `${call.name}(${JSON.stringify(call.args)})`;
 
+/** Why the model answered without a tool, for each kind of request. */
+function directWhy(request: string, offered: boolean): string {
+  if (offered || request === 'hello') return 'No tool fits this request, so the model just writes the answer.';
+  if (request.startsWith('weather')) return 'Without a tool the model cannot fetch live data; a good model says so instead of guessing.';
+  return request === 'add-words'
+    ? 'With no tool, the model does the sum itself and quietly reads "twenty" as 20. Here that happens to be right, but nothing checked it: a tool with a typed schema would have.'
+    : 'With no tool, the model does the sum itself. Small sums usually come out right, but long or exact arithmetic is where models slip, which is why calculators are tools.';
+}
+
 const toolsGrid: GridView = {
   kind: 'grid',
   colLabels: ['parameters', 'what it does'],
@@ -71,7 +80,7 @@ export function functionCallingSteps(values: Record<string, string>): Step[] {
     messages.push({ speaker: 'assistant', content: text });
     steps.push({
       title: `The model answers directly: "${text}"`,
-      why: tools.length > 0 ? 'No tool fits this request, so the model just writes the answer.' : 'Without a tool the model cannot fetch live data; a good model says so instead of guessing.',
+      why: directWhy(request.value, tools.length > 0),
       next: 'Calling tools is easy to get wrong silently. The Evals lesson measures how often a system gets answers right.',
       codeLine: line('return out.text'),
       view: grid(),

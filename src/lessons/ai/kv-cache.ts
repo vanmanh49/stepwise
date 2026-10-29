@@ -31,7 +31,7 @@ const content: LessonContent = {
     presets: [
       { label: 'Cached', values: defaults },
       { label: 'Uncached', values: { ...defaults, cache: 'off' } },
-      { label: 'Prompt fills the context', values: { prompt: 'the cat sat on the mat', count: '8', cache: 'on' } },
+      { label: 'Fills the context', values: { prompt: 'flew to', count: '8', cache: 'on' } },
     ],
     generate: kvCacheSteps,
     codeLabel: 'Pseudocode',

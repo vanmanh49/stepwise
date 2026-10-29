@@ -108,7 +108,7 @@ export function kvCacheSteps(values: Record<string, string>): Step[] {
   const totals = { 'with cache': withCache, 'without cache': withoutCache };
   if (stop) steps.push({ ...stop, codeLine: line('if (next === END'), variables: totals, view: tokenRow(tokens, promptLength) });
   steps.push({
-    title: `Generated "${words(tokens.slice(promptLength))}": ${withCache} K/V rows with a cache, ${withoutCache} without`,
+    title: `${tokens.length > promptLength ? `Generated "${words(tokens.slice(promptLength))}"` : 'Generated nothing'}: ${withCache} K/V rows with a cache, ${withoutCache} without`,
     why: `Feeding ${withCache} positions computes ${withCache} rows with the cache, but 1 + 2 + … + ${withCache} = ${withoutCache} without it. The output is the same either way; the cache only saves work, at the cost of memory for every cached row.`,
     next: 'Speed is one part of building with LLMs; getting output in an exact shape is another. The next lesson constrains the model to a schema.',
     codeLine: line('cache = { K: [], V: [] }'),
