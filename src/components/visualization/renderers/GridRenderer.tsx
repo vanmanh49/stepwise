@@ -2,7 +2,7 @@ import { LayoutGroup, motion } from 'motion/react';
 import { useId } from 'react';
 import type { GridCell as Cell, GridView } from '../../../types/visualization';
 import { ROLE_META } from '../roles';
-import { gridCellStyle, heatStyle } from './gridCellStyle';
+import { gridCellStyle, heatStyle, isTextGrid } from './gridCellStyle';
 import { spring } from './spring';
 
 // Fixed cell geometry so arrows can be drawn from row and column indexes alone.
@@ -10,14 +10,17 @@ const CELL = 44;
 const GAP = 6;
 const STEP = CELL + GAP;
 
-function GridCell({ cell }: { cell: Cell }) {
+/** `fluid` cells size to their text and wrap, for grids of messages and sentences. */
+function GridCell({ cell, fluid = false }: { cell: Cell; fluid?: boolean }) {
   const meta = ROLE_META[cell.role];
   return (
     <motion.div
       layoutId={cell.id}
       transition={spring}
-      className="relative flex items-center justify-center rounded-lg font-mono text-sm font-semibold transition-colors duration-200"
-      style={{ width: CELL, height: CELL, ...gridCellStyle(cell.role), ...heatStyle(cell) }}
+      className={`relative flex items-center rounded-lg text-sm transition-colors duration-200 ${
+        fluid ? 'justify-start break-words px-2 py-1.5 font-medium' : 'justify-center font-mono font-semibold'
+      }`}
+      style={{ ...(fluid ? { minWidth: CELL, minHeight: CELL } : { width: CELL, height: CELL }), ...gridCellStyle(cell.role), ...heatStyle(cell) }}
     >
       {cell.value}
       {meta.mark && cell.role !== 'default' && (
@@ -33,11 +36,53 @@ function GridCell({ cell }: { cell: Cell }) {
   );
 }
 
+/** Rows of text as a table, so long cells wrap within the stage instead of spilling over their neighbours. */
+function TextGrid({ view, columns, hasRowLabels }: { view: GridView; columns: number; hasRowLabels: boolean }) {
+  return (
+    <table className="w-full border-separate" style={{ borderSpacing: GAP }}>
+      {view.colLabels && (
+        <thead>
+          <tr>
+            {hasRowLabels && <td />}
+            {Array.from({ length: columns }, (_, c) => (
+              <th key={c} scope="col" className="text-left font-mono text-xs font-normal text-muted">
+                {view.colLabels?.[c] ?? ''}
+              </th>
+            ))}
+          </tr>
+        </thead>
+      )}
+      <tbody>
+        {view.rows.map((row, r) => (
+          <tr key={r}>
+            {hasRowLabels && (
+              <th scope="row" className="whitespace-nowrap pr-1 text-right align-middle font-mono text-xs font-normal text-muted">
+                {row.label}
+              </th>
+            )}
+            {Array.from({ length: columns }, (_, c) => {
+              const cell = row.cells[c];
+              return <td key={cell?.id ?? `gap-${c}`} className="align-top">{cell && <GridCell cell={cell} fluid />}</td>;
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export function GridRenderer({ view }: { view: GridView }) {
   const groupId = useId();
   const markerId = useId();
   const columns = Math.max(view.colLabels?.length ?? 0, ...view.rows.map((r) => r.cells.length));
   const hasRowLabels = view.rows.some((r) => r.label !== undefined);
+  if (isTextGrid(view)) {
+    return (
+      <LayoutGroup id={groupId}>
+        <TextGrid view={view} columns={columns} hasRowLabels={hasRowLabels} />
+      </LayoutGroup>
+    );
+  }
   const width = columns * STEP - GAP;
   const height = view.rows.length * STEP - GAP;
   const centre = ([row, col]: [number, number]) => ({ x: col * STEP + CELL / 2, y: row * STEP + CELL / 2 });
