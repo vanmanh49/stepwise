@@ -145,3 +145,21 @@ export function eventSteps(run: AgentRun, lineFor: (e: AgentEvent) => number, in
   });
   return steps;
 }
+
+export const STAND_IN = 'In this lesson a rule-based stand-in plays the model; real models choose their actions by learned judgment.';
+
+/** The first step of an agent lesson: the user's task and the office the agent starts in. */
+export function taskIntro(text: string, office: Office, codeLine: number, why: string): Step {
+  return {
+    title: `The task: "${text}"`,
+    why: `${why} ${STAND_IN}`,
+    codeLine,
+    view: {
+      kind: 'panels',
+      panels: [
+        { label: 'Trace', view: { kind: 'grid', colLabels: ['trace'], rows: [{ label: 'user', cells: [{ id: 'task', value: text, role: 'active' }] }] } },
+        { label: 'Office', view: officeGrid(office) },
+      ],
+    },
+  };
+}

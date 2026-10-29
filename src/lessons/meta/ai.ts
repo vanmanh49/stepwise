@@ -152,4 +152,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['evals', 'evaluation', 'test set', 'grader', 'exact match', 'accuracy'],
     prerequisites: ['rag'],
   },
+  {
+    id: 'agent-loop',
+    title: 'The Agent Loop (ReAct)',
+    category: 'ai',
+    difficulty: 'advanced',
+    group: 'AI Agents',
+    description: 'Run a real agent loop in a tiny office: think, call a tool, read the result, repeat until the answer.',
+    keywords: ['agent', 'react', 'tool use', 'loop', 'observation', 'step limit'],
+    prerequisites: ['function-calling'],
+  },
 ];
