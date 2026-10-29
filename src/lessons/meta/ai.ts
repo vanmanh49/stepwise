@@ -192,4 +192,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['reflection', 'self-correction', 'critic', 'revision', 'requirements', 'retries'],
     prerequisites: ['agent-loop'],
   },
+  {
+    id: 'multi-agent',
+    title: 'Multi-Agent Orchestration',
+    category: 'ai',
+    difficulty: 'advanced',
+    group: 'AI Agents',
+    description: 'Split a task between an orchestrator, a researcher and a writer, and compare model calls and context size with one agent.',
+    keywords: ['multi-agent', 'orchestrator', 'sub-agent', 'delegation', 'team', 'context size'],
+    prerequisites: ['agent-loop'],
+  },
 ];
