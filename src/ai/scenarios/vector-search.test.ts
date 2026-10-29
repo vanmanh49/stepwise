@@ -40,4 +40,8 @@ describe('vector search lesson', () => {
   it('does not claim filler words were left out when all of them are kept', () => {
     expect(vectorSearchSteps({ query: 'the on', k: '3', vectors: 'dense' })[0]!.why).not.toContain('left out');
   });
+
+  it('treats <end> as a filler word', () => {
+    expect(vectorSearchSteps({ query: '<end>', k: '3', vectors: 'dense' })[0]!.title).toContain('only filler words');
+  });
 });

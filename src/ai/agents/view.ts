@@ -88,7 +88,7 @@ function title(e: AgentEvent, run: AgentRun): string {
     case 'approval': return `Ask the human before ${e.call.name}: ${e.decision === 'approve' ? 'approved' : 'denied'}`;
     case 'blocked': return `Blocked: ${e.reason}`;
     case 'observation': return `Observation: ${e.text}`;
-    case 'critique': return `Critic: ${e.checks.filter((c) => c.pass).length} of ${plural(e.checks.length, 'check')} pass`;
+    case 'critique': return `Critic: ${e.checks.filter((c) => c.pass).length} of ${plural(e.checks.length, 'check')} ${e.checks.length === 1 ? 'passes' : 'pass'}`;
     case 'plan-check': return `Plan check: step ${e.step + 1} is not done`;
     case 'answer': return `Answer: "${e.text}"`;
     case 'stop':

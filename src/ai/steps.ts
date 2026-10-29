@@ -1,5 +1,5 @@
 import type { Read } from '../algorithms/form';
-import type { DistributionView, GridView, Role } from '../types/visualization';
+import type { ArrayView, DistributionView, GridView, Role } from '../types/visualization';
 import { CORPUS, tokenId, VOCAB } from './corpus';
 import { CONTEXT } from './model';
 import type { Mat, Vec } from './tensor';
@@ -101,3 +101,16 @@ export function resultsGrid(top: number[], scores: number[], idPrefix: string): 
     })),
   };
 }
+
+/** On/off knobs, in one order for every lesson. */
+export const ON_OFF = ['on', 'off'];
+/** How many documents a search returns. */
+export const K = { min: 1, max: 5 };
+
+/** Words or tokens in one row; `role` picks each cell's role. */
+export function tokenRow(words: readonly string[], role: (i: number) => Role): ArrayView {
+  return { kind: 'array', cells: words.map((w, i) => ({ id: `t-${i}`, value: w, role: role(i) })) };
+}
+
+/** Token ids as words, with the generated ones (from promptLength on) marked found. */
+export const generatedRow = (tokens: number[], promptLength: number) => tokenRow(tokens.map((t) => VOCAB[t]!), (i) => (i >= promptLength ? 'found' : 'default'));

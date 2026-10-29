@@ -1,10 +1,10 @@
 import { readChoice, readInt, refusal } from '../../algorithms/form';
 import { lineOf } from '../../data-structures/shared';
-import type { ArrayView, GridView, Step, View } from '../../types/visualization';
+import type { GridView, Step, View } from '../../types/visualization';
 import { END, tokenId, VOCAB } from '../corpus';
 import { EMPTY_CACHE, extend, type KvCache } from '../kvcache';
 import { CONTEXT, forward } from '../model';
-import { EMPTY, fmt, readPrompt, vectorGrid } from '../steps';
+import { EMPTY, fmt, generatedRow, ON_OFF, readPrompt, vectorGrid } from '../steps';
 import { argmax, type Mat, type Vec } from '../tensor';
 
 export const kvCacheCode = `cache = { K: [], V: [] }
@@ -19,7 +19,6 @@ for (const token of tokens) {   // the prompt, then each new token
 }`;
 
 export const MAX_NEW = 8;
-export const ON_OFF = ['on', 'off'];
 
 const line = (snippet: string) => lineOf(kvCacheCode, snippet);
 const words = (ids: number[]) => ids.map((t) => VOCAB[t]!).join(' ');
@@ -29,10 +28,6 @@ function cacheGrid(m: Mat, tokens: number[], fresh: (i: number) => boolean, idPr
   const grid = vectorGrid(m.map((values, i) => ({ label: VOCAB[tokens[i]!]!, values })), idPrefix);
   for (const row of grid.rows) row.cells.forEach((cell, i) => cell && fresh(i) && (cell.role = 'active'));
   return grid;
-}
-
-function tokenRow(tokens: number[], promptLength: number): ArrayView {
-  return { kind: 'array', cells: tokens.map((t, i) => ({ id: `t-${i}`, value: VOCAB[t]!, role: i >= promptLength ? 'found' : 'default' })) };
 }
 
 export function kvCacheSteps(values: Record<string, string>): Step[] {
@@ -76,8 +71,8 @@ export function kvCacheSteps(values: Record<string, string>): Step[] {
     const view: View = {
       kind: 'panels',
       panels: [
-        { label: cached ? 'K cache' : 'K, recomputed', view: cacheGrid(k, prefix, fresh, `k-${fed}`) },
-        { label: cached ? 'V cache' : 'V, recomputed', view: cacheGrid(v, prefix, fresh, `v-${fed}`) },
+        { label: cached ? 'K cache' : 'K, recomputed', view: cacheGrid(k, prefix, fresh, 'k') },
+        { label: cached ? 'V cache' : 'V, recomputed', view: cacheGrid(v, prefix, fresh, 'v') },
       ],
     };
     steps.push({
@@ -106,14 +101,14 @@ export function kvCacheSteps(values: Record<string, string>): Step[] {
     if (generated === count.value) break;
   }
   const totals = { 'with cache': withCache, 'without cache': withoutCache };
-  if (stop) steps.push({ ...stop, codeLine: line('if (next === END'), variables: totals, view: tokenRow(tokens, promptLength) });
+  if (stop) steps.push({ ...stop, codeLine: line('if (next === END'), variables: totals, view: generatedRow(tokens, promptLength) });
   steps.push({
     title: `${tokens.length > promptLength ? `Generated "${words(tokens.slice(promptLength))}"` : 'Generated nothing'}: ${withCache} K/V rows with a cache, ${withoutCache} without`,
     why: `Feeding ${withCache} positions computes ${withCache} rows with the cache, but 1 + 2 + … + ${withCache} = ${withoutCache} without it. The output is the same either way; the cache only saves work, at the cost of memory for every cached row.`,
     next: 'Speed is one part of building with LLMs; getting output in an exact shape is another. The next lesson constrains the model to a schema.',
     codeLine: line('cache = { K: [], V: [] }'),
     variables: totals,
-    view: tokenRow(tokens, promptLength),
+    view: generatedRow(tokens, promptLength),
   });
   return steps;
 }

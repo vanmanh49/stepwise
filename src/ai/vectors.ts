@@ -1,4 +1,4 @@
-import { CORPUS, tokenize, VOCAB } from './corpus';
+import { CORPUS, END, tokenize, VOCAB } from './corpus';
 import { dot, type Vec } from './tensor';
 import { WEIGHTS } from './weights';
 
@@ -6,7 +6,7 @@ import { WEIGHTS } from './weights';
 export type VectorKind = 'dense' | 'tfidf';
 
 /** Words that appear in most sentences and say little about what a sentence is about. */
-export const FILLER: ReadonlySet<string> = new Set(['the', 'a', 'on', 'in', 'to', 'by', 'with', 'is']);
+export const FILLER: ReadonlySet<string> = new Set(['the', 'a', 'on', 'in', 'to', 'by', 'with', 'is', END]);
 
 /** The documents: each corpus sentence as token ids. */
 export const DOCS: readonly number[][] = CORPUS.map(tokenize);

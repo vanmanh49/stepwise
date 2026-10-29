@@ -1,4 +1,5 @@
-import { K, QUESTION_IDS, RETRIEVERS, ragCode, ragSteps } from '../../ai/scenarios/rag';
+import { QUESTION_IDS, RETRIEVERS, ragCode, ragSteps } from '../../ai/scenarios/rag';
+import { K } from '../../ai/steps';
 import type { LessonContent } from '../../types/lesson';
 
 const defaults = { question: 'dog-ate', k: '2', retriever: 'tfidf' };

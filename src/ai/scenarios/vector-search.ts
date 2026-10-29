@@ -2,7 +2,7 @@ import { readChoice, readInt, refusal } from '../../algorithms/form';
 import { lineOf } from '../../data-structures/shared';
 import type { DistributionView, Step } from '../../types/visualization';
 import { CORPUS, VOCAB } from '../corpus';
-import { EMPTY, fmt, matrixGrid, readPrompt, resultsGrid, vectorGrid } from '../steps';
+import { EMPTY, fmt, K, matrixGrid, readPrompt, resultsGrid, vectorGrid } from '../steps';
 import { denseVector, DOCS, FILLER, search, tfidfVector, type VectorKind } from '../vectors';
 
 export const vectorSearchCode = `function embed(words) {
@@ -15,7 +15,6 @@ scores = docs.map((d) => cosine(q, embed(d)))   // compare with every document
 top = sortByScore(docs, scores).slice(0, k)`;
 
 export const VECTOR_KINDS: VectorKind[] = ['dense', 'tfidf'];
-export const K = { min: 1, max: 5 };
 const SHOWN = 10;
 
 const line = (snippet: string) => lineOf(vectorSearchCode, snippet);

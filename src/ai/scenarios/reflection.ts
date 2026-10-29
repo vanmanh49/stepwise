@@ -5,7 +5,7 @@ import { runAgent, type AgentEvent, type AgentRun } from '../agents/loop';
 import { INITIAL_OFFICE } from '../agents/office';
 import { taskById } from '../agents/tasks';
 import { eventSteps, taskIntro } from '../agents/view';
-import { EMPTY } from '../steps';
+import { EMPTY, ON_OFF } from '../steps';
 
 export const reflectionCode = `draft = model(context)   // a rule-based stand-in here
 for (let attempt = 0; ; attempt++) {
@@ -17,7 +17,6 @@ for (let attempt = 0; ; attempt++) {
 act(draft)   // send the email, or give the answer`;
 
 export const REFLECTION_TASKS = ['sam-weather', 'weather-compare'];
-export const ON_OFF = ['off', 'on'];
 export const RETRIES = { min: 0, max: 2 };
 
 const line = (snippet: string) => lineOf(reflectionCode, snippet);
@@ -35,7 +34,7 @@ function checksGrid(run: AgentRun, upTo: number): GridView | undefined {
   return {
     kind: 'grid',
     colLabels: ['pass'],
-    rows: last.checks.map((c, i) => ({ label: c.label, cells: [{ id: `check-${i}`, value: c.pass ? '✓' : '✗', role: c.pass ? 'found' : 'discarded' }] })),
+    rows: last.checks.map((c) => ({ label: c.label, cells: [{ id: `check-${c.label}`, value: c.pass ? '✓' : '✗', role: c.pass ? 'found' : 'discarded' }] })),
   };
 }
 

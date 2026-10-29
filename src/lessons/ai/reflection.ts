@@ -1,4 +1,5 @@
-import { ON_OFF, REFLECTION_TASKS, reflectionCode, reflectionSteps } from '../../ai/scenarios/reflection';
+import { REFLECTION_TASKS, reflectionCode, reflectionSteps } from '../../ai/scenarios/reflection';
+import { ON_OFF } from '../../ai/steps';
 import type { LessonContent } from '../../types/lesson';
 
 const defaults = { task: 'sam-weather', critic: 'on', retries: '1' };

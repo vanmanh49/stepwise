@@ -20,12 +20,28 @@ describe('reflection lesson', () => {
 
   it('still shows the failed check with no retries left', () => {
     const steps = reflectionSteps({ ...defaults, retries: '0' });
-    expect(steps.map((s) => s.title)).toContain('Critic: 0 of 1 check pass');
+    expect(steps.map((s) => s.title)).toContain('Critic: 0 of 1 check passes');
     const checks = steps.flatMap((s) => (s.view.kind === 'panels' ? s.view.panels.filter((p) => p.label === 'Checks') : []));
     expect(checks.length).toBeGreaterThan(0);
   });
 
   it('refuses 3 retries with one step', () => {
     expect(reflectionSteps({ ...defaults, retries: '3' })).toHaveLength(1);
+  });
+
+  it('never reuses a check id for a different requirement', () => {
+    const labelOf = new Map<string, string>();
+    for (const step of reflectionSteps(defaults)) {
+      if (step.view.kind !== 'panels') continue;
+      for (const panel of step.view.panels.filter((p) => p.label === 'Checks')) {
+        if (panel.view.kind !== 'grid') continue;
+        for (const row of panel.view.rows) {
+          const id = row.cells[0]!.id;
+          expect(labelOf.get(id) ?? row.label).toBe(row.label);
+          labelOf.set(id, row.label!);
+        }
+      }
+    }
+    expect(labelOf.size).toBe(2);
   });
 });

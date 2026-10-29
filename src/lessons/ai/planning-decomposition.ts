@@ -1,4 +1,5 @@
-import { ON_OFF, PLAN_TASKS, planningDecompositionCode, planningDecompositionSteps, QUIRKS } from '../../ai/scenarios/planning-decomposition';
+import { PLAN_TASKS, planningDecompositionCode, planningDecompositionSteps, QUIRKS } from '../../ai/scenarios/planning-decomposition';
+import { ON_OFF } from '../../ai/steps';
 import type { LessonContent } from '../../types/lesson';
 
 const defaults = { task: 'weather-compare', planner: 'on', quirk: 'skips-step' };

@@ -1,4 +1,5 @@
-import { ON_OFF, SCHEMA_IDS, structuredOutputCode, structuredOutputSteps } from '../../ai/scenarios/structured-output';
+import { SCHEMA_IDS, structuredOutputCode, structuredOutputSteps } from '../../ai/scenarios/structured-output';
+import { ON_OFF } from '../../ai/steps';
 import type { LessonContent } from '../../types/lesson';
 
 const defaults = { schema: 'food', constrained: 'on' };

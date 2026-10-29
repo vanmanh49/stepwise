@@ -4,7 +4,8 @@ import { ROLE_META, roleBoxStyle } from '../roles';
 
 /** One labelled bar per entry, widths relative to the largest; a marker before the first cut bar. */
 export function DistributionRenderer({ view }: { view: DistributionView }) {
-  const max = Math.max(...view.bars.map((b) => Math.abs(b.value)), 1e-9);
+  // Negative scores (a cosine below 0) draw no bar; the printed number still shows them.
+  const max = Math.max(...view.bars.map((b) => b.value), 1e-9);
   const showCut = view.cutoff !== undefined && view.cutoff < view.bars.length;
   return (
     <figure className="mx-auto w-full max-w-xl">
@@ -30,7 +31,7 @@ export function DistributionRenderer({ view }: { view: DistributionView }) {
                   // The default role's fill matches the track, so default bars take a tint of the accent instead.
                   ...(bar.role === 'default' ? { background: 'color-mix(in oklab, var(--accent) 55%, var(--surface))' } : roleBoxStyle(bar.role)),
                   borderWidth: 0,
-                  width: `${(Math.abs(bar.value) / max) * 100}%`,
+                  width: `${(Math.max(0, bar.value) / max) * 100}%`,
                 }}
               />
             </div>
