@@ -1,6 +1,6 @@
 import type { Read } from '../algorithms/form';
 import type { DistributionView, GridView, Role } from '../types/visualization';
-import { tokenId, VOCAB } from './corpus';
+import { CORPUS, tokenId, VOCAB } from './corpus';
 import { CONTEXT } from './model';
 import type { Mat, Vec } from './tensor';
 
@@ -83,5 +83,21 @@ export function messageGrid(messages: { speaker: string; content: string }[], id
     kind: 'grid',
     colLabels: ['message'],
     rows: messages.map((m, i) => ({ label: m.speaker, cells: [{ id: `${idPrefix}-${i}`, value: m.content, role: roleOf(i) }] })),
+  };
+}
+
+/** Retrieved documents, best first: rank, 1-based document number, sentence and score. */
+export function resultsGrid(top: number[], scores: number[], idPrefix: string): GridView {
+  return {
+    kind: 'grid',
+    colLabels: ['doc', 'sentence', 'score'],
+    rows: top.map((d, r) => ({
+      label: `#${r + 1}`,
+      cells: [
+        { id: `${idPrefix}-${d}-doc`, value: `doc ${d + 1}`, role: 'found' },
+        { id: `${idPrefix}-${d}-text`, value: CORPUS[d]!, role: 'default' },
+        { id: `${idPrefix}-${d}-score`, value: fmt(scores[d]!), role: 'default' },
+      ],
+    })),
   };
 }

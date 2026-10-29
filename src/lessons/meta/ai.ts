@@ -112,4 +112,14 @@ export const aiMeta: LessonMeta[] = [
     keywords: ['structured output', 'json', 'constrained decoding', 'grammar', 'schema', 'logit mask'],
     prerequisites: ['sampling'],
   },
+  {
+    id: 'vector-search',
+    title: 'Vector Search',
+    category: 'ai',
+    difficulty: 'intermediate',
+    group: 'Building with LLMs',
+    description: 'Rank the toy sentences against a query with the tiny model\'s embeddings and with TF-IDF, and see where each one fails.',
+    keywords: ['vector search', 'embeddings', 'cosine similarity', 'tf-idf', 'dense retrieval', 'sparse retrieval'],
+    prerequisites: ['embeddings'],
+  },
 ];

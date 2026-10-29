@@ -22,6 +22,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   'training-loss': { steps: [1, 50] },
   'context-window': { window: [3, 5] },
   'kv-cache': { count: [1, 8] },
+  'vector-search': { k: [1, 5] },
 };
 
 function checkView(view: View, label: string) {
