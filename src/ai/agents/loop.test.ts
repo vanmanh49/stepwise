@@ -85,4 +85,73 @@ describe('agent loop', () => {
       expect(r.answer).toBe(t('weather-compare').answer);
     });
   });
+
+  describe('critic', () => {
+    it('catches the wrong unit before the email goes out', () => {
+      const r = run(t('sam-weather'), { quirks: ['wrong-unit'], critic: { retries: 1 } });
+      const critiques = r.events.filter((e) => e.kind === 'critique');
+      expect(critiques[0]).toEqual({ kind: 'critique', checks: [{ label: 'temperature in °C', pass: false }] });
+      expect(office(r).outbox.map((e) => e.body)).toEqual(['It is 31°C and rainy in Hanoi.']);
+    });
+
+    it('reports the failure but sends it anyway with no retries left', () => {
+      const r = run(t('sam-weather'), { quirks: ['wrong-unit'], critic: { retries: 0 } });
+      expect(r.events).toContainEqual({ kind: 'critique', checks: [{ label: 'temperature in °C', pass: false }] });
+      expect(office(r).outbox.map((e) => e.body)).toEqual(['It is 88°F and rainy in Hanoi.']);
+    });
+  });
+
+  describe('guards', () => {
+    const inject = (guards: AgentOptions['guards'], quirks: AgentOptions['quirks'] = ['trusts-tool-output']) => run(t('travel-summary'), { quirks, guards });
+    const toEve = (r: AgentRun) => office(r).outbox.filter((e) => e.to === 'eve@evil.test');
+
+    it('lets a trusting model email the notes to the attacker without a guard', () => {
+      expect(toEve(inject([]))).toHaveLength(1);
+    });
+
+    it('stops the attack by spotlighting tool output as data', () => {
+      const r = inject(['spotlight']);
+      expect(toEve(r)).toEqual([]);
+      expect(r.events).toContainEqual(expect.objectContaining({ kind: 'observation', text: expect.stringMatching(/^«data» .* «\/data»$/) }));
+      expect(r.answer).toBe(t('travel-summary').answer);
+    });
+
+    it('stops the attack with a tool allowlist', () => {
+      const r = inject(['allowlist']);
+      expect(toEve(r)).toEqual([]);
+      expect(r.events.filter((e) => e.kind === 'blocked').map((e) => (e.kind === 'blocked' ? e.call.name : ''))).toEqual(['list_notes', 'send_email']);
+    });
+
+    it('blocks nothing when a careful model never tries a forbidden tool', () => {
+      expect(inject(['allowlist'], []).events.some((e) => e.kind === 'blocked')).toBe(false);
+    });
+  });
+
+  describe('approval', () => {
+    it('sends nothing when the human denies the email', () => {
+      const r = run(t('weather-compare'), { approval: 'risky', decision: 'deny' });
+      expect(r.events).toContainEqual({ kind: 'approval', call: t('weather-compare').goals[3]!.call, decision: 'deny' });
+      expect(office(r).outbox).toEqual([]);
+      expect(r.answer).toBe('Tokyo is warmer (24°C vs 18°C). I did not email Sam: you denied it.');
+    });
+
+    it('asks only before risky tools', () => {
+      const r = run(t('weather-compare'), { approval: 'risky' });
+      expect(r.events.filter((e) => e.kind === 'approval')).toHaveLength(1);
+      expect(office(r).outbox).toHaveLength(1);
+    });
+
+    it('ends with the office unchanged when every tool is denied', () => {
+      const r = run(t('weather-compare'), { approval: 'every', decision: 'deny' });
+      expect(stopOf(r)?.kind).toBe('stop');
+      expect(office(r)).toEqual(INITIAL_OFFICE);
+      expect(r.toolCalls).toBe(0);
+    });
+
+    it('deletes without asking when approval is never', () => {
+      const r = run(t('cleanup'), { approval: 'never' });
+      expect(r.events.some((e) => e.kind === 'approval')).toBe(false);
+      expect(office(r)).toEqual({ notes: { team: INITIAL_OFFICE.notes.team, prefs: INITIAL_OFFICE.notes.prefs }, outbox: [] });
+    });
+  });
 });

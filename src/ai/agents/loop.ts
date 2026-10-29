@@ -1,7 +1,7 @@
 import type { ToolCall } from '../standin';
-import { OFFICE_TOOLS, recall, runOfficeTool, type Office } from './office';
+import { OFFICE_TOOLS, recall, RISKY, runOfficeTool, type Office } from './office';
 import { decide, type Context, type Quirk } from './policy';
-import type { Task } from './tasks';
+import type { Requirement, Task } from './tasks';
 
 export type Guard = 'spotlight' | 'allowlist';
 
@@ -63,6 +63,9 @@ export const SESSION_1: readonly string[] = [
 /** Words of chat history that fit in the context; just too few for SESSION_1's oldest line. */
 export const CHAT_BUDGET = 24;
 
+/** Tool output that can carry text from outside, which spotlighting marks as data. */
+const UNTRUSTED = new Set(['read_note', 'search_docs']);
+
 const wordCount = (texts: string[]) => texts.reduce((n, t) => n + t.split(/\s+/).filter(Boolean).length, 0);
 
 /** Whole lines, newest first, while they fit the budget; returned oldest first. */
@@ -102,6 +105,26 @@ export function runAgent(task: Task, start: Office, o: AgentOptions): AgentRun {
   }
   if (o.planner) push({ kind: 'plan', steps: task.goals.map((g) => g.label) });
 
+  let retries = o.critic?.retries ?? 0;
+  /** Records a critique; true when the draft failed and a retry is left, so the model should try again. */
+  const critique = (stage: Requirement['stage'], text: string): boolean => {
+    if (!o.critic) return false;
+    const checks = task.requirements.filter((r) => r.stage === stage).map((r) => ({ label: r.label, pass: r.check(office, text) }));
+    if (checks.length === 0) return false;
+    push({ kind: 'critique', checks });
+    const failed = checks.filter((c) => !c.pass);
+    if (failed.length === 0 || retries === 0) return false;
+    retries--;
+    ctx.feedback.push(...failed.map((c) => `Critic: the draft fails "${c.label}".`));
+    return true;
+  };
+  /** A call that did not run: a denial or a block. */
+  const refuse = (goal: number | 'injected', name: string, kind: 'denied' | 'blocked', note: string) => {
+    ctx.feedback.push(note);
+    if (goal === 'injected') ctx.injected.push(name);
+    else ctx.outcomes[goal] = { kind };
+  };
+
   let modelCalls = 0;
   let toolCalls = 0;
   let maxContext = 0;
@@ -125,16 +148,35 @@ export function runAgent(task: Task, start: Office, o: AgentOptions): AgentRun {
         push({ kind: 'plan-check', step: missed });
         continue;
       }
+      if (critique('answer', move.answer)) continue;
       push({ kind: 'answer', text: move.answer });
       return finish('answered', move.answer);
     }
 
     const { call, goal } = move;
+    if (o.guards?.includes('allowlist') && !task.allowedTools.includes(call.name)) {
+      const reason = `${call.name} is not allowed for this task`;
+      push({ kind: 'blocked', call, reason });
+      refuse(goal, call.name, 'blocked', reason);
+      continue;
+    }
+    if (call.name === 'send_email' && critique('email', String(call.args.body))) continue;
+    if (o.approval === 'every' || (o.approval === 'risky' && RISKY.has(call.name))) {
+      const decision = o.decision ?? 'approve';
+      push({ kind: 'approval', call, decision });
+      if (decision === 'deny') {
+        const note = `The user denied ${call.name}.`;
+        push({ kind: 'observation', text: note, ok: false });
+        refuse(goal, call.name, 'denied', note);
+        continue;
+      }
+    }
     push({ kind: 'action', call, injected: goal === 'injected' });
     const out = runOfficeTool(office, call);
     toolCalls++;
     office = out.office;
-    const text = out.result.ok ? out.result.text : out.result.error;
+    const raw = out.result.ok ? out.result.text : out.result.error;
+    const text = o.guards?.includes('spotlight') && UNTRUSTED.has(call.name) ? `«data» ${raw} «/data»` : raw;
     push({ kind: 'observation', text, ok: out.result.ok });
     ctx.seen.push(text);
     if (goal === 'injected') ctx.injected.push(call.name);
