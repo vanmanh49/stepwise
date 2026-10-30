@@ -202,4 +202,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['csp', 'content security policy', 'script-src', 'default-src', 'nonce', 'unsafe-inline', 'xss defense', 'header', 'defense in depth'],
     prerequisites: ['cross-site-scripting'],
   },
+  {
+    id: 'csrf',
+    title: 'CSRF',
+    category: 'security',
+    difficulty: 'advanced',
+    group: 'Web Attacks & Defenses',
+    description: 'Make a page on evil.example place an order in alice\'s name, then see which defenses stop a form, and which one an image tag walks past.',
+    keywords: ['csrf', 'xsrf', 'cross-site request forgery', 'samesite', 'anti-csrf token', 'origin header', 'state-changing get', 'form post'],
+    prerequisites: ['same-origin-cors'],
+  },
 ];

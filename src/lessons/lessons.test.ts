@@ -183,6 +183,7 @@ const EXPECTED_IDS = [
   'command-injection',
   'cross-site-scripting',
   'content-security-policy',
+  'csrf',
 ];
 
 describe('lesson registry', () => {
