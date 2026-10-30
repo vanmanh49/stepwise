@@ -177,6 +177,7 @@ const EXPECTED_IDS = [
   'multi-factor-auth',
   'oauth-pkce',
   'openid-connect',
+  'access-control',
 ];
 
 describe('lesson registry', () => {

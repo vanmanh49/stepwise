@@ -142,4 +142,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['oidc', 'openid connect', 'id token', 'claims', 'aud', 'nonce', 'iss', 'jwks', 'single sign-on', 'sso', 'userinfo'],
     prerequisites: ['oauth-pkce', 'json-web-tokens', 'public-key-signatures'],
   },
+  {
+    id: 'access-control',
+    title: 'Access Control',
+    category: 'security',
+    difficulty: 'intermediate',
+    group: 'Identity & Access',
+    description: 'Sign in as an ordinary customer, then reach other peoples orders and the admin page with only a changed address or an extra field.',
+    keywords: ['authorization', 'idor', 'broken access control', 'mass assignment', 'role', 'rbac', '403', 'deny by default', 'owasp'],
+    prerequisites: ['sessions-cookies'],
+  },
 ];
