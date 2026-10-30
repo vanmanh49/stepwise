@@ -148,7 +148,7 @@ export const securityMeta: LessonMeta[] = [
     category: 'security',
     difficulty: 'intermediate',
     group: 'Identity & Access',
-    description: 'Sign in as an ordinary customer, then reach other peoples orders and the admin page with only a changed address or an extra field.',
+    description: 'Sign in as an ordinary customer, then reach other people\'s orders and the admin page with only a changed address or an extra field.',
     keywords: ['authorization', 'idor', 'broken access control', 'mass assignment', 'role', 'rbac', '403', 'deny by default', 'owasp'],
     prerequisites: ['sessions-cookies'],
   },
