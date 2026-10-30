@@ -132,4 +132,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['oauth', 'oauth2', 'pkce', 'authorization code', 'redirect uri', 'state', 'csrf', 'sign in with', 'access token', 'code challenge'],
     prerequisites: ['sessions-cookies', 'hash-functions'],
   },
+  {
+    id: 'openid-connect',
+    title: 'OpenID Connect',
+    category: 'security',
+    difficulty: 'intermediate',
+    group: 'Identity & Access',
+    description: 'Hand the shop four tokens with real signatures, and see which claim catches each one.',
+    keywords: ['oidc', 'openid connect', 'id token', 'claims', 'aud', 'nonce', 'iss', 'jwks', 'single sign-on', 'sso', 'userinfo'],
+    prerequisites: ['oauth-pkce', 'json-web-tokens', 'public-key-signatures'],
+  },
 ];

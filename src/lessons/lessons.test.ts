@@ -176,6 +176,7 @@ const EXPECTED_IDS = [
   'json-web-tokens',
   'multi-factor-auth',
   'oauth-pkce',
+  'openid-connect',
 ];
 
 describe('lesson registry', () => {
