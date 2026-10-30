@@ -10,7 +10,7 @@ const content: LessonContent = {
     'Once you sign in, your password stays out of the picture. A session id in a cookie stands in for it on every request, so that cookie is worth stealing. This lesson runs five attacks on a real session and shows the one setting that stops each.',
   concept: [
     'HTTP forgets you between requests. So at sign-in the shop adds a row to a sessions table, gives you the row\'s id in a cookie, and your browser sends it back each time. Whoever sends that id is you.',
-    'Cookie flags tell the browser how to guard it. HttpOnly hides a cookie from page scripts. Secure sends it only over https. SameSite decides whether it goes with requests started by other sites, and with no flag at all browsers treat it as Lax.',
+    'Cookie flags tell the browser how to guard it. HttpOnly hides a cookie from page scripts. Secure sends it only over https. SameSite decides whether it goes with requests started by other sites, and with no flag Chrome treats it as Lax, but not every browser does, so always set it.',
     'The id itself matters too. It must be random, or an attacker can work out the next one. It must change at sign-in, or an attacker who planted an id before you signed in holds your session after.',
     'Signing out has to happen on the server. Clearing the cookie only changes your own browser, so a copy still works until the row is deleted.',
     'This browser enforces those cookie rules for real, against a simulated shop. In production, use your framework\'s session library, set Secure, HttpOnly and SameSite together, expire idle sessions, and send every page over https with HSTS so the old http link can\'t happen.',

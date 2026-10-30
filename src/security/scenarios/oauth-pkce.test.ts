@@ -38,6 +38,10 @@ describe('oauth and pkce', () => {
     expect(last(run(CSRF!, ON!)).variables!.browser).toBe('nobody');
   });
 
+  it('admits this run leaves out what else would stop login CSRF', () => {
+    expect(last(run(CSRF!, OFF!)).why).toContain('PKCE or the OpenID Connect nonce');
+  });
+
   it('sends the code to the attacker only without exact matching', () => {
     expect(titled(run(TAMPER!, OFF!), 'alice opens').variables!.inbox).toBe(1);
     expect(titled(run(TAMPER!, ON!), 'alice opens').variables!.inbox).toBe(0);

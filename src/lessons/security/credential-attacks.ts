@@ -8,7 +8,7 @@ const content: LessonContent = {
   overview:
     'Attackers rarely break hashes first. They just try to sign in. This lesson runs three attacks against a real sign-in route, and shows that the limits which stop guessing do little against the two attacks used most often.',
   concept: [
-    'Guessing tries many passwords on one account. It is the attack people imagine, and it is the easiest to stop. A limit per address, or a lockout per account, ends it quickly.',
+    'Guessing tries many passwords on one account. It is the attack people imagine, and it is the easiest to notice. A limit per address slows it to a few tries a minute. A lockout per account ends it, at a cost.',
     'Credential stuffing replays name and password pairs leaked from other sites. People reuse passwords, so some pairs work. Each account gets one try, from a new address each time, so neither limit fires.',
     'Password spraying tries one common password across many accounts. One address makes a few tries, and each account sees a single failure, so again nothing fires.',
     'Limits have a cost too. A lockout lets anyone who knows a name lock that user out, and shared addresses mean a per-IP limit can hit innocent people.',
@@ -38,7 +38,7 @@ const content: LessonContent = {
   },
   code: credentialAttacksCode,
   prosCons: {
-    pros: ['Limits end online guessing cheaply', 'They need no change for users', 'A limited request costs no password hash'],
+    pros: ['Limits slow online guessing cheaply', 'They need no change for users', 'A limited request costs no password hash'],
     cons: ['Neither limit sees stuffing or spraying', 'Lockout lets anyone lock a user out', 'Per-IP limits hit people who share an address'],
     useWhen: ['Every sign-in, password reset and code entry route should have a limit'],
     avoidWhen: ['Long, permanent lockouts: use a short lock or a growing delay'],
@@ -90,7 +90,7 @@ const content: LessonContent = {
     },
   ],
   summary: [
-    'Guessing hits one account many times, and limits stop it.',
+    'Guessing hits one account many times. A limit slows it, and a lockout ends it at a cost.',
     'Stuffing replays leaked pairs, and spraying tries one password on many accounts.',
     'Neither looks like guessing, so per-IP limits and lockouts miss them.',
     'MFA and breached-password checks are what help against both.',

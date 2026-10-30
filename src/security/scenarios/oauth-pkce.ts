@@ -115,7 +115,7 @@ function loginCsrf({ world, story, defended }: Run) {
     title: browser === 'nobody' ? 'alice\'s browser stays signed out' : 'alice\'s browser is signed in as eve',
     why: browser === 'nobody'
       ? 'state ties the callback to the browser that started the flow. A link made by someone else can\'t carry the right value.'
-      : 'alice may not notice, and then saves a card or address into eve\'s account, where the attacker can read it. In OpenID Connect the nonce would catch this too, so this run leaves it out.',
+      : 'alice may not notice, and then saves a card or address into eve\'s account, where the attacker can read it. PKCE or the OpenID Connect nonce would catch this too, so this run leaves both out.',
     line: 'if (checkState',
     variables: { browser, result: resultOf(browser !== 'nobody') },
   });

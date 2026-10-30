@@ -7,7 +7,7 @@ const handed = openidConnectSteps({ attack: ATTACK_OPTIONS[0]!, defense: DEFENSE
 
 const content: LessonContent = {
   overview:
-    'OAuth was built to give apps access, not to prove who signed in. OpenID Connect adds that proof: a signed ID token from the provider. A token that is real can still be the wrong token, so this lesson hands the shop four tokens that pass the signature check and shows which claim catches each.',
+    'OAuth was built to give apps access, not to prove who signed in. OpenID Connect adds that proof: a signed ID token from the provider. A token that is real can still be the wrong token, so this lesson hands the shop three real ID tokens and one access token, and shows which check catches each.',
   concept: [
     'An ID token is a JWT signed by the provider. Each claim answers one question. iss says who issued it, sub says who the user is, aud says which app it is for, nonce ties it to one sign-in, and exp says when it stops counting.',
     'The app checks the signature with the provider\'s public key, published at a jwks address. That is why providers use asymmetric signatures: many apps can verify, and only the provider can sign. An HMAC secret would have to be shared with every app, and any one of them could then forge tokens.',

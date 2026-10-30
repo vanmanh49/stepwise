@@ -13,7 +13,7 @@ const content: LessonContent = {
     'A TOTP code comes from a secret shared once, usually through a QR code, and from the clock. Both sides take the time, divide by 30 to get a step number, and run HMAC on it with the secret. Six digits read from the result are the code. No network is involved, which is why it works offline.',
     'Clocks drift, so servers accept one step either side. That means a code stays usable for a while, so it must also be marked as used, or someone who sees it can type it again.',
     'A typed code can be phished. A fake page asks for the code and passes it to the real site in seconds, while it is still fresh. A passkey fixes that: the browser asks it to sign a challenge together with the real origin, and it refuses to sign for any site it was not made for.',
-    'The TOTP here is real and matches RFC 6238, though it uses SHA-256 where most apps use SHA-1. The passkey is simulated with a toy RSA key and shows the origin check, not the WebAuthn format. In production, use a tested WebAuthn or TOTP library, rate limit code entry, and give users recovery codes, because recovery is where most MFA gets bypassed.',
+    'The TOTP here is real and matches RFC 6238, though it uses SHA-256 where most apps use SHA-1. The passkey is simulated with a toy RSA key and shows the origin check, not the WebAuthn format. In production, use a tested WebAuthn or TOTP library, rate limit code entry, and give users recovery codes, because recovery is a common way around MFA.',
   ],
   howItWorks: [
     'The password is checked first, and it opens only a half-signed-in session.',

@@ -138,7 +138,7 @@ export const securityMeta: LessonMeta[] = [
     category: 'security',
     difficulty: 'intermediate',
     group: 'Identity & Access',
-    description: 'Hand the shop four tokens with real signatures, and see which claim catches each one.',
+    description: 'Hand the shop three real ID tokens and an access token, and see which check catches each one.',
     keywords: ['oidc', 'openid connect', 'id token', 'claims', 'aud', 'nonce', 'iss', 'jwks', 'single sign-on', 'sso', 'userinfo'],
     prerequisites: ['oauth-pkce', 'json-web-tokens', 'public-key-signatures'],
   },

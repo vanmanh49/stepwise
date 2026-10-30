@@ -59,11 +59,11 @@ const content: LessonContent = {
     {
       id: 'q1',
       type: 'predict-next',
-      prompt: 'The attacker has this table of plain SHA-256 hashes. How many words must the attacker hash to crack both alice and bob?',
+      prompt: 'The attacker has this table of plain SHA-256 hashes. How many searches through the list does it take to crack both alice and bob?',
       view: leak.view,
-      options: ['One word: their hashes are equal', 'Two words: one per user', 'All 12 words, twice', 'None: SHA-256 can be reversed'],
+      options: ['One search: each word is hashed once and compared with every row', 'Two searches: one per user', 'Twelve searches: one per word', 'None: SHA-256 can be reversed'],
       answer: 0,
-      explanation: 'Equal hashes mean equal passwords, and with no salt the same guess matches both rows.',
+      explanation: 'Equal hashes mean equal passwords, and with no salt the word that matches one row matches the other in the same pass.',
     },
     {
       id: 'q2',
@@ -86,7 +86,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'A shop uses PBKDF2 with a good salt, and your password is "monkey". The table leaks. What happens?',
-      options: ['It is cracked: "monkey" is in the list, and only costs more guesses to reach', 'It is safe: PBKDF2 can\'t be guessed', 'It is safe: the salt hides it', 'The attacker must break SHA-256 first'],
+      options: ['It is cracked: "monkey" is in the list, and each guess only costs more', 'It is safe: PBKDF2 can\'t be guessed', 'It is safe: the salt hides it', 'The attacker must break SHA-256 first'],
       answer: 0,
       explanation: 'Storage slows guessing down. It can\'t stop a guess that is right, so a common password still falls.',
     },
