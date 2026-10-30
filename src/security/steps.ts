@@ -6,6 +6,8 @@ export const MAX_STEPS = 200;
 
 export const EMPTY: ArrayView = { kind: 'array', cells: [] };
 
+export const DEFENSE_OPTIONS = ['Off', 'On'] as const;
+
 /** A text field limited in bytes, which is what the algorithms count. */
 export function readBytes(values: Record<string, string>, name: string, label: string, length: { min: number; max: number }): Read<string> {
   const text = readText(values, name, label, length);
