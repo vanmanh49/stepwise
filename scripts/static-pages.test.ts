@@ -39,6 +39,6 @@ describe('sitePages', () => {
     expect(paths).toContain('kubernetes');
     expect(paths).toContain('big-o');
     expect(new Set(paths).size).toBe(paths.length);
-    expect(paths).toHaveLength(161 + 7 + 1);
+    expect(paths).toHaveLength(162 + 7 + 1);
   });
 });

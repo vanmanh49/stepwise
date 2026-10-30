@@ -169,6 +169,7 @@ const EXPECTED_IDS = [
   'block-modes',
   'key-exchange',
   'public-key-signatures',
+  'certificates-tls',
 ];
 
 describe('lesson registry', () => {
