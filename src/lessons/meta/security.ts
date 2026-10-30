@@ -112,4 +112,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['jwt', 'json web token', 'hs256', 'alg none', 'claims', 'bearer token', 'signature', 'exp', 'stateless'],
     prerequisites: ['message-authentication', 'sessions-cookies'],
   },
+  {
+    id: 'multi-factor-auth',
+    title: 'Multi-Factor Auth',
+    category: 'security',
+    difficulty: 'intermediate',
+    group: 'Identity & Access',
+    description: 'Work out real TOTP codes, then see what a code stops, what it does not, and why a passkey beats a live phishing relay.',
+    keywords: ['mfa', '2fa', 'two-factor', 'totp', 'authenticator', 'one-time password', 'otp', 'passkey', 'webauthn', 'phishing'],
+    prerequisites: ['message-authentication', 'credential-attacks'],
+  },
 ];

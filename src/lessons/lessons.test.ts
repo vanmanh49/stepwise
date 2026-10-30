@@ -174,6 +174,7 @@ const EXPECTED_IDS = [
   'credential-attacks',
   'sessions-cookies',
   'json-web-tokens',
+  'multi-factor-auth',
 ];
 
 describe('lesson registry', () => {

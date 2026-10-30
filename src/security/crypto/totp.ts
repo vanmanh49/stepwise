@@ -9,10 +9,14 @@ export const totpCounter = (unixSeconds: number): number => Math.floor(unixSecon
 /** RFC 4226's dynamic truncation: the last byte's low 4 bits pick where to read. */
 export const hotpOffset = (digest: Uint8Array): number => digest[digest.length - 1]! & 15;
 
-export function totp(secret: Uint8Array, unixSeconds: number, digits = 6): string {
+export function totpDigest(secret: Uint8Array, unixSeconds: number): Uint8Array {
   const counter = new Uint8Array(8);
   new DataView(counter.buffer).setBigUint64(0, BigInt(totpCounter(unixSeconds)));
-  const digest = hmac(secret, counter);
+  return hmac(secret, counter);
+}
+
+export function totp(secret: Uint8Array, unixSeconds: number, digits = 6): string {
+  const digest = totpDigest(secret, unixSeconds);
   const number = new DataView(digest.buffer, digest.byteOffset).getUint32(hotpOffset(digest)) & 0x7fffffff;
   return String(number % 10 ** digits).padStart(digits, '0');
 }
