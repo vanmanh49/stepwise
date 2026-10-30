@@ -1,16 +1,20 @@
 import { ArrowRight, Code, Eye, Flame, MousePointerClick } from 'lucide-react';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Link } from 'react-router';
 import { bubbleSortSteps } from '../algorithms/sorting/bubble';
 import { LessonCard } from '../components/lesson/LessonCard';
 import { ProgressBar } from '../components/progress/ProgressBar';
 import { Roadmap } from '../components/progress/Roadmap';
-import { MiniPlayer } from '../components/visualization/MiniPlayer';
+import { VisualizationBoundary } from '../components/visualization/ErrorBoundary';
 import { ButtonLink } from '../components/ui/ButtonLink';
 import { curriculum } from '../lessons/curriculum';
+import { CATEGORIES, CATEGORY_TITLE } from '../lessons/labels';
 import { getLesson, lessonPath, lessons, lessonsIn } from '../lessons/registry';
 import { computeStreak, countDone, percent, useProgress } from '../store/progress';
 import type { Category } from '../types/lesson';
+
+// Lazy so the home page's first load doesn't include every renderer and the animation library.
+const MiniPlayer = lazy(() => import('../components/visualization/MiniPlayer').then((m) => ({ default: m.MiniPlayer })));
 
 const previewSteps = bubbleSortSteps([5, 3, 8, 1, 6]);
 const FEATURED = ['array', 'binary-search', 'bubble-sort', 'binary-search-tree', 'bfs', 'dijkstra'];
@@ -72,12 +76,9 @@ function ProgressSummary() {
         </div>
         <div className="flex flex-col justify-center gap-5">
           <ProgressBar label="Overall" value={percent(live, lessons.length)} />
-          <ProgressBar label="Data Structures" value={percent(done('data-structures'), lessonsIn('data-structures').length)} />
-          <ProgressBar label="Algorithms" value={percent(done('algorithms'), lessonsIn('algorithms').length)} />
-          <ProgressBar label="SQL" value={percent(done('sql'), lessonsIn('sql').length)} />
-          <ProgressBar label="Microservices" value={percent(done('microservices'), lessonsIn('microservices').length)} />
-          <ProgressBar label="Kubernetes" value={percent(done('kubernetes'), lessonsIn('kubernetes').length)} />
-          <ProgressBar label="AI" value={percent(done('ai'), lessonsIn('ai').length)} />
+          {CATEGORIES.map((category) => (
+            <ProgressBar key={category} label={CATEGORY_TITLE[category]} value={percent(done(category), lessonsIn(category).length)} />
+          ))}
         </div>
       </div>
     </section>
@@ -86,7 +87,7 @@ function ProgressSummary() {
 
 export default function Home() {
   useEffect(() => {
-    document.title = 'Stepwise — Learn Data Structures & Algorithms Visually';
+    document.title = 'Stepwise — Learn How Software Works, Step by Step';
   }, []);
 
   return (
@@ -95,10 +96,10 @@ export default function Home() {
         <div>
           <p className="eyebrow">Interactive lessons · {lessons.length} available</p>
           <h1 className="mt-4 text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.4rem]">
-            Learn Data Structures &amp; Algorithms Visually
+            Learn How Software Works, Step by Step
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
-            Understand how data structures work and see algorithms execute step by step.
+            Watch data structures, algorithms, SQL, microservices, Kubernetes and AI run one step at a time, on your own input.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <ButtonLink to="/data-structures" variant="primary" className="min-h-12 px-5">
@@ -110,7 +111,11 @@ export default function Home() {
           </div>
         </div>
         <div>
-          <MiniPlayer steps={previewSteps} label="Live preview: bubble sort" />
+          <VisualizationBoundary>
+            <Suspense fallback={<div aria-hidden className="card min-h-[22.2rem]" />}>
+              <MiniPlayer steps={previewSteps} label="Live preview: bubble sort" />
+            </Suspense>
+          </VisualizationBoundary>
           <p className="mt-3 text-center text-sm text-muted">
             This is a real lesson running.{' '}
             <Link to="/algorithms/bubble-sort" className="font-medium text-accent underline-offset-4 hover:underline">

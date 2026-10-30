@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { SearchPalette } from '../navigation/SearchPalette';
 import { Header } from './Header';
+import { RouteBoundary } from './RouteBoundary';
 
 export function AppShell() {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -33,7 +34,12 @@ export function AppShell() {
       </a>
       <Header onSearch={() => setSearchOpen(true)} />
       <main id="main" className="flex-1">
-        <Outlet />
+        <Suspense fallback={<p className="px-6 py-24 text-center text-muted">Loading…</p>}>
+          {/* The key clears a failure once the visitor moves to another page. */}
+          <RouteBoundary key={pathname}>
+            <Outlet />
+          </RouteBoundary>
+        </Suspense>
       </main>
       <footer className="border-t border-border py-8 text-center text-sm text-muted">
         Stepwise — learn by seeing, not just reading.

@@ -75,6 +75,10 @@ describe('lessonIdFromPath', () => {
     expect(lessonIdFromPath('/sql/ctes', '/')).toBe('ctes');
   });
 
+  it('accepts the trailing slash GitHub Pages adds to a generated page', () => {
+    expect(lessonIdFromPath('/stepwise/algorithms/bubble-sort/', '/stepwise/')).toBe('bubble-sort');
+  });
+
   it('finds nothing anywhere else, so no wrong chunk is downloaded', () => {
     for (const path of [
       '/stepwise/',
@@ -82,7 +86,6 @@ describe('lessonIdFromPath', () => {
       '/stepwise/algorithms/array',
       '/stepwise/algorithms/nope',
       '/stepwise/algorithms/bubble-sort/extra',
-      '/stepwise/algorithms/bubble-sort/',
       '/other/algorithms/bubble-sort',
     ]) {
       expect(lessonIdFromPath(path, '/stepwise/'), path).toBeUndefined();

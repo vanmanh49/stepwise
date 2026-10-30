@@ -671,7 +671,7 @@ function recursiveCte(db: Dataset, cte: Cte, bound: Map<string, Relation>, outer
     return row;
   };
   const relationOf = (rows: Row[]) => cteRelation(cte, columns, rows);
-  const guard = () => new SqlError('This recursion never stops on its own. Add a condition that ends it, such as WHERE n < 10.', 'limit', cte.line, cte.column);
+  const guard = () => new SqlError("This recursion never stops on its own, and LIMIT can't stop it here. Add a condition that ends it, such as WHERE n < 10.", 'limit', cte.line, cte.column);
 
   let working = anchorResult.rows.flatMap((values) => add(values) ?? []);
   trace?.({ kind: 'recursion-round', name: cte.name, round: 0, read: relationOf([]), added: relationOf(working), total: relationOf([...all]) });

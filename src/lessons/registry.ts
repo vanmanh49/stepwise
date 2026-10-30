@@ -1,16 +1,7 @@
 import type { Category, Lesson, LessonContent, LessonMeta } from '../types/lesson';
-import { aiMeta } from './meta/ai';
-import { algorithmsMeta } from './meta/algorithms';
-import { dataStructuresMeta } from './meta/data-structures';
-import { kubernetesMeta } from './meta/kubernetes';
-import { microservicesMeta } from './meta/microservices';
-import { sqlMeta } from './meta/sql';
+import { lessons } from './lessonList';
 
-/**
- * Every live lesson's metadata, in recommended learning order. Pages read this without loading
- * any lesson; a lesson's content (src/lessons/<category>/<id>.ts) loads when it is opened.
- */
-export const lessons: LessonMeta[] = [...dataStructuresMeta, ...algorithmsMeta, ...sqlMeta, ...microservicesMeta, ...kubernetesMeta, ...aiMeta];
+export { lessons };
 
 const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));
 
@@ -40,7 +31,7 @@ export function lessonPath(lesson: Pick<Lesson, 'category' | 'id'>): string {
 /** The lesson an address opens, if it is exactly `<base><category>/<id>` for a live lesson. */
 export function lessonIdFromPath(pathname: string, base: string): string | undefined {
   if (!pathname.startsWith(base)) return undefined;
-  const [category, id, ...rest] = pathname.slice(base.length).split('/');
+  const [category, id, ...rest] = pathname.slice(base.length).replace(/\/$/, '').split('/');
   if (!id || rest.length > 0) return undefined;
   const lesson = byId.get(id);
   return lesson?.category === category ? id : undefined;

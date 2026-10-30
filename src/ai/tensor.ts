@@ -8,7 +8,6 @@ export const scale = (a: Vec, k: number) => a.map((x) => x * k);
 export const relu = (a: Vec) => a.map((x) => Math.max(0, x));
 /** m has one row per output: matVec(m, v)[i] = m[i] · v. */
 export const matVec = (m: Mat, v: Vec) => m.map((row) => dot(row, v));
-export const transpose = (m: Mat): Mat => (m[0] ?? []).map((_, c) => m.map((row) => row[c]!));
 
 /** Max-subtracted, so huge logits stay finite; -Infinity entries get probability 0. */
 export function softmax(v: Vec): Vec {

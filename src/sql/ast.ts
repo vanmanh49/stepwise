@@ -167,4 +167,3 @@ type StatementBody =
   | { kind: 'transaction'; action: TransactionAction; name?: string; line: number; column: number }
   | { kind: 'set-isolation'; level: IsolationLevel; line: number; column: number };
 
-export type WriteClause = 'INSERT' | 'VALUES' | 'UPDATE' | 'SET' | 'DELETE' | 'CREATE TABLE' | 'DROP TABLE';

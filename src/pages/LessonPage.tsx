@@ -75,15 +75,6 @@ function sectionsFor(lesson: Lesson): (readonly [string, string])[] {
   );
 }
 
-/** Opens the lesson list on small screens, where the sidebar is hidden. */
-function LessonsButton({ onClick }: { onClick(): void }) {
-  return (
-    <Button icon={Menu} onClick={onClick}>
-      Lessons
-    </Button>
-  );
-}
-
 /** The only part of the page that follows the visualization step by step. */
 function NowRunning() {
   const live = useLiveStep((s) => s.live);
@@ -146,8 +137,73 @@ function ContextPanel({ lesson }: { lesson: Lesson }) {
   );
 }
 
-function LessonBody({ lesson }: { lesson: Lesson }) {
+/** The page around a lesson, shared by the loaded lesson and its loading and failure states. */
+function LessonFrame({
+  meta,
+  status,
+  intro,
+  aside,
+  children,
+}: {
+  meta: LessonMeta;
+  /** Shown beside the title. */
+  status?: ReactNode;
+  intro: ReactNode;
+  aside?: ReactNode;
+  children?: ReactNode;
+}) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    document.title = `${meta.title} — Stepwise`;
+  }, [meta]);
+
+  return (
+    <div className="mx-auto grid max-w-[1400px] gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:py-10 xl:grid-cols-[230px_minmax(0,1fr)_230px]">
+      <aside className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto pr-1 lg:block">
+        <CourseSidebar category={meta.category} activeId={meta.id} />
+      </aside>
+
+      <article className="min-w-0 space-y-14">
+        <header className="space-y-4">
+          <div className="flex items-center gap-3 lg:hidden">
+            <Button icon={Menu} onClick={() => setDrawerOpen(true)}>
+              Lessons
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+            <Link to={`/${meta.category}`} className="hover:text-text">
+              {CATEGORY_TITLE[meta.category]}
+            </Link>
+            {meta.group && (
+              <>
+                <span aria-hidden>/</span>
+                <span>{meta.group}</span>
+              </>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{meta.title}</h1>
+            <DifficultyBadge difficulty={meta.difficulty} />
+            {status}
+          </div>
+          {intro}
+        </header>
+        {children}
+      </article>
+
+      {aside && <aside className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto xl:block">{aside}</aside>}
+
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Lessons">
+        <div onClick={(e) => (e.target as HTMLElement).closest('a') && setDrawerOpen(false)}>
+          <CourseSidebar category={meta.category} activeId={meta.id} />
+        </div>
+      </Drawer>
+    </div>
+  );
+}
+
+function LessonBody({ lesson }: { lesson: Lesson }) {
   const visit = useProgress((s) => s.visit);
   const isComplete = useProgress((s) => s.completed.includes(lesson.id));
   const markComplete = useProgress((s) => s.markComplete);
@@ -156,7 +212,6 @@ function LessonBody({ lesson }: { lesson: Lesson }) {
 
   useEffect(() => {
     visit(lesson.id);
-    document.title = `${lesson.title} — Stepwise`;
   }, [lesson, visit]);
 
   // Fetch the next lesson in the background so "Next lesson" opens without waiting.
@@ -170,40 +225,23 @@ function LessonBody({ lesson }: { lesson: Lesson }) {
   const onStep = useCallback((step: Step, index: number, total: number) => useLiveStep.getState().set({ step, index, total }), []);
 
   return (
-    <div className="mx-auto grid max-w-[1400px] gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:py-10 xl:grid-cols-[230px_minmax(0,1fr)_230px]">
-      <aside className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto pr-1 lg:block">
-        <CourseSidebar category={lesson.category} activeId={lesson.id} />
-      </aside>
-
-      <article className="min-w-0 space-y-14">
-        <header className="space-y-4">
-          <div className="flex items-center gap-3 lg:hidden">
-            <LessonsButton onClick={() => setDrawerOpen(true)} />
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-            <Link to={`/${lesson.category}`} className="hover:text-text">
-              {CATEGORY_TITLE[lesson.category]}
-            </Link>
-            {lesson.group && (
-              <>
-                <span aria-hidden>/</span>
-                <span>{lesson.group}</span>
-              </>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{lesson.title}</h1>
-            <DifficultyBadge difficulty={lesson.difficulty} />
-            {isComplete && (
-              <span className="inline-flex items-center gap-1 text-sm font-medium text-success">
-                <CircleCheck size={16} aria-hidden /> Completed
-              </span>
-            )}
-          </div>
+    <LessonFrame
+      meta={lesson}
+      status={
+        isComplete && (
+          <span className="inline-flex items-center gap-1 text-sm font-medium text-success">
+            <CircleCheck size={16} aria-hidden /> Completed
+          </span>
+        )
+      }
+      intro={
+        <>
           <p className="max-w-[68ch] text-lg leading-relaxed text-muted">{lesson.overview}</p>
           <PrerequisiteNotice lesson={lesson} />
-        </header>
-
+        </>
+      }
+      aside={<ContextPanel lesson={lesson} />}
+    >
         <Section id="visualization" title="See it run">
           <LessonVisualization config={lesson.visualization} code={lesson.code} onStep={onStep} />
         </Section>
@@ -318,18 +356,7 @@ function LessonBody({ lesson }: { lesson: Lesson }) {
             )}
           </nav>
         </footer>
-      </article>
-
-      <aside className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto xl:block">
-        <ContextPanel lesson={lesson} />
-      </aside>
-
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Lessons">
-        <div onClick={(e) => (e.target as HTMLElement).closest('a') && setDrawerOpen(false)}>
-          <CourseSidebar category={lesson.category} activeId={lesson.id} />
-        </div>
-      </Drawer>
-    </div>
+    </LessonFrame>
   );
 }
 
@@ -343,61 +370,19 @@ export default function LessonPage({ category }: { category: Category }) {
     <LessonLoadBoundary key={lesson.id} meta={lesson}>
       <Suspense
         fallback={
-          <LessonPlaceholder meta={lesson}>
-            <p role="status" className="text-lg text-muted">
-              Loading lesson…
-            </p>
-          </LessonPlaceholder>
+          <LessonFrame
+            meta={lesson}
+            intro={
+              <p role="status" className="text-lg text-muted">
+                Loading lesson…
+              </p>
+            }
+          />
         }
       >
         <LoadedLesson meta={lesson} />
       </Suspense>
     </LessonLoadBoundary>
-  );
-}
-
-/** The page frame drawn from metadata alone, shown while the lesson's content loads or if it fails. */
-function LessonPlaceholder({ meta, children }: { meta: LessonMeta; children: ReactNode }) {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  useEffect(() => {
-    document.title = `${meta.title} — Stepwise`;
-  }, [meta]);
-
-  return (
-    <div className="mx-auto grid max-w-[1400px] gap-8 px-4 py-6 sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)] lg:py-10 xl:grid-cols-[230px_minmax(0,1fr)_230px]">
-      <aside className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto pr-1 lg:block">
-        <CourseSidebar category={meta.category} activeId={meta.id} />
-      </aside>
-      <article className="min-w-0">
-        <header className="space-y-4">
-          {/* The same "Lessons" button as the loaded page, so the header doesn't shift when content arrives. */}
-          <div className="flex items-center gap-3 lg:hidden">
-            <LessonsButton onClick={() => setDrawerOpen(true)} />
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-            <Link to={`/${meta.category}`} className="hover:text-text">
-              {CATEGORY_TITLE[meta.category]}
-            </Link>
-            {meta.group && (
-              <>
-                <span aria-hidden>/</span>
-                <span>{meta.group}</span>
-              </>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{meta.title}</h1>
-            <DifficultyBadge difficulty={meta.difficulty} />
-          </div>
-          {children}
-        </header>
-      </article>
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Lessons">
-        <div onClick={(e) => (e.target as HTMLElement).closest('a') && setDrawerOpen(false)}>
-          <CourseSidebar category={meta.category} activeId={meta.id} />
-        </div>
-      </Drawer>
-    </div>
   );
 }
 
@@ -417,15 +402,18 @@ class LessonLoadBoundary extends Component<{ meta: LessonMeta; children: ReactNo
     const { failure } = this.state;
     if (!failure) return this.props.children;
     return (
-      <LessonPlaceholder meta={this.props.meta}>
-        <div role="alert" className="card flex flex-col items-start gap-3 p-6">
-          <p className="flex items-center gap-2 font-medium">
-            <TriangleAlert size={18} aria-hidden className="text-danger" />
-            {failure === 'download' ? "This lesson couldn't be downloaded." : 'Something went wrong while showing this lesson.'}
-          </p>
-          <Button onClick={() => window.location.reload()}>{failure === 'download' ? 'Try again' : 'Reload page'}</Button>
-        </div>
-      </LessonPlaceholder>
+      <LessonFrame
+        meta={this.props.meta}
+        intro={
+          <div role="alert" className="card flex flex-col items-start gap-3 p-6">
+            <p className="flex items-center gap-2 font-medium">
+              <TriangleAlert size={18} aria-hidden className="text-danger" />
+              {failure === 'download' ? "This lesson couldn't be downloaded." : 'Something went wrong while showing this lesson.'}
+            </p>
+            <Button onClick={() => window.location.reload()}>{failure === 'download' ? 'Try again' : 'Reload page'}</Button>
+          </div>
+        }
+      />
     );
   }
 }

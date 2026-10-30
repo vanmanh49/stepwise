@@ -4,11 +4,11 @@ An interactive platform for learning data structures, algorithms, SQL, microserv
 
 Every lesson has a visualization you control: play, pause, step forward and back, change the speed, and run it on your own data. Each step explains what happened and why, and highlights the line of code responsible.
 
-![Stepwise home page: the "Learn Data Structures & Algorithms Visually" hero with a live Bubble Sort preview](docs/screenshot.png)
+![Stepwise home page: the "Learn How Software Works, Step by Step" hero with a live Bubble Sort preview](docs/screenshot.png)
 
 ## Features
 
-- **139 interactive lessons**
+- **155 interactive lessons**
   - Data structures (19): Array, String, Linked List, Stack, Queue, Hash Table, Binary Tree, Binary Search Tree, Heap, Priority Queue, Graph, Trie, AVL Tree, Red-Black Tree, Disjoint Set / Union Find, Segment Tree, Fenwick Tree, B-Tree / B+ Tree, Graph Representations
   - Algorithms (39): Linear Search, Binary Search, Bubble Sort, Selection Sort, Insertion Sort, Two Pointers, Sliding Window, Prefix Sum, Merge Sort, Quick Sort, Heap Sort, Counting Sort, Radix Sort, Recursion Fundamentals, Backtracking, Divide and Conquer, BFS, DFS, Topological Sort, Tree Traversal, Lowest Common Ancestor, Dijkstra, Bellman-Ford, Floyd-Warshall, Kruskal, Prim, Fibonacci DP, 0/1 Knapsack, Coin Change, Longest Common Subsequence, Longest Increasing Subsequence, Grid DP, Greedy Algorithms, Union Find, KMP, Rabin-Karp, A*, Network Flow, Advanced Graph Algorithms
   - SQL (28): SELECT and FROM, WHERE, NULL and three-valued logic, ORDER BY and LIMIT, DISTINCT, aggregates, INSERT / UPDATE / DELETE, GROUP BY and HAVING, INNER JOIN, LEFT JOIN, subqueries, self joins, many-to-many joins, CREATE TABLE, constraints, CASE, UNION / INTERSECT / EXCEPT, CTEs, recursive CTEs, window functions, views, indexes, query plans, transactions, isolation levels, normalization
@@ -66,7 +66,7 @@ The app uses client-side routing. When deploying the `dist/` folder, configure t
 
 The site is served at https://vanmanh49.github.io/stepwise/ and publishes itself: every push to `main` runs `.github/workflows/deploy.yml`, which installs, tests, builds and deploys. You can also start it by hand from the Actions tab ("Run workflow"). If the tests fail, nothing is published. In the repository settings, Pages → Source must be set to "GitHub Actions".
 
-`npm run build:pages` builds with the `/stepwise/` base path and copies `index.html` to `404.html`, which is how GitHub Pages serves deep links such as `/stepwise/algorithms/bfs`. If the repository is renamed, change the base path in the `build:pages` script.
+`npm run build:pages` builds with the `/stepwise/` base path, writes one HTML file per page plus `sitemap.xml` so search engines can index the lessons, and copies `index.html` to `404.html`, which is how GitHub Pages serves any other deep links such as `/stepwise/algorithms/bfs`. If the repository is renamed, change the base path in the `build:pages` script.
 
 ## Architecture
 

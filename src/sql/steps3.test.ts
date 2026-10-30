@@ -133,7 +133,7 @@ describe('CTE and recursion steps', () => {
 
   it('reports a recursion that never stops', () => {
     const result = querySteps(company, 'WITH RECURSIVE n (x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n) SELECT * FROM n');
-    expect(!result.ok && result.error.message).toBe('This recursion never stops on its own. Add a condition that ends it, such as WHERE n < 10.');
+    expect(!result.ok && result.error.message).toBe("This recursion never stops on its own, and LIMIT can't stop it here. Add a condition that ends it, such as WHERE n < 10.");
   });
 });
 
