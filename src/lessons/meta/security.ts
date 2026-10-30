@@ -42,4 +42,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['ecb', 'cbc', 'ctr', 'gcm', 'aead', 'nonce', 'authenticated encryption', 'mode of operation', 'bit flipping'],
     prerequisites: ['symmetric-encryption'],
   },
+  {
+    id: 'key-exchange',
+    title: 'Key Exchange',
+    category: 'security',
+    difficulty: 'beginner',
+    group: 'Cryptography',
+    description: 'Agree on a shared key in the open with Diffie-Hellman, then let an eavesdropper and a man in the middle attack it.',
+    keywords: ['diffie-hellman', 'dh', 'discrete logarithm', 'forward secrecy', 'man in the middle', 'mitm', 'x25519', 'shared secret'],
+    prerequisites: [],
+  },
 ];

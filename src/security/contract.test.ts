@@ -15,7 +15,9 @@ function valueFor(field: FormField, r: () => number, range?: [number, number]): 
 }
 
 /** The valid range of each number field, so random runs exercise real settings and their extremes. */
-const RANGES: Record<string, Record<string, [number, number]>> = {};
+const RANGES: Record<string, Record<string, [number, number]>> = {
+  'key-exchange': { a: [2, 21], b: [2, 21] },
+};
 
 function checkView(view: View, label: string) {
   if (view.kind === 'panels') return view.panels.forEach((p) => checkView(p.view, label));

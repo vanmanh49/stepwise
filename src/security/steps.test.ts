@@ -51,6 +51,11 @@ describe('security view builders', () => {
     expect(services.links.map((l) => `${l.from}-${l.to}`)).toEqual(['client-server']);
   });
 
+  it('can name the parties', () => {
+    const view = partiesView({ attacker: true, messages: [], known, columns: ['knows'], log: [], names: { client: 'Alice', attacker: 'Eve', server: 'Bob' } });
+    expect((view.panels[0]!.view as ServicesView).nodes.map((n) => n.label)).toEqual(['Alice', 'Eve', 'Bob']);
+  });
+
   it('routes through the attacker when there is one', () => {
     const view = partiesView({ attacker: true, messages: [{ from: 'client', to: 'attacker', label: 'A = 8', role: 'active' }], known, columns: ['knows'], log: ['sent'] });
     const services = view.panels[0]!.view as ServicesView;

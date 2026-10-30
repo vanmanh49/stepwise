@@ -78,16 +78,17 @@ interface PartiesInput {
   known: { party: string; values: string[] }[];
   columns: string[];
   log: string[];
+  names?: { client: string; attacker: string; server: string };
 }
 
 /** Who talks to whom on the wire, above what each party knows. An attacker sits between the two. */
-export function partiesView({ attacker, messages, known, columns, log }: PartiesInput): PanelsView {
+export function partiesView({ attacker, messages, known, columns, log, names = { client: 'Client', attacker: 'Attacker', server: 'Server' } }: PartiesInput): PanelsView {
   const node = (id: string, label: string, type: ServicesView['nodes'][number]['type'], column: number) => ({ id, label, type, column, role: 'default' as const });
   const services: ServicesView = {
     kind: 'services',
     nodes: attacker
-      ? [node('client', 'Client', 'client', 0), node('attacker', 'Attacker', 'attacker', 1), node('server', 'Server', 'service', 2)]
-      : [node('client', 'Client', 'client', 0), node('server', 'Server', 'service', 1)],
+      ? [node('client', names.client, 'client', 0), node('attacker', names.attacker, 'attacker', 1), node('server', names.server, 'service', 2)]
+      : [node('client', names.client, 'client', 0), node('server', names.server, 'service', 1)],
     links: (attacker
       ? [['client', 'attacker'], ['attacker', 'server']]
       : [['client', 'server']]
