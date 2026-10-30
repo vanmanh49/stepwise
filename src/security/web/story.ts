@@ -9,8 +9,11 @@ export type NodeId = 'browser' | 'attacker' | 'evil' | 'shop' | 'login' | 'db' |
 
 export type Note = { from: NodeId; to: NodeId; label: string };
 
+/** Lines that wrap, such as a query or a page, each under a label. */
+export type TextPanel = { label: string; lines: Record<string, string> };
+
 export type Story = {
-  step(input: { title: string; why: string; next?: string; line: string; variables?: Step['variables']; rows?: GridView; note?: Note }): void;
+  step(input: { title: string; why: string; next?: string; line: string; variables?: Step['variables']; rows?: GridView; text?: TextPanel; note?: Note }): void;
   steps: Step[];
 };
 
@@ -71,6 +74,11 @@ export function rowsGrid(rows: Record<string, unknown>[], prefix: string): GridV
   };
 }
 
+export const textGrid = (lines: Record<string, string>, prefix: string): GridView => ({
+  kind: 'grid',
+  rows: Object.entries(lines).map(([label, value], i) => ({ label, cells: [{ id: `${prefix}-${i}`, value, role: 'default' }] })),
+});
+
 export const resultOf = (ok: boolean): 'attacker in' | 'stopped' => (ok ? 'attacker in' : 'stopped');
 
 const labelOf = (event: WebEvent) => `${event.request.method} ${pathOf(event.request.url)}`;
@@ -101,13 +109,14 @@ export function createStory({ world, code, nodes }: { world: World; code: string
 
   return {
     steps,
-    step: ({ title, why, next, line, variables, rows, note }) => {
+    step: ({ title, why, next, line, variables, rows, text, note }) => {
       const codeLine = lineOf(code, line);
       if (steps.length === MAX_STEPS) return;
       const panels: PanelsView['panels'] = [
         { label: 'On the wire', view: services(note) },
         { label: 'Cookies', view: cookieGrid(world) },
       ];
+      if (text) panels.push({ label: text.label, view: textGrid(text.lines, `text-${steps.length}`) });
       if (rows) panels.push({ label: 'Rows', view: rows });
       steps.push({ title, why, ...(next && { next }), codeLine, ...(variables && { variables }), view: { kind: 'panels', panels } });
     },

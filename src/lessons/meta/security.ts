@@ -152,4 +152,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['authorization', 'idor', 'broken access control', 'mass assignment', 'role', 'rbac', '403', 'deny by default', 'owasp'],
     prerequisites: ['sessions-cookies'],
   },
+  {
+    id: 'same-origin-cors',
+    title: 'Same-Origin & CORS',
+    category: 'security',
+    difficulty: 'advanced',
+    group: 'Web Attacks & Defenses',
+    description: 'Let a page on evil.example call a signed-in shop, and watch four CORS settings decide what it may read and change.',
+    keywords: ['same-origin policy', 'sop', 'cors', 'origin', 'preflight', 'options', 'access-control-allow-origin', 'credentials', 'wildcard'],
+    prerequisites: ['sessions-cookies'],
+  },
 ];

@@ -44,6 +44,7 @@ export function createEvil(): Site {
     origin: EVIL_ORIGIN,
     party: 'evil',
     routes: [
+      { method: 'GET', path: '/', handler: () => response(200, 'Free cat pictures!') },
       { method: 'GET', path: '/cb', handler: () => response(200, 'Thanks for the code.') },
       { method: 'POST', path: '/phish', handler: relay },
       { method: 'GET', path: '/c', handler: () => response(200, 'Thanks.') },

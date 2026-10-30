@@ -178,6 +178,7 @@ const EXPECTED_IDS = [
   'oauth-pkce',
   'openid-connect',
   'access-control',
+  'same-origin-cors',
 ];
 
 describe('lesson registry', () => {
