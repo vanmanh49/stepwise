@@ -164,6 +164,7 @@ const EXPECTED_IDS = [
   'prompt-injection-guardrails',
   'human-in-the-loop',
   'hash-functions',
+  'message-authentication',
 ];
 
 describe('lesson registry', () => {

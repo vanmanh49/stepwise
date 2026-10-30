@@ -12,4 +12,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['hash', 'sha-256', 'sha256', 'digest', 'avalanche effect', 'collision', 'checksum', 'fingerprint'],
     prerequisites: [],
   },
+  {
+    id: 'message-authentication',
+    title: 'Message Authentication',
+    category: 'security',
+    difficulty: 'beginner',
+    group: 'Cryptography',
+    description: 'Forge a tag without the key against a naive hash, then watch HMAC stop the same attack.',
+    keywords: ['mac', 'hmac', 'tag', 'length extension', 'message authentication code', 'signed webhook'],
+    prerequisites: ['hash-functions'],
+  },
 ];
