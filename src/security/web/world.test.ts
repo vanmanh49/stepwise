@@ -104,3 +104,19 @@ describe('repeat runs', () => {
     expect(play()).toEqual(play());
   });
 });
+
+describe('site names', () => {
+  const internal: Site = { origin: 'http://metadata.internal', party: 'internal', hosts: ['169.254.169.254'], routes: [{ method: 'GET', path: '/', handler: () => response(200, 'secret') }] };
+
+  it('answers a request from the shop on any of its hosts', () => {
+    const world = createWorld([internal]);
+    expect(world.send(get('http://metadata.internal/'), 'shop').status).toBe(200);
+    expect(world.send(get('http://169.254.169.254/'), 'shop').status).toBe(200);
+  });
+
+  it.each(['browser', 'attacker', 'evil'] as const)('gives %s a network error', (from) => {
+    const world = createWorld([internal]);
+    expect(world.send(get('http://metadata.internal/'), from).status).toBe(0);
+    expect(world.events[0]!.to).toBeNull();
+  });
+});

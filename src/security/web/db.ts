@@ -48,6 +48,7 @@ export function createDb(users: { name: string; role: string; hash: string; salt
         columns: [{ name: 'id', type: 'INTEGER', primaryKey: true }, text('owner'), text('item'), { name: 'total', type: 'INTEGER' }],
         rows: ORDERS.map((order) => [order.id, order.owner, order.item, order.total]),
       },
+      { name: 'comments', columns: [{ name: 'id', type: 'INTEGER', primaryKey: true }, text('author'), text('body')], rows: [] },
     ],
   };
 

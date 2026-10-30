@@ -9,6 +9,8 @@ import { TOKEN_SECRET, TOTP_SECRET, USERS } from './data';
 import { createDb, quote, sql } from './db';
 import { cookiesOf, pathOf, queryOf, response, type SetCookie, type WebRequest, type WebResponse } from './http';
 import { oauthRoutes } from './shop-oauth';
+import { corsHeaders } from './shop-cors';
+import { blockedInput, pageRoutes, REFUSED_INPUT } from './shop-pages';
 import { FILES, FILES_ROOT, resolvePath, runArgs, runShell } from './shell';
 import { randomHex, type Handler, type Route, type Site } from './site';
 import type { World } from './world';
@@ -36,7 +38,7 @@ export type ShopOptions = {
   users: readonly { name: string; password: string; role: string }[];
   storage: Storage;
   limit: 'none' | 'ip' | 'lockout';
-  cookie: { httpOnly: boolean; secure: boolean };
+  cookie: { httpOnly: boolean; secure: boolean; sameSite: 'Strict' | 'Lax' | 'None' };
   rotateOnSignIn: boolean;
   randomIds: boolean;
   revokeOnSignOut: boolean;
@@ -47,6 +49,12 @@ export type ShopOptions = {
   idToken: { aud: boolean; nonce: boolean; exp: boolean; idTokenOnly: boolean };
   queries: 'string' | 'blocklist' | 'parameters';
   commands: 'shell' | 'blocklist' | 'noShell';
+  encode: boolean;
+  csp: 'none' | 'unsafeInline' | 'nonce';
+  cors: 'none' | 'one' | 'reflect' | 'wildcard';
+  csrf: 'none' | 'token' | 'origin';
+  preview: 'open' | 'blocklist' | 'allowList';
+  egress: boolean;
 };
 
 /** Every control on. A lesson turns one off to show what it stops. */
@@ -54,7 +62,7 @@ export const SAFE_SHOP: ShopOptions = {
   users: USERS,
   storage: 'pbkdf2',
   limit: 'lockout',
-  cookie: { httpOnly: true, secure: true },
+  cookie: { httpOnly: true, secure: true, sameSite: 'Lax' },
   rotateOnSignIn: true,
   randomIds: true,
   revokeOnSignOut: true,
@@ -65,6 +73,12 @@ export const SAFE_SHOP: ShopOptions = {
   idToken: { aud: true, nonce: true, exp: true, idTokenOnly: true },
   queries: 'parameters',
   commands: 'noShell',
+  encode: true,
+  csp: 'nonce',
+  cors: 'none',
+  csrf: 'token',
+  preview: 'allowList',
+  egress: true,
 };
 
 export const DEFAULT_TOKEN = { verifySignature: true, fixedAlg: true, secret: TOKEN_SECRET, ttl: 300 };
@@ -77,9 +91,6 @@ export function hashPassword(password: string, storage: Storage, salt: string): 
 
 /** A fixed salt per name, so runs repeat. Real salts come from a random generator. */
 export const saltFor = (name: string, storage: Storage): string => (storage === 'salted' || storage === 'pbkdf2' ? hex(sha256(utf8(name))).slice(0, 8) : '');
-
-/** A real blocklist that really fails: it knows the exact text, so lower case gets through. */
-export const blockedInput = (text: string): boolean => ['OR', 'UNION', '--'].some((word) => text.includes(word));
 
 type Account = { name: string; role: string };
 
@@ -99,7 +110,7 @@ export function createShop(overrides: Partial<ShopOptions> = {}): Site {
   let nextId = FIRST_GUESSABLE_ID;
 
   const newId = (world: World) => (options.randomIds ? randomHex(world, 16) : String(nextId++));
-  const flags: Partial<SetCookie> = { path: '/', sameSite: 'Lax', ...options.cookie };
+  const flags: Partial<SetCookie> = { path: '/', ...options.cookie };
 
   const userNamed = (name: string) => db.query(sql`SELECT * FROM users WHERE name = ${name}`)[0];
   const sessionOf = (request: WebRequest) => db.query(sql`SELECT * FROM sessions WHERE id = ${cookiesOf(request).sid ?? ''}`)[0];
@@ -126,10 +137,10 @@ export function createShop(overrides: Partial<ShopOptions> = {}): Site {
 
   /** Every page goes through here, so a page is closed unless it says otherwise. */
   const signedIn =
-    (page: (account: Account, request: WebRequest) => WebResponse): Handler =>
+    (page: (account: Account, request: WebRequest, world: World) => WebResponse): Handler =>
     (request, world) => {
       const account = accountOf(request, world);
-      return account ? page(account, request) : response(401, 'Sign in first.');
+      return account ? page(account, request, world) : response(401, 'Sign in first.');
     };
 
   function refusedByLimit(name: string, ip: string, now: number): WebResponse | null {
@@ -163,8 +174,6 @@ export function createShop(overrides: Partial<ShopOptions> = {}): Site {
     const result = db.execute(statement);
     return result.ok ? { rows: result.rows } : response(500, `SQL error: ${result.error}`);
   }
-
-  const REFUSED_INPUT = 'That input was refused.';
 
   function signInByString(request: WebRequest, world: World): WebResponse {
     const { name = '', password = '' } = request.body;
@@ -250,14 +259,6 @@ export function createShop(overrides: Partial<ShopOptions> = {}): Site {
     return response(200, `Users: ${db.rows('users').map((user) => user.name).join(', ')}.`);
   });
 
-  const search: Handler = (request) => {
-    const q = queryOf(request.url).q ?? '';
-    if (options.queries === 'blocklist' && blockedInput(q)) return response(400, REFUSED_INPUT);
-    const answer = runBuilt(options.queries === 'parameters' ? sql`SELECT item, total, owner FROM orders WHERE item LIKE ${`%${q}%`}` : `SELECT item, total, owner FROM orders WHERE item LIKE '%${q}%'`);
-    if ('status' in answer) return answer;
-    return response(200, [`Results for ${q}:`, ...answer.rows.map((row) => Object.values(row).join(' | '))].join('\n'), { rows: answer.rows });
-  };
-
   const ping: Handler = (request) => {
     const host = queryOf(request.url).host ?? '';
     if (options.commands === 'noShell' && !VALID_HOST.test(host)) return response(400, 'That is not a host name.');
@@ -277,20 +278,29 @@ export function createShop(overrides: Partial<ShopOptions> = {}): Site {
     return content === undefined ? response(404, 'No such file.') : response(200, content);
   };
 
+  const withCors =
+    (handler: Handler): Handler =>
+    (request, world) => {
+      const answer = handler(request, world);
+      return { ...answer, headers: { ...answer.headers, ...corsHeaders(options.cors, request) } };
+    };
+
   const routes: Route[] = [
     { method: 'POST', path: '/signin', handler: signIn },
     { method: 'POST', path: '/signin/code', handler: checkCode },
     { method: 'GET', path: '/signin/challenge', handler: challenge },
     { method: 'POST', path: '/signin/passkey', handler: checkPasskey },
     { method: 'POST', path: '/signout', handler: signOut },
-    { method: 'GET', path: '/account', handler: accountPage },
+    { method: 'GET', path: '/account', handler: withCors(accountPage) },
     { method: 'POST', path: '/account', handler: editAccount },
+    { method: 'OPTIONS', path: '/account', handler: withCors(() => response(204)) },
+    { method: 'PUT', path: '/account', handler: withCors(editAccount) },
     { method: 'GET', path: /^\/orders\/\d+$/, handler: orderPage },
     { method: 'GET', path: '/admin', handler: adminPage },
-    { method: 'GET', path: '/search', handler: search },
     { method: 'GET', path: '/ping', handler: ping },
     { method: 'GET', path: '/download', handler: download },
     ...oauthRoutes({ options, db, flags, startSession }),
+    ...pageRoutes({ options, db, origin: SHOP_ORIGIN, signedIn, runBuilt }),
   ];
   return { origin: SHOP_ORIGIN, party: 'shop', routes, db, trace };
 }

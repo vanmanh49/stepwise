@@ -17,12 +17,13 @@ describe('sql', () => {
 });
 
 describe('createDb', () => {
-  it('has the three tables, with the orders loaded', () => {
+  it('has its tables, with the orders loaded', () => {
     const db = createDb(USERS);
     expect(db.rows('users').map((r) => r.name)).toEqual(['alice']);
     expect(db.rows('sessions')).toEqual([]);
     expect(db.rows('orders')).toHaveLength(ORDERS.length);
     expect(db.rows('orders')[0]).toEqual({ id: 101, owner: 'alice', item: 'Lamp', total: 40 });
+    expect(db.rows('comments')).toEqual([]);
   });
 
   it('reads back a name with a quote mark unchanged', () => {

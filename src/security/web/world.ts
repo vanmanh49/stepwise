@@ -26,10 +26,12 @@ export function createWorld(sites: Site[], seed = 1): World {
   const events: WebEvent[] = [];
   const random = seeded(seed);
 
-  const siteFor = (host: string) => sites.find((site) => hostOf(site.origin) === host) ?? (host.endsWith('.evil.example') ? sites.find((site) => site.party === 'evil') : undefined);
+  const siteFor = (host: string) => sites.find((site) => hostOf(site.origin) === host || site.hosts?.includes(host)) ?? (host.endsWith('.evil.example') ? sites.find((site) => site.party === 'evil') : undefined);
 
   const send: Network['send'] = (request, from) => {
-    const site = siteFor(hostOf(request.url));
+    const found = siteFor(hostOf(request.url));
+    // Internal hosts answer only the server, so a typed address in a browser can't reach them.
+    const site = found?.party === 'internal' && from !== 'shop' ? undefined : found;
     // In the list before the handler runs, so a request appears ahead of any it causes.
     const event: WebEvent = { from, to: site?.party ?? null, request, response: response(0, 'Network error: no such host'), at: time };
     events.push(event);

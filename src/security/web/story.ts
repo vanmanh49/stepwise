@@ -5,7 +5,7 @@ import { pathOf } from './http';
 import type { StoredCookie } from './browser';
 import type { WebEvent, World } from './world';
 
-export type NodeId = 'browser' | 'attacker' | 'evil' | 'shop' | 'login' | 'db';
+export type NodeId = 'browser' | 'attacker' | 'evil' | 'shop' | 'login' | 'db' | 'internal' | 'images';
 
 export type Note = { from: NodeId; to: NodeId; label: string };
 
@@ -21,6 +21,8 @@ const NODES: Record<NodeId, { label: string; type: ServicesView['nodes'][number]
   login: { label: 'login.example', type: 'service', column: 1 },
   evil: { label: 'evil.example', type: 'attacker', column: 1 },
   db: { label: 'Shop db', type: 'db', column: 2 },
+  internal: { label: 'Internal network', type: 'service', column: 2 },
+  images: { label: 'images.example', type: 'service', column: 2 },
 };
 
 const LINKS: [NodeId, NodeId][] = [
@@ -35,6 +37,8 @@ const LINKS: [NodeId, NodeId][] = [
   ['evil', 'login'],
   ['shop', 'db'],
   ['attacker', 'db'],
+  ['shop', 'internal'],
+  ['shop', 'images'],
 ];
 
 const LOG_LINES = 4;

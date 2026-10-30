@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { GridView, PanelsView, ServicesView } from '../../types/visualization';
 import { MAX_STEPS } from '../steps';
 import { createEvil } from './evil';
+import { createInternal } from './internal';
 import { createLogin, LOGIN_ORIGIN } from './login';
 import { createShop, SHOP_ORIGIN } from './shop';
 import { cookieGrid, createStory, resultOf, rowsGrid, type NodeId } from './story';
@@ -158,5 +159,15 @@ describe('resultOf', () => {
   it('names the two outcomes', () => {
     expect(resultOf(true)).toBe('attacker in');
     expect(resultOf(false)).toBe('stopped');
+  });
+});
+
+describe('the inside of the network', () => {
+  it('draws the shop asking the internal site', () => {
+    const world = createWorld([createShop({ preview: 'open' }), createInternal()]);
+    const story = createStory({ world, code: CODE, nodes: ['browser', 'shop', 'internal'] });
+    world.browser.visit(`${SHOP_ORIGIN}/preview?url=http://metadata.internal/latest/credentials`);
+    story.step({ title: 'Preview', why: 'Because.', line: 'first' });
+    expect(wire(story.steps[0]!.view).messages.map((m) => [m.from, m.to])).toEqual([['browser', 'shop'], ['shop', 'internal']]);
   });
 });

@@ -5,7 +5,8 @@ import { pbkdf2 } from '../crypto/pbkdf2';
 import { sha256 } from '../crypto/sha256';
 import { totp } from '../crypto/totp';
 import { TOKEN_SECRET, TOTP_SECRET } from './data';
-import { blockedInput, hashPassword, createShop, PASSKEY_KEY, ROUNDS, SAFE_SHOP, type ShopOptions } from './shop';
+import { hashPassword, createShop, PASSKEY_KEY, ROUNDS, SAFE_SHOP, type ShopOptions } from './shop';
+import { blockedInput } from './shop-pages';
 import { createWorld, type World } from './world';
 
 const SHOP = 'https://shop.example';
@@ -64,7 +65,7 @@ describe('signing in', () => {
   });
 
   it('applies the cookie flags', () => {
-    const { world, signIn } = setup({ cookie: { httpOnly: false, secure: false } });
+    const { world, signIn } = setup({ cookie: { httpOnly: false, secure: false, sameSite: 'Lax' } });
     signIn();
     expect(world.browser.jar()[0]).toMatchObject({ httpOnly: false, secure: false, sameSite: 'Lax' });
   });

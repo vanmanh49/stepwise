@@ -1,7 +1,7 @@
 import { sign, type RsaKey } from '../crypto/rsa';
 import { cookieHeader, hostOf, originOf, pathOf, siteOf, type SetCookie, type WebRequest, type WebResponse } from './http';
 
-export type Party = 'browser' | 'attacker' | 'evil' | 'shop' | 'login';
+export type Party = 'browser' | 'attacker' | 'evil' | 'shop' | 'login' | 'internal' | 'images';
 
 export type StoredCookie = SetCookie & { host: string; expires?: number };
 
@@ -9,7 +9,7 @@ export type Network = { send(request: WebRequest, from: Party): WebResponse; now
 
 export type FetchResult = { sent: boolean; status: number; readable: boolean; body: string | null; blockedBy?: string };
 
-export type FetchOptions = { method?: 'GET' | 'PUT'; credentials?: boolean; headers?: Record<string, string> };
+export type FetchOptions = { method?: 'GET' | 'PUT'; credentials?: boolean; headers?: Record<string, string>; body?: Record<string, string> };
 
 export type Browser = {
   jar(): StoredCookie[];
@@ -113,7 +113,7 @@ export function createBrowser(network: Network): Browser {
   const visit: Browser['visit'] = (url, initiator, stopBefore) => follow(url, initiator, stopBefore);
 
   // shortcut: fetch does not follow redirects, so a payload sees the 3xx; follow them if a lesson needs it.
-  const fetchFrom: Browser['fetchFrom'] = (origin, url, { method = 'GET', credentials = false, headers = {} } = {}) => {
+  const fetchFrom: Browser['fetchFrom'] = (origin, url, { method = 'GET', credentials = false, headers = {}, body = {} } = {}) => {
     const sameOrigin = originOf(url) === origin;
     const custom = Object.keys(headers);
     if (!sameOrigin && (method !== 'GET' || custom.length > 0)) {
@@ -121,7 +121,7 @@ export function createBrowser(network: Network): Browser {
       const blockedBy = preflightRefusal(preflight, origin, credentials, method, custom);
       if (blockedBy) return { sent: false, status: preflight.status, readable: false, body: null, blockedBy };
     }
-    const answer = send(method, url, {}, origin, { credentials, subresource: true, headers: { ...headers, ...((!sameOrigin || method !== 'GET') && { origin }) } });
+    const answer = send(method, url, body, origin, { credentials, subresource: true, headers: { ...headers, ...((!sameOrigin || method !== 'GET') && { origin }) } });
     const blockedBy = answer.status === 0 ? 'no such host' : sameOrigin ? undefined : corsRefusal(answer, origin, credentials);
     return blockedBy ? { sent: true, status: answer.status, readable: false, body: null, blockedBy } : { sent: true, status: answer.status, readable: true, body: answer.body };
   };
