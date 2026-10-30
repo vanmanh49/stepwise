@@ -179,6 +179,7 @@ const EXPECTED_IDS = [
   'openid-connect',
   'access-control',
   'same-origin-cors',
+  'sql-injection',
 ];
 
 describe('lesson registry', () => {

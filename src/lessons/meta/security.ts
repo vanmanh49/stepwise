@@ -162,4 +162,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['same-origin policy', 'sop', 'cors', 'origin', 'preflight', 'options', 'access-control-allow-origin', 'credentials', 'wildcard'],
     prerequisites: ['sessions-cookies'],
   },
+  {
+    id: 'sql-injection',
+    title: 'SQL Injection',
+    category: 'security',
+    difficulty: 'advanced',
+    group: 'Web Attacks & Defenses',
+    description: 'Type real payloads into a shop\'s sign-in and search, watch the final query change shape, then beat a blocklist and meet parameters.',
+    keywords: ['sql injection', 'sqli', 'parameterized query', 'prepared statement', 'bound parameter', 'union', 'blocklist', 'string concatenation', 'drop table'],
+    prerequisites: ['password-storage'],
+  },
 ];
