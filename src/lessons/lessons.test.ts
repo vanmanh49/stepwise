@@ -172,6 +172,7 @@ const EXPECTED_IDS = [
   'certificates-tls',
   'password-storage',
   'credential-attacks',
+  'sessions-cookies',
 ];
 
 describe('lesson registry', () => {

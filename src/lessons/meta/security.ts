@@ -92,4 +92,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['brute force', 'credential stuffing', 'password spraying', 'rate limit', 'lockout', 'sign-in', 'breach', 'mfa'],
     prerequisites: ['password-storage'],
   },
+  {
+    id: 'sessions-cookies',
+    title: 'Sessions & Cookies',
+    category: 'security',
+    difficulty: 'intermediate',
+    group: 'Identity & Access',
+    description: 'Steal a real session five ways, and turn on the one cookie flag or server check that stops each.',
+    keywords: ['session', 'cookie', 'httponly', 'secure', 'samesite', 'session fixation', 'session hijacking', 'sign out', 'logout'],
+    prerequisites: ['certificates-tls'],
+  },
 ];

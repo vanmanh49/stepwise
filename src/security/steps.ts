@@ -1,12 +1,21 @@
-import { readText, type Read } from '../algorithms/form';
-import type { ArrayView, GridView, PanelsView, Role, ServicesView } from '../types/visualization';
+import { readChoice, readText, refusal, type Read } from '../algorithms/form';
+import type { ArrayView, GridView, PanelsView, Role, ServicesView, Step } from '../types/visualization';
 import { utf8 } from './crypto/bytes';
 
 export const MAX_STEPS = 200;
 
 export const EMPTY: ArrayView = { kind: 'array', cells: [] };
 
-export const DEFENSE_OPTIONS = ['Off', 'On'] as const;
+export const DEFENSE_OPTIONS = ['Off', 'On'];
+
+/** Reads the `attack` and `defense` fields every attack lesson has, refusing bad ones with one step. */
+export function attackSteps(values: Record<string, string>, attacks: string[], run: (attack: string, defended: boolean) => Step[]): Step[] {
+  const attack = readChoice(values, 'attack', 'Attack', attacks);
+  if (!attack.ok) return refusal('Cannot run this attack', attack.why, EMPTY);
+  const defense = readChoice(values, 'defense', 'Defense', DEFENSE_OPTIONS);
+  if (!defense.ok) return refusal('Cannot run this attack', defense.why, EMPTY);
+  return run(attack.value, defense.value === 'On');
+}
 
 /** A text field limited in bytes, which is what the algorithms count. */
 export function readBytes(values: Record<string, string>, name: string, label: string, length: { min: number; max: number }): Read<string> {
