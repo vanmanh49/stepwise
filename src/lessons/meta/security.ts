@@ -102,4 +102,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['session', 'cookie', 'httponly', 'secure', 'samesite', 'session fixation', 'session hijacking', 'sign out', 'logout'],
     prerequisites: ['certificates-tls'],
   },
+  {
+    id: 'json-web-tokens',
+    title: 'JSON Web Tokens',
+    category: 'security',
+    difficulty: 'intermediate',
+    group: 'Identity & Access',
+    description: 'Sign real HS256 tokens, then attack them: edit the payload, set alg to none, guess the secret and steal one.',
+    keywords: ['jwt', 'json web token', 'hs256', 'alg none', 'claims', 'bearer token', 'signature', 'exp', 'stateless'],
+    prerequisites: ['message-authentication', 'sessions-cookies'],
+  },
 ];
