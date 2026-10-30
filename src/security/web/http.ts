@@ -1,4 +1,4 @@
-export type WebRequest = { method: 'GET' | 'POST'; url: string; headers: Record<string, string>; body: Record<string, string> };
+export type WebRequest = { method: 'GET' | 'POST' | 'PUT' | 'OPTIONS'; url: string; headers: Record<string, string>; body: Record<string, string> };
 
 export type SetCookie = {
   name: string;

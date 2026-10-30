@@ -164,3 +164,92 @@ describe('passkeys', () => {
     expect(browser.passkeySign('https://evil.example', 'c1')).toBeNull();
   });
 });
+
+describe('subresource requests', () => {
+  it.each<[string, Partial<SetCookie>, string, boolean]>([
+    ['Lax across sites', { sameSite: 'Lax' }, EVIL, false],
+    ['no SameSite across sites', {}, EVIL, false],
+    ['None with Secure across sites', { sameSite: 'None', secure: true }, EVIL, true],
+    ['Strict on the same site', { sameSite: 'Strict' }, SHOP, true],
+  ])('%s', (_name, flags, initiator, sent) => {
+    const { browser } = setup();
+    browser.plant(SHOP, cookie(flags));
+    expect('sid' in browser.cookiesFor(SHOP, initiator, 'GET', true)).toBe(sent);
+  });
+
+  it('sends a GET with no origin header', () => {
+    const { browser, sent } = setup();
+    browser.subresource(SHOP, EVIL);
+    expect(sent[0]).toMatchObject({ method: 'GET', url: SHOP });
+    expect(sent[0]!.headers.origin).toBeUndefined();
+  });
+
+  it('sends no Lax cookie across sites, and sends a None one', () => {
+    const { browser, sent } = setup();
+    browser.plant(SHOP, cookie({ sameSite: 'Lax' }));
+    browser.subresource(SHOP, EVIL);
+    browser.plant(SHOP, cookie({ sameSite: 'None', secure: true }));
+    browser.subresource(SHOP, EVIL);
+    expect(sent.map((request) => request.headers.cookie)).toEqual([undefined, 'sid=v']);
+  });
+
+  it('follows a redirect under the same rules', () => {
+    const { browser, sent } = setup((request) => (request.url === SHOP ? response(302, '', { redirect: `${EVIL}/next` }) : response(200, 'done')));
+    expect(browser.subresource(SHOP, EVIL).body).toBe('done');
+    expect(sent.map((request) => request.url)).toEqual([SHOP, `${EVIL}/next`]);
+  });
+});
+
+describe('cookie paths', () => {
+  it.each([
+    ['https://shop.example/admin', true],
+    ['https://shop.example/admin/x', true],
+    ['https://shop.example/administrator', false],
+  ])('a path of /admin against %s', (url, sent) => {
+    const { browser } = setup();
+    browser.plant(url, cookie({ path: '/admin' }));
+    expect('sid' in browser.cookiesFor(url)).toBe(sent);
+  });
+
+  it('treats a path ending in a slash as a prefix', () => {
+    const { browser } = setup();
+    browser.plant(SHOP, cookie({ path: '/admin/' }));
+    expect('sid' in browser.cookiesFor('https://shop.example/admin/x')).toBe(true);
+  });
+});
+
+describe('Secure cookies and http', () => {
+  it('rejects a Secure cookie set from http', () => {
+    const { browser } = setup();
+    browser.plant('http://shop.example/', cookie({ secure: true }));
+    expect(browser.jar()).toEqual([]);
+  });
+
+  it('will not let http replace a Secure cookie', () => {
+    const { browser } = setup();
+    browser.plant('https://shop.example/', cookie({ secure: true, value: 'real' }));
+    browser.plant('http://shop.example/', cookie({ value: 'fake' }));
+    expect(browser.jar().map((c) => c.value)).toEqual(['real']);
+  });
+
+  it('lets https replace a Secure cookie', () => {
+    const { browser } = setup();
+    browser.plant('https://shop.example/', cookie({ secure: true, value: 'old' }));
+    browser.plant('https://shop.example/', cookie({ secure: true, value: 'new' }));
+    expect(browser.jar().map((c) => c.value)).toEqual(['new']);
+  });
+});
+
+describe('submit', () => {
+  it('names the initiator in an origin header', () => {
+    const { browser, sent } = setup();
+    browser.submit(SHOP, {}, `${EVIL}/page`);
+    expect(sent[0]!.headers.origin).toBe(EVIL);
+  });
+
+  it('names the page itself when nothing else started the request', () => {
+    const { browser, sent } = setup();
+    browser.submit(SHOP, {});
+    expect(sent[0]!.headers.origin).toBe('https://shop.example');
+  });
+});
