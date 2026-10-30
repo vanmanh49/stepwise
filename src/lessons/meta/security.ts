@@ -82,4 +82,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['password', 'hash', 'salt', 'pbkdf2', 'bcrypt', 'argon2', 'rainbow table', 'credential', 'cracking', 'breach'],
     prerequisites: ['hash-functions'],
   },
+  {
+    id: 'credential-attacks',
+    title: 'Credential Attacks',
+    category: 'security',
+    difficulty: 'intermediate',
+    group: 'Identity & Access',
+    description: 'Run guessing, credential stuffing and password spraying against a real sign-in, and see which limits notice.',
+    keywords: ['brute force', 'credential stuffing', 'password spraying', 'rate limit', 'lockout', 'sign-in', 'breach', 'mfa'],
+    prerequisites: ['password-storage'],
+  },
 ];

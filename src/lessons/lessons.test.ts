@@ -171,6 +171,7 @@ const EXPECTED_IDS = [
   'public-key-signatures',
   'certificates-tls',
   'password-storage',
+  'credential-attacks',
 ];
 
 describe('lesson registry', () => {
