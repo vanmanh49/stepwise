@@ -124,7 +124,7 @@ Vitest, the same pattern as the other tracks:
 - `tls`: the clean run reaches the application record; each attack stops at its named check; client and server derive equal keys.
 - `src/security/contract.test.ts`, as in the other tracks: every Security lesson runs with random and garbage settings; runs stay within 200 steps, code lines are valid, runs repeat exactly, and bad knobs give exactly one refusal step.
 - Curriculum tests: `security` has 23 topics in the order above with three groups, the 7 Cryptography lessons are live, and each one's `concept` mentions "production".
-- Views have no DOM tests in this repo: the parties view, the ECB image and the header are checked by hand in a browser, at 375 px and 1024 px, in both themes.
+- `renderers.test.tsx` already draws every lesson's first, last and quiz steps, so the new lessons are covered with no change. Layout has no DOM tests: the parties view, the ECB image and the header are checked by hand in a browser, at 375 px and 1024 px, in both themes.
 - `npm run check:bundle` stays under 600 kB (402.1 kB before this work). Crypto code loads with the lesson chunks.
 
 ## Touch points
