@@ -1,20 +1,29 @@
+import { readText, type Read } from '../algorithms/form';
 import type { ArrayView, GridView, PanelsView, Role, ServicesView } from '../types/visualization';
-import { hex } from './crypto/bytes';
+import { hex, utf8 } from './crypto/bytes';
 
 export const MAX_STEPS = 200;
 
 export const EMPTY: ArrayView = { kind: 'array', cells: [] };
 
+/** A text field limited in bytes, which is what the algorithms count. */
+export function readBytes(values: Record<string, string>, name: string, label: string, length: { min: number; max: number }): Read<string> {
+  const text = readText(values, name, label, length);
+  if (text.ok && utf8(text.value).length > length.max) return { ok: false, why: `${label} must fit in ${length.max} bytes. Letters like é take two bytes.` };
+  return text;
+}
+
 const hexByte = (byte: number) => byte.toString(16).padStart(2, '0');
 
-const ROW = 8;
+/** Cells are 44 px wide, and a phone's stage holds 6 of them. */
+const SIDE = 6;
+const ACROSS = Array.from({ length: SIDE }, (_, i) => i);
 
-/** Bytes in rows of 8, which fits a phone. Rows are labelled with the offset of their first byte. */
+/** Bytes in rows of 6, with no row labels, so they fit a phone without scrolling. */
 export function byteGrid(bytes: Uint8Array, prefix: string, role: (index: number) => Role = () => 'default'): GridView {
   const rows: GridView['rows'] = [];
-  for (let at = 0; at < bytes.length; at += ROW) {
-    const cells = Array.from(bytes.subarray(at, at + ROW), (byte, i) => ({ id: `${prefix}-${at + i}`, value: hexByte(byte), role: role(at + i) }));
-    rows.push({ label: String(at), cells });
+  for (let at = 0; at < bytes.length; at += SIDE) {
+    rows.push({ cells: Array.from(bytes.subarray(at, at + SIDE), (byte, i) => ({ id: `${prefix}-${at + i}`, value: hexByte(byte), role: role(at + i) })) });
   }
   return { kind: 'grid', rows };
 }
@@ -32,13 +41,13 @@ export function stateGrid(state: Uint8Array, prefix: string, role: (index: numbe
   };
 }
 
-/** An 8×8 picture: one shaded cell per block. */
+/** A 6×6 picture: one shaded cell per block. */
 export function imageGrid(heats: number[], values: string[], prefix: string): GridView {
   return {
     kind: 'grid',
-    rows: Array.from({ length: 8 }, (_, row) => ({
-      cells: Array.from({ length: 8 }, (_, col) => {
-        const index = row * 8 + col;
+    rows: ACROSS.map((row) => ({
+      cells: ACROSS.map((col) => {
+        const index = row * SIDE + col;
         return { id: `${prefix}-${index}`, value: values[index]!, role: 'default' as const, heat: heats[index]! };
       }),
     })),

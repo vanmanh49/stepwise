@@ -163,6 +163,7 @@ const EXPECTED_IDS = [
   'mcp',
   'prompt-injection-guardrails',
   'human-in-the-loop',
+  'hash-functions',
 ];
 
 describe('lesson registry', () => {

@@ -5,9 +5,9 @@ import { byteGrid, compareDigests, imageGrid, partiesView, stateGrid } from './s
 const ids = (grid: GridView) => grid.rows.flatMap((r) => r.cells.map((c) => c!.id));
 
 describe('security view builders', () => {
-  it('lays bytes out in rows of 8 with stable, unique ids', () => {
+  it('lays bytes out in rows of 6 with stable, unique ids', () => {
     const grid = byteGrid(new Uint8Array(20), 'm');
-    expect(grid.rows.map((r) => r.cells.length)).toEqual([8, 8, 4]);
+    expect(grid.rows.map((r) => r.cells.length)).toEqual([6, 6, 6, 2]);
     expect(new Set(ids(grid)).size).toBe(20);
     expect(ids(grid)).toEqual(ids(byteGrid(new Uint8Array(20).fill(7), 'm')));
   });
@@ -36,10 +36,10 @@ describe('security view builders', () => {
     expect(second.rows[0]!.cells.map((c) => c!.role)).toEqual(['default', 'compare']);
   });
 
-  it('draws an 8×8 image with heat', () => {
-    const grid = imageGrid(Array<number>(64).fill(0.5), Array<string>(64).fill('ab'), 'i');
-    expect(grid.rows).toHaveLength(8);
-    expect(grid.rows[3]!.cells[7]).toMatchObject({ heat: 0.5, value: 'ab', role: 'default' });
+  it('draws a 6×6 image with heat', () => {
+    const grid = imageGrid(Array<number>(36).fill(0.5), Array<string>(36).fill('ab'), 'i');
+    expect(grid.rows).toHaveLength(6);
+    expect(grid.rows[3]!.cells[5]).toMatchObject({ heat: 0.5, value: 'ab', role: 'default' });
   });
 
   const known = [{ party: 'Alice', values: ['secret 6'] }];
