@@ -52,4 +52,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['diffie-hellman', 'dh', 'discrete logarithm', 'forward secrecy', 'man in the middle', 'mitm', 'x25519', 'shared secret'],
     prerequisites: [],
   },
+  {
+    id: 'public-key-signatures',
+    title: 'Public Keys & Signatures',
+    category: 'security',
+    difficulty: 'beginner',
+    group: 'Cryptography',
+    description: 'Build an RSA key pair from two small primes, encrypt a number, and sign a message that breaks if anyone changes it.',
+    keywords: ['rsa', 'public key', 'private key', 'digital signature', 'asymmetric', 'extended euclid', 'modular inverse', 'verify'],
+    prerequisites: ['hash-functions'],
+  },
 ];

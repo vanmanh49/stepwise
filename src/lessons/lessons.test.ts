@@ -168,6 +168,7 @@ const EXPECTED_IDS = [
   'symmetric-encryption',
   'block-modes',
   'key-exchange',
+  'public-key-signatures',
 ];
 
 describe('lesson registry', () => {

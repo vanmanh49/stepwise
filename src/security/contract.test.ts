@@ -17,6 +17,7 @@ function valueFor(field: FormField, r: () => number, range?: [number, number]): 
 /** The valid range of each number field, so random runs exercise real settings and their extremes. */
 const RANGES: Record<string, Record<string, [number, number]>> = {
   'key-exchange': { a: [2, 21], b: [2, 21] },
+  'public-key-signatures': { p: [11, 997], q: [13, 991], number: [0, 142] },
 };
 
 function checkView(view: View, label: string) {
