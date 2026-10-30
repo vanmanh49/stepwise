@@ -2,7 +2,7 @@ import { sql, type ShopDb } from './db';
 import { escapeHtml } from './html';
 import { cookiesOf, hostOf, queryOf, response, type WebRequest, type WebResponse } from './http';
 import { IMAGES_HOST } from './internal';
-import { HASH_SINK } from './page';
+import { HASH_SINK, type ScriptRun } from './page';
 import type { ShopOptions } from './shop';
 import { randomHex, type Handler, type Route } from './site';
 import type { World } from './world';
@@ -20,6 +20,13 @@ type Context = {
 export const blockedInput = (text: string): boolean => ['OR', 'UNION', '--'].some((word) => text.includes(word));
 
 export const REFUSED_INPUT = 'That input was refused.';
+
+const OWN_SCRIPT = "console.log('page ready')";
+
+/** Every page ends with its own script, unless unfinished markup in the input swallowed it. */
+export const ownScript = (scripts: ScriptRun[]): ScriptRun | undefined => (scripts.at(-1)?.source === OWN_SCRIPT ? scripts.at(-1) : undefined);
+
+export const injectedScripts = (scripts: ScriptRun[]): ScriptRun[] => (ownScript(scripts) ? scripts.slice(0, -1) : scripts);
 
 const MAX_REDIRECTS = 3;
 const FIRST_NEW_ORDER = 104;
@@ -40,7 +47,7 @@ export function pageRoutes({ options, db, origin, signedIn, runBuilt }: Context)
   function page(world: World, content: string, extra: Partial<WebResponse> = {}): WebResponse {
     const nonce = options.csp === 'nonce' ? randomHex(world, 8) : '';
     const policy = options.csp === 'nonce' ? `script-src 'nonce-${nonce}'` : options.csp === 'unsafeInline' ? "script-src 'self' 'unsafe-inline'" : undefined;
-    const own = `<script${nonce && ` nonce="${nonce}"`}>console.log('page ready')</script>`;
+    const own = `<script${nonce && ` nonce="${nonce}"`}>${OWN_SCRIPT}</script>`;
     return response(200, `${content}\n${own}`, { ...extra, headers: { ...extra.headers, ...(policy && { 'content-security-policy': policy }) } });
   }
 

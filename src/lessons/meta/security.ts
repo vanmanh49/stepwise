@@ -192,4 +192,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['xss', 'cross-site scripting', 'reflected', 'stored', 'dom xss', 'innerhtml', 'textcontent', 'output encoding', 'escaping', 'httponly', 'onerror'],
     prerequisites: ['same-origin-cors'],
   },
+  {
+    id: 'content-security-policy',
+    title: 'Content Security Policy',
+    category: 'security',
+    difficulty: 'advanced',
+    group: 'Web Attacks & Defenses',
+    description: 'Send one injected script past a shop with no encoding, then watch three policies allow or block it and name the rule.',
+    keywords: ['csp', 'content security policy', 'script-src', 'default-src', 'nonce', 'unsafe-inline', 'xss defense', 'header', 'defense in depth'],
+    prerequisites: ['cross-site-scripting'],
+  },
 ];

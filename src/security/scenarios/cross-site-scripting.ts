@@ -6,6 +6,7 @@ import { createEvil, EVIL_ORIGIN, evilStolen } from '../web/evil';
 import { findScripts } from '../web/html';
 import { loadInner, loadPage, type PageRun, type ScriptRun } from '../web/page';
 import { createShop, SAFE_SHOP, SHOP_ORIGIN } from '../web/shop';
+import { injectedScripts } from '../web/shop-pages';
 import { createStory, resultOf, type Story } from '../web/story';
 import { createWorld, type World } from '../web/world';
 
@@ -41,7 +42,7 @@ const visible = (run: PageRun) => run.response.body.split('\n').slice(0, -1).joi
 
 function reflected({ world, input }: Run) {
   const run = loadPage(world, `${SHOP_ORIGIN}/search?q=${encodeURIComponent(input)}`, EVIL_ORIGIN);
-  return { html: visible(run), scripts: run.scripts.slice(0, -1) };
+  return { html: visible(run), scripts: injectedScripts(run.scripts) };
 }
 
 function stored({ world, story, input }: Run) {
@@ -50,7 +51,7 @@ function stored({ world, story, input }: Run) {
   world.send({ method: 'POST', url: `${SHOP_ORIGIN}/comments`, headers: { cookie }, body: { body: input } }, 'attacker');
   story.step({ title: 'mallory posts a comment', why: 'The shop saves the text as it is. It is only a row in a table for now, and it will reach everyone who opens the page.', next: 'alice opens the comments.', line: 'page = comments.map' });
   const run = loadPage(world, `${SHOP_ORIGIN}/comments`);
-  return { html: visible(run), scripts: run.scripts.slice(0, -1) };
+  return { html: visible(run), scripts: injectedScripts(run.scripts) };
 }
 
 function dom({ world, input }: Run, encoded: boolean) {

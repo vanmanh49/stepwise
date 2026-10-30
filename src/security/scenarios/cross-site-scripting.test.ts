@@ -83,6 +83,10 @@ describe('cross-site scripting', () => {
     expect(result(REFLECTED!, '<img src=x onerror=alert(1)', OFF!)).toBe('stopped');
   });
 
+  it('counts an injected script even when it swallows the page\'s own', () => {
+    expect(result(REFLECTED!, '<img src=x onerror=alert(1)><script', OFF!)).toBe('attacker in');
+  });
+
   it('runs mixed case', () => {
     expect(result(REFLECTED!, '<ScRiPt>alert(1)</sCrIpT>', OFF!)).toBe('attacker in');
   });
