@@ -212,4 +212,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['csrf', 'xsrf', 'cross-site request forgery', 'samesite', 'anti-csrf token', 'origin header', 'state-changing get', 'form post'],
     prerequisites: ['same-origin-cors'],
   },
+  {
+    id: 'ssrf',
+    title: 'SSRF',
+    category: 'security',
+    difficulty: 'advanced',
+    group: 'Web Attacks & Defenses',
+    description: 'Make a shop fetch addresses from inside its own network, read fake cloud keys, and beat a blocklist with a redirect.',
+    keywords: ['ssrf', 'server-side request forgery', 'metadata', '169.254.169.254', 'cloud credentials', 'allow-list', 'blocklist', 'redirect', 'internal network'],
+    prerequisites: ['access-control'],
+  },
 ];
