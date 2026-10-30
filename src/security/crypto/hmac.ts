@@ -19,8 +19,8 @@ export const hmac = (key: Uint8Array, message: Uint8Array): Uint8Array => hmacPa
 export const hkdfExtract = (salt: Uint8Array, ikm: Uint8Array): Uint8Array => hmac(salt, ikm);
 
 export function hkdfExpand(prk: Uint8Array, info: Uint8Array, length: number): Uint8Array {
-  let out = new Uint8Array(0);
-  let previous = new Uint8Array(0);
+  let out: Uint8Array = new Uint8Array(0);
+  let previous: Uint8Array = new Uint8Array(0);
   for (let i = 1; out.length < length; i++) {
     previous = hmac(prk, concat(previous, info, Uint8Array.of(i)));
     out = concat(out, previous);
