@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { seeded } from '../../utils/random';
 import { hex } from './bytes';
 import { hkdfExpand, hkdfExtract, hmac } from './hmac';
-import { cbc, ctr, ecb } from './modes';
+import { cbc, ctr, ecb, gcmEncrypt } from './modes';
 import { sha256 } from './sha256';
 
 /** Seeded bytes, so a failure repeats. */
@@ -68,6 +68,22 @@ describe('our crypto agrees with node:crypto', () => {
       const iv = run === 0 ? wrap : randomBytes(r, 16);
       const bytes = randomBytes(r, Math.floor(r() * 100));
       expect(hex(ctr(key, iv, bytes))).toBe(nodeCipher('aes-128-ctr', key, iv, bytes));
+    }
+  });
+
+  it('aes-128-gcm', () => {
+    const r = seeded(6);
+    for (let run = 0; run < 80; run++) {
+      const key = randomBytes(r, 16);
+      const iv = randomBytes(r, 12);
+      const plain = randomBytes(r, run === 0 ? 0 : Math.floor(r() * 65));
+      const aad = randomBytes(r, run % 3 === 0 ? 0 : Math.floor(r() * 40));
+      const cipher = createCipheriv('aes-128-gcm', key, iv);
+      cipher.setAAD(aad);
+      const expected = Buffer.concat([cipher.update(plain), cipher.final()]).toString('hex');
+      const ours = gcmEncrypt(key, iv, plain, aad);
+      expect(hex(ours.ciphertext)).toBe(expected);
+      expect(hex(ours.tag)).toBe(cipher.getAuthTag().toString('hex'));
     }
   });
 });
