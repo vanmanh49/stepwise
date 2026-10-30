@@ -172,4 +172,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['sql injection', 'sqli', 'parameterized query', 'prepared statement', 'bound parameter', 'union', 'blocklist', 'string concatenation', 'drop table'],
     prerequisites: ['password-storage'],
   },
+  {
+    id: 'command-injection',
+    title: 'Command Injection & Path Traversal',
+    category: 'security',
+    difficulty: 'advanced',
+    group: 'Web Attacks & Defenses',
+    description: 'Type into a ping box and a download box, see what the shell and the file path really do, and why a blocklist loses.',
+    keywords: ['command injection', 'shell', 'os command', 'path traversal', 'directory traversal', 'dot dot slash', 'execfile', 'allow-list', 'blocklist'],
+    prerequisites: ['sql-injection'],
+  },
 ];

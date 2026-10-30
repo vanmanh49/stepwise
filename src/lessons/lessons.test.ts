@@ -180,6 +180,7 @@ const EXPECTED_IDS = [
   'access-control',
   'same-origin-cors',
   'sql-injection',
+  'command-injection',
 ];
 
 describe('lesson registry', () => {
