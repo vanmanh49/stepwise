@@ -7,6 +7,7 @@ import { totp } from '../crypto/totp';
 import { TOKEN_SECRET, TOTP_SECRET, USERS } from './data';
 import { createDb, quote, sql } from './db';
 import { cookiesOf, pathOf, response, type SetCookie, type WebRequest, type WebResponse } from './http';
+import { oauthRoutes } from './shop-oauth';
 import { randomHex, type Handler, type Route, type Site } from './site';
 import type { World } from './world';
 
@@ -227,6 +228,7 @@ export function createShop(overrides: Partial<ShopOptions> = {}): Site {
     { method: 'POST', path: '/account', handler: editAccount },
     { method: 'GET', path: /^\/orders\/\d+$/, handler: orderPage },
     { method: 'GET', path: '/admin', handler: adminPage },
+    ...oauthRoutes({ options, db, flags, startSession }),
   ];
   return { origin: SHOP_ORIGIN, party: 'shop', routes, db };
 }
