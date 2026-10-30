@@ -9,7 +9,8 @@ export type Network = { send(request: WebRequest, from: Party): WebResponse; now
 
 export type Browser = {
   jar(): StoredCookie[];
-  visit(url: string, initiator?: string): WebResponse;
+  /** Follows redirects, stopping before one that starts with `stopBefore`. */
+  visit(url: string, initiator?: string, stopBefore?: string): WebResponse;
   submit(url: string, body: Record<string, string>, initiator?: string): WebResponse;
   runScript(origin: string): Record<string, string>;
   cookiesFor(url: string, initiator?: string, method?: WebRequest['method']): Record<string, string>;
@@ -64,9 +65,12 @@ export function createBrowser(network: Network): Browser {
     return answer;
   };
 
-  const visit: Browser['visit'] = (url, initiator) => {
+  const visit: Browser['visit'] = (url, initiator, stopBefore) => {
     let answer = send('GET', url, {}, initiator);
-    for (let hop = 0; answer.redirect !== undefined && hop < MAX_REDIRECTS; hop++) answer = send('GET', answer.redirect, {}, initiator);
+    for (let hop = 0; answer.redirect !== undefined && hop < MAX_REDIRECTS; hop++) {
+      if (stopBefore && answer.redirect.startsWith(stopBefore)) break;
+      answer = send('GET', answer.redirect, {}, initiator);
+    }
     return answer;
   };
 

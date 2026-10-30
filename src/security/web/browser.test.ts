@@ -119,6 +119,12 @@ describe('redirects', () => {
     expect(sent).toHaveLength(6);
   });
 
+  it('can stop before a redirect, leaving it for later', () => {
+    const { browser, sent } = setup(() => response(302, '', { redirect: 'https://shop.example/callback?code=1' }));
+    expect(browser.visit(SHOP, undefined, 'https://shop.example/callback').redirect).toBe('https://shop.example/callback?code=1');
+    expect(sent).toHaveLength(1);
+  });
+
   it('turns a form post into a GET when it redirects', () => {
     const { browser, sent } = setup((request) => (request.method === 'POST' ? response(302, '', { redirect: SHOP }) : response(200)));
     browser.submit(SHOP, {});
