@@ -7,6 +7,7 @@ export const CATEGORY_TITLE: Record<Category, string> = {
   microservices: 'Microservices',
   kubernetes: 'Kubernetes',
   ai: 'AI',
+  security: 'Security',
 };
 
 /** Every track, in site order. Generated from the record above, so a new track can't be missed. */
@@ -23,6 +24,8 @@ export const CATEGORY_INTRO: Record<Category, string> = {
   kubernetes:
     'How Kubernetes keeps your apps running: you declare what you want, and controllers keep working until the cluster matches. Each lesson runs a simulated cluster on your settings, one change at a time.',
   ai: 'How large language models work, from the first token to AI agents. Each lesson runs a tiny model on your input, so you can see every number it computes.',
+  security:
+    'How software keeps secrets and proves who is who, and how attackers break it when it goes wrong. Each lesson runs the real steps on your input, against a simulated system.',
 };
 
 const DIFFICULTY_LABEL: Record<Difficulty, string> = {

@@ -99,7 +99,7 @@ export default function Home() {
             Learn How Software Works, Step by Step
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
-            Watch data structures, algorithms, SQL, microservices, Kubernetes and AI run one step at a time, on your own input.
+            Watch data structures, algorithms, SQL, microservices, Kubernetes, AI and security run one step at a time, on your own input.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <ButtonLink to="/data-structures" variant="primary" className="min-h-12 px-5">

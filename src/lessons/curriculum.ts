@@ -201,6 +201,35 @@ export const curriculum: Topic[] = [
     ['prompt-injection-guardrails', 'Prompt Injection & Guardrails', 'AI Agents'],
     ['human-in-the-loop', 'Human-in-the-Loop', 'AI Agents'],
   ]),
+  ...topics('security', 'beginner', [
+    ['hash-functions', 'Hash Functions', 'Cryptography'],
+    ['message-authentication', 'Message Authentication', 'Cryptography'],
+    ['symmetric-encryption', 'Symmetric Encryption', 'Cryptography'],
+    ['block-modes', 'Block Modes & AEAD', 'Cryptography'],
+    ['key-exchange', 'Key Exchange', 'Cryptography'],
+    ['public-key-signatures', 'Public Keys & Signatures', 'Cryptography'],
+    ['certificates-tls', 'Certificates & TLS', 'Cryptography'],
+  ]),
+  ...topics('security', 'intermediate', [
+    ['password-storage', 'Password Storage', 'Identity & Access'],
+    ['credential-attacks', 'Credential Attacks', 'Identity & Access'],
+    ['sessions-cookies', 'Sessions & Cookies', 'Identity & Access'],
+    ['json-web-tokens', 'JSON Web Tokens', 'Identity & Access'],
+    ['multi-factor-auth', 'Multi-Factor Auth', 'Identity & Access'],
+    ['oauth-pkce', 'OAuth 2.0 & PKCE', 'Identity & Access'],
+    ['openid-connect', 'OpenID Connect', 'Identity & Access'],
+    ['access-control', 'Access Control', 'Identity & Access'],
+  ]),
+  ...topics('security', 'advanced', [
+    ['same-origin-cors', 'Same-Origin & CORS', 'Web Attacks & Defenses'],
+    ['sql-injection', 'SQL Injection', 'Web Attacks & Defenses'],
+    ['command-injection', 'Command Injection & Path Traversal', 'Web Attacks & Defenses'],
+    ['cross-site-scripting', 'Cross-Site Scripting', 'Web Attacks & Defenses'],
+    ['content-security-policy', 'Content Security Policy', 'Web Attacks & Defenses'],
+    ['csrf', 'CSRF', 'Web Attacks & Defenses'],
+    ['ssrf', 'SSRF', 'Web Attacks & Defenses'],
+    ['threat-modeling', 'Threat Modeling & Defense in Depth', 'Web Attacks & Defenses'],
+  ]),
 ];
 
 export const DIFFICULTIES: Difficulty[] = ['beginner', 'intermediate', 'advanced'];

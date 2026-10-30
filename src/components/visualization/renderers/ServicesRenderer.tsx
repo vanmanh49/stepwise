@@ -25,6 +25,7 @@ const TYPE_NAME: Record<ServicesView['nodes'][number]['type'], string> = {
   broker: 'message broker',
   relay: 'outbox relay',
   sidecar: 'sidecar proxy',
+  attacker: 'attacker',
 };
 
 /** A rectangle with a role's fill, border cue and mark, like ValueBox but in SVG. */
@@ -141,7 +142,7 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
         height={height}
         viewBox={`${-MARGIN} ${-MARGIN} ${width} ${height}`}
         role="img"
-        aria-label={`${view.requests.length - deliveries} requests, ${deliveries > 0 ? `${deliveries} deliveries, ` : ''}${view.messages.length} messages in flight`}
+        aria-label={`${view.requests.length > 0 ? `${view.requests.length - deliveries} requests, ` : ''}${deliveries > 0 ? `${deliveries} deliveries, ` : ''}${view.messages.length} messages in flight`}
         className="mx-auto h-auto max-w-full overflow-visible"
       >
         {view.links.map((link) => {

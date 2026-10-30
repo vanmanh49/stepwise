@@ -1,6 +1,6 @@
 # Stepwise
 
-An interactive platform for learning data structures, algorithms, SQL, microservices, Kubernetes and AI by watching them run.
+An interactive platform for learning data structures, algorithms, SQL, microservices, Kubernetes, AI and security by watching them run.
 
 Every lesson has a visualization you control: play, pause, step forward and back, change the speed, and run it on your own data. Each step explains what happened and why, and highlights the line of code responsible.
 
@@ -8,13 +8,14 @@ Every lesson has a visualization you control: play, pause, step forward and back
 
 ## Features
 
-- **155 interactive lessons**
+- **162 interactive lessons**
   - Data structures (19): Array, String, Linked List, Stack, Queue, Hash Table, Binary Tree, Binary Search Tree, Heap, Priority Queue, Graph, Trie, AVL Tree, Red-Black Tree, Disjoint Set / Union Find, Segment Tree, Fenwick Tree, B-Tree / B+ Tree, Graph Representations
   - Algorithms (39): Linear Search, Binary Search, Bubble Sort, Selection Sort, Insertion Sort, Two Pointers, Sliding Window, Prefix Sum, Merge Sort, Quick Sort, Heap Sort, Counting Sort, Radix Sort, Recursion Fundamentals, Backtracking, Divide and Conquer, BFS, DFS, Topological Sort, Tree Traversal, Lowest Common Ancestor, Dijkstra, Bellman-Ford, Floyd-Warshall, Kruskal, Prim, Fibonacci DP, 0/1 Knapsack, Coin Change, Longest Common Subsequence, Longest Increasing Subsequence, Grid DP, Greedy Algorithms, Union Find, KMP, Rabin-Karp, A*, Network Flow, Advanced Graph Algorithms
   - SQL (28): SELECT and FROM, WHERE, NULL and three-valued logic, ORDER BY and LIMIT, DISTINCT, aggregates, INSERT / UPDATE / DELETE, GROUP BY and HAVING, INNER JOIN, LEFT JOIN, subqueries, self joins, many-to-many joins, CREATE TABLE, constraints, CASE, UNION / INTERSECT / EXCEPT, CTEs, recursive CTEs, window functions, views, indexes, query plans, transactions, isolation levels, normalization
   - Microservices (23): Monolith vs Microservices, Service Boundaries, Synchronous Calls, API Gateway, Service Discovery, Load Balancing, Database per Service, Timeouts, Retries with Backoff & Jitter, Circuit Breaker, Bulkhead, Rate Limiting, Message Queues, Publish/Subscribe & Events, Idempotency & Delivery Guarantees, Saga, Transactional Outbox, CQRS, Event Sourcing, Distributed Tracing, Deployment Strategies, Strangler Fig Migration, Sidecar & Service Mesh
   - Kubernetes (23): Cluster Architecture, Pods, Labels & Selectors, Desired State & Controllers, ReplicaSets, Deployments & Rolling Updates, Services & kube-proxy, The Scheduler, Requests & Limits, Liveness, Readiness & Startup Probes, Taints & Tolerations, Affinity & Anti-affinity, Horizontal Pod Autoscaler, Cluster Autoscaler, Draining & PodDisruptionBudgets, ConfigMaps & Secrets, Volumes, PV & PVC, StatefulSets, DaemonSets, Jobs & CronJobs, Ingress, Network Policies, Operators & CRDs
   - AI (23): Tokenization (BPE), Embeddings & Similarity, Next-Token Prediction, Self-Attention, The Transformer Block, Sampling: Temperature, Top-k & Top-p, Training & Loss, Chat Templates & Roles, The Context Window, KV Cache, Structured Output, Vector Search, Retrieval-Augmented Generation, Function Calling, Evals, The Agent Loop (ReAct), Agent Memory, Planning & Decomposition, Reflection & Self-Correction, Multi-Agent Orchestration, MCP & Tool Protocols, Prompt Injection & Guardrails, Human-in-the-Loop
+  - Security (7 of 23 live): Hash Functions, Message Authentication, Symmetric Encryption, Block Modes & AEAD, Key Exchange, Public Keys & Signatures, Certificates & TLS. Identity and web attacks are coming.
 - **Simulated microservices**: change the settings, break an instance or a schema, take a service down, flood it or lose a reply, deploy a buggy version or crash between two writes, and watch requests, queued messages and database records change one message at a time, with each request's path, tries, time, value and failure reason, and a trace waterfall for tracing
 - **A simulated Kubernetes cluster**: apply workloads, delete pods, crash containers, ship a bad image, kill a node or take the scheduler, controllers or etcd down; add traffic, limits, probes, taints, affinity, autoscalers and disruption budgets; mount config and volumes, run StatefulSets, DaemonSets, Jobs and CronJobs, route through an Ingress, lock pods down with NetworkPolicies and let an operator manage a custom resource; and watch the controllers, scheduler (with its filter and score table) and kubelets reconcile the cluster one change at a time
 - **A tiny language model you can see inside**: tokenize your own text with BPE, compare word vectors, and run a one-layer transformer on your prompt (attention scores, the causal mask, residuals, layer norm, the MLP and the next-word probabilities), sample with temperature, top-k and top-p, and train a bigram model live, one gradient step at a time
@@ -85,6 +86,8 @@ src/
     controllers/  scenarios/
   ai/                tiny language model: toy corpus, BPE, number helpers, autograd (training only), a 1-layer transformer with committed weights, sampling, a bigram trainer, a KV cache, constrained decoding, dense and TF-IDF vector search, a rule-based stand-in model with toy tools, and an agent runtime (`agents/`: a tiny office, a ReAct loop with memory, planning, a critic, guards and approvals, a multi-agent team, an MCP-style tool server); one scenario per lesson
     scenarios/
+  security/          teaching crypto: SHA-256, HMAC, HKDF, AES-128 with CBC/CTR/GCM, small-number RSA and Diffie-Hellman, a shortened TLS 1.3 handshake
+    crypto/  scenarios/
   lessons/           one content file per lesson, meta/ (metadata per category), the registry and the curriculum
   store/             progress and theme state
   utils/             input parsing, seeded random numbers, the event queue
@@ -217,6 +220,15 @@ AI lessons run the tiny model in `src/ai/`. `forward(tokens)` (`model.ts`) retur
 3. Add the metadata to `src/lessons/meta/ai.ts` without `complexity`, and the content to `src/lessons/ai/<id>.ts`: a `form` visualization with `codeLabel: 'Pseudocode'`. Add the number fields' ranges to `RANGES` in `src/ai/contract.test.ts`, which runs every AI lesson with random and garbage settings.
 4. Say in the lesson text where the toy differs from real models (word tokens, 8 numbers per token, one layer, one head).
 
+## How to add a Security lesson
+
+Security lessons run the code in `src/security/crypto/`. It is teaching code, tested against Node's `crypto`, and must never be used for real data.
+
+1. Write `src/security/scenarios/<id>.ts`, exporting `fooCode` (pseudocode) and `fooSteps(values)`. Read text limited in bytes with `readBytes`, and use the view builders in `steps.ts`. Byte grids have 6 columns so they fit a phone.
+2. Test the lesson's point in `scenarios/<id>.test.ts`, and add new primitives to `crypto/differential.test.ts`.
+3. Add the metadata to `src/lessons/meta/security.ts` without `complexity`, and the content to `src/lessons/security/<id>.ts`: a `form` visualization with `codeLabel: 'Pseudocode'`. Add number fields' ranges to `RANGES` in `contract.test.ts`.
+4. End the lesson's `concept` by saying what production systems use instead, using the word "production".
+
 ## How to add an algorithm
 
 1. Create a file under `src/algorithms/<group>/`.
@@ -275,6 +287,7 @@ Unit tests cover:
 - the microservices simulator (timing, faults, the gateway, registry, balancer, rate limiter, broker, relay and sidecars, call policies, records and sagas, deploys and canaries), spans, its narration, the services layout and message stacking, and each lesson's teaching moment
 - the Kubernetes simulator (the store, each controller, the scheduler's filters and scores, kubelet back-off and probes, metrics, limits and OOMKill, node pressure, the HPA, the Cluster Autoscaler, the eviction API and PDBs, node lifecycle, rolling-update bounds, kube-proxy routing, ConfigMaps and Secrets, PV binding and reclaim, StatefulSets, DaemonSets, Jobs and CronJobs, Ingress matching, NetworkPolicies, the operator), its narration, and each lesson's teaching moment
 - the tiny AI model: BPE round trips, softmax and layer norm, autograd against finite differences, the trained model's predictions and causal mask, sampling cut-offs and draws, the bigram trainer's gradients, the KV cache against `forward`, constrained decoding's mask, search rankings, the stand-in's rules, and each lesson's teaching moment
+- the Security crypto: published vectors, and **differential tests** of SHA-256, HMAC, HKDF and AES-128 (ECB, CBC, CTR, GCM) against Node's `crypto`; each scenario's attack and its fix
 - the SQL interpreter: tokenizer, parser, executor, grouping, subqueries, error messages, the step generator and the exercise checker
 - **differential tests**: over 400 queries run through both the interpreter and real SQLite ([sql.js](https://github.com/sql-js/sql.js)), whose results must match. sql.js is a dev dependency used only by tests; it is never bundled into the app.
 
