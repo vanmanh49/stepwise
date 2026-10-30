@@ -95,7 +95,9 @@ export function messageAuthenticationSteps(values: Record<string, string>): Step
   steps.push(
     {
       title: `Attacker copies the message and adds ${glue.length} bytes of padding`,
-      why: `The attacker doesn't know the key, only its length (${key.length} bytes), which is easy to guess. That is enough to work out the padding SHA-256 added after key + message.`,
+      why: naive
+        ? `The attacker doesn't know the key, only its length (${key.length} bytes), which is easy to guess. That is enough to work out the padding SHA-256 added after key + message.`
+        : `The attacker tries the same trick as on the naive scheme, still without the key. HMAC keeps its key out of reach, so this is only the padding the attacker hopes will work.`,
       next: `Then the attacker appends "${extensionText.value}".`,
       codeLine: line('glue = padding('),
       variables: { padding: glue.length },
@@ -103,7 +105,9 @@ export function messageAuthenticationSteps(values: Record<string, string>): Step
     },
     {
       title: `Attacker resumes SHA-256 from the tag: ${short(forgedTag)}`,
-      why: "A SHA-256 digest is the hash's whole internal state. Starting from the tag, the attacker can keep hashing the extension as if they had run the first block themselves.",
+      why: naive
+        ? "A SHA-256 digest is the hash's whole internal state. Starting from the tag, the attacker can keep hashing the extension as if they had run the first block themselves."
+        : 'Any SHA-256 digest can be resumed, so this step still runs. But this tag is the outer hash, and continuing it says nothing about the hash the server will compute over the new message.',
       codeLine: line('forgedTag = sha256Resume'),
       variables: { forgedTag: short(forgedTag) },
       view: pair('Forged message', byteGrid(forged, 'forged'), 'Forged tag', byteGrid(forgedTag, 'tag', () => 'compare')),

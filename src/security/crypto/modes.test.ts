@@ -19,6 +19,21 @@ describe('gcm', () => {
     expect(hex(gcmDecrypt(KEY, IV, ciphertext, tag, AAD)!)).toBe(hex(TEXT));
   });
 
+  it('compares every tag byte, even after a mismatch', () => {
+    const { ciphertext, tag } = gcmEncrypt(KEY, IV, TEXT);
+    const wrong = flip(tag, 0, 0);
+    const read = new Set<string>();
+    const spy = new Proxy(wrong, {
+      get(target, property) {
+        if (typeof property === 'string' && /^\d+$/.test(property)) read.add(property);
+        const value = Reflect.get(target, property, target) as unknown;
+        return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+      },
+    });
+    expect(gcmDecrypt(KEY, IV, ciphertext, spy)).toBeNull();
+    expect(read.size).toBe(16);
+  });
+
   it('refuses any flipped bit in the ciphertext, tag or associated data', () => {
     const { ciphertext, tag } = gcmEncrypt(KEY, IV, TEXT, AAD);
     for (let at = 0; at < ciphertext.length; at++) {

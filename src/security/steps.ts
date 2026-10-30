@@ -1,6 +1,6 @@
 import { readText, type Read } from '../algorithms/form';
 import type { ArrayView, GridView, PanelsView, Role, ServicesView } from '../types/visualization';
-import { hex, utf8 } from './crypto/bytes';
+import { utf8 } from './crypto/bytes';
 
 export const MAX_STEPS = 200;
 
@@ -64,8 +64,8 @@ export function compareDigests(a: Uint8Array, b: Uint8Array): { view: PanelsView
     view: {
       kind: 'panels',
       panels: [
-        { label: `First: ${hex(a)}`, view: byteGrid(a, 'digest-a', changed) },
-        { label: `Second: ${hex(b)}`, view: byteGrid(b, 'digest-b', changed) },
+        { label: 'First', view: byteGrid(a, 'digest-a', changed) },
+        { label: 'Second', view: byteGrid(b, 'digest-b', changed) },
       ],
     },
   };

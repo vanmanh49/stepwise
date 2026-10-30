@@ -51,6 +51,20 @@ describe('public keys and signatures scenario', () => {
     }
   });
 
+  it('refuses a private key that is 1 or equals the public exponent', () => {
+    for (const e of ['121', '11', '61']) {
+      const steps = publicKeySignaturesSteps({ ...defaults, p: '11', q: '13', e, number: '65' });
+      expect(steps, e).toHaveLength(1);
+      expect(steps[0]!.why, e).toContain('private');
+    }
+  });
+
+  it('says so when a number encrypts to itself', () => {
+    const steps = publicKeySignaturesSteps({ ...defaults, number: '1' });
+    expect(steps.find((s) => s.title.startsWith('Encrypt:'))!.why).toContain('itself');
+    expect(publicKeySignaturesSteps(defaults).find((s) => s.title.startsWith('Encrypt:'))!.why).not.toContain('itself');
+  });
+
   it('accepts the largest key', () => {
     expect(publicKeySignaturesSteps({ ...defaults, p: '997', q: '991', number: '988026' }).length).toBeGreaterThan(3);
   });

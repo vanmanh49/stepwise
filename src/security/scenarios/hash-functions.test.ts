@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import lesson from '../../lessons/security/hash-functions';
 import { hashFunctionsSteps } from './hash-functions';
 
 const ABC = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
@@ -32,6 +33,16 @@ describe('hash functions scenario', () => {
     const refused = hashFunctionsSteps({ ...inside, text: 'é'.repeat(28) });
     expect(refused).toHaveLength(1);
     expect(refused[0]!.why).toContain('55');
+  });
+
+  it('credits the 0x80 byte with marking where the message ends', () => {
+    const why = hashFunctionsSteps(inside)[1]!.why;
+    expect(why).toContain('marks where the message ends');
+    expect(why).not.toContain('never pad to the same block');
+  });
+
+  it('does not grade learners on the length alone stopping equal blocks', () => {
+    expect(lesson.quiz.find((q) => q.id === 'q3')!.explanation).not.toContain('Without the length');
   });
 
   it('hashes empty text', () => {

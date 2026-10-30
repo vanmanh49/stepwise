@@ -79,10 +79,10 @@ Bad knobs return one explanatory step through `refusal` (`src/algorithms/form.ts
 
 ## 2. Views
 
-- **Bytes and digests**: `grid` rows of 8 cells, which fit a 375 px screen. Bytes that changed use the `compare` role.
+- **Bytes and digests**: `grid` rows of 6 cells with no row labels, the most a 375 px stage shows without scrolling. Bytes that changed use the `compare` role.
 - **AES**: `panels` with the state and the round key as 4×4 `grid`s.
 - **SHA-256**: `panels` with registers a–h (a text `grid`) and the current W and K.
-- **ECB image**: an 8×8 `grid` with `heat` taken from each ciphertext block's first byte, beside the plain image.
+- **ECB image**: a 6×6 `grid` with `heat` taken from each ciphertext block's first byte, beside the plain image.
 - **Parties**: `panels` with a `services` view (client, attacker, server, with messages on the links) and a `grid` of what each party knows. A step drawing no attacker leaves the attacker node out.
 
 ### `services` changes
@@ -101,7 +101,7 @@ If `ServicesRenderer` turns out unreadable inside `panels` at 375 px, the fallba
 | Block Modes & AEAD | scenario (patterns, nonce reuse, tampering), mode (ECB, CBC, CTR, GCM), shape, message; presets: one per scenario | ECB leaks the image and the other modes hide it. Reusing a CTR nonce makes c₁ ⊕ c₂ = p₁ ⊕ p₂, which reveals the second message. A flipped CTR bit changes `$100` to `$900` undetected, while GCM's tag refuses it |
 | Key Exchange | prime (23, 227, 65537), secret a, secret b, attacker (none, eavesdropper, man in the middle); presets: one per attacker | Public shares and the same shared secret on both sides. The eavesdropper searches for a secret, and the step reports how many tries a small prime took. The man in the middle ends up with a separate secret on each side and nobody notices, which sets up signatures |
 | Public Keys & Signatures | operation (encrypt, sign), p, q, e, number, message, tamper; presets: 61 × 53, tampered message, same number twice | n, φ(n) and d worked out by extended Euclid. Encrypt shows mᵉ mod n and back, and that the same number always gives the same ciphertext, which is why real RSA uses padding. Sign and verify show a tampered message failing |
-| Certificates & TLS | attack (none, self-signed certificate, expired certificate, wrong name, tampered record); presets: one per attack | Each handshake message on the parties view. The chain check step by step, then Finished and an encrypted record. Each attack fails at a named check and the connection closes |
+| Certificates & TLS | attack (none, self-signed certificate, copied certificate, expired certificate, wrong name, tampered record); presets: one per attack | Each handshake message on the parties view. The chain check step by step, then Finished and an encrypted record. Each attack fails at a named check and the connection closes |
 
 Each lesson has the usual content: overview, concept, how it works, pros and cons, applications, common mistakes, and a 4-question quiz with at least one `predict-next` question built from a real step. The last paragraph of `concept` covers real practice: SHA-256 and HMAC from a platform library, AES-256-GCM or ChaCha20-Poly1305, X25519 and hybrid post-quantum key exchange, RSA at 2048 bits or more with OAEP or PSS, Ed25519, and never writing your own crypto. It uses the word "production".
 

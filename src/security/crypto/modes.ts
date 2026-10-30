@@ -95,6 +95,8 @@ export function gcmEncrypt(key: Uint8Array, iv: Uint8Array, plain: Uint8Array, a
 export function gcmDecrypt(key: Uint8Array, iv: Uint8Array, ciphertext: Uint8Array, tag: Uint8Array, aad: Uint8Array = new Uint8Array(0)): Uint8Array | null {
   const start = firstCounter(iv);
   const expected = gcmTag(key, start, ciphertext, aad);
-  if (tag.length !== 16 || expected.some((b, i) => b !== tag[i])) return null;
+  // Reads every byte, so timing doesn't show where a forged tag first goes wrong.
+  const difference = expected.reduce((sum, byte, i) => sum | (byte ^ tag[i]!), tag.length ^ 16);
+  if (difference !== 0) return null;
   return keystreamXor(key, increment(start, 4), ciphertext, 4);
 }

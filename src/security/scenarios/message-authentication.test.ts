@@ -44,6 +44,13 @@ describe('message authentication scenario', () => {
     expect(titles).toContain('outer');
   });
 
+  it('does not describe HMAC with the naive scheme\'s structure', () => {
+    for (const step of attackerSteps(messageAuthenticationSteps(keyed))) {
+      expect(step.why).not.toContain('key + message');
+      expect(step.why).not.toContain('run the first block');
+    }
+  });
+
   it('refuses fields over their byte limits', () => {
     expect(messageAuthenticationSteps({ ...naive, key: 'k'.repeat(17) })).toHaveLength(1);
     expect(messageAuthenticationSteps({ ...naive, message: 'm'.repeat(33) })).toHaveLength(1);

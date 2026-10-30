@@ -7,18 +7,18 @@ const beforeDate = expired[expired.findIndex((s) => s.title.startsWith('Date che
 
 const content: LessonContent = {
   overview:
-    'Every https connection combines what the earlier lessons built: key exchange for a shared secret, signatures to prove identity, hashes and HMAC to detect changes, and AES-GCM for the data. This lesson walks through a shortened TLS 1.3 handshake, message by message, then tries four attacks and shows the exact check that stops each one.',
+    'Every https connection combines what the earlier lessons built: key exchange for a shared secret, signatures to prove identity, hashes and HMAC to detect changes, and AES-GCM for the data. This lesson walks through a shortened TLS 1.3 handshake, message by message, then tries five attacks and shows the exact check that stops each one.',
   concept: [
     'Key exchange left one question open: who is on the other end? A certificate answers it. It says "this public key belongs to this name", signed by a certificate authority (CA).',
     'Your device ships with a small list of trusted root CAs. A site\'s certificate is signed by an intermediate CA, and the intermediate by a root. The client follows that chain up to a root it already trusts.',
-    'Holding a certificate proves nothing, because certificates are public. So the server also signs the handshake with its private key (CertificateVerify). Then both sides send Finished, an HMAC over everything so far, which proves nobody changed a message.',
+    'Holding a certificate proves nothing, because certificates are public. So the server also signs the handshake with its private key (CertificateVerify). Then both sides send Finished, an HMAC over everything so far, so a changed message would show up as a mismatch.',
     'A connection that fails any check is closed. Nothing is shown to the user or sent to the server, because a partly trusted connection is not safe to use.',
     'This handshake is simplified: certificates are plain objects, not X.509, key derivation is one HKDF step, one key serves both directions, and the numbers are toys. In production, never write this yourself. Use your platform\'s TLS stack, get certificates from an authority such as Let\'s Encrypt, renew them automatically, and never turn certificate checks off.',
   ],
   howItWorks: [
     'ClientHello and ServerHello carry Diffie-Hellman shares, and both ends derive keys.',
     'The server sends its certificate chain and signs the handshake so far.',
-    'The client checks the chain up to a trusted root, then the dates, then the name.',
+    'The client checks that signature, then the chain up to a trusted root, then the dates, then the name.',
     'Both ends send Finished, an HMAC over the whole conversation.',
     'Data flows as AES-GCM records. Any failed check closes the connection.',
   ],

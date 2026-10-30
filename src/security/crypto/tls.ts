@@ -7,7 +7,7 @@ import { GROUPS, modPow } from './numbers';
 import { keyPair, sign, verify, type RsaKey } from './rsa';
 import { sha256 } from './sha256';
 
-export const TLS_ATTACKS = ['none', 'self-signed', 'expired', 'wrong-name', 'tampered-record'] as const;
+export const TLS_ATTACKS = ['none', 'self-signed', 'copied-certificate', 'expired', 'wrong-name', 'tampered-record'] as const;
 export type TlsAttack = (typeof TLS_ATTACKS)[number];
 
 export type Certificate = { subject: string; issuer: string; notBefore: string; notAfter: string; publicKey: { n: number; e: number }; signature: number };
@@ -44,8 +44,8 @@ const ATTACKER_SECRET = 6789;
 /** Everything a signature covers: the certificate with its signature blanked. */
 const signedPart = (cert: Certificate) => JSON.stringify({ ...cert, signature: 0 });
 
-function certificate(subject: string, issuer: string, subjectKey: RsaKey, issuerKey: RsaKey, notAfter = '2026-12-31'): Certificate {
-  const fields = { subject, issuer, notBefore: '2026-01-01', notAfter, publicKey: { n: subjectKey.n, e: subjectKey.e }, signature: 0 };
+function certificate(subject: string, issuer: string, subjectKey: RsaKey, issuerKey: RsaKey, notBefore = '2026-01-01', notAfter = '2026-12-31'): Certificate {
+  const fields = { subject, issuer, notBefore, notAfter, publicKey: { n: subjectKey.n, e: subjectKey.e }, signature: 0 };
   return { ...fields, signature: sign(signedPart(fields), issuerKey) };
 }
 
@@ -55,7 +55,8 @@ const ISSUING_CERTIFICATE = certificate(ISSUING_NAME, ROOT_NAME, ISSUING_KEY, RO
 function presented(attack: TlsAttack): { chain: Certificate[]; signingKey: RsaKey; secret: number; from: Party } {
   const attacker = { secret: ATTACKER_SECRET, from: 'attacker' as const };
   if (attack === 'self-signed') return { ...attacker, chain: [certificate(SITE, SITE, ATTACKER_KEY, ATTACKER_KEY)], signingKey: ATTACKER_KEY };
-  if (attack === 'expired') return { ...attacker, chain: [certificate(SITE, ISSUING_NAME, LEAF_KEY, ISSUING_KEY, '2025-12-31'), ISSUING_CERTIFICATE], signingKey: LEAF_KEY };
+  if (attack === 'copied-certificate') return { ...attacker, chain: [certificate(SITE, ISSUING_NAME, LEAF_KEY, ISSUING_KEY), ISSUING_CERTIFICATE], signingKey: ATTACKER_KEY };
+  if (attack === 'expired') return { ...attacker, chain: [certificate(SITE, ISSUING_NAME, LEAF_KEY, ISSUING_KEY, '2025-01-01', '2025-12-31'), ISSUING_CERTIFICATE], signingKey: LEAF_KEY };
   if (attack === 'wrong-name') return { ...attacker, chain: [certificate('evil.example', ISSUING_NAME, ATTACKER_KEY, ISSUING_KEY), ISSUING_CERTIFICATE], signingKey: ATTACKER_KEY };
   return { chain: [certificate(SITE, ISSUING_NAME, LEAF_KEY, ISSUING_KEY), ISSUING_CERTIFICATE], signingKey: LEAF_KEY, secret: SERVER_SECRET, from: 'server' };
 }
@@ -78,7 +79,7 @@ function deriveKeys(sharedSecret: number) {
 
 export function runHandshake(attack: TlsAttack): {
   events: TlsEvent[];
-  stoppedAt?: 'chain' | 'date' | 'name' | 'record';
+  stoppedAt?: 'proof' | 'chain' | 'date' | 'name' | 'record';
   clientKey?: Uint8Array;
   serverKey?: Uint8Array;
   plaintext?: string;
@@ -91,7 +92,7 @@ export function runHandshake(attack: TlsAttack): {
     events.push(event);
     transcript += `${event.id}:${JSON.stringify(event.values)}\n`;
   };
-  const stop = (stoppedAt: 'chain' | 'date' | 'name' | 'record', detail: string) => {
+  const stop = (stoppedAt: 'proof' | 'chain' | 'date' | 'name' | 'record', detail: string) => {
     events.push({ id: 'closed', from: 'client', ok: false, detail, values: {} });
     return { events, stoppedAt };
   };
@@ -112,19 +113,14 @@ export function runHandshake(attack: TlsAttack): {
     to: 'client',
     ok: true,
     detail: `Peer presents ${peer.chain.length} certificate(s).`,
-    values: { subject: leaf.subject, issuer: leaf.issuer, notAfter: leaf.notAfter },
+    values: { subject: leaf.subject, issuer: leaf.issuer, notBefore: leaf.notBefore, notAfter: leaf.notAfter, publicKey: `${leaf.publicKey.n}, ${leaf.publicKey.e}` },
   });
 
   const signedHash = hex(sha256(utf8(transcript)));
   const proof = sign(signedHash, peer.signingKey);
-  send({
-    id: 'certificate-verify',
-    from,
-    to: 'client',
-    ok: verify(signedHash, proof, leaf.publicKey),
-    detail: 'Peer signs the conversation so far, proving it holds the private key.',
-    values: { signature: String(proof) },
-  });
+  const proven = verify(signedHash, proof, leaf.publicKey);
+  send({ id: 'certificate-verify', from, to: 'client', ok: proven, detail: 'Peer signs the conversation so far, proving it holds the private key.', values: { signature: String(proof) } });
+  if (!proven) return stop('proof', 'Client closes: the peer does not hold the certificate\'s private key.');
 
   for (const [index, cert] of peer.chain.entries()) {
     const issuerKey = issuerOf(peer.chain, index);
@@ -139,7 +135,7 @@ export function runHandshake(attack: TlsAttack): {
   }
 
   const inDate = leaf.notBefore <= SCENARIO_DATE && SCENARIO_DATE <= leaf.notAfter;
-  events.push({ id: 'date-check', ok: inDate, detail: `Valid ${leaf.notBefore} to ${leaf.notAfter}; today is ${SCENARIO_DATE}.`, values: { notAfter: leaf.notAfter } });
+  events.push({ id: 'date-check', ok: inDate, detail: `Valid ${leaf.notBefore} to ${leaf.notAfter}; today is ${SCENARIO_DATE}.`, values: { notBefore: leaf.notBefore, notAfter: leaf.notAfter } });
   if (!inDate) return stop('date', 'Client closes: the certificate has expired.');
 
   const rightName = leaf.subject === SITE;

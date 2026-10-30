@@ -72,7 +72,7 @@ function insideSteps(text: string): Step[] {
     },
     {
       title: `Padding adds ${added.length} bytes, making one 64-byte block`,
-      why: `The marked bytes are 0x80, then zeros, then the message length in bits (${message.length * 8}). Including the length means two different messages never pad to the same block.`,
+      why: `The marked bytes are 0x80, then zeros, then the message length in bits (${message.length * 8}). The 0x80 marks where the message ends, and the length makes collisions across blocks no easier than within one.`,
       codeLine: line('block = message + padding'),
       variables: { padding: added.length, block: block.length },
       view: byteGrid(block, 'block', (i) => (i < message.length ? 'default' : 'found')),

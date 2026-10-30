@@ -41,4 +41,11 @@ describe('sitePages', () => {
     expect(new Set(paths).size).toBe(paths.length);
     expect(paths).toHaveLength(162 + 7 + 1);
   });
+
+  it('names every track in the home page and site descriptions', async () => {
+    const { readFileSync } = await import('node:fs');
+    for (const file of ['index.html', 'src/pages/Home.tsx']) {
+      expect(readFileSync(file, 'utf8').toLowerCase(), file).toContain('security');
+    }
+  });
 });

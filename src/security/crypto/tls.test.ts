@@ -43,6 +43,23 @@ describe('tls handshake', () => {
     expect(run.events.at(bad.length > 0 ? run.events.indexOf(bad[0]!) + 1 : 0)!.id).toBe('closed');
   });
 
+  it('stops a copied certificate at the proof of the private key', () => {
+    const run = runHandshake('copied-certificate');
+    expect(run.stoppedAt).toBe('proof');
+    expect(run.events.at(-2)).toMatchObject({ id: 'certificate-verify', ok: false });
+    expect(run.events.at(-1)!.id).toBe('closed');
+  });
+
+  it('puts the public key in the transcript', () => {
+    const certificate = runHandshake('none').events.find((e) => e.id === 'certificate')!;
+    expect(certificate.values.publicKey).toBeDefined();
+  });
+
+  it('gives the expired certificate dates in the right order', () => {
+    const check = runHandshake('expired').events.find((e) => e.id === 'date-check')!;
+    expect(check.values.notBefore! < check.values.notAfter!).toBe(true);
+  });
+
   it('checks the expired and wrong-name certificates only after their chains pass', () => {
     for (const attack of ['expired', 'wrong-name'] as const) {
       const checks = runHandshake(attack).events.filter((e) => e.id === 'chain-check');

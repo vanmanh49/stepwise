@@ -45,6 +45,7 @@ export function publicKeySignaturesSteps(values: Record<string, string>): Step[]
   const key = keyPair(p, q, e);
   if (!key) return refusal(TITLE, `e = ${e} shares a factor with φ(n) = ${(p - 1) * (q - 1)}, so it has no inverse. Try another e, such as 17.`, EMPTY);
   const { n, phi, d } = key;
+  if (d === 1 || d === e) return refusal(TITLE, `With e = ${e}, the private exponent is d = ${d}, ${d === 1 ? 'so encrypting changes nothing' : 'so the private key is the same as the public one'}. Try another e.`, EMPTY);
   const secret = readInt(values, 'number', 'Number', { min: 0, max: n - 1 });
   if (!secret.ok) return refusal(TITLE, secret.why, EMPTY);
   const signing = operation.value === 'Sign';
@@ -117,7 +118,10 @@ export function publicKeySignaturesSteps(values: Record<string, string>): Step[]
     steps.push(
       {
         title: `Encrypt: ${m}^${e} mod ${n} = ${c}`,
-        why: 'Anyone with the public key can do this. Knowing e and n does not help anyone undo it.',
+        why:
+          c === m
+            ? `${m} encrypts to itself. Textbook RSA leaves a few numbers unchanged, such as 0 and 1, which is another reason real RSA adds padding.`
+            : 'Anyone with the public key can do this. Knowing e and n does not help anyone undo it.',
         codeLine: line('function encrypt'),
         variables: { message: m, ciphertext: c },
         view: keyGrid('e'),

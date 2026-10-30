@@ -68,7 +68,7 @@ export const securityMeta: LessonMeta[] = [
     category: 'security',
     difficulty: 'beginner',
     group: 'Cryptography',
-    description: 'Follow a TLS 1.3 handshake message by message, then see which check stops each of four attacks.',
+    description: 'Follow a TLS 1.3 handshake message by message, then see which check stops each of five attacks.',
     keywords: ['tls', 'ssl', 'https', 'certificate', 'certificate authority', 'ca', 'handshake', 'chain of trust', 'mutual tls'],
     prerequisites: ['key-exchange', 'public-key-signatures', 'block-modes'],
   },

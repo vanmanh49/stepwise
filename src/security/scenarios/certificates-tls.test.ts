@@ -28,6 +28,21 @@ describe('certificates and TLS scenario', () => {
     expect(run(attack).map((s) => s.title).join('\n')).not.toContain(RECORD_TEXT);
   });
 
+  it('stops a copied certificate at the proof check', () => {
+    const last = run('copied-certificate').at(-1)!;
+    expect(last.title).toContain('Proof check failed');
+    expect(last.title).toContain('closed');
+  });
+
+  it('shows the scenario date, so the check reads true on any real date', () => {
+    const date = run('none').find((s) => s.title.startsWith('Date check'))!;
+    expect(date.title).toContain('2026-06-01');
+  });
+
+  it('does not claim Finished caught a change this run cannot make', () => {
+    expect(run('none').find((s) => s.title.endsWith('sends Finished'))!.why).toContain('would');
+  });
+
   it('gives every handshake event a step', () => {
     for (const attack of TLS_ATTACKS) {
       expect(run(attack).map((s) => s.variables!.event)).toEqual(runHandshake(attack).events.map((e) => e.id));

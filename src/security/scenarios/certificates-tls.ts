@@ -1,7 +1,7 @@
 import { readChoice, refusal } from '../../algorithms/form';
 import { lineOf } from '../../data-structures/shared';
 import type { Role, Step } from '../../types/visualization';
-import { ROOT_NAME, runHandshake, SITE, TLS_ATTACKS, type TlsAttack, type TlsEvent } from '../crypto/tls';
+import { ROOT_NAME, runHandshake, SCENARIO_DATE, SITE, TLS_ATTACKS, type TlsAttack, type TlsEvent } from '../crypto/tls';
 import { EMPTY, partiesView } from '../steps';
 
 export const certificatesTlsCode = `send ClientHello(keyShare)
@@ -9,6 +9,7 @@ receive ServerHello(keyShare)
 keys = hkdf(diffieHellman(secret, theirShare))
 receive Certificate(chain), CertificateVerify(signature)
 
+check(signature.matches(cert.publicKey))               // proves the private key
 for (cert of chain) check(issuerOf(cert).signed(cert)) // must reach a trusted root
 check(cert.notBefore <= today && today <= cert.notAfter)
 check(cert.subject == hostname)
@@ -21,6 +22,7 @@ onAnyFailure: closeConnection()     // nothing is sent or shown`;
 export const ATTACK_LABELS: Record<TlsAttack, string> = {
   none: 'None',
   'self-signed': 'Self-signed certificate',
+  'copied-certificate': 'Copied certificate',
   expired: 'Expired certificate',
   'wrong-name': 'Wrong name',
   'tampered-record': 'Tampered record',
@@ -30,9 +32,10 @@ export const ATTACK_OPTIONS = TLS_ATTACKS.map((attack) => ATTACK_LABELS[attack])
 const line = (snippet: string) => lineOf(certificatesTlsCode, snippet);
 const NAME: Record<string, string> = { client: 'Client', attacker: 'Attacker', server: 'Server' };
 
-const CHECK_NAME = { chain: 'Chain', date: 'Date', name: 'Name', record: 'Record' };
+const CHECK_NAME = { proof: 'Proof', chain: 'Chain', date: 'Date', name: 'Name', record: 'Record' };
 
 const CLOSE_WHY: Record<keyof typeof CHECK_NAME, string> = {
+  proof: 'The certificate is genuine, and because certificates are public the attacker could copy it. But the signature does not match its public key, because the private key stayed with the real server.',
   chain: `The chain never reaches ${ROOT_NAME}, the only root this client trusts. Anyone can make a certificate that claims to be ${SITE}. What matters is who vouches for it.`,
   date: 'The signatures are genuine, but the certificate ran out. Dates limit how long a stolen private key stays useful.',
   name: `The certificate is genuine, but it is for another site. A certificate only proves one name, so the client asked for ${SITE} and got something else.`,
@@ -55,7 +58,7 @@ function titleOf(event: TlsEvent, peer: string): string {
     case 'chain-check':
       return event.ok ? `Chain check: ${values.issuer} signed ${values.subject}` : `Chain check: ${values.issuer} is not trusted`;
     case 'date-check':
-      return `Date check: valid until ${values.notAfter}`;
+      return `Date check: valid until ${values.notAfter}, and today is ${SCENARIO_DATE} in this scenario`;
     case 'name-check':
       return `Name check: the certificate names ${values.subject}`;
     case 'server-finished':
@@ -78,7 +81,7 @@ const WHY: Record<TlsEvent['id'], string> = {
   'chain-check': 'Each certificate must be signed by the next one up, ending at a root already in the client\'s trust store.',
   'date-check': 'A certificate is only valid between its two dates. The client compares them with today.',
   'name-check': `The client asked for ${SITE}, so the certificate must name exactly that.`,
-  'server-finished': 'Finished is an HMAC over the whole conversation, keyed from the shared secret. If anyone changed a message, the two ends disagree here.',
+  'server-finished': 'Finished is an HMAC over the whole conversation, keyed from the shared secret. If anyone had changed a message, the two ends would disagree here.',
   'client-finished': 'The client proves the same thing, and the handshake is complete.',
   record: 'From here on, data travels as AES-GCM records.',
   closed: '',
@@ -89,7 +92,7 @@ const LINE: Record<TlsEvent['id'], string> = {
   'server-hello': 'receive ServerHello',
   keys: 'keys = hkdf',
   certificate: 'receive Certificate',
-  'certificate-verify': 'receive Certificate',
+  'certificate-verify': 'check(signature.matches',
   'chain-check': 'for (cert of chain)',
   'date-check': 'check(cert.notBefore',
   'name-check': 'check(cert.subject',

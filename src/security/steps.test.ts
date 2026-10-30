@@ -30,6 +30,11 @@ describe('security view builders', () => {
     expect(compareDigests(Uint8Array.of(0b101), Uint8Array.of(0b001)).bits).toBe(1);
   });
 
+  it('keeps digest panel labels short enough for a phone', () => {
+    const { view } = compareDigests(new Uint8Array(32), new Uint8Array(32));
+    expect(view.panels.map((p) => p.label)).toEqual(['First', 'Second']);
+  });
+
   it('marks only the changed bytes in a digest comparison', () => {
     const { view } = compareDigests(Uint8Array.of(1, 2), Uint8Array.of(1, 3));
     const second = view.panels[1]!.view as GridView;

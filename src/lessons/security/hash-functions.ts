@@ -73,11 +73,11 @@ const content: LessonContent = {
     {
       id: 'q3',
       type: 'code',
-      prompt: 'Why does padding include the message length?',
+      prompt: 'What does this padding do?',
       code: 'block = message + padding   // 0x80, zeros, the length in bits',
-      options: ['So two different messages can never pad to the same block', 'To make hashing faster', 'To hide the length from attackers', 'Because the rounds need a key'],
+      options: ['Fills the block, and records where the message ends and how long it was', 'Makes hashing faster', 'Hides the length from attackers', 'Adds a key to the rounds'],
       answer: 0,
-      explanation: 'Without the length, a message and the same message with extra zero bytes could pad to identical blocks.',
+      explanation: 'The 0x80 byte marks where the message ends, and the last 8 bytes hold its length, so no two messages ever pad to the same blocks.',
     },
     {
       id: 'q4',
