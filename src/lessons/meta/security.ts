@@ -72,4 +72,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['tls', 'ssl', 'https', 'certificate', 'certificate authority', 'ca', 'handshake', 'chain of trust', 'mutual tls'],
     prerequisites: ['key-exchange', 'public-key-signatures', 'block-modes'],
   },
+  {
+    id: 'password-storage',
+    title: 'Password Storage',
+    category: 'security',
+    difficulty: 'intermediate',
+    group: 'Identity & Access',
+    description: 'Leak a real users table four ways, then crack it, from plain text to a slow salted hash.',
+    keywords: ['password', 'hash', 'salt', 'pbkdf2', 'bcrypt', 'argon2', 'rainbow table', 'credential', 'cracking', 'breach'],
+    prerequisites: ['hash-functions'],
+  },
 ];

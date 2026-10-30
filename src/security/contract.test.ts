@@ -31,7 +31,12 @@ function checkView(view: View, label: string) {
   }
   if (view.kind === 'services') {
     const nodes = new Set(view.nodes.map((n) => n.id));
-    for (const message of view.messages) expect(nodes.has(message.from) && nodes.has(message.to), label).toBe(true);
+    const linked = (from: string, to: string) => view.links.some((l) => (l.from === from && l.to === to) || (l.from === to && l.to === from));
+    for (const message of view.messages) {
+      expect(nodes.has(message.from) && nodes.has(message.to), label).toBe(true);
+      expect(linked(message.from, message.to), label).toBe(true);
+    }
+    expect(new Set(view.messages.map((m) => m.id)).size, label).toBe(view.messages.length);
   }
 }
 

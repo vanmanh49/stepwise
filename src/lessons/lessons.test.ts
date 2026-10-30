@@ -170,6 +170,7 @@ const EXPECTED_IDS = [
   'key-exchange',
   'public-key-signatures',
   'certificates-tls',
+  'password-storage',
 ];
 
 describe('lesson registry', () => {
