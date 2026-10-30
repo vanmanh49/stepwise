@@ -24,6 +24,9 @@ export const originOf = (url: string): string => {
   return parts ? `${parts[1]}//${parts[2]}` : '';
 };
 
+/** A path on the page's own origin, or a full address as it stands. */
+export const absoluteUrl = (origin: string, url: string): string => (url.startsWith('/') ? `${origin}${url}` : url);
+
 /** The registrable part of a host. Good enough for `.example` names, which have no public suffix to look up. */
 export const siteOf = (host: string): string => host.split('.').slice(-2).join('.');
 

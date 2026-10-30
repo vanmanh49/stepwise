@@ -253,3 +253,125 @@ describe('submit', () => {
     expect(sent[0]!.headers.origin).toBe('https://shop.example');
   });
 });
+
+describe('fetchFrom', () => {
+  const FROM = 'https://evil.example';
+  const allow = (origin: string, credentials = false, methods = 'GET, PUT'): Record<string, string> => ({
+    'access-control-allow-origin': origin,
+    'access-control-allow-methods': methods,
+    ...(credentials && { 'access-control-allow-credentials': 'true' }),
+  });
+
+  function site(headers: Record<string, string>) {
+    return setup(() => response(200, 'secret', { headers }));
+  }
+
+  it('reads anything on its own origin', () => {
+    const { browser } = site({});
+    expect(browser.fetchFrom('https://shop.example', SHOP)).toEqual({ sent: true, status: 200, readable: true, body: 'secret' });
+  });
+
+  it.each<[string, Record<string, string>, boolean, boolean]>([
+    ['no header', {}, false, false],
+    ['no header, with credentials', {}, true, false],
+    ['an exact origin', allow(FROM), false, true],
+    ['an exact origin with allow-credentials', allow(FROM, true), true, true],
+    ['an exact origin with credentials and no allow-credentials', allow(FROM), true, false],
+    ['another origin', allow('https://app.shop.example', true), true, false],
+    ['* without credentials', allow('*'), false, true],
+    ['* with credentials', allow('*', true), true, false],
+  ])('%s', (_name, headers, credentials, readable) => {
+    const { browser } = site(headers);
+    const result = browser.fetchFrom(FROM, SHOP, { credentials });
+    expect(result).toMatchObject({ sent: true, status: 200, readable, body: readable ? 'secret' : null });
+    expect(result.blockedBy !== undefined).toBe(!readable);
+  });
+
+  it('names the credentials rule for *', () => {
+    expect(site(allow('*')).browser.fetchFrom(FROM, SHOP, { credentials: true }).blockedBy).toContain('credentials');
+  });
+
+  it('sends no cookies without credentials, and keeps none it is given', () => {
+    const { browser, sent } = setup(() => response(200, '', { setCookies: [cookie({ name: 'new' })] }));
+    browser.plant(SHOP, cookie({ sameSite: 'None', secure: true }));
+    browser.fetchFrom(FROM, SHOP);
+    expect(sent[0]!.headers.cookie).toBeUndefined();
+    expect(browser.jar().map((c) => c.name)).toEqual(['sid']);
+  });
+
+  it.each<[string, Partial<SetCookie>, string | undefined]>([
+    ['None', { sameSite: 'None', secure: true }, 'sid=v'],
+    ['Lax', { sameSite: 'Lax' }, undefined],
+    ['unset', {}, undefined],
+  ])('with credentials across sites, a %s cookie', (_name, flags, header) => {
+    const { browser, sent } = setup();
+    browser.plant(SHOP, cookie(flags));
+    browser.fetchFrom(FROM, SHOP, { credentials: true });
+    expect(sent[0]!.headers.cookie).toBe(header);
+  });
+
+  it('names its origin on a cross-origin request and not on its own', () => {
+    const { browser, sent } = setup();
+    browser.fetchFrom(FROM, SHOP);
+    browser.fetchFrom('https://shop.example', SHOP);
+    expect(sent.map((request) => request.headers.origin)).toEqual([FROM, undefined]);
+  });
+
+  describe('preflight', () => {
+    const put = (headers: Record<string, string>, options: Parameters<ReturnType<typeof createBrowser>['fetchFrom']>[2] = {}) => {
+      const run = site(headers);
+      return { ...run, result: run.browser.fetchFrom(FROM, SHOP, { method: 'PUT', ...options }) };
+    };
+    const methods = (sent: WebRequest[]) => sent.map((request) => request.method);
+
+    it('asks first, and stops a PUT that fails', () => {
+      const { result, sent } = put({});
+      expect(result).toMatchObject({ sent: false, readable: false, body: null });
+      expect(result.blockedBy).toBeDefined();
+      expect(methods(sent)).toEqual(['OPTIONS']);
+    });
+
+    it('sends a PUT that passes', () => {
+      const { result, sent } = put(allow(FROM, true), { credentials: true });
+      expect(result).toMatchObject({ sent: true, readable: true });
+      expect(methods(sent)).toEqual(['OPTIONS', 'PUT']);
+    });
+
+    it('stops a credentialed PUT against *', () => {
+      const { result, sent } = put(allow('*', true), { credentials: true });
+      expect(result.sent).toBe(false);
+      expect(methods(sent)).toEqual(['OPTIONS']);
+    });
+
+    it('stops a method the server does not list', () => {
+      expect(put(allow(FROM, false, 'GET')).result.sent).toBe(false);
+    });
+
+    it('carries no cookies', () => {
+      const run = site(allow(FROM, true));
+      run.browser.plant(SHOP, cookie({ sameSite: 'None', secure: true }));
+      run.browser.fetchFrom(FROM, SHOP, { method: 'PUT', credentials: true });
+      expect(run.sent[0]!.headers.cookie).toBeUndefined();
+      expect(run.sent[1]!.headers.cookie).toBe('sid=v');
+    });
+
+    it('runs for a custom header, which the server must list', () => {
+      const headers = { 'x-token': '1' };
+      const refused = site(allow(FROM));
+      expect(refused.browser.fetchFrom(FROM, SHOP, { headers }).sent).toBe(false);
+      const passed = site({ ...allow(FROM), 'access-control-allow-headers': 'X-Token' });
+      expect(passed.browser.fetchFrom(FROM, SHOP, { headers }).sent).toBe(true);
+    });
+
+    it('is skipped on its own origin', () => {
+      const { browser, sent } = site({});
+      browser.fetchFrom('https://shop.example', SHOP, { method: 'PUT' });
+      expect(methods(sent)).toEqual(['PUT']);
+    });
+  });
+
+  it('reports a host that does not exist', () => {
+    const { browser } = setup(() => response(0, 'Network error: no such host'));
+    expect(browser.fetchFrom(FROM, 'https://real-site.com/')).toMatchObject({ sent: true, status: 0, readable: false, body: null });
+  });
+});

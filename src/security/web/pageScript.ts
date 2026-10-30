@@ -1,5 +1,5 @@
 import type { Browser } from './browser';
-import { cookieHeader } from './http';
+import { absoluteUrl, cookieHeader } from './http';
 
 export type Value = ({ text: string } | { read: 'cookie' | 'href' })[];
 
@@ -88,17 +88,14 @@ export function parsePageScript(text: string): { ok: true; statements: Statement
 export function runPageScript(statements: Statement[], origin: string, browser: Browser, href: string): string[] {
   const read = (value: Value) =>
     value.map((part) => ('text' in part ? part.text : part.read === 'href' ? href : cookieHeader(browser.runScript(origin)))).join('');
-  const address = (value: Value) => {
-    const url = read(value);
-    return url.startsWith('/') ? `${origin}${url}` : url;
-  };
   const reported = (status: number, url: string, done: string) => (status === 0 ? `could not reach ${url}: no such host` : done);
 
   return statements.map(({ kind, value }) => {
     if (kind === 'alert') return `alert(${JSON.stringify(read(value))})`;
     if (kind === 'log') return `console.log(${JSON.stringify(read(value))})`;
-    const url = address(value);
+    const url = absoluteUrl(origin, read(value));
     if (kind === 'navigate') return reported(browser.visit(url, origin).status, url, `moved the page to ${url}`);
-    return reported(browser.subresource(url, origin).status, url, `sent a request to ${url}`);
+    const { status } = kind === 'fetch' ? browser.fetchFrom(origin, url) : browser.subresource(url, origin);
+    return reported(status, url, `sent a request to ${url}`);
   });
 }
