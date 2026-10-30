@@ -23,7 +23,7 @@ describe('lesson metadata and content', () => {
 
   it('keeps metadata modules free of anything but types', () => {
     const files = readdirSync(metaDir).filter((f) => f.endsWith('.ts'));
-    expect(files.toSorted()).toEqual(['ai.ts', 'algorithms.ts', 'data-structures.ts', 'kubernetes.ts', 'microservices.ts', 'sql.ts']);
+    expect(files.toSorted()).toEqual(['ai.ts', 'algorithms.ts', 'data-structures.ts', 'kubernetes.ts', 'microservices.ts', 'security.ts', 'sql.ts']);
     for (const file of files) {
       const imports = readFileSync(new URL(file, metaDir), 'utf8').split('\n').filter((line) => /^\s*import\b/.test(line));
       expect(imports.filter((line) => !/^import type\b/.test(line)), file).toEqual([]);
