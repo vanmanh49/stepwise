@@ -182,4 +182,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['command injection', 'shell', 'os command', 'path traversal', 'directory traversal', 'dot dot slash', 'execfile', 'allow-list', 'blocklist'],
     prerequisites: ['sql-injection'],
   },
+  {
+    id: 'cross-site-scripting',
+    title: 'Cross-Site Scripting',
+    category: 'security',
+    difficulty: 'advanced',
+    group: 'Web Attacks & Defenses',
+    description: 'Type real payloads into a page, watch one become code and steal a cookie, and see what encoding, HttpOnly and innerHTML each change.',
+    keywords: ['xss', 'cross-site scripting', 'reflected', 'stored', 'dom xss', 'innerhtml', 'textcontent', 'output encoding', 'escaping', 'httponly', 'onerror'],
+    prerequisites: ['same-origin-cors'],
+  },
 ];

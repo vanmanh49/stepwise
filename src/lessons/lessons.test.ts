@@ -181,6 +181,7 @@ const EXPECTED_IDS = [
   'same-origin-cors',
   'sql-injection',
   'command-injection',
+  'cross-site-scripting',
 ];
 
 describe('lesson registry', () => {
