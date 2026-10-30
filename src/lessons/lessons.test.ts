@@ -166,6 +166,7 @@ const EXPECTED_IDS = [
   'hash-functions',
   'message-authentication',
   'symmetric-encryption',
+  'block-modes',
 ];
 
 describe('lesson registry', () => {

@@ -32,4 +32,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['aes', 'aes-128', 'block cipher', 'encryption', 'secret key', 'substitution', 'rijndael'],
     prerequisites: [],
   },
+  {
+    id: 'block-modes',
+    title: 'Block Modes & AEAD',
+    category: 'security',
+    difficulty: 'beginner',
+    group: 'Cryptography',
+    description: 'See ECB leak a picture, read a message through a reused nonce, and watch GCM catch a flipped bit.',
+    keywords: ['ecb', 'cbc', 'ctr', 'gcm', 'aead', 'nonce', 'authenticated encryption', 'mode of operation', 'bit flipping'],
+    prerequisites: ['symmetric-encryption'],
+  },
 ];
