@@ -175,6 +175,7 @@ const EXPECTED_IDS = [
   'sessions-cookies',
   'json-web-tokens',
   'multi-factor-auth',
+  'oauth-pkce',
 ];
 
 describe('lesson registry', () => {

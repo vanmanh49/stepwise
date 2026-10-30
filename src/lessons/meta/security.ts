@@ -122,4 +122,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['mfa', '2fa', 'two-factor', 'totp', 'authenticator', 'one-time password', 'otp', 'passkey', 'webauthn', 'phishing'],
     prerequisites: ['message-authentication', 'credential-attacks'],
   },
+  {
+    id: 'oauth-pkce',
+    title: 'OAuth 2.0 & PKCE',
+    category: 'security',
+    difficulty: 'intermediate',
+    group: 'Identity & Access',
+    description: 'Follow the authorization code flow across three sites, then break it with a stolen code, login CSRF and a tampered redirect.',
+    keywords: ['oauth', 'oauth2', 'pkce', 'authorization code', 'redirect uri', 'state', 'csrf', 'sign in with', 'access token', 'code challenge'],
+    prerequisites: ['sessions-cookies', 'hash-functions'],
+  },
 ];
