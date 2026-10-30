@@ -1,9 +1,11 @@
-import { createCipheriv, createHash, createHmac, hkdfSync } from 'node:crypto';
+import { createCipheriv, createHash, createHmac, hkdfSync, pbkdf2Sync } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { seeded } from '../../utils/random';
+import { decodeBase64url, encodeBase64url } from './base64url';
 import { hex } from './bytes';
 import { hkdfExpand, hkdfExtract, hmac } from './hmac';
 import { cbc, ctr, ecb, gcmEncrypt } from './modes';
+import { pbkdf2 } from './pbkdf2';
 import { sha256 } from './sha256';
 
 /** Seeded bytes, so a failure repeats. */
@@ -24,6 +26,27 @@ describe('our crypto agrees with node:crypto', () => {
     for (const length of lengths) {
       const bytes = randomBytes(r, length);
       expect(hex(sha256(bytes)), String(length)).toBe(createHash('sha256').update(bytes).digest('hex'));
+    }
+  });
+
+  it('pbkdf2', () => {
+    const r = seeded(20);
+    for (const rounds of [1, 2, 100]) {
+      for (const length of [16, 32, 64]) {
+        const password = randomBytes(r, Math.floor(r() * 40));
+        const salt = randomBytes(r, Math.floor(r() * 20));
+        expect(hex(pbkdf2(password, salt, rounds, length)), `${rounds}/${length}`).toBe(pbkdf2Sync(password, salt, rounds, length, 'sha256').toString('hex'));
+      }
+    }
+  });
+
+  it('base64url', () => {
+    const r = seeded(21);
+    for (let length = 0; length <= 40; length++) {
+      const bytes = randomBytes(r, length);
+      const text = Buffer.from(bytes).toString('base64url');
+      expect(encodeBase64url(bytes), String(length)).toBe(text);
+      expect(decodeBase64url(text), String(length)).toEqual(bytes);
     }
   });
 

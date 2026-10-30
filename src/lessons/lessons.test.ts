@@ -170,6 +170,14 @@ const EXPECTED_IDS = [
   'key-exchange',
   'public-key-signatures',
   'certificates-tls',
+  'password-storage',
+  'credential-attacks',
+  'sessions-cookies',
+  'json-web-tokens',
+  'multi-factor-auth',
+  'oauth-pkce',
+  'openid-connect',
+  'access-control',
 ];
 
 describe('lesson registry', () => {
