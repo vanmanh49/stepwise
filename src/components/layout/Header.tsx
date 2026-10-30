@@ -1,15 +1,11 @@
 import { Moon, Search, Sun } from 'lucide-react';
 import { Link, NavLink } from 'react-router';
+import { CATEGORIES, CATEGORY_TITLE } from '../../lessons/labels';
 import { useTheme } from '../../store/theme';
 import { Button, IconButton } from '../ui/Button';
 
 const links = [
-  { to: '/data-structures', label: 'Data Structures' },
-  { to: '/algorithms', label: 'Algorithms' },
-  { to: '/sql', label: 'SQL' },
-  { to: '/microservices', label: 'Microservices' },
-  { to: '/kubernetes', label: 'Kubernetes' },
-  { to: '/ai', label: 'AI' },
+  ...CATEGORIES.map((category) => ({ to: `/${category}`, label: CATEGORY_TITLE[category] })),
   { to: '/big-o', label: 'Big O' },
   { to: '/dashboard', label: 'Progress' },
 ];

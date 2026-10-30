@@ -1,6 +1,7 @@
-import { lazy, Suspense } from 'react';
+import { Fragment, lazy } from 'react';
 import { Route, Routes } from 'react-router';
 import { AppShell } from './components/layout/AppShell';
+import { CATEGORIES } from './lessons/labels';
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
 
@@ -12,27 +13,19 @@ const BigO = lazy(() => import('./pages/BigO'));
 
 export default function App() {
   return (
-    <Suspense fallback={<p className="px-6 py-24 text-center text-muted">Loading…</p>}>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route index element={<Home />} />
-          <Route path="data-structures" element={<Catalog category="data-structures" />} />
-          <Route path="algorithms" element={<Catalog category="algorithms" />} />
-          <Route path="data-structures/:lessonId" element={<LessonPage category="data-structures" />} />
-          <Route path="algorithms/:lessonId" element={<LessonPage category="algorithms" />} />
-          <Route path="sql" element={<Catalog category="sql" />} />
-          <Route path="sql/:lessonId" element={<LessonPage category="sql" />} />
-          <Route path="microservices" element={<Catalog category="microservices" />} />
-          <Route path="microservices/:lessonId" element={<LessonPage category="microservices" />} />
-          <Route path="kubernetes" element={<Catalog category="kubernetes" />} />
-          <Route path="kubernetes/:lessonId" element={<LessonPage category="kubernetes" />} />
-          <Route path="ai" element={<Catalog category="ai" />} />
-          <Route path="ai/:lessonId" element={<LessonPage category="ai" />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="big-o" element={<BigO />} />
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
-    </Suspense>
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route index element={<Home />} />
+        {CATEGORIES.map((category) => (
+          <Fragment key={category}>
+            <Route path={category} element={<Catalog category={category} />} />
+            <Route path={`${category}/:lessonId`} element={<LessonPage category={category} />} />
+          </Fragment>
+        ))}
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="big-o" element={<BigO />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+    </Routes>
   );
 }

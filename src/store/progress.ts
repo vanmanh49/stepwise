@@ -1,5 +1,5 @@
 import { create, type StateCreator } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 export interface ProgressData {
   completed: string[];
@@ -134,6 +134,17 @@ function persistedStore() {
     persist(creator, {
       name: STORAGE_KEY,
       version: 1,
+      storage: createJSONStorage(() => ({
+        getItem: (name) => localStorage.getItem(name),
+        setItem: (name, value) => {
+          try {
+            localStorage.setItem(name, value);
+          } catch {
+            // storage full: progress lasts this session instead of crashing the lesson that saved it
+          }
+        },
+        removeItem: (name) => localStorage.removeItem(name),
+      })),
       merge: (persisted, current) => ({ ...current, ...sanitizeProgress(persisted) }),
     }),
   );

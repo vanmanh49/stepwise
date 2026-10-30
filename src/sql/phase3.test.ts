@@ -209,7 +209,7 @@ describe('CTEs', () => {
 
 describe('recursive CTEs', () => {
   const company = datasets.company;
-  const GUARD = 'This recursion never stops on its own. Add a condition that ends it, such as WHERE n < 10.';
+  const GUARD = "This recursion never stops on its own, and LIMIT can't stop it here. Add a condition that ends it, such as WHERE n < 10.";
 
   it('counts from 1 to 10', () => {
     expect(rows('WITH RECURSIVE n (x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 10) SELECT x FROM n').map((r) => r[0])).toEqual([

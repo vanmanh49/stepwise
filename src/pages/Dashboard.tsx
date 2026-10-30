@@ -1,7 +1,7 @@
 import { ArrowRight, CircleCheck, Flame } from 'lucide-react';
 import { useEffect } from 'react';
 import { Link } from 'react-router';
-import { CATEGORY_TITLE } from '../lessons/labels';
+import { CATEGORIES, CATEGORY_TITLE } from '../lessons/labels';
 import { ProgressBar } from '../components/progress/ProgressBar';
 import { Button } from '../components/ui/Button';
 import { ButtonLink } from '../components/ui/ButtonLink';
@@ -79,7 +79,7 @@ export default function Dashboard() {
         <h2 id="tracks-title" className="text-lg font-semibold">
           Tracks
         </h2>
-        {(['data-structures', 'algorithms', 'sql', 'microservices', 'kubernetes', 'ai'] as const).map((category) => (
+        {CATEGORIES.map((category) => (
           <ProgressBar
             key={category}
             label={CATEGORY_TITLE[category]}

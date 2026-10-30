@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { curveForNotation } from '../components/bigo/complexities';
-import { sampleInputs } from '../data-structures/shared';
 import { checkExercise, probeOutcomes } from '../sql/check';
 import { scriptSteps } from '../sql/scriptSteps';
 import { datasets } from '../sql/datasets';
-import type { Lesson } from '../types/lesson';
-import type { Step } from '../types/visualization';
 import { curriculum, roadmap, topicsIn } from './curriculum';
-import { allLessons, fullLesson } from './all.testutil';
+import { allLessons, defaultSteps, fullLesson } from './all.testutil';
 import { adjacentLessons, getLesson, lessonPath, lessons, lessonsIn } from './registry';
 
 const EXPECTED_IDS = [
@@ -167,34 +164,6 @@ const EXPECTED_IDS = [
   'prompt-injection-guardrails',
   'human-in-the-loop',
 ];
-
-function defaultSteps(lesson: Lesson): Step[] {
-  const config = lesson.visualization;
-  switch (config.kind) {
-    case 'sort':
-      return config.generate(config.initial);
-    case 'search':
-      return config.generate(config.initial, config.target);
-    case 'structure': {
-      const op = config.structure.ops[0]!;
-      const { args, words } = sampleInputs(op);
-      return op.run(config.structure.initial, args, words).steps;
-    }
-    case 'text': {
-      const op = config.text.ops[0]!;
-      return op.run(config.text.initial, op.arg?.sample ?? '').steps;
-    }
-    case 'graph':
-      return config.generate(config.graphs[0]!, config.graphs[0]!.nodes[0]!.id);
-    case 'form':
-      return config.generate(config.presets[0]!.values);
-    case 'sql': {
-      const result = scriptSteps(datasets[config.dataset], config.initialQuery);
-      if (!result.ok) throw new Error(result.error.message);
-      return result.steps;
-    }
-  }
-}
 
 describe('lesson registry', () => {
   it('contains every lesson in learning order', () => {

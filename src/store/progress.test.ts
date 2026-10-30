@@ -163,6 +163,26 @@ describe('blocked storage', () => {
       delete (globalThis as { localStorage?: unknown }).localStorage;
     }
   });
+
+  it('keeps working in memory when saving fails, as it does with full storage', async () => {
+    vi.resetModules();
+    const localStorage = {
+      getItem: () => null,
+      setItem: () => {
+        throw new DOMException('full', 'QuotaExceededError');
+      },
+      removeItem: () => {},
+    };
+    vi.stubGlobal('localStorage', localStorage);
+    vi.stubGlobal('window', Object.assign(new EventTarget(), { localStorage }));
+    try {
+      const { useProgress: fresh } = await import('./progress');
+      fresh.getState().visit('array');
+      expect(fresh.getState().currentLesson).toBe('array');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe('another tab', () => {

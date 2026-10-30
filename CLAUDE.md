@@ -8,7 +8,7 @@ Stepwise is a static React app that teaches data structures, algorithms, SQL, mi
 
 ```bash
 npm run dev                              # Vite dev server
-npm test                                 # whole Vitest suite (src/**/*.test.ts), about 4,000 tests
+npm test                                 # whole Vitest suite (src/**/*.test.{ts,tsx}, scripts/**/*.test.ts), about 4,700 tests
 npx vitest run src/sql/parse.test.ts     # one file
 npx vitest run -t "rotates left"         # tests whose name matches
 npm run typecheck                        # tsc --noEmit (strict, noUncheckedIndexedAccess)
@@ -16,7 +16,7 @@ npm run lint                             # oxlint --deny-warnings (config: .oxli
 npm run bench                            # SQL engine timings (src/sql/*.bench.ts, Vitest bench fixture)
 npm run train:ai                         # retrain the tiny AI model and rewrite src/ai/weights.ts (seeded; ~45 s)
 npm run build                            # typecheck + production build
-npm run build:pages                      # build under /stepwise/ and copy index.html to 404.html
+npm run build:pages                      # build under /stepwise/ with a page per address, and copy index.html to 404.html
 ```
 
 CI runs `npm run lint`, `npm test`, `build:pages` and then `check:bundle`, on every pull request (`.github/workflows/ci.yml`) and again before each deploy from `main`. The linter is Oxlint rather than ESLint because typescript-eslint does not support TypeScript 7. Its `correctness` and `suspicious` categories are errors, plus the React hooks rules. A few rules are switched off in `.oxlintrc.json` because they don't fit this code (the automatic JSX runtime, narrowing `{ok}` results inside tests, helpers kept next to their only caller). For a deliberate exception, use `// oxlint-disable-next-line <rule> -- <reason>`.
@@ -30,13 +30,17 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
 - **Steps are data.** Each `Step` (`src/types/visualization.ts`) carries a `title`, a `why`, an optional `next`, a 1-based `codeLine` into the lesson's code string, `variables`, and a complete `View` snapshot. The player (`src/engine/`) is a pure reducer that only moves an index. The renderer for a view kind can therefore draw any step on its own.
 - **`View` is a discriminated union** of 18 kinds, including `array`, `tree`, `heap`, `graph`, `table`, `grid` (cells may carry `heat` 0–1; a grid with text longer than 6 characters and no arrows renders as a wrapping table, `isTextGrid`), `panels`, `buckets`, `btree`, `trie`, `calls`, `sessions`, `services`, `cluster` and `distribution` (probability bars with an optional cut-off and target). Every element has a `Role`. Role colours, border cues, marks and legend labels are defined only in `components/visualization/roles.ts`, and `rolesInView` there must handle every view kind. Elements keep stable ids across steps, so renderers can animate a value as it moves.
 - **Lessons are data**, in two parts, so pages can list lessons without downloading their content:
-  - **Metadata** (`LessonMeta`: title, keywords, complexity…) lives in `src/lessons/meta/<category>.ts`, in learning order. These modules import only types.
+  - **Metadata** (`LessonMeta`: title, keywords, complexity…) lives in `src/lessons/meta/<category>.ts`, in learning order, and `lessonList.ts` joins them. These modules import only types, so the build can read them too.
   - **Content** (`LessonContent`: text, visualization, code, quiz) is the default export of `src/lessons/<category>/<id>.ts`, and the file name is the id.
   - `registry.ts` serves metadata synchronously (`lessons`, `getLesson`, `lessonsIn`, `adjacentLessons`). `loadLesson(id)` imports the content through `import.meta.glob`, which gives one chunk per lesson. `LessonPage` suspends on it.
   - Tests that need content use `allLessons` / `fullLesson` from `lessons/all.testutil.ts`.
   - `main.tsx` starts `loadLesson` from the address (`lessonIdFromPath`) so a lesson opened directly downloads its content alongside the lesson page's code. A failed download rejects with `LessonLoadError`; the page's boundary tells it apart from render errors, and retrying reloads the page (browsers won't refetch a failed chunk).
   - The visualization's current step goes to `store/liveStep.ts`, read only by the "Now running" panel, so a step doesn't re-render the whole lesson page.
+  - Every address gets its own HTML file at build time (`scripts/static-pages.ts`, run by the plugin in `vite.config.ts`): the built `index.html` with that page's title, description and canonical link, plus `sitemap.xml`. Without them GitHub Pages answers deep links with its 404 page, which search engines skip. Pages load with a trailing slash, so `lessonIdFromPath` accepts one.
+  - `AppShell` wraps the route in `Suspense` and `RouteBoundary`, so a page whose code can't be fetched (a tab left open across a deploy) offers a reload and keeps the header. The boundary is keyed by address, so moving away clears the failure.
+  - The home page's preview (`MiniPlayer`) is lazy, which keeps every renderer and Motion out of the first load.
   - `npm run check:bundle` (run in CI) fails if the first-load JavaScript passes 600 kB or contains lesson text.
+  - `labels.ts` holds the tracks: `CATEGORY_TITLE`, `CATEGORY_INTRO` and `CATEGORIES`. Routes, the header and the progress bars are generated from `CATEGORIES`, so a new track starts with an entry there.
   - `curriculum.ts` lists every topic. A topic becomes a live link only when a lesson with the same id is registered.
   - `lesson.visualization.kind` (`sort`, `search`, `structure`, `text`, `graph`, `form`, `sql`) picks the input component in `components/visualization/inputs/`.
 - **Data structures** (`src/data-structures/`) export a `StructureDef<S>` with `initial`, `view(state)`, `code` and `ops`. `op.run(state, args, words)` returns `{ steps, state }`. It must never mutate `state`, and an operation that cannot run returns a single explanatory step with the state unchanged (`refuse` in `shared.ts`). Arguments are numbers, or words when the arg has `text: true`; they are validated by `parseOpFields`.
@@ -81,7 +85,7 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
   - `Button`, `IconButton`, `RunButton`, `ButtonLink` (a router link styled as a button), `PresetRow` ("Try:" chips), `SegmentedControl` (one choice), `ToggleChip` (on/off).
 
   Components use these instead of raw `<select>`/`<input>`/`<textarea>` or `btn`/`field` class strings. The `.btn`, `.field` and `select.field` styles in `src/index.css` are their only styling.
-- Progress (`store/progress.ts`, key `dsa-progress`) runs stored data through `sanitizeProgress` on load, and reloads on another tab's `storage` event because every save writes the whole state. The theme is stored as `dsa-theme` and applied in `index.html` before first paint.
+- Progress (`store/progress.ts`, key `dsa-progress`) runs stored data through `sanitizeProgress` on load, and reloads on another tab's `storage` event because every save writes the whole state. A failed save (full storage) is ignored, so progress lasts that session. The theme is stored as `dsa-theme` and applied in `index.html` before first paint.
 
 ## Tests that guard the whole codebase
 
@@ -93,7 +97,7 @@ The core pipeline is `generator(input) → Step[] → usePlayer(steps) → <Visu
 - `src/ai/contract.test.ts` runs every AI lesson with random and garbage settings: runs stay within `MAX_STEPS`, code lines are valid, distribution bar ids are unique, heat stays in 0–1, garbage in a number or choice field gives one refusal step, and runs repeat exactly. Number fields' ranges go in its `RANGES`.
 - Look up code lines with `lineOf(code, snippet)` (`data-structures/shared.ts`) rather than hard-coding numbers. It throws if the snippet is missing.
 - Vitest's on-disk cache (`node_modules/.vitest-cache`) can keep a stale `import.meta.glob` after a new lesson file is added, which shows up as "No content module for <id>". Delete the folder and run again.
-- Renderers and components have no DOM tests; UI changes are checked by hand in a browser, including at phone width (375px) and in dark mode.
+- `components/visualization/renderers/renderers.test.tsx` draws the first and last step and the quiz views of every lesson with `renderToString`, and fails on a crash or on `NaN`, `undefined` or `[object Object]` in the output. Beyond that, components have no DOM tests; UI changes are checked by hand in a browser, including at phone width (375px) and in dark mode.
 
 The README's "How to add a lesson / SQL lesson / algorithm / visualization" sections walk through each kind of change. Adding a new view kind means extending the `View` union, adding a renderer, and adding cases in `renderers/index.tsx` and `rolesInView`. TypeScript then reports any other place that is missing.
 
