@@ -22,4 +22,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['mac', 'hmac', 'tag', 'length extension', 'message authentication code', 'signed webhook'],
     prerequisites: ['hash-functions'],
   },
+  {
+    id: 'symmetric-encryption',
+    title: 'Symmetric Encryption',
+    category: 'security',
+    difficulty: 'beginner',
+    group: 'Cryptography',
+    description: 'Encrypt one block of your text with the real AES-128 and watch all 10 rounds turn it into noise.',
+    keywords: ['aes', 'aes-128', 'block cipher', 'encryption', 'secret key', 'substitution', 'rijndael'],
+    prerequisites: [],
+  },
 ];

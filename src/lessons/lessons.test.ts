@@ -165,6 +165,7 @@ const EXPECTED_IDS = [
   'human-in-the-loop',
   'hash-functions',
   'message-authentication',
+  'symmetric-encryption',
 ];
 
 describe('lesson registry', () => {
