@@ -72,7 +72,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'Why does a firewall not stop SSRF?',
-      options: ['The request comes from a server inside the network', 'Firewalls only work on Fridays', 'SSRF uses no network', 'It encrypts the request'],
+      options: ['The request comes from a server inside the network', 'Firewalls only watch email', 'SSRF uses no network', 'It encrypts the request'],
       answer: 0,
       explanation: 'Firewalls usually keep the outside out. Here the inside is doing the asking.',
     },

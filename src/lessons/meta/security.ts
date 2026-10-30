@@ -222,4 +222,14 @@ export const securityMeta: LessonMeta[] = [
     keywords: ['ssrf', 'server-side request forgery', 'metadata', '169.254.169.254', 'cloud credentials', 'allow-list', 'blocklist', 'redirect', 'internal network'],
     prerequisites: ['access-control'],
   },
+  {
+    id: 'threat-modeling',
+    title: 'Threat Modeling & Defense in Depth',
+    category: 'security',
+    difficulty: 'advanced',
+    group: 'Web Attacks & Defenses',
+    description: 'Run one attack from a stored comment to a stolen users table, and turn on five layers to see where it breaks and which would have held behind.',
+    keywords: ['threat modeling', 'defense in depth', 'attack chain', 'kill chain', 'layers', 'least privilege', 'egress', 'trust boundary', 'assets'],
+    prerequisites: ['content-security-policy', 'csrf', 'ssrf'],
+  },
 ];

@@ -185,6 +185,7 @@ const EXPECTED_IDS = [
   'content-security-policy',
   'csrf',
   'ssrf',
+  'threat-modeling',
 ];
 
 describe('lesson registry', () => {
