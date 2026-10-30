@@ -4,7 +4,7 @@ import type { LessonMeta } from '../types/lesson';
 import { topicsIn } from './curriculum';
 import { createLessonLoader, LessonLoadError, lessonIdFromPath, lessonPath, lessons, lessonsIn, loadLesson } from './registry';
 
-const contentModules = Object.keys(import.meta.glob(['./{data-structures,algorithms,sql,microservices,kubernetes,ai}/*.ts', '!./**/*.test.ts']));
+const contentModules = Object.keys(import.meta.glob(['./{data-structures,algorithms,sql,microservices,kubernetes,ai,security}/*.ts', '!./**/*.test.ts']));
 const metaDir = new URL('./meta/', import.meta.url);
 
 describe('lesson metadata and content', () => {

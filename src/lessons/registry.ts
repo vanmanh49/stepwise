@@ -84,5 +84,5 @@ export function createLessonLoader(metas: LessonMeta[], importers: ContentImport
 /** One chunk per lesson: the bundler splits each matched file into its own lazily loaded module. */
 export const loadLesson = createLessonLoader(
   lessons,
-  import.meta.glob<{ default: LessonContent }>(['./{data-structures,algorithms,sql,microservices,kubernetes,ai}/*.ts', '!./**/*.test.ts']),
+  import.meta.glob<{ default: LessonContent }>(['./{data-structures,algorithms,sql,microservices,kubernetes,ai,security}/*.ts', '!./**/*.test.ts']),
 );

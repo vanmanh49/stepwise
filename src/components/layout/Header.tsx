@@ -29,7 +29,7 @@ export function Header({ onSearch }: { onSearch(): void }) {
               key={l.to}
               to={l.to}
               className={({ isActive }) =>
-                `whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-surface-2 ${
+                `whitespace-nowrap rounded-lg px-2.5 py-2 text-sm xl:px-3 font-medium transition-colors hover:bg-surface-2 ${
                   isActive ? 'text-text' : 'text-muted'
                 }`
               }

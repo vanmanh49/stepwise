@@ -174,6 +174,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('microservices')).toHaveLength(23);
     expect(lessonsIn('kubernetes')).toHaveLength(23);
     expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, lessonsIn('ai').length).map((t) => t.id));
+    expect(lessonsIn('security').map((l) => l.id)).toEqual(topicsIn('security').slice(0, lessonsIn('security').length).map((t) => t.id));
   });
 
   it('links previous and next lessons within a category', () => {
@@ -205,7 +206,7 @@ describe.each(allLessons.map((l) => [l.id, l] as const))('lesson %s', (_id, less
     expect(lesson.applications.length).toBeGreaterThanOrEqual(3);
     expect(lesson.commonMistakes.length).toBeGreaterThanOrEqual(3);
     expect(lesson.summary.length).toBeGreaterThanOrEqual(3);
-    if (lesson.category !== 'sql' && lesson.category !== 'microservices' && lesson.category !== 'kubernetes' && lesson.category !== 'ai') {
+    if (lesson.category !== 'sql' && lesson.category !== 'microservices' && lesson.category !== 'kubernetes' && lesson.category !== 'ai' && lesson.category !== 'security') {
       expect(lesson.complexity!.rows.length).toBeGreaterThanOrEqual(1);
       expect(lesson.complexity!.curves.length).toBeGreaterThanOrEqual(1);
     }
@@ -433,6 +434,39 @@ describe('curriculum', () => {
       ...Array<string>(7).fill('How LLMs Work'),
       ...Array<string>(8).fill('Building with LLMs'),
       ...Array<string>(8).fill('AI Agents'),
+    ]);
+  });
+
+  it('lists the Security course in order', () => {
+    expect(topicsIn('security').map((t) => t.id)).toEqual([
+      'hash-functions',
+      'message-authentication',
+      'symmetric-encryption',
+      'block-modes',
+      'key-exchange',
+      'public-key-signatures',
+      'certificates-tls',
+      'password-storage',
+      'credential-attacks',
+      'sessions-cookies',
+      'json-web-tokens',
+      'multi-factor-auth',
+      'oauth-pkce',
+      'openid-connect',
+      'access-control',
+      'same-origin-cors',
+      'sql-injection',
+      'command-injection',
+      'cross-site-scripting',
+      'content-security-policy',
+      'csrf',
+      'ssrf',
+      'threat-modeling',
+    ]);
+    expect(topicsIn('security').map((t) => t.group)).toEqual([
+      ...Array<string>(7).fill('Cryptography'),
+      ...Array<string>(8).fill('Identity & Access'),
+      ...Array<string>(8).fill('Web Attacks & Defenses'),
     ]);
   });
 
