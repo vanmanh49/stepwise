@@ -44,3 +44,31 @@ describe('createDb', () => {
     expect(db.query('SELECT * FROM nowhere')).toEqual([]);
   });
 });
+
+describe('execute', () => {
+  const db = () => createDb(USERS);
+
+  it('returns rows', () => {
+    expect(db().execute('SELECT name FROM users')).toEqual({ ok: true, rows: [{ name: 'alice' }] });
+  });
+
+  it('runs every statement and keeps their writes', () => {
+    const shop = db();
+    expect(shop.execute("SELECT name FROM users; DROP TABLE orders").rows).toEqual([{ name: 'alice' }]);
+    expect(shop.rows('orders')).toEqual([]);
+    expect(shop.execute('SELECT * FROM orders').ok).toBe(false);
+  });
+
+  it('keeps the writes made before a failure', () => {
+    const shop = db();
+    const result = shop.execute('DROP TABLE orders; SELECT nope FROM users');
+    expect(result.ok).toBe(false);
+    expect(shop.execute('SELECT * FROM orders').ok).toBe(false);
+  });
+
+  it('gives the message for bad text', () => {
+    const result = db().execute("SELECT '");
+    expect(result).toMatchObject({ ok: false, rows: [] });
+    expect(result.error).toBeTruthy();
+  });
+});

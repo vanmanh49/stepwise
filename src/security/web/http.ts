@@ -11,7 +11,8 @@ export type SetCookie = {
   maxAge?: number;
 };
 
-export type WebResponse = { status: number; headers: Record<string, string>; setCookies: SetCookie[]; body: string; redirect?: string };
+/** `rows` are what a query returned, for a step to draw; a response on a real wire has only its body. */
+export type WebResponse = { status: number; headers: Record<string, string>; setCookies: SetCookie[]; body: string; redirect?: string; rows?: Record<string, unknown>[] };
 
 export const response = (status: number, body = '', extra: Partial<WebResponse> = {}): WebResponse => ({ status, headers: {}, setCookies: [], body, ...extra });
 

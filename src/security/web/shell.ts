@@ -163,6 +163,9 @@ function runLine(line: string, depth: number, commands: string[]): string {
   return printed.join('\n');
 }
 
+/** One command with its arguments already apart, so nothing is parsed, as `execFile` does. */
+export const runArgs = (args: string[]): ShellRun => ({ commands: [args.join(' ')], output: runCommand(args, '').output });
+
 /** A fake shell over `FILES`. Commands are looked up in a switch, so nothing typed ever runs. */
 export function runShell(line: string): ShellRun {
   const commands: string[] = [];
