@@ -202,4 +202,14 @@ export const networkingMeta: LessonMeta[] = [
     keywords: ['websocket', 'upgrade', '101 switching protocols', 'push', 'polling', 'ping', 'pong', 'frame', 'real time', 'sec-websocket-accept'],
     prerequisites: ['http-1-1'],
   },
+  {
+    id: 'cdn-anycast',
+    title: 'CDNs & Anycast',
+    category: 'networking',
+    difficulty: 'advanced',
+    group: 'Web & Internet Scale',
+    description: 'Put one address on two edges and let routing pick the nearer, see a cache hit skip the origin, and watch an edge fail mid-transfer.',
+    keywords: ['cdn', 'anycast', 'edge', 'cache', 'cache hit', 'cache miss', 'origin', 'x-cache', 'age', 'ttl', 'rst', 'curl', 'dig'],
+    prerequisites: ['dns', 'http-1-1'],
+  },
 ];

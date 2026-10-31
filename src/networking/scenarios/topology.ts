@@ -317,7 +317,8 @@ const ORIGIN_MS = 60;
 export function cdnNet() {
   const client = hostOn('client', 'Client', 1, 0);
   const resolver = hostOn('resolver', 'Resolver', 2, 0, 'dns');
-  const edge = (id: string, label: string, n: number) => createHost({ id, label, column: 2, mac: macOf(n), ip: ANYCAST_IP, prefix: 32, gateway: ipv4(`10.0.${n}.1`), arp: { [ipv4(`10.0.${n}.1`)]: macOf(0x10 + n) } });
+  // shortcut: each edge fetches from the origin on the shared address, with its own ports; a real edge has a unicast address for this.
+  const edge = (id: string, label: string, n: number) => createHost({ id, label, column: 2, mac: macOf(n), ip: ANYCAST_IP, prefix: 32, gateway: ipv4(`10.0.${n}.1`), arp: { [ipv4(`10.0.${n}.1`)]: macOf(0x10 + n) }, firstPort: 50000 + n * 1000 });
   const edges = [edge('near', 'Near edge', 3), edge('far', 'Far edge', 4)];
   const origin = hostOn('origin', 'Origin', 5, 3);
   const anycast = (port: string, metric: number): Route => ({ network: ANYCAST_IP, prefix: 32, port, metric });

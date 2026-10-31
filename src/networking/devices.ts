@@ -87,6 +87,8 @@ export interface HostConfig {
   mtu?: number;
   /** How the network map draws it. */
   type?: Device['type'];
+  /** First TCP client port. Two hosts sharing an address must not collide. */
+  firstPort?: number;
 }
 
 export interface Reply {
@@ -133,7 +135,7 @@ export function createHost(config: HostConfig): Host {
     ip: () => ip,
     mss: () => (config.mtu ? config.mtu - IP_TCP_HEADERS : DEFAULT_MSS),
     transmit: (ctx, dst, segment, note) => transmit(ctx, { ...packet(dst, DEFAULT_TTL, segment), length: IP_TCP_HEADERS + segment.length, df: true }, note),
-  });
+  }, config.firstPort);
 
   const own = (): Own => ({ mac, ip });
   const packet = (dst: number, ttl: number, payload: IpPacket['payload']): IpPacket => ({ kind: 'ip', src: ip, dst, ttl, id: nextId++, payload });

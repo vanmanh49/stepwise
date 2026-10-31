@@ -6,7 +6,7 @@ import { formatTime, type Ctx, type Note, type TableSnapshot } from './sim';
 export const CLIENT_ISN = 1000;
 export const SERVER_ISN = 5000;
 export const TIME_WAIT_MS = 2000;
-const FIRST_CLIENT_PORT = 49152;
+export const FIRST_CLIENT_PORT = 49152;
 const DEFAULT_BUFFER = 64000;
 const READ_TICK_MS = 10;
 /** A paused reader wakes here, so every run ends. */
@@ -102,10 +102,10 @@ interface Socket extends Conn {
   advertised: number;
 }
 
-export function createTcp(host: TcpHost) {
+export function createTcp(host: TcpHost, firstPort = FIRST_CLIENT_PORT) {
   const listeners = new Map<number, TcpOptions>();
   const conns: Socket[] = [];
-  let nextPort = FIRST_CLIENT_PORT;
+  let nextPort = firstPort;
 
   const noteFor = (conn: Socket, action: string, title: string, why: string): Note => ({ action, title, why, table: { index: CONNECTIONS_TABLE, row: conns.indexOf(conn) } });
   const free = (conn: Socket) => (conn.options.bufferBytes ?? DEFAULT_BUFFER) - conn.unread;
