@@ -215,7 +215,7 @@ describe('reliable delivery', () => {
     for (let seed = 1; seed <= 50; seed++) {
       const random = rng(seed);
       const nths = Array.from({ length: 400 }, (_, i) => i + 1).filter(() => random() < 0.2);
-      const { total, run, sent, conn } = transfer({ bytes: 12500, options: { fixedWindow: 1 + (seed % 5) }, close: true, faults: dropEach(anySegment, ...nths) });
+      const { total, run, sent, conn } = transfer({ bytes: 12500, options: seed % 2 ? { fixedWindow: 1 + (seed % 5) } : {}, close: true, faults: dropEach(anySegment, ...nths) });
       const aborted = sent('abort').length > 0 || sent('tcp-rst').length > 0;
       expect(run.cut, `seed ${seed}`).toBe(false);
       expect(total, `seed ${seed}`).toBeLessThanOrEqual(12500);
@@ -224,5 +224,112 @@ describe('reliable delivery', () => {
         expect(conn.state, `seed ${seed}`).toBe('CLOSED');
       }
     }
+  });
+});
+
+/** Client cwnd and ssthresh, in bytes, as of this event. */
+const congestion = (event: SimEvent) => {
+  const [, cwnd, ssthresh] = event.tables.c![3]!.rows[0]!;
+  return { cwnd: Number(cwnd), ssthresh: Number(ssthresh) };
+};
+
+describe('Reno', () => {
+  const samples = (ms: number, read: (conn: Conn) => number, into: number[]) => (conn: () => Conn) => Array.from({ length: ms }, (_, i) => ({ at: i + 2, device: 'c', run: () => void into.push(read(conn())) }));
+  const distinct = (values: number[]) => values.filter((value, i) => value !== values[i - 1]);
+
+  it('doubles cwnd each round in slow start', () => {
+    const windows: number[] = [];
+    transfer({ bytes: 200000, extra: samples(12, (conn) => conn.cwnd, windows) });
+    expect(distinct(windows).slice(0, 5)).toEqual([1000, 2000, 4000, 8000, 16000]);
+  });
+
+  it('grows cwnd by about one MSS a round from ssthresh', () => {
+    const windows: number[] = [];
+    transfer({ bytes: 200000, options: { ssthreshMss: 8 }, extra: samples(20, (conn) => conn.cwnd, windows) });
+    const rounds = distinct(windows);
+    expect(rounds.slice(0, 4)).toEqual([1000, 2000, 4000, 8000]);
+    for (let i = 4; i < 8; i++) {
+      const growth = rounds[i]! - rounds[i - 1]!;
+      expect(growth).toBeGreaterThan(800);
+      expect(growth).toBeLessThan(1100);
+    }
+  });
+
+  it('halves on three duplicate ACKs, inflates, then deflates on the new ACK', () => {
+    const { sent, run, total } = transfer({ bytes: 40000, serverOptions: { bufferBytes: 10000 }, faults: dropEach(isData(20001), 1) });
+    const retransmit = sent('fast-retransmit')[0]!;
+    expect(congestion(retransmit)).toEqual({ cwnd: 8000, ssthresh: 5000 });
+    const after = run.events.find((event) => event.time > retransmit.time && event.device === 'c' && event.action === 'tcp-data')!;
+    expect(congestion(after)).toEqual({ cwnd: 5000, ssthresh: 5000 });
+    expect(total).toBe(40000);
+  });
+
+  it('adds one MSS for each further duplicate ACK', () => {
+    const windows: number[] = [];
+    const { sent } = transfer({
+      bytes: 29000,
+      serverOptions: { bufferBytes: 10000 },
+      faults: dropEach(isData(20001), 1, 2),
+      extra: (conn) => [{ at: 100, device: 'c', run: () => void windows.push(conn().cwnd) }],
+    });
+    expect(sent('tcp-dup-ack')).toHaveLength(9);
+    expect(windows).toEqual([14000]);
+  });
+
+  it('restarts from one MSS on a timeout', () => {
+    const { sent } = transfer({ bytes: 8000, faults: dropEach(isData(8001), 1) });
+    expect(congestion(sent('timeout')[0]!)).toEqual({ cwnd: 1000, ssthresh: 2000 });
+  });
+
+  it('never lets a fixed window use cwnd', () => {
+    const { run } = transfer({ bytes: 4000, options: { fixedWindow: 4 } });
+    const times = run.events.filter((event) => event.action === 'tcp-data').map((event) => event.time);
+    expect(new Set(times).size).toBe(1);
+  });
+});
+
+describe('flow control', () => {
+  const acks = (run: SimResult) => segments(run, 's').filter(({ flags }) => flags.join() === 'ACK');
+
+  it('advertises the free buffer', () => {
+    const { run } = transfer({ bytes: 4000, options: { fixedWindow: 4 }, serverOptions: { bufferBytes: 4000, readRate: 0 } });
+    expect(acks(run).slice(0, 4).map(({ window }) => window)).toEqual([3000, 2000, 1000, 0]);
+  });
+
+  it('stops the sender at the peer window', () => {
+    const { run } = transfer({ bytes: 6000, options: { fixedWindow: 8 }, serverOptions: { bufferBytes: 2000, readRate: 0 } });
+    const early = run.events.filter((event) => event.time < 100 && event.action === 'tcp-data');
+    expect(early.map((event) => segment(event)!.seq)).toEqual([1001, 2001]);
+  });
+
+  it('probes a zero window once per RTO, then resumes on a window update', () => {
+    const { sent, total, conn } = transfer({ bytes: 6000, options: { fixedWindow: 8 }, serverOptions: { bufferBytes: 2000, readRate: 0 } });
+    expect(sent('zero-window').length).toBeGreaterThan(0);
+    const probes = sent('probe');
+    expect(probes.length).toBeGreaterThan(3);
+    expect(probes.every((event) => segment(event)!.length === 1)).toBe(true);
+    const gaps = probes.slice(1).map((event, i) => event.time - probes[i]!.time);
+    expect(new Set(gaps)).toEqual(new Set([conn.rto]));
+    expect(sent('window-update')[0]!.time).toBeGreaterThanOrEqual(2000);
+    expect(total).toBe(6000);
+  });
+
+  it('lets a slow reader pace the sender', () => {
+    const { run, total } = transfer({ bytes: 20000, options: { fixedWindow: 16 }, serverOptions: { bufferBytes: 8000, readRate: 20 } });
+    const windows = acks(run).map(({ window }) => window);
+    expect(Math.min(...windows)).toBeLessThan(2000);
+    expect(total).toBe(20000);
+    expect(run.events.at(-1)!.time).toBeGreaterThan(500);
+  });
+
+  it('ends with every byte read when the smallest buffer is paused', () => {
+    const { total, run } = transfer({ bytes: 8000, options: { fixedWindow: 64 }, close: true, serverOptions: { bufferBytes: 2000, readRate: 0 } });
+    expect(total).toBe(8000);
+    expect(run.cut).toBe(false);
+  });
+
+  it('never loses bytes when the window is smaller than a segment', () => {
+    const { total } = transfer({ bytes: 3000, options: { fixedWindow: 8 }, serverOptions: { bufferBytes: 500, readRate: 200 } });
+    expect(total).toBe(3000);
   });
 });

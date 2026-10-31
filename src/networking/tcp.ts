@@ -11,6 +11,11 @@ export const INITIAL_RTO_MS = 1000;
 const MIN_RTO_MS = 200;
 export const MAX_RETRIES = 5;
 const DUP_ACK_THRESHOLD = 3;
+const DEFAULT_SSTHRESH_MSS = 64;
+const READ_TICK_MS = 10;
+/** A paused reader wakes here, so every run ends. */
+const RESUME_AT_MS = 2000;
+const RESUME_RATE = 200;
 const CONNECTIONS_TABLE = 2;
 const SENDING: TcpState[] = ['ESTABLISHED', 'CLOSE_WAIT', 'FIN_WAIT_1', 'LAST_ACK'];
 
@@ -66,6 +71,7 @@ interface Socket extends Conn {
   /** close() was called; it takes effect once the connection is up. */
   closing: boolean;
   dupAcks: number;
+  recovering: boolean;
   retries: number;
   /** The one segment being timed; retransmitting clears it (Karn). */
   timed?: { end: number; at: number };
@@ -74,6 +80,10 @@ interface Socket extends Conn {
   /** Bumped to cancel the running timer. */
   timer: number;
   timing: boolean;
+  /** Bytes in order that the program hasn't read yet. */
+  unread: number;
+  reading: boolean;
+  advertised: number;
 }
 
 export function createTcp(host: TcpHost) {
@@ -82,7 +92,8 @@ export function createTcp(host: TcpHost) {
   let nextPort = FIRST_CLIENT_PORT;
 
   const noteFor = (conn: Socket, action: string, title: string, why: string): Note => ({ action, title, why, table: { index: CONNECTIONS_TABLE, row: conns.indexOf(conn) } });
-  const free = (conn: Socket) => conn.options.bufferBytes ?? DEFAULT_BUFFER;
+  const free = (conn: Socket) => (conn.options.bufferBytes ?? DEFAULT_BUFFER) - conn.unread;
+  const halfFlight = (conn: Socket) => Math.max(Math.floor(conn.inFlight / 2), 2 * conn.mss);
 
   function open(remote: number, localPort: number, remotePort: number, state: TcpState, iss: number, options: TcpOptions): Socket {
     const mss = host.mss();
@@ -107,10 +118,14 @@ export function createTcp(host: TcpHost) {
       held: [],
       closing: false,
       dupAcks: 0,
+      recovering: false,
       retries: 0,
       rttvar: 0,
       timer: 0,
       timing: false,
+      unread: 0,
+      reading: false,
+      advertised: 0,
       get inFlight() {
         return this.nxt - this.una;
       },
@@ -126,7 +141,8 @@ export function createTcp(host: TcpHost) {
   }
 
   function emit(ctx: Ctx, conn: Socket, fields: Pick<Tcp, 'seq' | 'flags'> & Partial<Tcp>, note: Note) {
-    host.transmit(ctx, conn.remote, { kind: 'tcp', srcPort: conn.localPort, dstPort: conn.remotePort, ack: conn.rcvNxt, window: free(conn), length: 0, ...fields }, note);
+    conn.advertised = free(conn);
+    host.transmit(ctx, conn.remote, { kind: 'tcp', srcPort: conn.localPort, dstPort: conn.remotePort, ack: conn.rcvNxt, window: conn.advertised, length: 0, ...fields }, note);
   }
 
   function stopTimer(conn: Socket) {
@@ -170,7 +186,7 @@ export function createTcp(host: TcpHost) {
       conn.nxt++;
       conn.max = Math.max(conn.max, conn.nxt);
     }
-    if (conn.inFlight > 0 && !conn.timing) startTimer(ctx, conn);
+    if (!conn.timing && (conn.inFlight > 0 || (conn.peerWindow === 0 && conn.nxt < conn.dataEnd))) startTimer(ctx, conn);
   }
 
   /** Sends the oldest unacknowledged thing again, whatever it is. */
@@ -194,8 +210,16 @@ export function createTcp(host: TcpHost) {
   function expire(ctx: Ctx, conn: Socket) {
     conn.timing = false;
     if (++conn.retries > MAX_RETRIES) return abort(ctx, conn);
+    if (conn.inFlight === 0) {
+      emit(ctx, conn, { seq: conn.nxt, flags: ['ACK'], length: 1 }, noteFor(conn, 'probe', 'A 1-byte probe', 'The window is 0, and a window update could be lost. So the sender asks again at each timeout, or the two sides could wait for each other forever.'));
+      startTimer(ctx, conn);
+      return;
+    }
     const waited = conn.rto;
+    conn.ssthresh = halfFlight(conn);
+    conn.cwnd = conn.mss;
     conn.dupAcks = 0;
+    conn.recovering = false;
     conn.rto *= 2;
     conn.nxt = conn.una;
     resend(ctx, conn, noteFor(conn, 'timeout', `No ACK for byte ${conn.una} after ${formatTime(waited)}`, `The timer ran out, so the oldest unacknowledged segment goes again and the timer doubles to ${formatTime(conn.rto)}.`));
@@ -213,6 +237,7 @@ export function createTcp(host: TcpHost) {
     conn.state = 'ESTABLISHED';
     conn.mss = Math.min(conn.mss, mss ?? conn.mss);
     conn.cwnd = conn.mss;
+    conn.ssthresh = (conn.options.ssthreshMss ?? DEFAULT_SSTHRESH_MSS) * conn.mss;
     conn.rto = INITIAL_RTO_MS;
     conn.retries = 0;
     stopTimer(conn);
@@ -255,6 +280,9 @@ export function createTcp(host: TcpHost) {
     conn.max = Math.max(conn.max, conn.una);
     conn.dupAcks = 0;
     conn.retries = 0;
+    if (conn.recovering) conn.cwnd = conn.ssthresh;
+    else conn.cwnd += conn.cwnd < conn.ssthresh ? conn.mss : (conn.mss * conn.mss) / conn.cwnd;
+    conn.recovering = false;
     if (conn.timed && conn.una >= conn.timed.end) {
       sampleRtt(conn, ctx.now - conn.timed.at);
       delete conn.timed;
@@ -275,20 +303,45 @@ export function createTcp(host: TcpHost) {
   }
 
   function onDupAck(ctx: Ctx, conn: Socket) {
-    if (++conn.dupAcks !== DUP_ACK_THRESHOLD) return;
+    conn.dupAcks++;
+    if (conn.recovering) conn.cwnd += conn.mss;
+    if (conn.dupAcks !== DUP_ACK_THRESHOLD) return;
+    conn.ssthresh = halfFlight(conn);
+    conn.cwnd = conn.ssthresh + DUP_ACK_THRESHOLD * conn.mss;
+    conn.recovering = true;
     resend(ctx, conn, noteFor(conn, 'fast-retransmit', `Third duplicate ACK for byte ${conn.una}: send it again now`, 'Three later segments arrived, so this one is probably lost, not late. There is no need to wait for the timer.'));
   }
 
   function onAck(ctx: Ctx, conn: Socket, segment: Tcp) {
     const duplicate = segment.ack === conn.una && segment.length === 0 && !segment.flags.includes('FIN') && segment.window === conn.peerWindow && conn.inFlight > 0;
+    if (conn.peerWindow === 0 && segment.window > 0) stopTimer(conn);
     conn.peerWindow = segment.window;
+    if (conn.inFlight === 0) conn.retries = 0;
     if (segment.ack > conn.una) onNewAck(ctx, conn, segment);
     else if (duplicate) onDupAck(ctx, conn);
     pump(ctx, conn);
   }
 
+  function read(ctx: Ctx, conn: Socket) {
+    conn.reading = false;
+    const rate = conn.options.readRate || (ctx.now >= RESUME_AT_MS ? RESUME_RATE : 0);
+    const bytes = Math.min(conn.unread, rate * READ_TICK_MS);
+    conn.unread -= bytes;
+    if (bytes > 0) conn.options.onData?.(bytes);
+    if (conn.state === 'ESTABLISHED' && conn.advertised < conn.mss && free(conn) >= conn.mss) {
+      sendAck(ctx, conn, noteFor(conn, 'window-update', `Window update: ${free(conn)} bytes free`, 'The program has read enough for at least one full segment, so the receiver tells the sender to carry on.'));
+    }
+    if (conn.unread > 0) startReading(ctx, conn);
+  }
+
+  function startReading(ctx: Ctx, conn: Socket) {
+    if (conn.reading) return;
+    conn.reading = true;
+    ctx.after(READ_TICK_MS, () => read(ctx, conn));
+  }
+
   /** Puts bytes in order, and hands over any held bytes the new ones connect to. */
-  function deliver(conn: Socket, end: number) {
+  function deliver(ctx: Ctx, conn: Socket, end: number) {
     const start = conn.rcvNxt;
     conn.rcvNxt = end;
     for (;;) {
@@ -297,22 +350,30 @@ export function createTcp(host: TcpHost) {
       conn.held.splice(conn.held.indexOf(next), 1);
       conn.rcvNxt = Math.max(conn.rcvNxt, next[1]);
     }
-    conn.options.onData?.(conn.rcvNxt - start);
+    const bytes = conn.rcvNxt - start;
+    if (conn.options.readRate === undefined) {
+      conn.options.onData?.(bytes);
+      return;
+    }
+    conn.unread += bytes;
+    startReading(ctx, conn);
   }
 
   function onSegment(ctx: Ctx, conn: Socket, segment: Tcp) {
     const end = segment.seq + segment.length;
     if (segment.flags.includes('FIN')) conn.peerFin = end;
     const before = conn.rcvNxt;
-    const late = segment.seq > conn.rcvNxt;
-    if (late && segment.length > 0) {
-      conn.held.push([segment.seq, end]);
-      ctx.note(noteFor(conn, 'tcp-hold', `Bytes from ${segment.seq} came ahead of a gap`, `Byte ${conn.rcvNxt} is still missing. TCP keeps these bytes, but the program can't have them until the gap is filled.`));
-    } else if (end > conn.rcvNxt) {
-      deliver(conn, end);
+    if (end <= conn.rcvNxt + free(conn)) {
+      if (segment.seq > conn.rcvNxt && segment.length > 0) {
+        conn.held.push([segment.seq, end]);
+        ctx.note(noteFor(conn, 'tcp-hold', `Bytes from ${segment.seq} came ahead of a gap`, `Byte ${conn.rcvNxt} is still missing. TCP keeps these bytes, but the program can't have them until the gap is filled.`));
+      } else if (end > conn.rcvNxt) {
+        deliver(ctx, conn, end);
+      }
     }
     if (conn.peerFin === conn.rcvNxt && onFin(ctx, conn)) return;
-    if (conn.rcvNxt > before) sendAck(ctx, conn, noteFor(conn, 'tcp-ack', `ACK ${conn.rcvNxt}`, `Every byte before ${conn.rcvNxt} has arrived, so one number acknowledges them all.`));
+    if (free(conn) === 0) sendAck(ctx, conn, noteFor(conn, 'zero-window', `ACK ${conn.rcvNxt}, window 0`, 'The buffer is full, because the program has not read it yet. A window of 0 tells the sender to stop.'));
+    else if (conn.rcvNxt > before) sendAck(ctx, conn, noteFor(conn, 'tcp-ack', `ACK ${conn.rcvNxt}, window ${free(conn)}`, `Every byte before ${conn.rcvNxt} has arrived, so one number acknowledges them all. The window is the room left in the buffer.`));
     else sendAck(ctx, conn, noteFor(conn, 'tcp-dup-ack', `ACK ${conn.rcvNxt} again`, `The receiver can only say the next byte it needs in order, and that is still ${conn.rcvNxt}.`));
   }
 
@@ -399,6 +460,11 @@ export function createTcp(host: TcpHost) {
       title: 'Connections',
       columns: ['Connection', 'State', 'Sent', 'Acked', 'Window'],
       rows: conns.map((conn) => [conn.id, conn.state, String(conn.sent), String(conn.acked), String(free(conn))]),
+    }),
+    congestion: (): TableSnapshot => ({
+      title: 'Congestion',
+      columns: ['Connection', 'cwnd', 'ssthresh', 'In flight', 'RTO'],
+      rows: conns.map((conn) => [conn.id, String(Math.floor(conn.cwnd)), String(conn.ssthresh), String(conn.inFlight), formatTime(conn.rto)]),
     }),
   };
 }

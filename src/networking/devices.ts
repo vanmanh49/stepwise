@@ -294,6 +294,7 @@ export function createHost(config: HostConfig): Host {
       arp.table(),
       { title: 'Replies', columns: ['Seq', 'From', 'Reply', 'Time'], rows: host.replies.map(({ seq, from, type, rttMs }) => [String(seq), formatIp(from), ICMP_NAME[type], formatTime(rttMs)]) },
       tcp.table(),
+      tcp.congestion(),
     ],
   };
   return host;
