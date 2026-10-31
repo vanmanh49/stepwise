@@ -22,6 +22,8 @@ export interface WebSocketEnd {
   send(ctx: Ctx, text: string, bytes: number): void;
   close(ctx: Ctx): void;
   received: string[];
+  /** When each of `received` arrived. */
+  arrivals: number[];
 }
 
 interface Live extends WebSocketEnd {
@@ -38,6 +40,7 @@ function createEnd(host: Host, conn: Conn, isServer: boolean): Live {
   };
   return {
     received: [],
+    arrivals: [],
     pongs: 0,
     send(ctx, text, bytes) {
       ctx.note({ action: 'ws-frame', title: `${host.label} sends "${text}"`, why: `One frame of ${bytes} bytes, with a few bytes of header. Either side can send at any moment, with no request first.` });
@@ -48,7 +51,10 @@ function createEnd(host: Host, conn: Conn, isServer: boolean): Live {
       closeFrame(ctx, 'Either side can end the conversation. The other answers with its own close frame, so neither loses a message in flight.');
     },
     read(ctx, mark) {
-      if (mark.type === 'frame') this.received.push(mark.text ?? '');
+      if (mark.type === 'frame') {
+        this.received.push(mark.text ?? '');
+        this.arrivals.push(ctx.now);
+      }
       if (mark.type === 'pong') this.pongs++;
       if (mark.type === 'ping') {
         ctx.note({ action: 'ws-pong', title: `${host.label} answers the ping`, why: 'A pong proves this side is still alive, which a quiet TCP connection can\'t.' });

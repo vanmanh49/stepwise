@@ -192,4 +192,14 @@ export const networkingMeta: LessonMeta[] = [
     keywords: ['quic', 'http/3', 'h3', 'udp', '0-rtt', 'stream', 'packet number', 'ack ranges', 'head of line blocking', 'tls 1.3', 'curl'],
     prerequisites: ['http-2', 'congestion-control'],
   },
+  {
+    id: 'websockets',
+    title: 'WebSockets',
+    category: 'networking',
+    difficulty: 'advanced',
+    group: 'Web & Internet Scale',
+    description: 'Upgrade an HTTP request into a two-way connection, push messages with no request, compare it with polling, and catch a dead peer with pings.',
+    keywords: ['websocket', 'upgrade', '101 switching protocols', 'push', 'polling', 'ping', 'pong', 'frame', 'real time', 'sec-websocket-accept'],
+    prerequisites: ['http-1-1'],
+  },
 ];
