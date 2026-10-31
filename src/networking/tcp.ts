@@ -1,5 +1,6 @@
 import { formatIp } from './address';
 import type { Tcp } from './packet';
+import { renoDupAck, renoNewAck, renoTimeout, startReno } from './reno';
 import { formatTime, type Ctx, type Note, type TableSnapshot } from './sim';
 
 export const CLIENT_ISN = 1000;
@@ -10,8 +11,6 @@ const DEFAULT_BUFFER = 64000;
 export const INITIAL_RTO_MS = 1000;
 const MIN_RTO_MS = 200;
 export const MAX_RETRIES = 5;
-const DUP_ACK_THRESHOLD = 3;
-const DEFAULT_SSTHRESH_MSS = 64;
 const READ_TICK_MS = 10;
 /** A paused reader wakes here, so every run ends. */
 const RESUME_AT_MS = 2000;
@@ -96,7 +95,6 @@ export function createTcp(host: TcpHost) {
 
   const noteFor = (conn: Socket, action: string, title: string, why: string): Note => ({ action, title, why, table: { index: CONNECTIONS_TABLE, row: conns.indexOf(conn) } });
   const free = (conn: Socket) => (conn.options.bufferBytes ?? DEFAULT_BUFFER) - conn.unread;
-  const halfFlight = (conn: Socket) => Math.max(Math.floor(conn.inFlight / 2), 2 * conn.mss);
 
   function open(remote: number, localPort: number, remotePort: number, state: TcpState, iss: number, options: TcpOptions): Socket {
     const mss = host.mss();
@@ -220,10 +218,7 @@ export function createTcp(host: TcpHost) {
       return;
     }
     const waited = conn.rto;
-    conn.ssthresh = halfFlight(conn);
-    conn.cwnd = conn.mss;
-    conn.dupAcks = 0;
-    conn.recovering = false;
+    renoTimeout(conn, conn.mss, conn.inFlight);
     conn.rto *= 2;
     conn.nxt = conn.una;
     resend(ctx, conn, noteFor(conn, 'timeout', `No ACK for byte ${conn.una} after ${formatTime(waited)}`, `The timer ran out, so the oldest unacknowledged segment goes again and the timer doubles to ${formatTime(conn.rto)}.`));
@@ -240,8 +235,7 @@ export function createTcp(host: TcpHost) {
   function establish(conn: Socket, mss: number | undefined) {
     conn.state = 'ESTABLISHED';
     conn.mss = Math.min(conn.mss, mss ?? conn.mss);
-    conn.cwnd = conn.mss;
-    conn.ssthresh = (conn.options.ssthreshMss ?? DEFAULT_SSTHRESH_MSS) * conn.mss;
+    startReno(conn, conn.mss, conn.options.ssthreshMss);
     conn.rto = INITIAL_RTO_MS;
     conn.retries = 0;
     stopTimer(conn);
@@ -283,11 +277,8 @@ export function createTcp(host: TcpHost) {
     conn.una = segment.ack;
     conn.nxt = Math.max(conn.nxt, conn.una);
     conn.max = Math.max(conn.max, conn.una);
-    conn.dupAcks = 0;
     conn.retries = 0;
-    if (conn.recovering) conn.cwnd = conn.ssthresh;
-    else conn.cwnd += conn.cwnd < conn.ssthresh ? conn.mss : (conn.mss * conn.mss) / conn.cwnd;
-    conn.recovering = false;
+    renoNewAck(conn, conn.mss);
     if (conn.timed && conn.una >= conn.timed.end) {
       sampleRtt(conn, ctx.now - conn.timed.at);
       delete conn.timed;
@@ -308,12 +299,7 @@ export function createTcp(host: TcpHost) {
   }
 
   function onDupAck(ctx: Ctx, conn: Socket) {
-    conn.dupAcks++;
-    if (conn.recovering) conn.cwnd += conn.mss;
-    if (conn.dupAcks !== DUP_ACK_THRESHOLD) return;
-    conn.ssthresh = halfFlight(conn);
-    conn.cwnd = conn.ssthresh + DUP_ACK_THRESHOLD * conn.mss;
-    conn.recovering = true;
+    if (!renoDupAck(conn, conn.mss, conn.inFlight)) return;
     resend(ctx, conn, noteFor(conn, 'fast-retransmit', `Third duplicate ACK for byte ${conn.una}: send it again now`, 'Three later segments arrived, so this one is probably lost, not late. There is no need to wait for the timer.'));
   }
 
