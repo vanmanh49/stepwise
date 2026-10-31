@@ -93,6 +93,8 @@ export interface SimResult {
 
 const LATENCY_MS = 1;
 
+export const formatTime = (ms: number) => (ms < 1000 ? `${ms} ms` : `${ms / 1000} s`);
+
 /** Runs a scenario on simulated milliseconds, ordered by (time, sequence), with faults first at equal times. */
 export function simulate(scenario: Scenario): SimResult {
   const { devices } = scenario;
@@ -104,13 +106,9 @@ export function simulate(scenario: Scenario): SimResult {
   const queue = new EventQueue<() => void>();
   const events: SimEvent[] = [];
   let now = 0;
-  let cut = false;
 
   const record = (device: string, note: Note, frame: Frame | undefined, hops: Hop[]) => {
-    if (events.length >= MAX_EVENTS) {
-      cut = true;
-      return;
-    }
+    if (events.length >= MAX_EVENTS) return;
     const badges: Record<string, string> = {};
     for (const each of devices) {
       const badge = each.badge?.();
@@ -189,11 +187,11 @@ export function simulate(scenario: Scenario): SimResult {
     });
   }
 
-  while (!cut) {
+  while (events.length < MAX_EVENTS) {
     const next = queue.pop();
     if (!next || (scenario.endAt !== undefined && next.time > scenario.endAt)) break;
     now = next.time;
     next.item();
   }
-  return { events, cut, devices, links: scenario.links };
+  return { events, cut: events.length >= MAX_EVENTS, devices, links: scenario.links };
 }
