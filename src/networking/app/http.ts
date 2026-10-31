@@ -1,5 +1,5 @@
 import type { Host } from '../devices';
-import { formatTime, type Ctx, type TableSnapshot } from '../sim';
+import { formatTime, type Ctx, type Fault, type TableSnapshot } from '../sim';
 import type { Conn } from '../tcp';
 import { tlsClient, TLS_FLIGHT_SEGMENTS, tlsMark, tlsServer, type TlsMark } from './tls';
 
@@ -21,6 +21,8 @@ export interface Fetch {
   bytes: number;
   stream?: number;
   headers?: Record<string, string>;
+  /** On HTTP/2 and HTTP/3: what the request's headers cost after compression. */
+  headerBytes?: number;
 }
 
 /** The label on the byte stream that tells HTTP where a message ends. */
@@ -29,6 +31,7 @@ export interface HttpMark {
   path: string;
   /** What a ladder row says. */
   label?: string;
+  stream?: number;
   headers?: Record<string, string>;
   status?: number;
   bytes?: number;
@@ -45,6 +48,73 @@ const CONTENT_TYPES: Record<string, string> = { js: 'text/javascript', css: 'tex
 
 const contentType = (path: string) => CONTENT_TYPES[path.split('.').at(-1) ?? ''] ?? 'text/html';
 const requestHeaders = (keepAlive: boolean) => ({ Host: HOST_NAME, 'User-Agent': 'stepwise', Accept: '*/*', Connection: keepAlive ? 'keep-alive' : 'close' });
+const muxRequestHeaders = (path: string) => ({ ':method': 'GET', ':path': path, ':scheme': 'https', ':authority': HOST_NAME, 'user-agent': 'stepwise', accept: '*/*' });
+
+const REPEATED_HEADER_BYTES = 2;
+const HEADER_OVERHEAD = 2;
+
+/** A small real header table: a field seen before on this connection costs 2 bytes. */
+function headerBytes(table: Set<string>, headers: Record<string, string>) {
+  let total = 0;
+  for (const [name, value] of Object.entries(headers)) {
+    const field = `${name}: ${value}`;
+    total += table.has(field) ? REPEATED_HEADER_BYTES : field.length + HEADER_OVERHEAD;
+    table.add(field);
+  }
+  return total;
+}
+
+/** A response waiting its turn: its headers, then DATA frames. */
+interface Outgoing {
+  head?: { bytes: number; mark: HttpMark };
+  path: string;
+  stream: number;
+  left: number;
+}
+
+function nextFrame(out: Outgoing): [bytes: number, mark: HttpMark] {
+  if (out.head) {
+    const { bytes, mark } = out.head;
+    delete out.head;
+    return [bytes, mark];
+  }
+  const size = Math.min(out.left, FRAME_BYTES);
+  out.left -= size;
+  return [size, { type: 'data', path: out.path, stream: out.stream, bytes: size, end: out.left === 0 }];
+}
+
+function headFor(table: Set<string>, request: HttpMark, status: number, bytes: number): Outgoing {
+  const { path, stream = 0 } = request;
+  const headers = { ':status': String(status), 'content-type': contentType(path), 'content-length': String(bytes) };
+  const mark: HttpMark = { type: 'head', path, stream, label: `${status} ${STATUS_TEXT[status]}`, status, headers, end: bytes === 0 };
+  return { head: { bytes: headerBytes(table, headers), mark }, path, stream, left: bytes };
+}
+
+/** One connection's streams on a server. */
+interface Mux {
+  streams: Outgoing[];
+  table: Set<string>;
+  thinking: boolean;
+}
+
+/** So requests sent together are scheduled together, though they arrive a few ms apart. */
+const THINK_MS = 10;
+
+/** The nth packet from the server carrying response data, counting first sends only and skipping TLS. */
+export function dropResponse(server: Host, n: number): Fault {
+  const seen = new Set<number>();
+  return {
+    kind: 'dropPacket',
+    nth: n,
+    matches({ srcMac, payload }) {
+      if (srcMac !== server.mac || payload.kind !== 'ip' || payload.payload.kind !== 'tcp') return false;
+      const { seq, marks = [] } = payload.payload;
+      if (seen.has(seq) || !marks.some(({ mark }) => !tlsMark(mark))) return false;
+      seen.add(seq);
+      return true;
+    },
+  };
+}
 
 export interface HttpServerOptions {
   port: number;
@@ -56,7 +126,32 @@ export interface HttpServerOptions {
 }
 
 export function httpServer(host: Host, { port, resources, version, tls, edge }: HttpServerOptions) {
+  const muxes = new Map<Conn, Mux>();
+
+  function drain(ctx: Ctx, conn: Conn, mux: Mux) {
+    while (mux.streams.length > 0 && conn.room > 0) {
+      const out = mux.streams.shift()!;
+      const [bytes, mark] = nextFrame(out);
+      host.write(ctx, conn, bytes, mark);
+      if (out.head || out.left > 0) mux.streams.push(out);
+    }
+  }
+
+  /** Writes only what TCP can send now, so a stream arriving later still gets its turn. */
+  function respondMux(ctx: Ctx, conn: Conn, request: HttpMark, status: number, bytes: number) {
+    const mux = muxes.get(conn) ?? { streams: [], table: new Set<string>(), thinking: false };
+    muxes.set(conn, mux);
+    mux.streams.push(headFor(mux.table, request, status, bytes));
+    if (mux.thinking) return;
+    mux.thinking = true;
+    ctx.after(THINK_MS, () => {
+      mux.thinking = false;
+      drain(ctx, conn, mux);
+    });
+  }
+
   function respond(ctx: Ctx, conn: Conn, request: HttpMark, status: number, bytes: number, extra: Record<string, string> = {}) {
+    if (version !== 'HTTP/1.1') return respondMux(ctx, conn, request, status, bytes);
     const { path, headers } = request;
     const close = headers?.Connection === 'close';
     const label = `${status} ${STATUS_TEXT[status]}`;
@@ -112,6 +207,10 @@ export function httpServer(host: Host, { port, resources, version, tls, edge }: 
 
   host.listen(port, {
     ...(tls ? { initialWindow: TLS_FLIGHT_SEGMENTS } : {}),
+    onAcked(ctx, conn) {
+      const mux = muxes.get(conn);
+      if (mux && !mux.thinking) drain(ctx, conn, mux);
+    },
     onData(_, marks, ctx, conn) {
       for (const mark of marks) {
         if (tlsMark(mark)) tlsServer(ctx, host, conn, mark);
@@ -119,7 +218,6 @@ export function httpServer(host: Host, { port, resources, version, tls, edge }: 
       }
     },
   });
-  void version;
 }
 
 export interface HttpClientOptions {
@@ -141,7 +239,7 @@ interface Slot {
   tls?: (ctx: Ctx, mark: TlsMark) => void;
 }
 
-export function httpClient(host: Host, { server, port, tls, keepAlive = true, connections = 1, onDone }: HttpClientOptions) {
+export function httpClient(host: Host, { server, port, version, tls, keepAlive = true, connections = 1, onDone }: HttpClientOptions) {
   const fetches: Fetch[] = [];
   const queue: Fetch[] = [];
   const slots: Slot[] = [];
@@ -180,9 +278,8 @@ export function httpClient(host: Host, { server, port, tls, keepAlive = true, co
     while (queue.length > 0 && live().length < connections) open(ctx);
   }
 
-  function onMark(ctx: Ctx, slot: Slot, mark: HttpMark) {
-    const fetch = slot.current;
-    if (!fetch) return;
+  /** Returns true once the response is whole. */
+  function receive(ctx: Ctx, fetch: Fetch, mark: HttpMark) {
     if (mark.type === 'head') {
       fetch.status = mark.status ?? 0;
       fetch.headers = mark.headers ?? {};
@@ -191,10 +288,14 @@ export function httpClient(host: Host, { server, port, tls, keepAlive = true, co
     } else {
       fetch.bytes += mark.bytes ?? 0;
     }
-    if (!mark.end) return;
+    if (mark.end) finish(ctx, fetch);
+    return mark.end === true;
+  }
+
+  function onMark(ctx: Ctx, slot: Slot, mark: HttpMark) {
+    if (!slot.current || !receive(ctx, slot.current, mark)) return;
     slot.current = undefined;
     if (!keepAlive) slot.live = false;
-    finish(ctx, fetch);
     dispatch(ctx);
   }
 
@@ -240,6 +341,58 @@ export function httpClient(host: Host, { server, port, tls, keepAlive = true, co
     blocked.set(fetch, () => slot.conn.gap);
   }
 
+  const byStream = new Map<number, Fetch>();
+  const muxTable = new Set<string>();
+  let nextStream = 1;
+  let muxConn: Conn | undefined;
+  let muxReady = false;
+
+  function muxRequest(ctx: Ctx, fetch: Fetch) {
+    const stream = nextStream;
+    nextStream += 2;
+    const headers = muxRequestHeaders(fetch.path);
+    const bytes = headerBytes(muxTable, headers);
+    Object.assign(fetch, { stream, startedAt: ctx.now, headerBytes: bytes });
+    byStream.set(stream, fetch);
+    blocked.set(fetch, () => muxConn!.gap);
+    ctx.note({ action: 'http-request', title: `GET ${fetch.path} on stream ${stream}`, why: `The headers cost ${bytes} bytes, because the table already holds what earlier requests sent. Streams share this one connection.` });
+    host.write(ctx, muxConn!, bytes, { type: 'request', path: fetch.path, stream, label: `GET ${fetch.path}`, headers } satisfies HttpMark);
+  }
+
+  function muxFlush(ctx: Ctx) {
+    muxReady = true;
+    for (const fetch of queue.splice(0)) muxRequest(ctx, fetch);
+  }
+
+  function muxClosed(ctx: Ctx) {
+    for (const fetch of fetches.filter(({ doneAt }) => doneAt === undefined)) {
+      fetch.status = 0;
+      fetch.doneAt = ctx.now;
+      ctx.note({ action: 'http-failed', title: `${fetch.path} failed`, why: 'Its streams all lived on one connection, and that connection died.' });
+    }
+  }
+
+  function muxDispatch(ctx: Ctx) {
+    if (muxReady) return muxFlush(ctx);
+    let tlsDone: ((at: Ctx, mark: TlsMark) => void) | undefined;
+    muxConn ??= host.connect(ctx, server, port, {
+      onConnection(at, conn) {
+        if (tls) tlsDone = tlsClient(at, host, conn, muxFlush);
+        else muxFlush(at);
+      },
+      onData(_, marks, at) {
+        for (const mark of marks) {
+          if (tlsMark(mark)) tlsDone?.(at, mark);
+          else {
+            const fetch = byStream.get((mark as HttpMark).stream ?? 0);
+            if (fetch) receive(at, fetch, mark as HttpMark);
+          }
+        }
+      },
+      onClosed: muxClosed,
+    });
+  }
+
   host.addTable((): TableSnapshot => ({
     title: 'Streams',
     columns: ['Stream', 'Path', 'Bytes', 'State'],
@@ -253,9 +406,10 @@ export function httpClient(host: Host, { server, port, tls, keepAlive = true, co
         fetches.push(fetch);
         queue.push(fetch);
       }
-      dispatch(ctx);
+      if (version === 'HTTP/1.1') dispatch(ctx);
+      else muxDispatch(ctx);
     },
     fetches,
-    opened: () => slots.length,
+    opened: () => (version === 'HTTP/1.1' ? slots.length : 1),
   };
 }

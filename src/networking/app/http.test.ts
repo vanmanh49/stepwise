@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Host } from '../devices';
 import { fourHosts, SERVER_PORT, tcpPath } from '../scenarios/topology';
-import { simulate, type Command, type Fault } from '../sim';
-import { httpClient, httpServer, type HttpVersion, type Resource } from './http';
+import { simulate, type Command, type Fault, type SimEvent, type SimResult } from '../sim';
+import { dropResponse, httpClient, httpServer, type HttpMark, type HttpVersion, type Resource } from './http';
 
 const RESOURCES: Resource[] = [
   { path: '/a.js', bytes: 3000 },
@@ -18,10 +18,10 @@ interface Setup {
   resources?: Resource[];
   paths?: string[];
   faults?: Fault[];
+  net?: ReturnType<typeof tcpPath>;
 }
 
-function fetchAll({ version = 'HTTP/1.1', tls = false, keepAlive = true, connections = 1, resources = RESOURCES, paths = resources.map(({ path }) => path), faults = [] }: Setup = {}) {
-  const net = tcpPath();
+function fetchAll({ net = tcpPath(), version = 'HTTP/1.1', tls = false, keepAlive = true, connections = 1, resources = RESOURCES, paths = resources.map(({ path }) => path), faults = [] }: Setup = {}) {
   httpServer(net.server, { port: SERVER_PORT, resources, version, tls });
   const client = httpClient(net.client, { server: net.server.address(), port: SERVER_PORT, version, tls, keepAlive, connections });
   const commands: Command[] = [{ at: 0, device: 'client', run: (_, ctx) => client.get(ctx, paths) }];
@@ -103,6 +103,58 @@ describe('HTTP/1.1', () => {
     const table = client.tables()[4]!;
     expect(table.columns).toEqual(['Stream', 'Path', 'Bytes', 'State']);
     expect(table.rows).toEqual(RESOURCES.map(({ path, bytes }) => ['–', path, String(bytes), 'done']));
+  });
+});
+
+describe('HTTP/2', () => {
+  const FOUR: Resource[] = ['/a.js', '/b.css', '/c.png', '/d.png'].map((path) => ({ path, bytes: 3000 }));
+  const h2 = (setup: Setup = {}) => fetchAll({ version: 'HTTP/2', tls: true, resources: FOUR, ...setup });
+  const responseMarks = (run: SimResult) => run.events.flatMap(({ device, frame }) => (device === 'server' && frame?.payload.kind === 'ip' && frame.payload.payload.kind === 'tcp' ? frame.payload.payload.marks ?? [] : [])).map(({ mark }) => mark as HttpMark).filter(({ type }) => type === 'head' || type === 'data');
+  const rowsAt = (event: SimEvent) => event.tables.client![4]!.rows;
+
+  it('shares one connection', () => {
+    const { http, fetches } = h2();
+    expect(http.opened()).toBe(1);
+    expect(fetches.map(({ stream, status, bytes }) => [stream, status, bytes])).toEqual([[1, 200, 3000], [3, 200, 3000], [5, 200, 3000], [7, 200, 3000]]);
+  });
+
+  it('takes turns across streams, 1000 bytes a frame', () => {
+    const data = responseMarks(h2().run).filter(({ type }) => type === 'data');
+    expect(data.slice(0, 8).map(({ stream }) => stream)).toEqual([1, 3, 5, 7, 1, 3, 5, 7]);
+    expect(data.every(({ bytes }) => bytes === 1000)).toBe(true);
+  });
+
+  it('shrinks headers as the table fills', () => {
+    const { fetches } = h2();
+    expect(fetches[1]!.headerBytes).toBeLessThan(fetches[0]!.headerBytes!);
+  });
+
+  it('charges 2 bytes for a repeated header', () => {
+    expect(h2({ paths: ['/a.js', '/a.js'] }).fetches[1]!.headerBytes).toBe(6 * 2);
+  });
+
+  it('stalls every unfinished stream on one lost segment, then finishes them all', () => {
+    const net = tcpPath();
+    const { run, fetches } = h2({ net, faults: [dropResponse(net.server, 3)] });
+    const holds = run.events.filter(({ action, device }) => action === 'tcp-hold' && device === 'client');
+    expect(holds.length).toBeGreaterThan(0);
+    for (const event of holds) {
+      const unfinished = rowsAt(event).filter((row) => row[3] !== 'done');
+      expect(unfinished.length).toBeGreaterThan(0);
+      expect(unfinished.every((row) => row[3] === 'stalled')).toBe(true);
+    }
+    expect(fetches.map(({ bytes }) => bytes)).toEqual([3000, 3000, 3000, 3000]);
+  });
+
+  it('counts the nth response packet the same on HTTP/1.1 and HTTP/2, skipping TLS and resends', () => {
+    for (const version of ['HTTP/1.1', 'HTTP/2'] as const) {
+      const net = tcpPath();
+      const { run } = fetchAll({ net, version, tls: true, resources: FOUR, connections: 1, faults: [dropResponse(net.server, 3)] });
+      const carrying = run.events.filter(({ device, frame }) => device === 'server' && frame?.payload.kind === 'ip' && frame.payload.payload.kind === 'tcp' && frame.payload.payload.length > 0);
+      const responses = carrying.slice(3);
+      expect(responses[2]!.hops[0]!.lost, version).toBe(true);
+      expect(carrying.filter(({ hops }) => hops[0]!.lost)).toHaveLength(1);
+    }
   });
 });
 

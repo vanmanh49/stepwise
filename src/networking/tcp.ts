@@ -34,6 +34,8 @@ export interface TcpOptions {
   onData?: (bytes: number, marks: unknown[], ctx: Ctx, conn: Conn) => void;
   /** Once the handshake is done, on either side. */
   onConnection?: (ctx: Ctx, conn: Conn) => void;
+  /** After each ACK, once TCP has sent what it could. */
+  onAcked?: (ctx: Ctx, conn: Conn) => void;
   /** However the connection ended. */
   onClosed?: (ctx: Ctx, conn: Conn) => void;
 }
@@ -51,6 +53,8 @@ export interface Conn {
   rto: number;
   /** Bytes are held ahead of a missing one. */
   gap: boolean;
+  /** Bytes a program can write now and have sent at once. */
+  room: number;
 }
 
 /** What a host lends its TCP: the network stays on the far side of this. */
@@ -154,6 +158,9 @@ export function createTcp(host: TcpHost) {
       },
       get gap() {
         return this.held.length > 0;
+      },
+      get room() {
+        return Math.floor(Math.min(this.cwnd, this.peerWindow) - (this.dataEnd - this.una));
       },
     };
     conns.push(conn);
@@ -342,6 +349,7 @@ export function createTcp(host: TcpHost) {
     if (segment.ack > conn.una) onNewAck(ctx, conn, segment);
     else if (duplicate) onDupAck(ctx, conn);
     pump(ctx, conn);
+    conn.options.onAcked?.(ctx, conn);
   }
 
   function read(ctx: Ctx, conn: Socket) {
