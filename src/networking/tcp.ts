@@ -78,6 +78,8 @@ interface Socket extends Conn {
   timed?: { end: number; at: number };
   srtt?: number;
   rttvar: number;
+  /** The latest round trip measured. */
+  rtt: number;
   /** Bumped to cancel the running timer. */
   timer: number;
   timing: boolean;
@@ -122,6 +124,7 @@ export function createTcp(host: TcpHost) {
       recovering: false,
       retries: 0,
       rttvar: 0,
+      rtt: 0,
       timer: 0,
       timing: false,
       unread: 0,
@@ -270,6 +273,7 @@ export function createTcp(host: TcpHost) {
   }
 
   function sampleRtt(conn: Socket, rtt: number) {
+    conn.rtt = rtt;
     conn.rttvar = conn.srtt === undefined ? rtt / 2 : 0.75 * conn.rttvar + 0.25 * Math.abs(conn.srtt - rtt);
     conn.srtt = conn.srtt === undefined ? rtt : 0.875 * conn.srtt + 0.125 * rtt;
     conn.rto = Math.max(MIN_RTO_MS, Math.ceil(conn.srtt + 4 * conn.rttvar));
@@ -473,8 +477,8 @@ export function createTcp(host: TcpHost) {
     }),
     congestion: (): TableSnapshot => ({
       title: 'Congestion',
-      columns: ['Connection', 'cwnd', 'ssthresh', 'In flight', 'RTO'],
-      rows: conns.map((conn) => [conn.id, String(Math.floor(conn.cwnd)), String(conn.ssthresh), String(conn.inFlight), formatTime(conn.rto)]),
+      columns: ['Connection', 'cwnd', 'ssthresh', 'In flight', 'RTT', 'RTO'],
+      rows: conns.map((conn) => [conn.id, String(Math.floor(conn.cwnd)), String(conn.ssthresh), String(conn.inFlight), String(conn.rtt), formatTime(conn.rto)]),
     }),
   };
 }
