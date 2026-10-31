@@ -23,7 +23,7 @@ export function Header({ onSearch }: { onSearch(): void }) {
           </span>
           Stepwise
         </Link>
-        <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
+        <nav aria-label="Main" className="hidden items-center gap-1 xl:flex">
           {links.map((l) => (
             <NavLink
               key={l.to}
@@ -39,16 +39,16 @@ export function Header({ onSearch }: { onSearch(): void }) {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <Button icon={Search} onClick={onSearch} className="text-muted sm:w-56 sm:justify-start lg:w-auto xl:w-56" aria-label="Search lessons" aria-keyshortcuts="Control+K">
-            <span className="hidden sm:inline lg:hidden xl:inline">Search</span>
-            <kbd className="ml-auto hidden rounded border border-border bg-surface-2 px-1.5 font-mono text-[11px] sm:inline lg:hidden xl:inline">
+          <Button icon={Search} onClick={onSearch} className="text-muted sm:w-56 sm:justify-start xl:w-auto 2xl:w-56" aria-label="Search lessons" aria-keyshortcuts="Control+K">
+            <span className="hidden sm:inline xl:hidden 2xl:inline">Search</span>
+            <kbd className="ml-auto hidden rounded border border-border bg-surface-2 px-1.5 font-mono text-[11px] sm:inline xl:hidden 2xl:inline">
               Ctrl K
             </kbd>
           </Button>
           <IconButton icon={theme === 'dark' ? Sun : Moon} label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle} />
         </div>
       </div>
-      <nav aria-label="Sections" className="flex gap-1 overflow-x-auto border-t border-border px-3 [scrollbar-width:none] lg:hidden">
+      <nav aria-label="Sections" className="flex gap-1 overflow-x-auto border-t border-border px-3 [scrollbar-width:none] xl:hidden">
         {links.map((l) => (
           <NavLink
             key={l.to}

@@ -6,7 +6,7 @@ import type { Lesson, LessonContent } from '../types/lesson';
 import type { Step } from '../types/visualization';
 import { getLesson, lessonPath, lessons } from './registry';
 
-const modules = import.meta.glob<{ default: LessonContent }>(['./{data-structures,algorithms,sql,microservices,kubernetes,ai,security}/*.ts', '!./**/*.test.ts'], { eager: true });
+const modules = import.meta.glob<{ default: LessonContent }>(['./{data-structures,algorithms,sql,microservices,kubernetes,ai,security,networking}/*.ts', '!./**/*.test.ts'], { eager: true });
 
 /** Every lesson, metadata merged with content, in learning order. */
 export const allLessons: Lesson[] = lessons.map((meta) => {

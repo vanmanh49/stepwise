@@ -198,6 +198,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('kubernetes')).toHaveLength(23);
     expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, lessonsIn('ai').length).map((t) => t.id));
     expect(lessonsIn('security').map((l) => l.id)).toEqual(topicsIn('security').slice(0, lessonsIn('security').length).map((t) => t.id));
+    expect(lessonsIn('networking').map((l) => l.id)).toEqual(topicsIn('networking').slice(0, lessonsIn('networking').length).map((t) => t.id));
   });
 
   it('links previous and next lessons within a category', () => {
@@ -229,7 +230,7 @@ describe.each(allLessons.map((l) => [l.id, l] as const))('lesson %s', (_id, less
     expect(lesson.applications.length).toBeGreaterThanOrEqual(3);
     expect(lesson.commonMistakes.length).toBeGreaterThanOrEqual(3);
     expect(lesson.summary.length).toBeGreaterThanOrEqual(3);
-    if (lesson.category !== 'sql' && lesson.category !== 'microservices' && lesson.category !== 'kubernetes' && lesson.category !== 'ai' && lesson.category !== 'security') {
+    if (lesson.category !== 'sql' && lesson.category !== 'microservices' && lesson.category !== 'kubernetes' && lesson.category !== 'ai' && lesson.category !== 'security' && lesson.category !== 'networking') {
       expect(lesson.complexity!.rows.length).toBeGreaterThanOrEqual(1);
       expect(lesson.complexity!.curves.length).toBeGreaterThanOrEqual(1);
     }
@@ -466,6 +467,39 @@ describe('curriculum', () => {
       ...Array<string>(7).fill('How LLMs Work'),
       ...Array<string>(8).fill('Building with LLMs'),
       ...Array<string>(8).fill('AI Agents'),
+    ]);
+  });
+
+  it('lists the Networking course in order', () => {
+    expect(topicsIn('networking').map((t) => t.id)).toEqual([
+      'layers-encapsulation',
+      'ethernet-switching',
+      'arp',
+      'ip-subnets',
+      'ip-routing',
+      'ping-traceroute',
+      'dhcp',
+      'nat',
+      'ports-udp',
+      'tcp-connections',
+      'reliable-delivery',
+      'flow-control',
+      'congestion-control',
+      'queues-bufferbloat',
+      'mtu-mss',
+      'dns',
+      'http-1-1',
+      'http-2',
+      'quic-http-3',
+      'websockets',
+      'cdn-anycast',
+      'bgp',
+      'url-to-page',
+    ]);
+    expect(topicsIn('networking').map((t) => t.group)).toEqual([
+      ...Array<string>(8).fill('Link & Internet'),
+      ...Array<string>(7).fill('Transport'),
+      ...Array<string>(8).fill('Web & Internet Scale'),
     ]);
   });
 
