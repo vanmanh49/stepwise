@@ -144,6 +144,131 @@ describe('simulate', () => {
     expect(run.events[1]!.tables.a![0]!.rows).toEqual([['first'], ['second']]);
   });
 
+  describe('link rates and queues', () => {
+    const ip = (length: number): Frame => ({ srcMac: 'a', dstMac: 'b', payload: { kind: 'ip', src: 1, dst: 2, ttl: 64, id: 1, length, payload: { kind: 'icmp', type: 'echo-request', seq: 1 } } });
+    const burst = (sizes: number[]) => (_: Device, ctx: Ctx) => sizes.forEach((size) => ctx.send(['eth0'], ip(size), NOTE));
+
+    it('sends frames one at a time at the link rate, then adds the delay', () => {
+      const b = stub('b');
+      simulate({
+        devices: [stub('a'), b],
+        links: [{ a: ['a', 'eth0'], b: ['b', 'eth0'], rate: 100, ms: 5 }],
+        commands: [{ at: 0, device: 'a', run: burst([1000, 1000]) }],
+      });
+      expect(b.got).toEqual([15, 25]);
+    });
+
+    it('rounds the send time up to a whole millisecond', () => {
+      const b = stub('b');
+      simulate({
+        devices: [stub('a'), b],
+        links: [{ a: ['a', 'eth0'], b: ['b', 'eth0'], rate: 100, ms: 0 }],
+        commands: [{ at: 0, device: 'a', run: burst([1001]) }],
+      });
+      expect(b.got).toEqual([11]);
+    });
+
+    it('keeps a frame that exactly fills the queue and drops one a byte over', () => {
+      const run = (last: number) => {
+        const b = stub('b');
+        const result = simulate({
+          devices: [stub('a'), b],
+          links: [{ a: ['a', 'eth0'], b: ['b', 'eth0'], rate: 100, queueBytes: 2000 }],
+          commands: [{ at: 0, device: 'a', run: burst([1000, last]) }],
+        });
+        return { got: b.got.length, last: result.events.at(-1)! };
+      };
+      expect(run(1000).got).toBe(2);
+      expect(run(1000).last.action).toBe('send');
+      expect(run(1001).got).toBe(1);
+      expect(run(1001).last.action).toBe('queue-drop');
+      expect(run(1001).last.hops).toEqual([{ from: 'a', to: 'b', lost: true }]);
+    });
+
+    it('queues each direction of a link separately', () => {
+      const a = stub('a');
+      const b = stub('b');
+      simulate({
+        devices: [a, b],
+        links: [{ a: ['a', 'eth0'], b: ['b', 'eth0'], rate: 100, ms: 0, queueBytes: 1000 }],
+        commands: [
+          { at: 0, device: 'a', run: burst([1000]) },
+          { at: 0, device: 'b', run: burst([1000]) },
+        ],
+      });
+      expect(a.got).toEqual([10]);
+      expect(b.got).toEqual([10]);
+    });
+
+    it('reports the bytes waiting per direction, back to 0 once drained', () => {
+      const run = simulate({
+        devices: [stub('a'), stub('b')],
+        links: [{ a: ['a', 'eth0'], b: ['b', 'eth0'], rate: 100 }],
+        commands: [
+          { at: 0, device: 'a', run: burst([1000, 500]) },
+          { at: 50, device: 'a', run: (_, ctx) => ctx.note(NOTE) },
+        ],
+      });
+      expect(run.events.map((event) => event.queues['0:a'])).toEqual([1000, 1500, 0]);
+    });
+
+    it('counts a frame with no length as 40 bytes', () => {
+      const b = stub('b');
+      simulate({
+        devices: [stub('a'), b],
+        links: [{ a: ['a', 'eth0'], b: ['b', 'eth0'], rate: 10, ms: 0 }],
+        commands: [{ at: 0, device: 'a', run: sendOn('eth0') }],
+      });
+      expect(b.got).toEqual([4]);
+    });
+
+    it('leaves a link with no rate unchanged', () => {
+      const b = stub('b');
+      const run = simulate({
+        devices: [stub('a'), b],
+        links: [{ a: ['a', 'eth0'], b: ['b', 'eth0'], ms: 5 }],
+        commands: [{ at: 0, device: 'a', run: burst([1000, 1000]) }],
+      });
+      expect(b.got).toEqual([5, 5]);
+      expect(run.events[0]!.queues).toEqual({});
+    });
+
+    it('tells a device the MTU of a link', () => {
+      const seen: (number | undefined)[] = [];
+      simulate({
+        devices: [stub('a'), stub('b')],
+        links: [
+          { a: ['a', 'p1'], b: ['b', 'p1'], mtu: 1000 },
+          { a: ['a', 'p2'], b: ['b', 'p2'] },
+        ],
+        commands: [{ at: 0, device: 'a', run: (_, ctx) => seen.push(ctx.mtu('p1'), ctx.mtu('p2'), ctx.mtu('p3')) }],
+      });
+      expect(seen).toEqual([1000, undefined, undefined]);
+    });
+  });
+
+  it('cuts at the scenario\'s maxEvents', () => {
+    const echo = (ctx: Ctx, frame: Frame, port: string) => ctx.send([port], frame, NOTE);
+    const run = simulate({
+      devices: [stub('a', echo), stub('b', echo)],
+      links: [{ a: ['a', 'eth0'], b: ['b', 'eth0'] }],
+      commands: [{ at: 0, device: 'a', run: sendOn('eth0') }],
+      maxEvents: 3,
+    });
+    expect(run.cut).toBe(true);
+    expect(run.events).toHaveLength(3);
+  });
+
+  it('snapshots only the watched devices', () => {
+    const run = simulate({
+      devices: [stub('a'), stub('b')],
+      links: [],
+      commands: [{ at: 0, device: 'a', run: (_, ctx) => ctx.note(NOTE) }],
+      watch: ['a'],
+    });
+    expect(Object.keys(run.events[0]!.tables)).toEqual(['a']);
+  });
+
   it('floods as one event with one hop per port', () => {
     const run = simulate({
       devices: [stub('sw'), stub('a'), stub('b')],

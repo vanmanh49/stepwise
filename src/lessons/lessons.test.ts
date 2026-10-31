@@ -194,6 +194,13 @@ const EXPECTED_IDS = [
   'ping-traceroute',
   'dhcp',
   'nat',
+  'ports-udp',
+  'tcp-connections',
+  'reliable-delivery',
+  'flow-control',
+  'congestion-control',
+  'queues-bufferbloat',
+  'mtu-mss',
 ];
 
 describe('lesson registry', () => {

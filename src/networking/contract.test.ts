@@ -24,6 +24,11 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   'ping-traceroute': { ttl: [1, 64] },
   dhcp: { lease: [10, 3600], pool: [1, 2] },
   nat: { port: [1024, 65535], timeout: [1, 300] },
+  'ports-udp': { port: [1, 65535] },
+  // From 6: below that, the Timeout preset's Segment 6 doesn't exist and is refused, as its own test checks.
+  'reliable-delivery': { segments: [6, 8] },
+  'flow-control': { buffer: [2000, 64000], rate: [0, 200] },
+  'congestion-control': { queue: [2, 40], ssthresh: [2, 64] },
 };
 
 function checkView(view: View, label: string) {

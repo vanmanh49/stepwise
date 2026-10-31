@@ -3,11 +3,13 @@ import { ArrayRenderer } from './ArrayRenderer';
 import { BTreeRenderer } from './BTreeRenderer';
 import { BucketsRenderer } from './BucketsRenderer';
 import { CallsRenderer } from './CallsRenderer';
+import { ChartRenderer } from './ChartRenderer';
 import { ClusterRenderer } from './ClusterRenderer';
 import { DistributionRenderer } from './DistributionRenderer';
 import { GraphRenderer } from './GraphRenderer';
 import { GridRenderer } from './GridRenderer';
 import { HeapRenderer } from './HeapRenderer';
+import { LadderRenderer } from './LadderRenderer';
 import { ListRenderer } from './ListRenderer';
 import { PanelsRenderer } from './PanelsRenderer';
 import { QueueRenderer } from './QueueRenderer';
@@ -55,6 +57,10 @@ export function StepView({ view }: { view: View }) {
       return <ClusterRenderer view={view} />;
     case 'distribution':
       return <DistributionRenderer view={view} />;
+    case 'ladder':
+      return <LadderRenderer view={view} />;
+    case 'chart':
+      return <ChartRenderer view={view} />;
     case 'panels':
       return <PanelsRenderer view={view} renderView={(panel) => <StepView view={panel} />} />;
   }

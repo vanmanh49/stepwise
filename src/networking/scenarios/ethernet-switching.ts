@@ -52,6 +52,7 @@ export function ethernetSwitchingSteps(values: Record<string, string>): Step[] {
   if (sender.value === receiver.value) return refusal(TITLE, `${sender.value} can't send a frame to itself. Pick two different hosts.`, EMPTY);
 
   const { hosts, devices, links } = fourHosts({ agingS: aging.value, known: true });
+  for (const host of hosts) host.bindUdp(7, host.label);
   const a = hosts[HOST_NAMES.indexOf(sender.value)]!;
   const b = hosts[HOST_NAMES.indexOf(receiver.value)]!;
   const frameBetween = (from: Host, to: Host): Frame => ({

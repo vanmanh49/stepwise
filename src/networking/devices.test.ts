@@ -86,6 +86,55 @@ describe('hosts and ARP', () => {
   });
 });
 
+describe('UDP ports', () => {
+  const pair = (config: { echo?: boolean } = {}) => {
+    const a = createHost({ id: 'a', label: 'A', column: 0, mac: mac(1), ip: ip('10.0.0.1'), prefix: 24 });
+    const b = createHost({ id: 'b', label: 'B', column: 1, mac: mac(2), ip: ip('10.0.0.2'), prefix: 24, ...config });
+    return { a, b, links: [{ a: ['a', 'eth0'], b: ['b', 'eth0'] }] as Link[] };
+  };
+  const send = (from: Host, port: number, srcPort = 5000) => at(0, from, (ctx) => from.udp(ctx, ip('10.0.0.2'), srcPort, port, 'hi'));
+
+  it('hands a datagram to the program bound to its port', () => {
+    const { a, b, links } = pair();
+    b.bindUdp(53, 'dns');
+    const run = simulate({ devices: [a, b], links, commands: [send(a, 53)] });
+    const got = run.events.find((event) => event.action === 'udp-received')!;
+    expect(got.title).toContain('dns');
+    expect(actions(run)).not.toContain('port-unreachable');
+  });
+
+  it('answers an unbound port with Port Unreachable', () => {
+    const { a, b, links } = pair();
+    b.bindUdp(53, 'dns');
+    const run = simulate({ devices: [a, b], links, commands: [send(a, 9999)] });
+    expect(actions(run)).toContain('port-unreachable');
+    expect(actions(run)).not.toContain('udp-received');
+    expect(a.replies[0]).toMatchObject({ type: 'port-unreachable', from: ip('10.0.0.2') });
+  });
+
+  it('lets an echo host answer on any port', () => {
+    const { a, b, links } = pair({ echo: true });
+    const run = simulate({ devices: [a, b], links, commands: [send(a, 4242)] });
+    expect(actions(run)).toContain('udp-echo');
+    expect(actions(run)).not.toContain('port-unreachable');
+  });
+
+  it('counts the port a host sent from as bound, so the reply gets in', () => {
+    const { a, b, links } = pair({ echo: true });
+    const run = simulate({ devices: [a, b], links, commands: [send(a, 7)] });
+    expect(actions(run).filter((action) => action === 'udp-received')).toHaveLength(2);
+    expect(actions(run)).not.toContain('port-unreachable');
+  });
+
+  it('sizes a datagram at 28 bytes of headers plus its data', () => {
+    const { a, b, links } = pair();
+    b.bindUdp(53, 'dns');
+    const run = simulate({ devices: [a, b], links, commands: [at(0, a, (ctx) => a.udp(ctx, ip('10.0.0.2'), 5000, 53, 'hi', { size: 972, df: true }))] });
+    const sent = run.events.find((event) => event.action === 'send')!;
+    expect(sent.frame!.payload).toMatchObject({ length: 1000, df: true });
+  });
+});
+
 describe('switches', () => {
   it('floods an unknown destination everywhere except the arrival port', () => {
     const run = lan(([a]) => [at(0, a!, (ctx) => a!.ping(ctx, ip('10.0.0.2'), 1))]);

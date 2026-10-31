@@ -168,3 +168,80 @@ export function dhcpNetwork({ pool, leaseS }: { pool: number; leaseS: number }):
     ],
   };
 }
+
+export const SERVER_PORT = 80;
+const SEGMENT_BYTES = 1040;
+export const HOST_COLUMNS = [{ id: 'client', label: 'Client' }, { id: 'server', label: 'Server' }];
+export const CLIENT_IP = ipv4('10.0.0.1');
+export const SERVER_IP = ipv4('10.0.0.2');
+
+/** A Client and a Server on one 10 ms link, each already knowing the other's MAC. */
+export function twoHosts({ rate }: { rate?: number } = {}) {
+  const client = createHost({ id: 'client', label: 'Client', column: 0, mac: macOf(1), ip: CLIENT_IP, prefix: 24, arp: { [SERVER_IP]: macOf(2) } });
+  const server = createHost({ id: 'server', label: 'Server', column: 1, mac: macOf(2), ip: SERVER_IP, prefix: 24, arp: { [CLIENT_IP]: macOf(1) } });
+  const links: Link[] = [{ a: ['client', 'eth0'], b: ['server', 'eth0'], ms: 10, ...(rate ? { rate } : {}) }];
+  return { client, server, devices: [client, server] as Device[], links };
+}
+
+export interface TcpPath {
+  client: Host;
+  server: Host;
+  devices: Device[];
+  links: Link[];
+  /** Index of the Router–Server link. */
+  bottleneck: number;
+}
+
+/** Client — Router — Server. The Router–Server link is the slow one: 10 ms per segment by default, and a queue in packets. */
+export function tcpPath({ rate = 104, queue = 10, ms = 20 }: { rate?: number; queue?: number; ms?: number } = {}): TcpPath {
+  const client = createHost({ id: 'client', label: 'Client', column: 0, mac: macOf(1), ip: ipv4('10.0.1.2'), prefix: 24, gateway: ipv4('10.0.1.1'), arp: { [ipv4('10.0.1.1')]: macOf(0x11) } });
+  const server = createHost({ id: 'server', label: 'Server', column: 2, mac: macOf(2), ip: ipv4('10.0.2.2'), prefix: 24, gateway: ipv4('10.0.2.1'), arp: { [ipv4('10.0.2.1')]: macOf(0x12) } });
+  const router = createRouter({
+    id: 'router',
+    label: 'Router',
+    column: 1,
+    interfaces: [
+      { port: 'p0', ip: ipv4('10.0.1.1'), prefix: 24, mac: macOf(0x11) },
+      { port: 'p1', ip: ipv4('10.0.2.1'), prefix: 24, mac: macOf(0x12) },
+    ],
+    routes: [],
+  });
+  const links: Link[] = [
+    { a: ['client', 'eth0'], b: ['router', 'p0'] },
+    { a: ['router', 'p1'], b: ['server', 'eth0'], rate, ms, queueBytes: queue * SEGMENT_BYTES },
+  ];
+  return { client, server, devices: [client, router, server], links, bottleneck: 1 };
+}
+
+/** Client — R1 — R2 — Server, where the R1–R2 link has the small MTU. The client's own MTU is 1500 and the server's 1400. */
+export function mtuPath({ mtu, silent = false }: { mtu: number; silent?: boolean }) {
+  const client = createHost({ id: 'client', label: 'Client', column: 0, mac: macOf(1), ip: ipv4('10.0.1.2'), prefix: 24, gateway: ipv4('10.0.1.1'), mtu: 1500 });
+  const server = createHost({ id: 'server', label: 'Server', column: 3, mac: macOf(2), ip: ipv4('10.0.2.2'), prefix: 24, gateway: ipv4('10.0.2.1'), mtu: 1400 });
+  const r1 = createRouter({
+    id: 'r1',
+    label: 'R1',
+    column: 1,
+    silent,
+    interfaces: [
+      { port: 'p0', ip: ipv4('10.0.1.1'), prefix: 24, mac: macOf(0x11) },
+      { port: 'p1', ip: ipv4('10.0.12.1'), prefix: 30, mac: macOf(0x12) },
+    ],
+    routes: [route('10.0.2.0', 24, '10.0.12.2', 'p1')],
+  });
+  const r2 = createRouter({
+    id: 'r2',
+    label: 'R2',
+    column: 2,
+    interfaces: [
+      { port: 'p0', ip: ipv4('10.0.12.2'), prefix: 30, mac: macOf(0x21) },
+      { port: 'p1', ip: ipv4('10.0.2.1'), prefix: 24, mac: macOf(0x22) },
+    ],
+    routes: [route('10.0.1.0', 24, '10.0.12.1', 'p0')],
+  });
+  const links: Link[] = [
+    { a: ['client', 'eth0'], b: ['r1', 'p0'] },
+    { a: ['r1', 'p1'], b: ['r2', 'p0'], mtu },
+    { a: ['r2', 'p1'], b: ['server', 'eth0'] },
+  ];
+  return { client, server, devices: [client, r1, r2, server] as Device[], links };
+}

@@ -1,5 +1,6 @@
 import type { ClusterView } from '../../../types/visualization';
 import { ROLE_META, roleBoxStyle } from '../roles';
+import { sparkPath } from './chartPath';
 
 /** A labelled horizontal bar: CPU or memory used against capacity, with an optional limit tick. */
 export function Meter({ label, used, max, text, limit }: { label: string; used: number; max: number; text: string; limit?: number }) {
@@ -20,8 +21,7 @@ export function TrafficStrip({ traffic }: { traffic: NonNullable<ClusterView['tr
   const w = 120;
   const h = 24;
   const top = Math.max(1, ...traffic.points);
-  const step = traffic.points.length > 1 ? w / (traffic.points.length - 1) : w;
-  const path = traffic.points.map((p, i) => `${i === 0 ? 'M' : 'L'}${(i * step).toFixed(1)},${(h - (p / top) * (h - 2) - 1).toFixed(1)}`).join(' ');
+  const path = sparkPath(traffic.points, w, h, top);
   return (
     <section aria-label={`Traffic: ${traffic.rps} requests per second`} className="flex items-center gap-3 rounded-lg border border-border px-2 py-1.5 font-mono text-xs">
       <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">Traffic</span>

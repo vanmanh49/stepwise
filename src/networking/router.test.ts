@@ -3,6 +3,7 @@ import { parseIp } from './address';
 import { createHost, type Host } from './devices';
 import { createRouter, lookup, type NatConfig, type Route, type RouterConfig } from './router';
 import { simulate, type Command, type Ctx, type Link } from './sim';
+import type { Conn } from './tcp';
 
 function ip(text: string): number {
   const parsed = parseIp(text);
@@ -38,7 +39,7 @@ describe('lookup', () => {
 const mac = (n: number) => `aa:00:00:00:00:${String(n).padStart(2, '0')}`;
 
 /** h1 (10.1.0.2) — r1 — r2 — h2 (10.2.0.2). */
-function chain(options: { r2?: Partial<RouterConfig>; r1Routes?: Route[]; ttl?: number } = {}) {
+function chain(options: { r2?: Partial<RouterConfig>; r1Routes?: Route[]; ttl?: number; mtu?: number } = {}) {
   const h1 = createHost({ id: 'h1', label: 'H1', column: 0, mac: mac(1), ip: ip('10.1.0.2'), prefix: 24, gateway: ip('10.1.0.1') });
   const h2 = createHost({ id: 'h2', label: 'H2', column: 3, mac: mac(2), ip: ip('10.2.0.2'), prefix: 24, gateway: ip('10.2.0.1') });
   const r1 = createRouter({
@@ -64,7 +65,7 @@ function chain(options: { r2?: Partial<RouterConfig>; r1Routes?: Route[]; ttl?: 
   });
   const links: Link[] = [
     { a: ['h1', 'eth0'], b: ['r1', 'p0'] },
-    { a: ['r1', 'p1'], b: ['r2', 'p0'] },
+    { a: ['r1', 'p1'], b: ['r2', 'p0'], ...(options.mtu ? { mtu: options.mtu } : {}) },
     { a: ['r2', 'p1'], b: ['h2', 'eth0'] },
   ];
   return { h1, h2, devices: [h1, r1, r2, h2], links };
@@ -181,6 +182,87 @@ function natNet(timeoutS = 30) {
 }
 
 const udp = (from: Host, dst: string, srcPort: number, atMs = 0): Command => ({ at: atMs, device: from.id, run: (_, ctx: Ctx) => from.udp(ctx, ip(dst), srcPort, 7, 'hi') });
+
+describe('MTU', () => {
+  const send = (net: ReturnType<typeof chain>, size: number, df = false) => {
+    net.h2.bindUdp(53, 'dns');
+    return simulate({ devices: net.devices, links: net.links, commands: [{ at: 0, device: 'h1', run: (_, ctx) => net.h1.udp(ctx, ip('10.2.0.2'), 5000, 53, 'hi', { size, df }) }] });
+  };
+  const sentBy = (run: ReturnType<typeof simulate>, action: string) => run.events.filter((event) => event.action === action).map((event) => event.frame!.payload);
+
+  it('passes a packet of exactly the MTU', () => {
+    const run = send(chain({ mtu: 1000 }), 972, true);
+    expect(actions(run)).toContain('udp-received');
+    expect(actions(run)).not.toContain('frag-needed');
+  });
+
+  it('refuses a df packet one byte over, and reports the MTU', () => {
+    const net = chain({ mtu: 1000 });
+    const run = send(net, 973, true);
+    expect(actions(run)).not.toContain('udp-received');
+    expect(actions(run)).toContain('frag-needed');
+    expect(net.h1.replies[0]).toMatchObject({ type: 'frag-needed', from: ip('10.1.0.1') });
+    const sent = run.events.find((event) => event.action === 'frag-needed')!.frame!.payload;
+    expect(sent).toMatchObject({ payload: { type: 'frag-needed', mtu: 1000, dst: ip('10.2.0.2') } });
+  });
+
+  it('drops it with no word from a silent router', () => {
+    const net = chain({ mtu: 1000 });
+    const silent = createRouter({ id: 'r1', label: 'R1', column: 1, silent: true, interfaces: [{ port: 'p0', ip: ip('10.1.0.1'), prefix: 24, mac: mac(11) }, { port: 'p1', ip: ip('10.12.0.1'), prefix: 30, mac: mac(12) }], routes: [{ network: ip('10.2.0.0'), prefix: 24, nextHop: ip('10.12.0.2'), port: 'p1', metric: 1 }] });
+    net.devices[1] = silent;
+    const run = send(net, 973, true);
+    expect(actions(run)).toContain('black-hole');
+    expect(actions(run)).not.toContain('frag-needed');
+    expect(net.h1.replies).toEqual([]);
+  });
+
+  it('splits a packet with no df into payloads of multiples of 8', () => {
+    const run = send(chain({ mtu: 1000 }), 1372);
+    const pieces = sentBy(run, 'fragment');
+    expect(pieces).toHaveLength(2);
+    expect(pieces[0]).toMatchObject({ length: 996, offset: 0, more: true });
+    expect(pieces[1]).toMatchObject({ length: 424, offset: 976, more: false });
+  });
+
+  it('reassembles once at the destination', () => {
+    const run = send(chain({ mtu: 1000 }), 1372);
+    expect(actions(run).filter((action) => action === 'reassembled')).toHaveLength(1);
+    expect(actions(run).filter((action) => action === 'udp-received')).toHaveLength(1);
+  });
+
+  it('reassembles fragments that arrive in either order', () => {
+    const h = createHost({ id: 'h', label: 'H', column: 0, mac: mac(1), ip: ip('10.0.0.1'), prefix: 24 });
+    h.bindUdp(53, 'dns');
+    const piece = (offset: number, length: number, more: boolean) => ({ srcMac: mac(2), dstMac: mac(1), payload: { kind: 'ip' as const, src: 2, dst: ip('10.0.0.1'), ttl: 9, id: 7, length, offset, more, payload: { kind: 'udp' as const, srcPort: 1, dstPort: 53, data: 'hi' } } });
+    const run = simulate({
+      devices: [h],
+      links: [],
+      commands: [
+        { at: 0, device: 'h', run: (_, ctx) => h.receive(ctx, piece(976, 424, false), 'eth0') },
+        { at: 1, device: 'h', run: (_, ctx) => h.receive(ctx, piece(0, 996, true), 'eth0') },
+      ],
+    });
+    expect(actions(run)).toEqual(['reassembled', 'udp-received']);
+  });
+
+  it('lowers the MSS on Fragmentation Needed, and the resend fits', () => {
+    const net = chain({ mtu: 1000 });
+    let got = 0;
+    let conn: Conn | undefined;
+    const run = simulate({
+      devices: net.devices,
+      links: net.links,
+      commands: [
+        { at: 0, device: 'h2', run: () => net.h2.listen(80, { onData: (bytes) => { got += bytes; } }) },
+        { at: 1, device: 'h1', run: (_, ctx) => { conn = net.h1.connect(ctx, ip('10.2.0.2'), 80); net.h1.write(ctx, conn, 1000); } },
+      ],
+    });
+    expect(actions(run)).toContain('frag-needed');
+    expect(actions(run)).toContain('mss-lowered');
+    expect(conn!.mss).toBe(960);
+    expect(got).toBe(1000);
+  });
+});
 
 describe('NAT', () => {
   it('rewrites the source going out, keeping a free port', () => {
