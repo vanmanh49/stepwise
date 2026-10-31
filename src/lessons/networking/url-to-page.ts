@@ -10,17 +10,17 @@ const content: LessonContent = {
   concept: [
     'First comes the name. Unless the browser already knows the address, it asks a resolver, as in the DNS lesson. Here the resolver already knows who runs example.com, so it asks the authoritative server once.',
     'Next, the connection. HTTP/1.1 and HTTP/2 need a TCP handshake and then TLS, which is two round trips before any request can leave. HTTP/3 does both in one QUIC exchange, so it has one bar where the others have two.',
-    'Then HTTP. The browser fetches the page itself, and only when it has that page can it know what else is needed. That is why the three other files start late: each bar waits for the one before it.',
+    'Then HTTP. The browser fetches the page itself, and only when it has that page can it know what else is needed. That is why the three other files start late, once the page has arrived.',
     'The waterfall is the whole story of a page load. Everything before the first byte is setup, and it is mostly round trips, not bandwidth. A faster link helps less than you would think: cutting one round trip often matters more.',
     'A single lost packet shows up as one bar that runs long. On HTTP/1.1 it holds up one connection, on HTTP/2 every stream, and on HTTP/3 one stream. Here Packet 3 is the last piece of the page itself, so everything behind it waits for the timer on all three.',
-    'The numbers are round on purpose: a 2000-byte page, 3 files of 8000 bytes, and a 10 ms-per-segment link. Nothing here is encrypted: see Certificates & TLS for what the handshake does. Parsing, rendering, JavaScript, images in the browser cache and redirects are left out. To see this on a real machine, open the browser\'s Network panel and read the waterfall of any page.',
+    'The numbers are round on purpose: a 2000-byte page, 3 files of 8000 bytes, and a 10 ms-per-segment link. On HTTP/1.1 the extra connections pay for TCP and TLS too, and the waterfall draws only the first. Nothing here is encrypted: see Certificates & TLS for what the handshake does. Parsing, rendering, JavaScript, images in the browser cache and redirects are left out. To see this on a real machine, open the browser\'s Network panel and read the waterfall of any page.',
   ],
   howItWorks: [
     'The browser turns the name into an address, unless it has it cached.',
     'It opens a connection: TCP then TLS, or one QUIC handshake.',
     'It sends GET /index.html and reads the page.',
     'The page names other files, and the browser fetches those.',
-    'The waterfall shows each phase waiting for the one before.',
+    'The waterfall shows setup first, then the page, then its files.',
   ],
   visualization: {
     kind: 'form',

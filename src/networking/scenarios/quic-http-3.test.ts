@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GridView, PanelsView, Step } from '../../types/visualization';
+import lesson from '../../lessons/networking/quic-http-3';
 import { runMux } from './http-2';
 import { quicHttp3Steps } from './quic-http-3';
 
@@ -47,6 +48,23 @@ describe('QUIC & HTTP/3', () => {
 
   it('counts the same packets as HTTP/2', () => {
     expect(runMux('HTTP/3', { resources: 2, lost: 8 }).http.fetches.every(({ bytes }) => bytes === 8000)).toBe(true);
+  });
+
+  it('shows headers in the Packet panel', () => {
+    const labels = run('First', '2', 'None').flatMap((step) => (panel(step, 'Packet') as GridView | undefined)?.rows.map((row) => row.label) ?? []);
+    expect(labels).toEqual(expect.arrayContaining([':path', ':status']));
+  });
+
+  it('keeps the quiz from showing its own answer', () => {
+    const shown = JSON.stringify(lesson.quiz[0]!.view);
+    expect(shown).not.toContain('stalled');
+    expect(shown).not.toContain('"sending"');
+  });
+
+  it('credits 0-RTT on a return visit', () => {
+    const { why } = run('Returning', '4', 'None').at(-1)!;
+    expect(why).toContain('first flight');
+    expect(run('First', '4', 'None').at(-1)!.why).not.toContain('first flight');
   });
 
   it('refuses bad input', () => {

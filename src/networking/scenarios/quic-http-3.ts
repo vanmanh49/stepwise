@@ -63,7 +63,7 @@ export function quicHttp3Steps(values: Record<string, string>): Step[] {
     title: `First byte at ${firstByte} ms, all ${resources.value} resources by ${finished} ms`,
     why: nth > 0
       ? `The same lost packet stalled ${stalled} ${stalled === 1 ? 'stream' : 'streams'} here, and HTTP/2 stalled ${mostStalled(tcp.run)}. QUIC knows which stream each byte belongs to, so only that stream waited.`
-      : `HTTP/2 on TLS reached its first byte at ${tcp.firstByte} ms, so this was ${gained} ms sooner on the same path. TCP needs a round trip of its own before TLS can start, and QUIC does both at once.`,
+      : `HTTP/2 on TLS reached its first byte at ${tcp.firstByte} ms, so this was ${gained} ms sooner on the same path. TCP needs a round trip of its own before TLS can start, and QUIC does both at once.${returning ? ' This client also kept a key from an earlier visit, so its requests left in the first flight, with no handshake to wait for.' : ''}`,
     variables: { firstByte, finished, gained, stalled, cut: run.cut ? 'yes' : 'no' },
   });
 }

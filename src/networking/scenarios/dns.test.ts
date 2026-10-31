@@ -45,6 +45,16 @@ describe('DNS', () => {
     expect(steps.at(-1)!.title).toContain('192.0.2.10');
   });
 
+  it('tells the truth about a lost query for a missing name', () => {
+    const { why } = run('Lost query', 'nothing.example.com').at(-1)!;
+    expect(why).not.toContain('The network worked fine');
+    expect(why).toContain('asked again');
+  });
+
+  it('says when No such name got a name that exists', () => {
+    expect(run('No such name').at(-1)!.why).toContain('nothing.example.com');
+  });
+
   it('refuses a bad choice', () => {
     expect(dnsSteps({ scene: 'x', name: 'www.example.com' })).toHaveLength(1);
     expect(dnsSteps({ scene: 'Cached', name: 'x' })).toHaveLength(1);

@@ -67,7 +67,7 @@ export function bgpSteps(values: Record<string, string>): Step[] {
   const deliveredTo = routers[end?.device ?? '']?.label ?? 'nobody';
   const path = routers.isp!.best(NETWORK, 24)?.join(' ') ?? '';
   const variables = { path, deliveredTo };
-  if (scene.value === SCENES[1]) return endWith(steps, { title: `The ISP now reaches Origin through ${path}`, why: 'Transit A lost its link and took its route back. The ISP already knew the longer way through Transit B, so traffic moved with no one configuring anything.', variables });
+  if (scene.value === SCENES[1]) return endWith(steps, { title: `The ISP now reaches Origin through ${path}`, why: 'Transit A lost its link, so it could only offer a longer path through Transit B. The ISP compared that with what it had already heard, and moved to Transit B directly, with no one configuring anything.', variables });
   if (scene.value === SCENES[2]) return endWith(steps, { title: `Traffic moved to ${path}`, why: `Origin added its own number ${PREPEND} extra times towards Transit A. That path grew longer than the one through Transit B, so the ISP chose differently. It is a request, not an order: local preference still comes first.`, variables });
   if (scene.value === SCENES[3]) return endWith(steps, { title: `The probe ended at ${deliveredTo}`, why: `Origin's /24 is still announced, but the Hijacker's /${SPECIFIC_PREFIX} is more specific, and the longest prefix always wins. BGP believes what it is told, unless RPKI says otherwise.`, variables });
   return endWith(steps, { title: `The ISP reaches Origin through ${path}`, why: 'Each AS added its number to AS_PATH and passed the route on. Real BGP runs these messages over TCP port 179, which this run leaves out so the paths stay in view.', variables });

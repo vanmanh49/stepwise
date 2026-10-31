@@ -1,5 +1,5 @@
 import { lineOf } from '../data-structures/shared';
-import type { ArrayView, ChartView, GridView, LadderView, PanelsView, Role, ServicesView, Step } from '../types/visualization';
+import type { ArrayView, ChartView, GridView, LadderView, PanelsView, Role, ServicesView, Step, View } from '../types/visualization';
 import { formatIp } from './address';
 import { ICMP_NAME, type Bgp, type Dns, type DnsRecord, type Frame, type Mark, type Quic, type Tcp } from './packet';
 import { formatTime, QUEUE_DROP, type SimEvent, type SimResult, type TableSnapshot } from './sim';
@@ -23,15 +23,19 @@ const X_LABEL = 'Round trips and losses';
 const marked = (marks: Mark[] | undefined) => (marks ?? []).map(({ mark }) => mark as { label?: string; headers?: Record<string, string> });
 const markLabel = (marks: Mark[] | undefined) => marked(marks).find(({ label }) => label)?.label;
 
-const framesOf = (data: Quic) => data.frames.flatMap(({ marks }) => marks ?? []);
+/** The marks a packet carries, on TCP or QUIC. */
+function marksOf({ payload }: Frame): Mark[] {
+  const inner = payload.kind === 'ip' ? payload.payload : undefined;
+  if (inner?.kind === 'tcp') return inner.marks ?? [];
+  if (inner?.kind !== 'udp' || typeof inner.data !== 'object' || !('proto' in inner.data) || inner.data.proto !== 'quic') return [];
+  return inner.data.frames.flatMap(({ marks }) => marks ?? []);
+}
 
 /** A packet an application named: its row stays on a ladder when plain data and ACKs don't. */
-function namedByApp({ payload }: Frame) {
-  const inner = payload.kind === 'ip' ? payload.payload : undefined;
-  if (inner?.kind === 'tcp') return markLabel(inner.marks) !== undefined;
-  if (inner?.kind === 'udp' && typeof inner.data === 'object' && 'proto' in inner.data && inner.data.proto === 'quic') return markLabel(framesOf(inner.data)) !== undefined;
-  return false;
-}
+const namedByApp = (frame: Frame) => markLabel(marksOf(frame)) !== undefined;
+
+/** A packet with real headers in it: it earns a step even where plain data is hidden. */
+const carriesHeaders = (frame: Frame | undefined) => frame !== undefined && marked(marksOf(frame)).some(({ headers }) => headers);
 
 function segmentLabel({ flags, seq, ack, window, length, marks }: Tcp): string {
   const name = markLabel(marks);
@@ -278,19 +282,22 @@ export interface TraceOptions {
 export function traceSteps(result: SimResult, code: string, lines: Record<string, string>, options: TraceOptions = {}): Step[] {
   const log: string[] = [];
   const labels = new Map(result.devices.map((device) => [device.id, device.label]));
-  const events = result.events.filter((event) => !options.hide?.includes(event.action));
+  const events = result.events.filter((event) => !options.hide?.includes(event.action) || carriesHeaders(event.frame));
   const { ladder } = options;
   const movement = (event: SimEvent): PanelsView['panels'][number] =>
     ladder ? { label: 'Ladder', view: ladderView(result, result.events.indexOf(event), ladder, options.ladderSkip) } : { label: 'Network', view: networkView(result, event, log.slice(-LOG_LENGTH), options.spans?.(event)) };
   let codeLine = 1;
   const steps = events.slice(0, MAX_STEPS).map((event): Step => {
-    log.push(event.title);
+    const onTheWire = options.hide?.includes(event.action) ?? false;
+    const title = onTheWire ? `On the wire: ${frameLabel(event.frame!)}` : event.title;
+    const why = onTheWire ? 'This is the packet itself, so the Packet panel shows its real header fields.' : event.why;
+    log.push(title);
     const side = options.panel?.(event) ?? tablePanel(event);
     const snippet = lines[event.action];
     if (snippet) codeLine = lineOf(code, snippet);
     return {
-      title: event.title,
-      why: event.hops.some((hop) => hop.lost) ? `${event.why} This packet is lost on the way and never arrives.` : event.why,
+      title,
+      why: event.hops.some((hop) => hop.lost) ? `${why} This packet is lost on the way and never arrives.` : why,
       codeLine,
       variables: { time: formatTime(event.time), device: labels.get(event.device) ?? event.device },
       view: {
@@ -320,6 +327,9 @@ export function congestionValue(event: SimEvent, device: string, column: string)
   const table = event.tables[device]?.[CONGESTION_TABLE];
   return Number(table?.rows[0]?.[table.columns.indexOf(column)] ?? 0);
 }
+
+/** A step's view with one panel left out, for a quiz whose answer that panel would give away. */
+export const withoutPanel = (view: View, label: string): View => (view.kind === 'panels' ? { ...view, panels: view.panels.filter((panel) => panel.label !== label) } : view);
 
 /** Adds a closing step, standing in for the fold-up step if the run hit the cap. */
 export function endWith(steps: Step[], ending: Partial<Step>): Step[] {

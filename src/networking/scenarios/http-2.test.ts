@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GridView, LadderView, PanelsView, Step } from '../../types/visualization';
+import lesson from '../../lessons/networking/http-2';
 import { http2Steps } from './http-2';
 
 const run = (resources: string, lost: string) => http2Steps({ resources, lost });
@@ -43,6 +44,15 @@ describe('HTTP/2', () => {
 
   it('says nothing is encrypted', () => {
     expect(run('2', 'None').find((step) => step.title === 'ClientHello')!.why).toContain('encrypted');
+  });
+
+  it('shows compressed headers in the Packet panel', () => {
+    const labels = run('2', 'None').flatMap((step) => (panel(step, 'Packet') as GridView | undefined)?.rows.map((row) => row.label) ?? []);
+    expect(labels).toEqual(expect.arrayContaining([':path', ':status', 'content-length']));
+  });
+
+  it('keeps the quiz from showing its own answer', () => {
+    expect(JSON.stringify(lesson.quiz[0]!.view)).not.toContain('stalled');
   });
 
   it('refuses bad input', () => {

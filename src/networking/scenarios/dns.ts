@@ -43,6 +43,8 @@ function closing(scene: string, name: string, answers: (string | undefined)[], r
   const [first] = answers;
   if (scene === SCENES[1] && first === undefined) return { title: `${name} failed twice`, why: `The resolver asked again for the second lookup, because failed names aren't cached here. Real resolvers keep a failed answer for a while too, which this run leaves out.` };
   if (scene === SCENES[1]) return { title: `The second lookup cost 0 queries`, why: `The first made ${asked} queries, and the second made 0 past the resolver, because the record is good for 60 s. A change to a name takes up to its TTL to reach everyone.` };
+  if (first === undefined && scene === SCENES[3]) return { title: `${name}: NXDOMAIN, 1 s late`, why: 'The first query was lost, so the client asked again after 1 s. The answer that came back says this name doesn\'t exist, and that is a real answer, not a failure.' };
+  if (first !== undefined && scene === SCENES[2]) return { title: `${name} is ${first}`, why: 'This name exists, so there is no NXDOMAIN here. Pick nothing.example.com to see one.' };
   if (first === undefined) return { title: `${name}: NXDOMAIN`, why: 'The client got a real answer: this name does not exist. The network worked fine, so there is nothing to retry.' };
   if (scene === SCENES[3]) return { title: `${name} is ${first}, 1 s late`, why: 'UDP noticed nothing. The client\'s own timer did all the work, and one lost packet cost a whole second.' };
   return { title: `${name} is ${first}`, why: `The resolver asked ${asked} servers, each knowing a little more of the name. The client asked one question.` };

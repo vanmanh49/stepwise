@@ -286,8 +286,8 @@ export function createTcp(host: TcpHost, firstPort = FIRST_CLIENT_PORT) {
     const ack = segment.seq + segment.length + (segment.flags.includes('SYN') ? 1 : 0);
     host.transmit(ctx, src, { kind: 'tcp', srcPort: segment.dstPort, dstPort: segment.srcPort, seq, ack, flags: ['RST', 'ACK'], window: 0, length: 0 }, {
       action: 'tcp-rst',
-      title: `RST: nothing is listening on port ${segment.dstPort}`,
-      why: 'With no program on this port, and no connection it could belong to, TCP says so at once.',
+      title: listeners.has(segment.dstPort) ? `RST: no such connection on port ${segment.dstPort}` : `RST: nothing is listening on port ${segment.dstPort}`,
+      why: listeners.has(segment.dstPort) ? 'A program listens on this port, but this host has no such connection, because it never saw the handshake. TCP says so at once.' : 'With no program on this port, and no connection it could belong to, TCP says so at once.',
     });
   }
 

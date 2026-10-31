@@ -321,10 +321,14 @@ export function httpClient(host: Host, { server, port, version, tls, keepAlive =
   }
 
   function onMark(ctx: Ctx, slot: Slot, mark: HttpMark) {
-    if (!slot.current || !receive(ctx, slot.current, mark)) return;
-    slot.current = undefined;
-    if (!keepAlive) slot.live = false;
-    dispatch(ctx);
+    const fetch = slot.current;
+    if (!fetch) return;
+    // Freed first: finishing can ask for more, and this connection should take it.
+    if (mark.end) {
+      slot.current = undefined;
+      if (!keepAlive) slot.live = false;
+    }
+    if (receive(ctx, fetch, mark)) dispatch(ctx);
   }
 
   /** A connection that dies mid-response gets one retry, on a new connection. */

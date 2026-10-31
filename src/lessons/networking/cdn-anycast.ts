@@ -12,7 +12,7 @@ const content: LessonContent = {
     'Two headers show what happened. X-Cache says HIT or MISS, and Age says how many seconds the edge has held the copy. Open the Packet panel on a response to read them. A copy older than its TTL is fetched again.',
     'With anycast, both edges hold the same address, 198.51.100.10. The Router has a route to each, and the lower metric wins. No device is told it is using anycast: this is the same longest-prefix lookup you met in Routing Tables, with two ways to one address. Across the internet, BGP makes the same choice.',
     'When an edge fails, its route goes away and the next packet goes to the other edge. If no connection was open, nothing breaks: the next request is just a miss at a new edge.',
-    'An open connection is different. The new edge has never heard of it, so it answers with RST, and the client has to ask again. Anycast moves packets, not connections. That is why it suits short requests, and why it is best with DNS and QUIC.',
+    'An open connection is different. The new edge has never heard of it, so it answers with RST, and the client has to ask again. Anycast moves packets, not connections. That is why it suits short requests, such as DNS.',
     'The numbers are round on purpose: an 8000-byte page, a TTL of 60 s, and metrics 1 and 2. There is no TLS in this run, so nothing is encrypted, and real edges terminate TLS too. Each edge here fetches from the origin on the shared address, where a real one has its own. Cache rules, purging and the DNS tricks that CDNs also use are left out. To see this on a real machine, run curl -I on a large site for X-Cache and Age, and dig to see the address.',
   ],
   howItWorks: [

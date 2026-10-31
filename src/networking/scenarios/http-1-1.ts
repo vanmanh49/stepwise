@@ -65,7 +65,7 @@ export function http11Steps(values: Record<string, string>): Step[] {
   const opened = http.opened();
   return endWith(steps, {
     title: `${resources.value} resources in ${finished} ms on ${opened} connection${opened === 1 ? '' : 's'}`,
-    why: `Each new connection paid for a handshake first. The first resource took an extra ${SLOW_MS} ms to produce${opened === 1 && resources.value > 1 ? ', and everything behind it on the one connection had to wait' : opened > 1 ? ', and the other connections kept working around it' : ''}.`,
+    why: `Each new connection paid for a handshake first. The first resource took an extra ${SLOW_MS} ms to produce${resources.value === 1 ? '' : connections.value === '6' ? ', and the other connections kept working around it' : ', and everything behind it had to wait'}.`,
     variables: { finished, connections: opened, cut: run.cut ? 'yes' : 'no' },
   });
 }

@@ -1,4 +1,5 @@
 import { LOST, quicHttp3Code, quicHttp3Steps, VISITS } from '../../networking/scenarios/quic-http-3';
+import { withoutPanel } from '../../networking/steps';
 import type { LessonContent } from '../../types/lesson';
 
 const defaults = { visit: 'First', resources: '4', lost: 'None' };
@@ -60,7 +61,7 @@ const content: LessonContent = {
       id: 'q1',
       type: 'predict-next',
       prompt: 'One stream is missing a packet, and later packets have arrived. What can the other streams do?',
-      view: hold.view,
+      view: withoutPanel(hold.view, 'Streams'),
       options: ['Keep delivering their own bytes', 'Wait for the resend, as on TCP', 'Start a new connection', 'Move to the stalled stream\'s window'],
       answer: 0,
       explanation: 'Each stream delivers in order on its own, so a gap in one says nothing about the others.',

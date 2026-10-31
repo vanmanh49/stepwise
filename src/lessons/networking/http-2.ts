@@ -1,4 +1,5 @@
 import { http2Code, http2Steps, LOST } from '../../networking/scenarios/http-2';
+import { withoutPanel } from '../../networking/steps';
 import type { LessonContent } from '../../types/lesson';
 
 const defaults = { resources: '4', lost: 'None' };
@@ -59,7 +60,7 @@ const content: LessonContent = {
       id: 'q1',
       type: 'predict-next',
       prompt: 'One segment is missing, and later bytes have arrived. Which streams can read their data now?',
-      view: hold.view,
+      view: withoutPanel(hold.view, 'Streams'),
       options: ['None of the unfinished streams', 'All but the stream that lost a segment', 'Only the stream with the lowest number', 'Any stream with its HEADERS'],
       answer: 0,
       explanation: 'TCP won\'t hand over any byte past the gap, and it doesn\'t know which stream a byte belongs to.',

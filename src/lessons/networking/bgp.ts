@@ -2,7 +2,7 @@ import { bgpCode, bgpSteps, SCENES } from '../../networking/scenarios/bgp';
 import type { LessonContent } from '../../types/lesson';
 
 const defaults = { scene: SCENES[0]! };
-const update = bgpSteps(defaults).find((step) => step.title.startsWith('AS 65010 tells ISP'))!;
+const update = bgpSteps(defaults).find((step) => step.title.startsWith('AS 65010 picks 65001'))!;
 
 const content: LessonContent = {
   overview:
@@ -12,7 +12,7 @@ const content: LessonContent = {
     'If a route arrives holding an AS\'s own number, it would make a loop, so it is rejected. That one rule keeps the whole internet loop-free, with nobody having a map of it.',
     'Best path is not shortest path. Money comes first: a route from a customer pays, a peer\'s is free, and a provider\'s costs money. So local preference is 200, 150 and 100 here. Only then comes the shortest AS_PATH, and after that the lowest neighbour AS.',
     'Export rules follow the money too. A customer\'s routes go to everyone, because carrying them earns money. A route from a peer or a provider goes to customers only, because nobody carries traffic between two others for free.',
-    'When a route fails, its AS sends a WITHDRAW, and neighbours choose again from what they already heard. Prepending is a request: an AS adds its number extra times so a path looks longer. And because traffic always follows the longest matching prefix, anyone who announces a more specific prefix can take the traffic. That is a BGP hijack, and only RPKI and careful filters stop it.',
+    'When a route fails, the AS chooses again. It sends a WITHDRAW to a neighbour it can no longer offer anything, and an UPDATE with the new path to the rest, and they choose again from all they have heard. Prepending is a request: an AS adds its number extra times so a path looks longer. And because traffic always follows the longest matching prefix, anyone who announces a more specific prefix can take the traffic. That is a BGP hijack, and only RPKI and careful filters stop it.',
     'The numbers are round on purpose: six ASes, private AS numbers and a 5 ms link. Real BGP runs over TCP port 179 with keepalives and a hold timer, and here a command stands in for that timer and messages cross links directly. iBGP, route reflectors, communities and RPKI are left out. To see this on a real machine, run traceroute and then look up a prefix on a public looking glass.',
   ],
   howItWorks: [
@@ -50,7 +50,7 @@ const content: LessonContent = {
     {
       id: 'q1',
       type: 'predict-next',
-      prompt: 'Transit A just passed the route on to the ISP. What will the ISP\'s AS_PATH begin with?',
+      prompt: 'Transit A has chosen its route to Origin. When it tells the ISP, what will AS_PATH begin with?',
       view: update.view,
       options: ['65010', '65200', '65001', '65020'],
       answer: 0,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GridView, PanelsView, ServicesView, Step } from '../../types/visualization';
+import lesson from '../../lessons/networking/bgp';
 import { bgpSteps } from './bgp';
 
 const run = (scene: string) => bgpSteps({ scene });
@@ -48,6 +49,18 @@ describe('BGP', () => {
 
   it('says real BGP runs on TCP', () => {
     expect(run('Shortest path').at(-1)!.why).toContain('TCP port 179');
+  });
+
+  it('keeps the quiz from showing its own answer', () => {
+    const shown = JSON.stringify(lesson.quiz[0]!.view);
+    expect(shown).not.toContain('65010 65001');
+    expect(shown).not.toContain('via 65010');
+  });
+
+  it('says what really happened to the ISP after the link failed', () => {
+    const { why } = run('Link fails').at(-1)!;
+    expect(why).not.toContain('took its route back');
+    expect(why).toContain('longer');
   });
 
   it('refuses a bad scene', () => {

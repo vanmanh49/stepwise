@@ -115,7 +115,7 @@ export function urlToPageSteps(values: Record<string, string>): Step[] {
   const loaded = http.fetches.filter(({ status }) => status === 200).length;
   return endWith(steps, {
     title: `The page loaded in ${finished} ms on ${version}`,
-    why: `The first byte of the page came at ${firstByte} ms, and everything else builds on that. ${lost.value === LOST[1] ? `Packet ${LOST_PACKET} was lost and sent again, and the waterfall shows what that cost. ` : ''}Read the bars from the top: each one had to wait for the one before.`,
+    why: `The first byte of the page came at ${firstByte} ms, and everything else builds on that. ${lost.value === LOST[1] ? `Packet ${LOST_PACKET} was lost and sent again, and the waterfall shows what that cost. ` : ''}Read the bars from the top: setup runs one bar after another, and the files can only start once the page has arrived.`,
     variables: { finished, firstByte, loaded, cut: run.cut ? 'yes' : 'no' },
   });
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PanelsView, ServicesView, Step } from '../../types/visualization';
+import lesson from '../../lessons/networking/url-to-page';
 import { urlToPageSteps } from './url-to-page';
 
 const run = (protocol: string, dns: string, lost: string) => urlToPageSteps({ protocol, dns, lost });
@@ -48,6 +49,19 @@ describe('From URL to Page', () => {
     for (const step of run('HTTP/2', 'Cold', 'Packet 3')) {
       expect((step.view as PanelsView).panels.length).toBeLessThanOrEqual(3);
     }
+  });
+
+  it('reuses the idle connection for the first file on HTTP/1.1', () => {
+    const steps = run('HTTP/1.1', 'Cold', 'None');
+    expect(steps.filter((step) => step.title.startsWith('SYN from'))).toHaveLength(3);
+    const rows = spans(last(steps)).rows;
+    const page = rows.find(({ label }) => label === '/index.html')!;
+    expect(rows.find(({ label }) => label === '/a.js')!.start).toBe(page.start + page.ms!);
+  });
+
+  it('does not say every bar waits for the one before', () => {
+    expect(last(run('HTTP/2', 'Cold', 'None')).why).not.toContain('each one had to wait');
+    expect([...lesson.concept, ...lesson.howItWorks].join(' ')).not.toMatch(/each (bar|phase) wait/);
   });
 
   it('refuses bad input', () => {

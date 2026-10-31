@@ -5,7 +5,7 @@ import { createHost, type Host } from './devices';
 import type { Frame, Tcp } from './packet';
 import { macOf } from './scenarios/topology';
 import { simulate, type Command, type Ctx, type Fault, type Link, type SimEvent, type SimResult } from './sim';
-import type { Conn, TcpOptions } from './tcp';
+import { createTcp, type Conn, type TcpOptions } from './tcp';
 
 const CLIENT = ipv4('10.0.0.1');
 const SERVER = ipv4('10.0.0.2');
@@ -497,5 +497,22 @@ describe('a client connection', () => {
     const commands = [on(server, 0, () => server.listen(PORT)), on(client, 1, (ctx) => void client.connect(ctx, SERVER, PORT, { onConnection: (_, conn) => states2.push(conn.state) }))];
     simulate({ devices: [client, server], links, commands });
     expect(states2).toEqual(['ESTABLISHED']);
+  });
+});
+
+describe('a segment for no known connection', () => {
+  const notes: string[] = [];
+  const tcp = createTcp({ ip: () => CLIENT, mss: () => 1000, transmit: (_, __, ___, note) => notes.push(note.title) });
+  tcp.listen(PORT);
+  const stray: Tcp = { kind: 'tcp', srcPort: 50000, dstPort: PORT, seq: 1, ack: 1, flags: ['ACK'], window: 1000, length: 1000 };
+
+  it('says the port is open, but the connection is unknown', () => {
+    tcp.receive({ now: 0 } as Ctx, SERVER, stray);
+    expect(notes.at(-1)).toBe(`RST: no such connection on port ${PORT}`);
+  });
+
+  it('still says nothing is listening on a closed port', () => {
+    tcp.receive({ now: 0 } as Ctx, SERVER, { ...stray, dstPort: 81 });
+    expect(notes.at(-1)).toBe('RST: nothing is listening on port 81');
   });
 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { GridView, PanelsView } from '../../types/visualization';
 import { SCENES, websocketsSteps } from './websockets';
 
 const run = (scene: string) => websocketsSteps({ scene });
@@ -34,6 +35,11 @@ describe('WebSockets', () => {
 
   it('runs every scene to a tidy end', () => {
     for (const scene of SCENES) expect(run(scene).length).toBeGreaterThan(3);
+  });
+
+  it('shows the upgrade headers in the Packet panel', () => {
+    const labels = run('Upgrade').flatMap((step) => ((step.view as PanelsView).panels.find((each) => each.label === 'Packet')?.view as GridView | undefined)?.rows.map((row) => row.label) ?? []);
+    expect(labels).toEqual(expect.arrayContaining(['Upgrade', 'Sec-WebSocket-Key', 'Sec-WebSocket-Accept']));
   });
 
   it('refuses a bad scene', () => {

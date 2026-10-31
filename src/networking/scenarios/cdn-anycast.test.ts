@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { PanelsView, ServicesView, Step } from '../../types/visualization';
+import lesson from '../../lessons/networking/cdn-anycast';
+import type { GridView, PanelsView, ServicesView, Step } from '../../types/visualization';
 import { cdnAnycastSteps } from './cdn-anycast';
 
 const run = (scene: string, moment = 'During a transfer') => cdnAnycastSteps({ scene, moment });
@@ -43,6 +44,21 @@ describe('CDNs & Anycast', () => {
     expect(titles(steps).some((title) => title.startsWith('RST'))).toBe(false);
     expect(titles(steps).filter((title) => title.startsWith('Cache miss'))).toHaveLength(2);
     expect(steps.at(-1)!.variables!.status).toBe(200);
+  });
+
+  it('shows X-Cache and Age in the Packet panel', () => {
+    const rows = run('Cache hit').flatMap((step) => ((step.view as PanelsView).panels.find((each) => each.label === 'Packet')?.view as GridView | undefined)?.rows.map((row) => row.label) ?? []);
+    expect(rows).toEqual(expect.arrayContaining(['X-Cache', 'Age']));
+  });
+
+  it('names the real reason for the RST', () => {
+    const rst = run('Edge fails').find((step) => step.title.startsWith('RST'))!;
+    expect(rst.title).not.toContain('nothing is listening');
+    expect(rst.why).toContain('no such connection');
+  });
+
+  it('claims nothing about anycast it does not show', () => {
+    expect(lesson.concept.join(' ')).not.toContain('best with DNS and QUIC');
   });
 
   it('draws at most 6 nodes', () => {
