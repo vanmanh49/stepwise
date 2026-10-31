@@ -82,4 +82,14 @@ export const networkingMeta: LessonMeta[] = [
     keywords: ['nat', 'network address translation', 'pat', 'private address', 'public address', 'port forwarding', 'conntrack', 'home router', 'udp'],
     prerequisites: ['ip-routing'],
   },
+  {
+    id: 'ports-udp',
+    title: 'Ports & UDP',
+    category: 'networking',
+    difficulty: 'intermediate',
+    group: 'Transport',
+    description: 'Send datagrams to one address and see ports pick the program, a closed port answer back, and a lost datagram vanish.',
+    keywords: ['port', 'ports', 'udp', 'datagram', 'socket', 'port unreachable', 'icmp', 'dns', 'nc', 'netcat', 'ss'],
+    prerequisites: [],
+  },
 ];

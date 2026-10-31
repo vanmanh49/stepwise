@@ -24,6 +24,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   'ping-traceroute': { ttl: [1, 64] },
   dhcp: { lease: [10, 3600], pool: [1, 2] },
   nat: { port: [1024, 65535], timeout: [1, 300] },
+  'ports-udp': { port: [1, 65535] },
 };
 
 function checkView(view: View, label: string) {

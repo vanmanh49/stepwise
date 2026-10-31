@@ -194,6 +194,7 @@ const EXPECTED_IDS = [
   'ping-traceroute',
   'dhcp',
   'nat',
+  'ports-udp',
 ];
 
 describe('lesson registry', () => {

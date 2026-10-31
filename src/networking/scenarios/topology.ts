@@ -171,6 +171,16 @@ export function dhcpNetwork({ pool, leaseS }: { pool: number; leaseS: number }):
 
 export const SERVER_PORT = 80;
 const SEGMENT_BYTES = 1040;
+export const CLIENT_IP = ipv4('10.0.0.1');
+export const SERVER_IP = ipv4('10.0.0.2');
+
+/** A Client and a Server on one 10 ms link, each already knowing the other's MAC. */
+export function twoHosts() {
+  const client = createHost({ id: 'client', label: 'Client', column: 0, mac: macOf(1), ip: CLIENT_IP, prefix: 24, arp: { [SERVER_IP]: macOf(2) } });
+  const server = createHost({ id: 'server', label: 'Server', column: 1, mac: macOf(2), ip: SERVER_IP, prefix: 24, arp: { [CLIENT_IP]: macOf(1) } });
+  const links: Link[] = [{ a: ['client', 'eth0'], b: ['server', 'eth0'], ms: 10 }];
+  return { client, server, devices: [client, server] as Device[], links };
+}
 
 export interface TcpPath {
   client: Host;
