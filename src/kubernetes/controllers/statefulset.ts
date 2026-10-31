@@ -6,7 +6,7 @@ export const REVISION = 'controller-revision-hash';
 
 const ordinal = (set: StatefulSet, pod: Pod) => Number(pod.name.slice(set.name.length + 1));
 const up = (p: Pod) => p.phase === 'Running' && p.ready;
-export const claimName = (claim: string, set: string, i: number) => `${claim}-${set}-${i}`;
+const claimName = (claim: string, set: string, i: number) => `${claim}-${set}-${i}`;
 
 function newPod(ctx: Ctx, set: StatefulSet, i: number): Pod {
   const name = `${set.name}-${i}`;

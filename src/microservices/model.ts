@@ -162,7 +162,7 @@ export interface Scenario {
   clientPolicy?: CallPolicy;
 }
 
-export type MessageKind = 'request' | 'reply' | 'query' | 'lookup' | 'heartbeat' | 'probe' | 'deliver';
+type MessageKind = 'request' | 'reply' | 'query' | 'lookup' | 'heartbeat' | 'probe' | 'deliver';
 
 export interface Message {
   /** "m1", "m2", … in send order. */

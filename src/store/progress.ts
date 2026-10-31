@@ -1,7 +1,7 @@
 import { create, type StateCreator } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-export interface ProgressData {
+interface ProgressData {
   completed: string[];
   quizScores: Record<string, { correct: number; total: number }>;
   currentLesson?: string;

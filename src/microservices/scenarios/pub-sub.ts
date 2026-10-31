@@ -22,7 +22,7 @@ async function onMessage(event) {
   ack(event)
 }`;
 
-export const SUBSCRIBERS = ['email', 'stock', 'analytics'];
+const SUBSCRIBERS = ['email', 'stock', 'analytics'];
 const GAP_MS = 40;
 const SUBSCRIBER_MS = 30;
 const EMAIL_OUTAGE = { from: 20, until: 300 };

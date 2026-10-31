@@ -1,7 +1,7 @@
 import type { StructureArg } from '../types/lesson';
 import type { Step, View } from '../types/visualization';
 
-export const MAX_LINEAR_ITEMS = 10;
+const MAX_LINEAR_ITEMS = 10;
 
 /** Result for an operation that cannot run: one explanatory step, state untouched. */
 export function refuse(
@@ -21,7 +21,7 @@ export function isFull(state: number[]): boolean {
 export const FULL_WHY = `This visualization holds at most ${MAX_LINEAR_ITEMS} items so every step stays readable. Remove something first.`;
 
 /** A word argument: 1–8 lowercase letters. */
-export const WORD_PATTERN = /^[a-z]{1,8}$/;
+const WORD_PATTERN = /^[a-z]{1,8}$/;
 
 /** Reads an operation's fields: numbers into `args` and words into `words`, each in field order. */
 export function parseOpFields(

@@ -3,7 +3,7 @@ import type { ArrayView, GraphView, PanelsView, Role, Step } from '../types/visu
 import { layoutCalls } from '../components/visualization/renderers/callsLayout';
 import { lineOf } from './shared';
 
-export const ELEMENTS = 10;
+const ELEMENTS = 10;
 
 /** parent[i] is i's parent; a root is its own parent. rank[r] bounds the height of r's tree. */
 export interface DSUState {

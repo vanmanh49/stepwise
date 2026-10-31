@@ -28,7 +28,7 @@ export function rowIndex(rows: readonly Row[], id: string): number {
   return byId.get(id) ?? -1;
 }
 
-export type StepsResult = { ok: true; steps: Step[]; result: QueryResult } | { ok: false; error: SqlError };
+type StepsResult = { ok: true; steps: Step[]; result: QueryResult } | { ok: false; error: SqlError };
 
 const rows = (n: number) => `${n} ${n === 1 ? 'row' : 'rows'}`;
 const word = (outcome: Truth) => (outcome === null ? 'unknown' : String(outcome));

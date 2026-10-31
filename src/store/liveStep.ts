@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Step } from '../types/visualization';
 
-export interface LiveStep {
+interface LiveStep {
   step: Step;
   index: number;
   total: number;

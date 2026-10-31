@@ -29,7 +29,7 @@ export const MAX_MESSAGE = 32;
 const KEY = utf8('stepwise-demo-16');
 const IV = Uint8Array.from({ length: 16 }, (_, i) => i);
 const GCM_IV = IV.slice(0, 12);
-export const KNOWN_MESSAGE = 'PUBLIC NOTICE: OFFICE CLOSED';
+const KNOWN_MESSAGE = 'PUBLIC NOTICE: OFFICE CLOSED';
 
 const line = (snippet: string) => lineOf(blockModesCode, snippet);
 const decode = (bytes: Uint8Array) => new TextDecoder().decode(bytes);

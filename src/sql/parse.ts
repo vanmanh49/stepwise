@@ -5,13 +5,13 @@ import { tokenize, type Token } from './tokenize';
 import { Real } from './values';
 
 export const MAX_QUERY_LENGTH = 2000;
-export const MAX_STATEMENTS = 10;
-export const MAX_SESSION_STATEMENTS = 40;
+const MAX_STATEMENTS = 10;
+const MAX_SESSION_STATEMENTS = 40;
 /** Deeper nesting is never needed and could overflow the call stack. */
 const MAX_DEPTH = 100;
 
 export type ParseResult = { ok: true; statement: SelectStatement } | { ok: false; error: SqlError };
-export type ScriptParse = { ok: true; statements: Statement[] } | { ok: false; error: SqlError };
+type ScriptParse = { ok: true; statements: Statement[] } | { ok: false; error: SqlError };
 
 const COLUMN_TYPES = new Set<string>(['INTEGER', 'REAL', 'TEXT']);
 /** Statements a script can run but a single SELECT query cannot. */

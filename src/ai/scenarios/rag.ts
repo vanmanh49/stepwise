@@ -20,7 +20,7 @@ export const QUESTION_IDS = QUESTIONS.map((q) => q.id);
 const line = (snippet: string) => lineOf(ragCode, snippet);
 const INSTRUCTION = 'Answer only from these documents and cite them:';
 
-export interface RagRun {
+interface RagRun {
   result?: SearchResult;
   messages: Message[];
   answer: Reply & { kind: 'text' };
@@ -37,7 +37,7 @@ export function runRag(q: Question, k: number, retriever: string): RagRun {
 }
 
 /** "the bone [doc 12]", or the bare text when nothing is cited. */
-export const answerText = (a: RagRun['answer']) => (a.cites ? `${a.text} ${a.cites.map((c) => `[doc ${c}]`).join(' ')}` : a.text);
+const answerText = (a: RagRun['answer']) => (a.cites ? `${a.text} ${a.cites.map((c) => `[doc ${c}]`).join(' ')}` : a.text);
 
 export function ragSteps(values: Record<string, string>): Step[] {
   const fail = (why: string) => refusal("Can't answer this question", why, EMPTY);

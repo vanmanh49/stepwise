@@ -10,9 +10,9 @@ const SPLITS: Record<string, [research: string, write: string]> = {
 };
 
 /** Each sub-agent gets only the tools its part needs. */
-export const TEAM_TOOLS = { researcher: ['get_weather', 'search_docs'], writer: ['read_note', 'write_note', 'send_email'] };
+const TEAM_TOOLS = { researcher: ['get_weather', 'search_docs'], writer: ['read_note', 'write_note', 'send_email'] };
 
-export interface TeamRun {
+interface TeamRun {
   researcher: AgentRun;
   writer: AgentRun;
   tools: typeof TEAM_TOOLS;

@@ -17,7 +17,7 @@ for (let attempt = 0; ; attempt++) {
 act(draft)   // send the email, or give the answer`;
 
 export const REFLECTION_TASKS = ['sam-weather', 'weather-compare'];
-export const RETRIES = { min: 0, max: 2 };
+const RETRIES = { min: 0, max: 2 };
 
 const line = (snippet: string) => lineOf(reflectionCode, snippet);
 

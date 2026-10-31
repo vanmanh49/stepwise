@@ -1,7 +1,7 @@
 import type { NetworkPolicy, Pod, RuleTable } from './model';
 import { formatSelector, matches } from './selector';
 
-export type Verdict = { ok: true; allowedBy: string[] } | { ok: false; stage: 'dns' | 'egress' | 'ingress'; policies: string[] };
+type Verdict = { ok: true; allowedBy: string[] } | { ok: false; stage: 'dns' | 'egress' | 'ingress'; policies: string[] };
 
 const selecting = (policies: NetworkPolicy[], type: 'Ingress' | 'Egress', pod: Pod) => policies.filter((p) => p.policyTypes.includes(type) && matches(p.podSelector, pod.labels));
 

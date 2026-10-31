@@ -16,11 +16,11 @@ score = passed / cases.length`;
 
 export const GRADERS = ['contains', 'exact'];
 const CASE_IDS = ['dog-ate', 'bird-flew', 'fish-swam', 'cat-likes', 'dog-played', 'dog-chased'];
-export const CASES: readonly Question[] = CASE_IDS.map((id) => QUESTIONS.find((q) => q.id === id)!);
+const CASES: readonly Question[] = CASE_IDS.map((id) => QUESTIONS.find((q) => q.id === id)!);
 
 const line = (snippet: string) => lineOf(evalsCode, snippet);
 
-export interface EvalRow {
+interface EvalRow {
   question: Question;
   got: string;
   pass: boolean;

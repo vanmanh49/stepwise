@@ -12,7 +12,7 @@ import { formatLiteral, isRowidAlias, type TableSchema } from './schema';
 import { applyAffinity, valueKey, type SqlValue } from './values';
 
 /** Most rows a table may hold after a statement, so every step stays readable. */
-export const MAX_TABLE_ROWS = 50;
+const MAX_TABLE_ROWS = 50;
 
 export type WriteEvent =
   | { kind: 'statement-start'; index: number; total: number; statement: Statement }

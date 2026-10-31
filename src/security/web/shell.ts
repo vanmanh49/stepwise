@@ -8,7 +8,7 @@ export const FILES: Record<string, string> = {
   '/app/.env': 'DB_PASSWORD=fake-password',
 };
 
-export type ShellRun = { commands: string[]; output: string };
+type ShellRun = { commands: string[]; output: string };
 
 const MAX_NESTING = 3;
 const USER = 'www-data';

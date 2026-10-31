@@ -9,7 +9,7 @@ import { createCaller, type CallFn } from './resilience';
 
 type Distribute<T> = T extends unknown ? Omit<T, 't'> : never;
 /** A trace event before the simulator stamps its time. */
-export type TraceInput = Distribute<TraceEvent>;
+type TraceInput = Distribute<TraceEvent>;
 
 export interface SimContext {
   readonly now: number;

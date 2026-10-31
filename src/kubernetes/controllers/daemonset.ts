@@ -6,7 +6,7 @@ import type { Change, Reconcile } from './types';
 const HOSTNAME = 'kubernetes.io/hostname';
 
 /** The tolerations the DaemonSet controller adds to every pod it makes, as Kubernetes does. */
-export const DAEMON_TOLERATIONS: Toleration[] = [
+const DAEMON_TOLERATIONS: Toleration[] = [
   { key: 'node.kubernetes.io/unschedulable', operator: 'Exists', effect: 'NoSchedule' },
   { key: 'node.kubernetes.io/not-ready', operator: 'Exists', effect: 'NoExecute' },
   { key: 'node.kubernetes.io/unreachable', operator: 'Exists', effect: 'NoExecute' },

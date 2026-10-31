@@ -7,9 +7,9 @@ export type StoredCookie = SetCookie & { host: string; expires?: number };
 
 export type Network = { send(request: WebRequest, from: Party): WebResponse; now(): number };
 
-export type FetchResult = { sent: boolean; status: number; readable: boolean; body: string | null; blockedBy?: string };
+type FetchResult = { sent: boolean; status: number; readable: boolean; body: string | null; blockedBy?: string };
 
-export type FetchOptions = { method?: 'GET' | 'PUT'; credentials?: boolean; headers?: Record<string, string>; body?: Record<string, string> };
+type FetchOptions = { method?: 'GET' | 'PUT'; credentials?: boolean; headers?: Record<string, string>; body?: Record<string, string> };
 
 export type Browser = {
   jar(): StoredCookie[];

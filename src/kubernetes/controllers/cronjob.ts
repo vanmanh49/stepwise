@@ -3,7 +3,7 @@ import type { CronJob, Job } from '../model';
 import { podsOfJob } from './job';
 
 /** Seconds between runs for a schedule of the form "*\/N * * * *" (every N minutes); undefined for anything else. */
-export function periodOf(schedule: string): number | undefined {
+function periodOf(schedule: string): number | undefined {
   const match = /^\*\/([1-9]\d*) \* \* \* \*$/.exec(schedule);
   return match ? Number(match[1]) * 60 : undefined;
 }

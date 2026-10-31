@@ -11,7 +11,7 @@ const VERSION_KEY = 'io.modelcontextprotocol/protocolVersion';
 
 export type ServerName = 'office' | 'weather';
 
-export const SERVERS: Record<ServerName, readonly Tool[]> = {
+const SERVERS: Record<ServerName, readonly Tool[]> = {
   office: OFFICE_TOOLS,
   weather: OFFICE_TOOLS.filter((t) => t.name === 'get_weather'),
 };

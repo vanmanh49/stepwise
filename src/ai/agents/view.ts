@@ -48,7 +48,7 @@ function eventRole(e: AgentEvent): Role {
 }
 
 /** The run so far, one row per event; the newest row is highlighted unless it has its own role. */
-export function traceGrid(events: AgentEvent[], upTo: number): GridView {
+function traceGrid(events: AgentEvent[], upTo: number): GridView {
   const from = Math.max(0, upTo + 1 - TRACE_ROWS);
   return {
     kind: 'grid',

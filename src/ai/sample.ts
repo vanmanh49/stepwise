@@ -1,6 +1,6 @@
 import { softmax, type Vec } from './tensor';
 
-export interface Reshaped {
+interface Reshaped {
   /** softmax(logits / temperature) */
   scaled: Vec;
   /** ids by scaled probability, highest first; ties go to the lower id */

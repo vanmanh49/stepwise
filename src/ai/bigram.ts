@@ -1,7 +1,7 @@
 import { VOCAB } from './corpus';
 import { softmax, type Mat, type Vec } from './tensor';
 
-export interface BigramStep {
+interface BigramStep {
   prev: number;
   next: number;
   /** probabilities of row prev before the update */
