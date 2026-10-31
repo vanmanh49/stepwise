@@ -33,7 +33,7 @@ const BYTES = 16000;
 const LINK_RATE = 104;
 /** Large enough that only the peer's window ever limits the sender. */
 const FIXED_WINDOW = 64;
-const HANDSHAKE = ['tcp-syn', 'tcp-syn-ack', 'tcp-established'];
+const HANDSHAKE = ['tcp-syn', 'tcp-syn-ack', 'tcp-established', 'tcp-accepted'];
 
 export function flowControlSteps(values: Record<string, string>): Step[] {
   const buffer = readInt(values, 'buffer', 'Buffer', { min: 2000, max: 64000 });
@@ -53,9 +53,17 @@ export function flowControlSteps(values: Record<string, string>): Step[] {
     ],
   });
   const steps = traceSteps(run, flowControlCode, LINES, { ladder: HOST_COLUMNS, panel: connectionPanel, hide: HANDSHAKE });
-  return endWith(steps, {
-    title: `The program read all ${read} bytes in ${ms} ms`,
-    why: rate.value === 0 ? 'The program read nothing for 2 s. The sender stopped at a window of 0, kept probing, and lost nothing. Then the program read, here at 200 bytes per ms, and the transfer finished.' : `The receiver's window kept the sender from overrunning a program reading ${rate.value} bytes per ms. Nothing was lost, because the sender never sent more than the buffer could hold.`,
-    variables: { ms, read },
+  const windows = run.events.flatMap(({ device, frame }) => {
+    const packet = device === server.id ? frame?.payload : undefined;
+    return packet?.kind === 'ip' && packet.payload.kind === 'tcp' ? [packet.payload.window] : [];
   });
+  const lowest = Math.min(...windows);
+  const reader = `a program reading ${rate.value} byte${rate.value === 1 ? '' : 's'} per ms`;
+  const why =
+    lowest === 0
+      ? `The buffer filled, so the window reached 0 and the sender stopped. It kept probing until ${rate.value === 0 ? 'the program started reading at 2 s' : 'there was room again'}, and nothing was lost.`
+      : lowest < buffer.value / 2
+        ? `The window shrank to ${lowest} bytes, which held the sender to the pace of ${reader}. Nothing was lost, because the sender never sent more than the buffer could hold.`
+        : `The buffer never came close to filling: the window stayed at ${lowest} bytes or more, so the link set the pace, not the program.`;
+  return endWith(steps, { title: `The program read all ${read} bytes in ${ms} ms`, why, variables: { ms, read } });
 }

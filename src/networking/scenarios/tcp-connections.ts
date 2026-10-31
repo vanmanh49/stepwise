@@ -30,13 +30,16 @@ const LINES = {
   'tcp-syn': 'client: send SYN(seq = 1000)',
   'tcp-syn-ack': 'server: on SYN: send SYN ACK',
   'tcp-established': 'client: on SYN ACK: send ACK',
+  'tcp-accepted': 'server: on ACK',
   'tcp-rst': 'server: if nothing listens: send RST',
   timeout: 'client: no answer in 1 s: send SYN again',
-  'tcp-fin': 'send FIN',
+  'tcp-fin': 'send FIN                             // FIN_WAIT_1',
+  'tcp-last-fin': 'send FIN                             // LAST_ACK',
   'tcp-fin-acked': 'on ACK of FIN',
   'time-wait': 'on FIN: send ACK, wait 2 s',
   'tcp-ack': 'on FIN: send ACK                     // CLOSE_WAIT',
   'tcp-closed': 'on last ACK',
+  'time-wait-over': 'on FIN: send ACK, wait 2 s',
 };
 
 const TITLE = "Can't run this";

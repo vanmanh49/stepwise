@@ -15,12 +15,12 @@ const MARKER_RADIUS = 4;
 
 const shown = (value: number) => String(Number(value.toFixed(1)));
 
-/** Lines share one axis. The scale comes from the whole run, so the axes hold still as the run plays. */
+/** Lines share one axis. The scale comes from the lines' whole run, so the axes hold still as the run plays. */
 export function ChartRenderer({ view }: { view: ChartView }) {
   const { lines, threshold, title, xLabel, yLabel } = view;
   const length = Math.max(...lines.map((line) => line.points.length), 1);
   const now = Math.min(view.now ?? length - 1, length - 1);
-  const top = Math.max(1, threshold?.value ?? 0, ...lines.flatMap((line) => line.points));
+  const top = Math.max(1, ...lines.flatMap((line) => line.points));
   const y = (value: number) => TOP + PLOT_H - (value / top) * (PLOT_H - 2) - 1;
   const x = length > 1 ? (now / (length - 1)) * PLOT_W : 0;
   const values = lines.map((line) => ({ ...line, value: line.points[now] ?? 0 }));
@@ -33,7 +33,7 @@ export function ChartRenderer({ view }: { view: ChartView }) {
         <text x={LEFT + PLOT_W / 2} y={HEIGHT - 6} textAnchor="middle" fontSize={10} fill="var(--text-muted)">{xLabel}</text>
         <line x1={LEFT} x2={LEFT + PLOT_W} y1={TOP + PLOT_H} y2={TOP + PLOT_H} stroke="var(--border)" />
         <line x1={LEFT} x2={LEFT} y1={TOP} y2={TOP + PLOT_H} stroke="var(--border)" />
-        {threshold && (
+        {threshold && threshold.value <= top && (
           <g>
             <line x1={LEFT} x2={LEFT + PLOT_W} y1={y(threshold.value)} y2={y(threshold.value)} stroke="var(--text-muted)" strokeWidth={1} strokeDasharray="2 3" />
             <text x={LEFT + PLOT_W} y={y(threshold.value) - 3} textAnchor="end" fontSize={10} fill="var(--text-muted)">{threshold.label}</text>

@@ -34,6 +34,25 @@ describe('Flow Control', () => {
     expect(run('2000', '0').at(-1)!.title).toContain('16000 bytes');
   });
 
+  it('says the window closed only when it did', () => {
+    expect(run('2000', '0').at(-1)!.why).toContain('reached 0');
+    for (const rate of ['0', '1']) {
+      const { why } = run('64000', rate).at(-1)!;
+      expect(why).not.toContain('reached 0');
+      expect(why).not.toContain('probing');
+      expect(why).toContain('never came close to filling');
+    }
+  });
+
+  it('says when the window held the sender back', () => {
+    expect(run('8000', '20').at(-1)!.why).toContain('20 bytes per ms');
+    expect(run('8000', '20').at(-1)!.why).toContain('shrank');
+  });
+
+  it('writes one byte in the singular', () => {
+    expect(run('2000', '1').at(-1)!.why).not.toContain('1 bytes');
+  });
+
   it('refuses a read rate out of range', () => {
     expect(run('8000', '500')).toHaveLength(1);
     expect(run('100', '20')).toHaveLength(1);

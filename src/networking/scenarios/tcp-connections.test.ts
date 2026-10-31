@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLOSERS, SCENES, tcpConnectionsSteps } from './tcp-connections';
+import { CLOSERS, SCENES, tcpConnectionsCode, tcpConnectionsSteps } from './tcp-connections';
 import type { LadderView, PanelsView, Step } from '../../types/visualization';
 
 const [OPEN, REFUSED, LOST] = SCENES;
@@ -39,6 +39,23 @@ describe('TCP Connections', () => {
     const again = titled(steps, 'No ACK')[0]!;
     expect(again.variables?.time).toBe('1 s');
     expect(ladder(steps.at(-1)!).rows.some((row) => row.lost)).toBe(true);
+  });
+
+  describe('highlights the line of the side that acted', () => {
+    const lineWith = (text: string) => tcpConnectionsCode.split('\n').findIndex((line) => line.includes(text)) + 1;
+    const steps = run(OPEN!);
+
+    it('the server becoming connected', () => {
+      expect(titled(steps, 'The server is connected')[0]!.codeLine).toBe(lineWith('server: on ACK'));
+    });
+
+    it('the second FIN', () => {
+      expect(titled(steps, 'FIN, seq')[1]!.codeLine).toBe(lineWith('// LAST_ACK'));
+    });
+
+    it('the end of TIME_WAIT', () => {
+      expect(titled(steps, 'TIME_WAIT is over')[0]!.codeLine).toBe(lineWith('wait 2 s'));
+    });
   });
 
   it('refuses an unknown scene', () => {

@@ -64,7 +64,7 @@ describe('TCP connections', () => {
     expect(states(run, 's')).toEqual(['SYN_RCVD', 'ESTABLISHED', 'CLOSE_WAIT', 'LAST_ACK', 'CLOSED']);
     expect(segments(run).slice(3).map(brief)).toEqual(['FIN ACK 1001 5001', 'ACK 5001 1002', 'FIN ACK 5001 1002', 'ACK 1002 5002']);
     const timeWait = run.events.find((event) => event.action === 'time-wait')!;
-    const closed = run.events.find((event) => event.action === 'tcp-closed' && event.device === 'c')!;
+    const closed = run.events.find((event) => event.action === 'time-wait-over' && event.device === 'c')!;
     expect(closed.time - timeWait.time).toBe(2000);
     expect(client.connections()[0]!.state).toBe('CLOSED');
   });
@@ -203,6 +203,14 @@ describe('reliable delivery', () => {
     expect(total).toBe(1000);
   });
 
+  it('holds a FIN that arrives after a gap, so no missing byte is ever delivered', () => {
+    const { run, got, total, sent } = transfer({ bytes: 3000, options: { fixedWindow: 4 }, close: true, faults: dropEach(isData(2001), 1) });
+    expect(dataSeqs(run).filter((seq) => seq === 2001)).toHaveLength(2);
+    expect(sent('tcp-dup-ack').length).toBeGreaterThan(0);
+    expect(got[0]).toBe(1000);
+    expect(total).toBe(3000);
+  });
+
   it('survives a lost FIN and a lost last ACK', () => {
     const fin = (frame: Frame) => segmentOf(frame)?.flags.includes('FIN') === true;
     const { client, server } = transfer({ bytes: 1000, close: true, faults: [...dropEach(fin, 1), ...dropEach(isAck(5002), 1)] });
@@ -219,6 +227,9 @@ describe('reliable delivery', () => {
       const aborted = sent('abort').length > 0 || sent('tcp-rst').length > 0;
       expect(run.cut, `seed ${seed}`).toBe(false);
       expect(total, `seed ${seed}`).toBeLessThanOrEqual(12500);
+      // Counted from what crossed the wire, so bytes TCP only claims to have can't pass.
+      const arrived = new Set(run.events.filter((event) => event.device === 'c' && event.hops.some((hop) => !hop.lost)).flatMap((event) => { const tcp = segment(event); return tcp ? Array.from({ length: tcp.length }, (_, i) => tcp.seq + i) : []; }));
+      expect(total, `seed ${seed}`).toBeLessThanOrEqual(arrived.size);
       if (!aborted) {
         expect(total, `seed ${seed}`).toBe(12500);
         expect(conn.state, `seed ${seed}`).toBe('CLOSED');

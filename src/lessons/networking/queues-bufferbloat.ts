@@ -3,7 +3,7 @@ import type { LessonContent } from '../../types/lesson';
 
 const defaults = { buffer: BUFFERS[0]! };
 const huge = queuesBufferbloatSteps({ buffer: BUFFERS[2]! });
-const filling = huge[Math.floor(huge.length / 2)]!;
+const filling = huge[huge.findIndex((step) => step.title.endsWith('queue is full')) - 1]!;
 
 const content: LessonContent = {
   overview:
@@ -11,10 +11,10 @@ const content: LessonContent = {
   concept: [
     'A packet\'s round trip has two parts: the delay of the path itself, and the time it waits in queues. The first is fixed. The second depends on how many packets are ahead of it.',
     'TCP keeps sending faster until a packet is lost, and a queue only loses packets when it is full. So a TCP download will fill whatever buffer it meets. A bigger buffer doesn\'t stop the drops. It only postpones them, with more packets waiting.',
-    'Here each packet takes 10 ms to send, so 60 packets in line add 600 ms to every round trip. Throughput barely changes, because the link sends at the same speed whatever the queue holds. That is bufferbloat: all of the delay, and none of the speed.',
+    'Here each packet takes 10 ms to send, so a queue of 100 packets adds a whole second to every round trip. Throughput barely changes, because the link sends at the same speed whatever the queue holds. That is bufferbloat: all of the delay, and none of the speed.',
     'Everyone sharing the link pays. A video call or a game beside a large download feels the full queue, even though it sends very little. This is why a home network can feel broken while someone uploads a file.',
     'A small buffer has a real cost too: drops come sooner and a burst may be lost. A common rule is a buffer of about one bandwidth-delay product, enough to keep the link busy after the sender halves its window.',
-    'The cure is a smarter queue. Active queue management such as CoDel drops packets before the buffer is full, based on how long they have been waiting, and fq_codel gives each flow its own line. Both are left out here, and so are other flows sharing the link. Each run moves 800 segments of 1000 bytes. To see this on a real machine, run ping during a large download and compare the times with an idle link.',
+    'The cure is a smarter queue. Active queue management such as CoDel drops packets before the buffer is full, based on how long they have been waiting, and fq_codel gives each flow its own line. Both are left out here, and so are other flows sharing the link. Each run moves 800 segments of 1000 bytes, with a receive buffer and ssthresh set high, so that only the queue limits the sender. Each point is the round trip a packet joining the queue at that moment would see. To see this on a real machine, run ping during a large download and compare the times with an idle link.',
   ],
   howItWorks: [
     'The link sends one packet every 10 ms, whatever arrives.',

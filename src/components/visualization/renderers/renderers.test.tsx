@@ -86,6 +86,17 @@ describe('chart', () => {
     expect(draw(view)).not.toMatch(/aria-label="[^"]*cwnd 8/);
   });
 
+  it('scales to the lines, leaving out a threshold far above them', () => {
+    const html = draw({ ...view, threshold: { value: 64, label: 'ssthresh' } });
+    expect(html).not.toContain('ssthresh');
+    expect(html).toMatch(/>8<\/text>/);
+  });
+
+  it('keeps the same scale when the threshold changes', () => {
+    const top = (value: number) => /text-anchor="end"[^>]*>([\d.]+)</.exec(draw({ ...view, threshold: { value, label: 'ssthresh' } }))![1];
+    expect(top(64)).toBe(top(2));
+  });
+
   it('draws a one-point line with no NaN', () => {
     expect(draw({ ...view, lines: [{ id: 'a', label: 'cwnd', points: [0], role: 'active' }], now: 0 })).not.toContain('NaN');
   });

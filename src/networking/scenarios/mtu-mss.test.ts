@@ -40,6 +40,12 @@ describe('MTU & MSS', () => {
     expect(titled(steps, 'Giving up')).toHaveLength(1);
   });
 
+  it('tells the true story of a black hole\'s end', () => {
+    const steps = run(HOLE!);
+    expect(titled(steps, 'RST from')[0]!.why).not.toContain('no such connection');
+    expect(steps.at(-1)!.title).not.toContain('no error');
+  });
+
   it.each([NEEDED!, HOLE!])('says nothing was too big on %s at 1500', (scene) => {
     const steps = run(scene, '1500');
     expect(steps.at(-1)!.title).toContain('Nothing was too big');

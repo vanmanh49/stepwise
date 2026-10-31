@@ -32,7 +32,7 @@ const LINES = {
 const TITLE = "Can't run this";
 const MSS = 1000;
 const FIRST_SEQ = 1001;
-const HANDSHAKE = ['tcp-syn', 'tcp-syn-ack', 'tcp-established'];
+const HANDSHAKE = ['tcp-syn', 'tcp-syn-ack', 'tcp-established', 'tcp-accepted'];
 
 const segmentOf = ({ payload }: Frame) => (payload.kind === 'ip' && payload.payload.kind === 'tcp' ? payload.payload : undefined);
 

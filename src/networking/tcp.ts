@@ -168,7 +168,7 @@ export function createTcp(host: TcpHost) {
   const sendSynAck = (ctx: Ctx, conn: Socket, note: Note) => emit(ctx, conn, { seq: conn.iss, flags: ['SYN', 'ACK'], mss: host.mss() }, note);
   const sendAck = (ctx: Ctx, conn: Socket, note: Note) => emit(ctx, conn, { seq: conn.nxt, flags: ['ACK'] }, note);
   const sendFin = (ctx: Ctx, conn: Socket, note: Note) => emit(ctx, conn, { seq: conn.dataEnd, flags: ['FIN', 'ACK'] }, note);
-  const finNote = (conn: Socket) => noteFor(conn, 'tcp-fin', `FIN, seq ${conn.dataEnd}`, 'This side has nothing more to send. A FIN takes up one sequence number, so it can be acknowledged like data.');
+  const finNote = (conn: Socket) => noteFor(conn, conn.state === 'LAST_ACK' ? 'tcp-last-fin' : 'tcp-fin', `FIN, seq ${conn.dataEnd}`, 'This side has nothing more to send. A FIN takes up one sequence number, so it can be acknowledged like data.');
 
   const sendLimit = (conn: Socket) => Math.min(conn.options.fixedWindow ? conn.options.fixedWindow * conn.mss : conn.cwnd, conn.peerWindow);
 
@@ -247,10 +247,10 @@ export function createTcp(host: TcpHost) {
     stopTimer(conn);
   }
 
-  function finish(ctx: Ctx, conn: Socket, title: string, why: string) {
+  function finish(ctx: Ctx, conn: Socket, action: string, title: string, why: string) {
     conn.state = 'CLOSED';
     stopTimer(conn);
-    ctx.note(noteFor(conn, 'tcp-closed', title, why));
+    ctx.note(noteFor(conn, action, title, why));
   }
 
   function refuse(ctx: Ctx, src: number, segment: Tcp) {
@@ -295,13 +295,13 @@ export function createTcp(host: TcpHost) {
     const finAcked = conn.una === conn.dataEnd + 1;
     if (conn.state === 'SYN_RCVD') {
       establish(conn, undefined);
-      ctx.note(noteFor(conn, 'tcp-established', 'The server is connected', 'The ACK proves the client heard the SYN ACK, so both directions work.'));
+      ctx.note(noteFor(conn, 'tcp-accepted', 'The server is connected', 'The ACK proves the client heard the SYN ACK, so both directions work.'));
       applyClose(ctx, conn);
     } else if (conn.state === 'FIN_WAIT_1' && finAcked) {
       conn.state = 'FIN_WAIT_2';
       ctx.note(noteFor(conn, 'tcp-fin-acked', 'The FIN was acknowledged', 'This direction is done. The other side may still send, so this side waits for its FIN.'));
     } else if (conn.state === 'LAST_ACK' && finAcked) {
-      finish(ctx, conn, 'The connection is closed', 'The last ACK arrived, so nothing more is expected and this side forgets the connection.');
+      finish(ctx, conn, 'tcp-closed', 'The connection is closed', 'The last ACK arrived, so nothing more is expected and this side forgets the connection.');
     }
     if (conn.inFlight > 0) startTimer(ctx, conn);
     else stopTimer(conn);
@@ -369,9 +369,11 @@ export function createTcp(host: TcpHost) {
     if (segment.flags.includes('FIN')) conn.peerFin = end;
     const before = conn.rcvNxt;
     if (end <= conn.rcvNxt + free(conn)) {
-      if (segment.seq > conn.rcvNxt && segment.length > 0) {
-        conn.held.push([segment.seq, end]);
-        ctx.note(noteFor(conn, 'tcp-hold', `Bytes from ${segment.seq} came ahead of a gap`, `Byte ${conn.rcvNxt} is still missing. TCP keeps these bytes, but the program can't have them until the gap is filled.`));
+      if (segment.seq > conn.rcvNxt) {
+        if (segment.length > 0) {
+          conn.held.push([segment.seq, end]);
+          ctx.note(noteFor(conn, 'tcp-hold', `Bytes from ${segment.seq} came ahead of a gap`, `Byte ${conn.rcvNxt} is still missing. TCP keeps these bytes, but the program can't have them until the gap is filled.`));
+        }
       } else if (end > conn.rcvNxt) {
         deliver(ctx, conn, end);
       }
@@ -397,7 +399,7 @@ export function createTcp(host: TcpHost) {
     conn.state = 'TIME_WAIT';
     sendAck(ctx, conn, noteFor(conn, 'time-wait', `ACK ${conn.rcvNxt}, then TIME_WAIT for ${formatTime(TIME_WAIT_MS)}`, 'This ACK could be lost, and only this side can answer a repeated FIN. So the side that closed first waits, and keeps the connection in mind.'));
     ctx.after(TIME_WAIT_MS, () => {
-      if (conn.state === 'TIME_WAIT') finish(ctx, conn, 'TIME_WAIT is over', `After ${formatTime(TIME_WAIT_MS)} no repeated FIN can still arrive, so the connection is forgotten.`);
+      if (conn.state === 'TIME_WAIT') finish(ctx, conn, 'time-wait-over', 'TIME_WAIT is over', `After ${formatTime(TIME_WAIT_MS)} no repeated FIN can still arrive, so the connection is forgotten.`);
     });
     return true;
   }
@@ -444,7 +446,7 @@ export function createTcp(host: TcpHost) {
       if (flags.includes('RST')) {
         conn.state = 'CLOSED';
         stopTimer(conn);
-        ctx.note(noteFor(conn, 'tcp-rst', `RST from ${formatIp(src)}`, 'The other side has no such connection, so this one ends at once.'));
+        ctx.note(noteFor(conn, 'tcp-rst', `RST from ${formatIp(src)}`, 'The other side ended the connection, or never had it, so this one stops at once.'));
         return;
       }
       if (conn.state === 'SYN_SENT') {
