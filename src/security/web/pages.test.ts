@@ -60,7 +60,7 @@ describe('encode', () => {
     const payload = '<img src=x onerror=alert(1)>';
     const { world } = setup({ encode, csp: 'none' });
     expect(loadInner(world, `${SHOP_ORIGIN}/welcome#${payload}`, payload).scripts.filter((script) => script.source === 'alert(1)')).toHaveLength(count);
-    expect(world.events.at(-1)!.request.url).toBe(`${SHOP_ORIGIN}/welcome`);
+    expect(world.events[0]!.request.url).toBe(`${SHOP_ORIGIN}/welcome`);
   });
 });
 

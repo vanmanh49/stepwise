@@ -24,7 +24,7 @@ export function createImages(): Site {
     origin: `https://${IMAGES_HOST}`,
     party: 'images',
     routes: [
-      { method: 'GET', path: '/cat.png', handler: () => response(200, 'A small picture of a cat') },
+      { method: 'GET', path: '/cat.png', handler: () => response(200, 'A small picture of a cat', { headers: { 'content-type': 'image/png' } }) },
       { method: 'GET', path: '/moved', handler: () => response(302, '', { redirect: `http://${INTERNAL_HOSTS[0]}/latest/credentials` }) },
     ],
   };

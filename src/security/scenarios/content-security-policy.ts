@@ -1,8 +1,9 @@
 import { readChoice, refusal } from '../../algorithms/form';
 import type { Step } from '../../types/visualization';
-import { EMPTY, readBytes } from '../steps';
+import { EMPTY, HANDLER_WAITING, readBytes, SCRIPT_NOT_UNDERSTOOD } from '../steps';
 import { USERS } from '../web/data';
 import { createEvil, EVIL_ORIGIN, evilStolen } from '../web/evil';
+import { createImages } from '../web/internal';
 import { loadPage, type ScriptRun } from '../web/page';
 import { createShop, SAFE_SHOP, SHOP_ORIGIN, type ShopOptions } from '../web/shop';
 import { injectedScripts, ownScript } from '../web/shop-pages';
@@ -18,7 +19,7 @@ page += '<script nonce="' + nonce + '">...</script>'
 
 function mayRun(script, policy) {
   if (!policy) return true
-  if (script.nonce == policy.nonce) return true
+  if (policy.nonce && script.nonce == policy.nonce) return true
   if (script.src) return policy.allowsHost(script.src)
   return policy.unsafeInline && !policy.nonce       // inline code and handlers
 }`;
@@ -51,8 +52,8 @@ function reportInjected(story: Story, script: ScriptRun) {
   const why: Record<ScriptRun['status'], string> = {
     ran: `It did this: ${script.actions.join(' ')}. The policy allowed it.`,
     blocked: `The browser refused it under ${script.rule}.`,
-    'not understood': 'This simulation does not understand this script. It runs no real code, so it can\'t say what it would do. A browser would try to run it, if the policy allowed it.',
-    'waits for a click': 'This simulation only fires onerror on an image and onload on svg or body. Other handlers wait for their event, and a real browser fires some with no click.',
+    'not understood': SCRIPT_NOT_UNDERSTOOD,
+    'waits for a click': HANDLER_WAITING,
     'failed to load': `${script.actions.join(' ')}.`,
   };
   story.step({ title: script.status === 'blocked' ? 'The browser blocks a script' : script.status === 'waits for a click' ? 'A handler is waiting' : `A script: ${script.status}`, why: why[script.status], line: STATUS_LINES[script.status], ...(script.rule && { variables: { rule: script.rule } }), text: { label: 'Script', lines: { Source: script.source } } });
@@ -64,7 +65,7 @@ export function contentSecurityPolicySteps(values: Record<string, string>): Step
   const input = readBytes(values, 'input', 'Input', { min: 1, max: 120 });
   if (!input.ok) return refusal('Cannot run this', input.why, EMPTY);
 
-  const world = createWorld([createShop({ encode: false, csp: POLICIES[policy.value]!, cookie: { ...SAFE_SHOP.cookie, httpOnly: false } }), createEvil()]);
+  const world = createWorld([createShop({ encode: false, csp: POLICIES[policy.value]!, cookie: { ...SAFE_SHOP.cookie, httpOnly: false } }), createEvil(), createImages()]);
   const story = createStory({ world, code: contentSecurityPolicyCode, nodes: ['browser', 'shop', 'evil'] });
   const alice = USERS[0];
   world.browser.submit(`${SHOP_ORIGIN}/signin`, { name: alice.name, password: alice.password });

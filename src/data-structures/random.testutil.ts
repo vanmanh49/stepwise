@@ -1,3 +1,4 @@
+import type { StructureArg } from '../types/lesson';
 /** Seeded random numbers for repeatable property tests (mulberry32). */
 export function rng(seed: number): () => number {
   let a = seed >>> 0;
@@ -22,4 +23,12 @@ export function deepFreeze<T>(value: T): T {
     for (const inner of Object.values(value)) deepFreeze(inner);
   }
   return value;
+}
+
+/** An operation's sample inputs, split the way `run` takes them. */
+export function sampleInputs(op: { args: StructureArg[] }): { args: number[]; words: string[] } {
+  return {
+    args: op.args.flatMap((a) => ('text' in a ? [] : [a.sample])),
+    words: op.args.flatMap((a) => ('text' in a ? [a.sample] : [])),
+  };
 }

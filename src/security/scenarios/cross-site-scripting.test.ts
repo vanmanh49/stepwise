@@ -96,6 +96,21 @@ describe('cross-site scripting', () => {
     expect(last(steps).variables!.stolen).toBe('nothing');
   });
 
+  it('decodes the fragment, as the page code does', () => {
+    expect(result(DOM!, '%3Cimg src=x onerror=alert(1)%3E', OFF!)).toBe('attacker in');
+    expect(result(DOM!, '%3Cimg src=x onerror=alert(1)%3E', ON!)).toBe('stopped');
+  });
+
+  it('writes nothing when the fragment can not be decoded', () => {
+    expect(result(DOM!, '%zz<img src=x onerror=alert(1)>', OFF!)).toBe('stopped');
+  });
+
+  it('fires no onerror for an image that loads', () => {
+    const steps = run(REFLECTED!, '<img src=https://images.example/cat.png onerror=alert(1)>', OFF!);
+    expect(last(steps).variables!.result).toBe('stopped');
+    expect(words(steps)).toContain('fails to load');
+  });
+
   it('runs nothing from unfinished markup', () => {
     expect(result(REFLECTED!, '<script>alert(1)', OFF!)).toBe('stopped');
     expect(result(REFLECTED!, '<img src=x onerror=alert(1)', OFF!)).toBe('stopped');

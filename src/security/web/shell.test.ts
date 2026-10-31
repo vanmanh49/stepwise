@@ -105,6 +105,10 @@ describe('runShell', () => {
     expect(runShell('ls /etc').output).toBe('passwd');
   });
 
+  it('lists the root as folders, once each', () => {
+    expect(runShell('ls /').output.split('\n')).toEqual(['srv', 'etc', 'app']);
+  });
+
   it('says who it is', () => {
     expect(runShell('whoami').output).toBe('www-data');
     expect(runShell('id').output).toContain('uid=33(www-data)');

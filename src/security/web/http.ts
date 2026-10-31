@@ -16,9 +16,16 @@ export type WebResponse = { status: number; headers: Record<string, string>; set
 
 export const response = (status: number, body = '', extra: Partial<WebResponse> = {}): WebResponse => ({ status, headers: {}, setCookies: [], body, ...extra });
 
-const PARTS = /^(https?:)\/\/([^/?#]*)([^?#]*)(?:\?([^#]*))?/;
+const PARTS = /^(https?:)\/\/([^/?#]*)([^?#]*)(?:\?([^#]*))?/i;
 
 export const hostOf = (url: string): string => PARTS.exec(url)?.[2] ?? '';
+
+/**
+ * The host a connection really goes to. `hostOf` keeps the text as written, which is what a naive
+ * filter compares, so these other spellings of one host get past it.
+ * shortcut: decimal and hex IP forms stay unknown hosts; add them if a lesson teaches them.
+ */
+export const connectHost = (url: string): string => hostOf(url).replace(/^.*@/, '').replace(/:(80|443)$/, '').toLowerCase();
 
 export const originOf = (url: string): string => {
   const parts = PARTS.exec(url);

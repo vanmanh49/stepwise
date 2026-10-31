@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { fromHex, hex, utf8 } from './bytes';
+import { hex, utf8 } from './bytes';
+import { fromHex } from './bytes.testutil';
 import { encryptBlock, expandKey, traceBlock } from './aes';
 import { ctr } from './modes';
 

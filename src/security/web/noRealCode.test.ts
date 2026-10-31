@@ -13,7 +13,7 @@ const code = (folder: string) => filesIn(folder).filter((path) => /\.tsx?$/.test
 /** Typed payloads are data. These checks fail if any path could hand one to the real browser. */
 describe('no real code runs', () => {
   it.each(code('src/security/web'))('%s has no way to run text', (path) => {
-    expect(readFileSync(path, 'utf8')).not.toMatch(/\beval\(|new Function|\.innerHTML\s*=|\bfetch\(['"`]https?:|document\.write/);
+    expect(readFileSync(path, 'utf8')).not.toMatch(/\beval\(|new Function|\.(inner|outer)HTML\s*=|insertAdjacentHTML|document\.write|\bfetch\((?!['"`.])|XMLHttpRequest|WebSocket|sendBeacon/);
   });
 
   it('adds no dangerouslySetInnerHTML to the components', () => {

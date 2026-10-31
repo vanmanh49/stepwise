@@ -81,6 +81,11 @@ describe('SSRF', () => {
     expect(words(run(REDIRECT, BLOCKLIST!))).toContain('The blocklist only read the first address');
   });
 
+  it.each(['http://169.254.169.254:80/latest/credentials', 'http://user@169.254.169.254/latest/credentials', 'HTTP://METADATA.INTERNAL/latest/credentials'])('lets the other spelling %s past the blocklist, and not the allow-list', (input) => {
+    expect(last(run(input, BLOCKLIST!)).variables!.result).toBe('attacker in');
+    expect(last(run(input, ALLOW_LIST!)).variables!.result).toBe('stopped');
+  });
+
   it('refuses bad knobs with one step', () => {
     expect(run('', NONE!)).toHaveLength(1);
     expect(run(CAT, 'nope')).toHaveLength(1);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { StructureArg } from '../types/lesson';
-import { lineOf, parseOpFields, sampleInputs } from './shared';
+import { sampleInputs } from './random.testutil';
+import { lineOf, parseOpFields } from './shared';
 
 const put: { label: string; args: StructureArg[] } = {
   label: 'Put',

@@ -1,5 +1,5 @@
 // Test-only: every lesson in full, loaded eagerly, so tests can check all content at once.
-import { sampleInputs } from '../data-structures/shared';
+import { sampleInputs } from '../data-structures/random.testutil';
 import { datasets } from '../sql/datasets';
 import { scriptSteps } from '../sql/scriptSteps';
 import type { Lesson, LessonContent } from '../types/lesson';

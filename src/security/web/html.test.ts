@@ -3,6 +3,7 @@ import { escapeHtml, findScripts, parseHtml, type FoundScript } from './html';
 
 const inline = (source: string, nonce?: string): FoundScript => ({ source, kind: 'inline', ...(nonce && { nonce }) });
 const handler = (source: string): FoundScript => ({ source, kind: 'handler' });
+const image = (source: string, src = 'x'): FoundScript => ({ source, kind: 'handler', image: src });
 const waits = (source: string): FoundScript => ({ source, kind: 'waits' });
 
 describe('findScripts', () => {
@@ -13,9 +14,9 @@ describe('findScripts', () => {
     ['<script nonce="abc">alert(1)</script>', 'page', [inline('alert(1)', 'abc')]],
     ['<script src=https://evil.example/x.js></script>', 'page', [{ source: 'https://evil.example/x.js', kind: 'external' }]],
     ['<script src=https://evil.example/x.js></script>', 'inner', []],
-    ['<img src=x onerror=alert(1)>', 'page', [handler('alert(1)')]],
-    ['<img src=x onerror=alert(1)>', 'inner', [handler('alert(1)')]],
-    ['<IMG SRC=x ONERROR=alert(1)>', 'page', [handler('alert(1)')]],
+    ['<img src=x onerror=alert(1)>', 'page', [image('alert(1)')]],
+    ['<img src=x onerror=alert(1)>', 'inner', [image('alert(1)')]],
+    ['<IMG SRC=x ONERROR=alert(1)>', 'page', [image('alert(1)')]],
     ['<svg onload="alert(1)">', 'page', [handler('alert(1)')]],
     ['<svg onload="alert(1)">', 'inner', [handler('alert(1)')]],
     ['<svg/onload=alert(1)>', 'page', [handler('alert(1)')]],
@@ -62,7 +63,7 @@ describe('findScripts', () => {
   });
 
   it('finds several, in page order', () => {
-    expect(findScripts('hi <script>alert(1)</script> <img src=x onerror=alert(2)>', 'page')).toEqual([inline('alert(1)'), handler('alert(2)')]);
+    expect(findScripts('hi <script>alert(1)</script> <img src=x onerror=alert(2)>', 'page')).toEqual([inline('alert(1)'), image('alert(2)')]);
   });
 
   it('finds nothing in an escaped payload', () => {

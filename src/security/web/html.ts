@@ -1,6 +1,7 @@
 export type Tag = { name: string; attributes: Record<string, string>; text: string };
 
-export type FoundScript = { source: string; kind: 'inline' | 'external' | 'handler' | 'waits'; nonce?: string };
+/** `image` is the address of the `img` whose failed load fires this handler. */
+export type FoundScript = { source: string; kind: 'inline' | 'external' | 'handler' | 'waits'; nonce?: string; image?: string };
 
 /** Tags whose content the parser reads as plain text, so markup inside them stays inert. */
 const RAW_TEXT = ['script', 'style', 'textarea', 'title'];
@@ -94,7 +95,7 @@ export function parseHtml(text: string): Tag[] {
   return tags;
 }
 
-/** What fires with no click: an image that fails to load, or an `svg` or `body` that loads. */
+/** What fires by itself here: `onerror` on an image, or `onload` on an `svg` or `body`. */
 const firesAlone = ({ name, attributes }: Tag, attribute: string, sink: 'page' | 'inner') => {
   if (name === 'img') return attribute === 'onerror' && 'src' in attributes;
   return attribute === 'onload' && (name === 'svg' || (name === 'body' && sink === 'page'));
@@ -117,7 +118,10 @@ export function findScripts(html: string, sink: 'page' | 'inner'): FoundScript[]
     // `innerHTML` drops a `<body>` tag, along with its handlers.
     if (tag.name === 'body' && sink === 'inner') continue;
     for (const [attribute, value] of Object.entries(tag.attributes)) {
-      if (attribute.startsWith('on') && attribute.length > 2) scripts.push({ source: value, kind: firesAlone(tag, attribute, sink) ? 'handler' : 'waits' });
+      if (attribute.startsWith('on') && attribute.length > 2) {
+        const fires = firesAlone(tag, attribute, sink);
+        scripts.push({ source: value, kind: fires ? 'handler' : 'waits', ...(fires && tag.name === 'img' && { image: tag.attributes.src! }) });
+      }
       if (attribute === 'href' && /^\s*javascript:/i.test(value)) scripts.push({ source: value.slice(value.indexOf(':') + 1), kind: 'waits' });
     }
   }

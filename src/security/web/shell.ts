@@ -112,8 +112,9 @@ function runCommand([name = '', ...args]: string[], input: string): Result {
       return { output: args.map((path) => FILES[resolvePath(FILES_ROOT, path)]).join('\n'), ok: true };
     }
     case 'ls': {
-      const folder = `${resolvePath(FILES_ROOT, args[0] ?? '.')}/`;
-      return { output: Object.keys(FILES).filter((path) => path.startsWith(folder)).map((path) => path.slice(folder.length)).join('\n'), ok: true };
+      const folder = `${resolvePath(FILES_ROOT, args[0] ?? '.')}/`.replace('//', '/');
+      const inside = Object.keys(FILES).filter((path) => path.startsWith(folder)).map((path) => path.slice(folder.length).split('/')[0]!);
+      return { output: [...new Set(inside)].join('\n'), ok: true };
     }
     case 'whoami':
       return { output: USER, ok: true };

@@ -44,14 +44,6 @@ export function parseOpFields(
   return { ok: true, args, words };
 }
 
-/** An operation's sample inputs, split the way `run` takes them. */
-export function sampleInputs(op: { args: StructureArg[] }): { args: number[]; words: string[] } {
-  return {
-    args: op.args.flatMap((a) => ('text' in a ? [] : [a.sample])),
-    words: op.args.flatMap((a) => ('text' in a ? [a.sample] : [])),
-  };
-}
-
 /** The 1-based line of `code` containing `snippet`; throws if absent, so a code edit can't silently misplace steps. */
 export function lineOf(code: string, snippet: string): number {
   const line = code.split('\n').findIndex((l) => l.includes(snippet)) + 1;

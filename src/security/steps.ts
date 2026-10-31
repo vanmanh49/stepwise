@@ -8,6 +8,10 @@ export const EMPTY: ArrayView = { kind: 'array', cells: [] };
 
 export const DEFENSE_OPTIONS = ['Off', 'On'];
 
+export const SCRIPT_NOT_UNDERSTOOD = "This simulation does not understand this script. It runs no real code, so it can't say what it would do. A browser would try to run it, if nothing blocked it.";
+
+export const HANDLER_WAITING = 'The event this handler waits for did not happen here. This simulation only fires onerror on an image that fails to load, and onload on svg or body. A real browser fires some other handlers with no click.';
+
 /** Reads the `attack` and `defense` fields every attack lesson has, refusing bad ones with one step. */
 export function attackSteps(values: Record<string, string>, attacks: string[], run: (attack: string, defended: boolean) => Step[]): Step[] {
   const attack = readChoice(values, 'attack', 'Attack', attacks);

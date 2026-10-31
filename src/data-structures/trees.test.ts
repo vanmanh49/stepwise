@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { StructureDef } from '../types/lesson';
-import { sampleInputs } from './shared';
+import { sampleInputs } from './random.testutil';
 import type { View } from '../types/visualization';
 import { binaryTreeStructure, levelOrderTree } from './binaryTree';
 import { priorityQueueStructure } from './priorityQueue';

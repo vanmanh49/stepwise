@@ -67,7 +67,7 @@ function draw(words: string[], roles: Record<string, Role> = {}, extra: string[]
   };
 }
 
-export const trieView = (words: string[], roles: Record<string, Role> = {}) => draw(words, roles);
+export { draw as trieView };
 
 /** Roles for a walk that has reached `upto` letters: the path so far visited, the current node active. */
 function pathRoles(text: string, upto: number, last: Role = 'active'): Record<string, Role> {

@@ -33,7 +33,7 @@ export function SchemaPanel({ dataset }: { dataset: Dataset }) {
                 ))}
               </ul>
             )}
-            <div className="mt-2 overflow-x-auto">
+            <div className="mt-2 relative overflow-x-auto">
               <table className="w-full font-mono text-xs">
                 <caption className="sr-only">First {PEEK_ROWS} rows of {table.name}</caption>
                 <thead>
