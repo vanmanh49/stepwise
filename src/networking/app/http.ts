@@ -81,7 +81,7 @@ function nextFrame(out: Outgoing): [bytes: number, mark: HttpMark] {
   }
   const size = Math.min(out.left, FRAME_BYTES);
   out.left -= size;
-  return [size, { type: 'data', path: out.path, stream: out.stream, bytes: size, end: out.left === 0 }];
+  return [size, { type: 'data', path: out.path, stream: out.stream, label: `DATA ${out.stream}`, bytes: size, end: out.left === 0 }];
 }
 
 function headFor(table: Set<string>, request: HttpMark, status: number, bytes: number): Outgoing {

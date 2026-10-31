@@ -146,6 +146,13 @@ describe('HTTP/2', () => {
     expect(fetches.map(({ bytes }) => bytes)).toEqual([3000, 3000, 3000, 3000]);
   });
 
+  it('still finishes when the very last response segment is lost, through the timer', () => {
+    const net = tcpPath();
+    const { fetches, actions } = h2({ net, paths: ['/a.js'], faults: [dropResponse(net.server, 4)] });
+    expect(actions).toContain('timeout');
+    expect(fetches[0]!.bytes).toBe(3000);
+  });
+
   it('counts the nth response packet the same on HTTP/1.1 and HTTP/2, skipping TLS and resends', () => {
     for (const version of ['HTTP/1.1', 'HTTP/2'] as const) {
       const net = tcpPath();

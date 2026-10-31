@@ -172,4 +172,14 @@ export const networkingMeta: LessonMeta[] = [
     keywords: ['http', 'http/1.1', 'request', 'response', 'headers', 'keep-alive', 'connection: close', 'get', 'status code', 'head of line blocking', 'curl'],
     prerequisites: ['tcp-connections'],
   },
+  {
+    id: 'http-2',
+    title: 'HTTP/2',
+    category: 'networking',
+    difficulty: 'advanced',
+    group: 'Web & Internet Scale',
+    description: 'Share one connection between many streams, see headers shrink as a table fills, and watch one lost TCP segment stall every stream at once.',
+    keywords: ['http/2', 'h2', 'multiplexing', 'stream', 'frame', 'hpack', 'header compression', 'head of line blocking', 'tls', 'curl'],
+    prerequisites: ['http-1-1'],
+  },
 ];
