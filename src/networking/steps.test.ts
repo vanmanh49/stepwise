@@ -318,9 +318,9 @@ describe('stream grid', () => {
   const table = { title: 'Streams', columns: ['Stream', 'Path', 'Bytes', 'State'], rows: [['1', '/a.js', '3000', 'done'], ['3', '/b.css', '1000', 'stalled'], ['5', '/c.png', '2000', 'sending'], ['7', '/d.png', '0', 'waiting']] };
 
   it('gives one row per stream, with unique cell ids', () => {
-    const grid = streamGrid(table);
-    expect(grid.rows).toHaveLength(4);
-    const ids = grid.rows.flatMap((row) => row.cells.map((cell) => cell!.id));
+    const { rows } = streamGrid(table);
+    expect(rows).toHaveLength(4);
+    const ids = rows.flatMap((row) => row.cells.map((cell) => cell!.id));
     expect(new Set(ids).size).toBe(ids.length);
   });
 

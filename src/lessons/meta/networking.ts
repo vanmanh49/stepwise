@@ -152,4 +152,14 @@ export const networkingMeta: LessonMeta[] = [
     keywords: ['mtu', 'mss', 'maximum segment size', 'fragmentation', 'fragment', 'df', 'don\'t fragment', 'path mtu discovery', 'pmtud', 'black hole', 'tracepath', 'jumbo frame'],
     prerequisites: ['tcp-connections'],
   },
+  {
+    id: 'dns',
+    title: 'DNS',
+    category: 'networking',
+    difficulty: 'advanced',
+    group: 'Web & Internet Scale',
+    description: 'Follow a name from the root down to one address, see the cache answer the second time, and watch a lost query get asked again.',
+    keywords: ['dns', 'domain name', 'resolver', 'recursive resolver', 'root server', 'tld', 'authoritative', 'a record', 'ns record', 'ttl', 'cache', 'nxdomain', 'udp 53', 'dig'],
+    prerequisites: ['ports-udp'],
+  },
 ];

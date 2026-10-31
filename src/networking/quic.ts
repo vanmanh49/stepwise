@@ -201,8 +201,8 @@ export function createQuic(host: Host) {
       const resend = session.lost[0];
       const payload = resend ?? nextFrame(session);
       if (!payload) return;
-      const open = !payload.windowed || (canSend(session) && (flight(session) === 0 || flight(session) + payload.size <= session.cwnd));
-      if (!open) return;
+      const allowed = !payload.windowed || (canSend(session) && (flight(session) === 0 || flight(session) + payload.size <= session.cwnd));
+      if (!allowed) return;
       if (resend) {
         session.lost.shift();
         const [frame] = payload.frames;
@@ -253,7 +253,7 @@ export function createQuic(host: Host) {
 
   function detectLoss(ctx: Ctx, session: Session) {
     const before = flight(session);
-    for (const packet of [...session.sentPackets.values()]) {
+    for (const packet of session.sentPackets.values()) {
       const later = [...session.ackedNumbers].filter((number) => number > packet.number).length;
       if (later < LOSS_THRESHOLD) continue;
       session.sentPackets.delete(packet.number);

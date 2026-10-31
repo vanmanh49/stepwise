@@ -69,9 +69,8 @@ describe('HTTP/1.1', () => {
 
   it('never overlaps requests on one connection', () => {
     const { fetches } = fetchAll();
-    for (const [i, fetch] of fetches.entries()) {
-      if (i > 0) expect(fetch.startedAt).toBeGreaterThanOrEqual(fetches[i - 1]!.doneAt!);
-    }
+    const overlaps = fetches.slice(1).filter((fetch, i) => fetch.startedAt < fetches[i]!.doneAt!);
+    expect(overlaps).toEqual([]);
   });
 
   it('opens only what it needs out of 6 connections', () => {

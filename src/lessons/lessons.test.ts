@@ -200,7 +200,7 @@ const EXPECTED_IDS = [
   'flow-control',
   'congestion-control',
   'queues-bufferbloat',
-  'mtu-mss',
+  'mtu-mss',  'dns',
 ];
 
 describe('lesson registry', () => {

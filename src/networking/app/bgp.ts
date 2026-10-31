@@ -158,7 +158,7 @@ export function createAs({ id, label, column, asn, neighbours }: AsConfig): AsRo
     },
     peerDown(ctx, port) {
       for (const [, routes] of heard) routes.delete(port);
-      for (const { network, prefix } of [...chosen.values()]) decide(ctx, network, prefix);
+      for (const { network, prefix } of chosen.values()) decide(ctx, network, prefix);
     },
     probe(ctx, dst) {
       forward(ctx, dst, []);
