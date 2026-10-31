@@ -37,6 +37,12 @@ export interface Udp {
   data: string | Dhcp;
 }
 
+/** A label on the byte stream. `end` is the position just past its last byte. */
+export interface Mark {
+  end: number;
+  mark: unknown;
+}
+
 export interface Tcp {
   kind: 'tcp';
   srcPort: number;
@@ -47,6 +53,8 @@ export interface Tcp {
   window: number;
   length: number;
   mss?: number;
+  /** The marks whose last byte is in this segment. */
+  marks?: Mark[];
 }
 
 export interface IpPacket {

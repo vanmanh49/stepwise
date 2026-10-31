@@ -104,7 +104,7 @@ export interface Host extends Device {
   address(): number;
   listen(port: number, options?: TcpOptions): void;
   connect(ctx: Ctx, dst: number, port: number, options?: TcpOptions): Conn;
-  write(ctx: Ctx, conn: Conn, bytes: number): void;
+  write(ctx: Ctx, conn: Conn, bytes: number, mark?: unknown): void;
   close(ctx: Ctx, conn: Conn): void;
   connections(): Conn[];
   mac: string;

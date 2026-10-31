@@ -1,5 +1,5 @@
 import { formatIp } from './address';
-import type { Tcp } from './packet';
+import type { Mark, Tcp } from './packet';
 import { renoDupAck, renoNewAck, renoTimeout, startReno } from './reno';
 import { formatTime, type Ctx, type Note, type TableSnapshot } from './sim';
 
@@ -28,7 +28,12 @@ export interface TcpOptions {
   bufferBytes?: number;
   /** Bytes per ms; 0 is paused. With none, the program reads everything at once. */
   readRate?: number;
-  onData?: (bytes: number) => void;
+  /** `marks` are those whose last byte has now arrived in order. */
+  onData?: (bytes: number, marks: unknown[], ctx: Ctx, conn: Conn) => void;
+  /** On a server, once the handshake is done. */
+  onConnection?: (ctx: Ctx, conn: Conn) => void;
+  /** However the connection ended. */
+  onClosed?: (ctx: Ctx, conn: Conn) => void;
 }
 
 export interface Conn {
@@ -42,6 +47,8 @@ export interface Conn {
   acked: number;
   peerWindow: number;
   rto: number;
+  /** Bytes are held ahead of a missing one. */
+  gap: boolean;
 }
 
 /** What a host lends its TCP: the network stays on the far side of this. */
@@ -61,6 +68,10 @@ interface Socket extends Conn {
   una: number;
   nxt: number;
   dataEnd: number;
+  /** Marks on what this side wrote. */
+  written: Mark[];
+  /** Marks that arrived ahead of their last byte's turn. */
+  waiting: Mark[];
   /** Highest `nxt` so far: a timeout winds `nxt` back. */
   max: number;
   rcvNxt: number;
@@ -114,6 +125,8 @@ export function createTcp(host: TcpHost) {
       una: iss,
       nxt: iss + 1,
       dataEnd: iss + 1,
+      written: [],
+      waiting: [],
       max: iss + 1,
       rcvNxt: 0,
       held: [],
@@ -137,6 +150,9 @@ export function createTcp(host: TcpHost) {
       get acked() {
         return Math.max(0, Math.min(this.una, this.dataEnd) - this.iss - 1);
       },
+      get gap() {
+        return this.held.length > 0;
+      },
     };
     conns.push(conn);
     return conn;
@@ -145,6 +161,17 @@ export function createTcp(host: TcpHost) {
   function emit(ctx: Ctx, conn: Socket, fields: Pick<Tcp, 'seq' | 'flags'> & Partial<Tcp>, note: Note) {
     conn.advertised = free(conn);
     host.transmit(ctx, conn.remote, { kind: 'tcp', srcPort: conn.localPort, dstPort: conn.remotePort, ack: conn.rcvNxt, window: conn.advertised, length: 0, ...fields }, note);
+  }
+
+  /** Worked out from the range, so a resend carries the same marks with no extra state. */
+  function marksIn(conn: Socket, seq: number, length: number): Pick<Tcp, 'marks'> {
+    const marks = conn.written.filter(({ end }) => end > seq && end <= seq + length);
+    return marks.length > 0 ? { marks } : {};
+  }
+
+  function closed(conn: Socket) {
+    conn.state = 'CLOSED';
+    stopTimer(conn);
   }
 
   function stopTimer(conn: Socket) {
@@ -181,7 +208,7 @@ export function createTcp(host: TcpHost) {
       conn.nxt += length;
       if (seq >= conn.max && !conn.timed) conn.timed = { end: conn.nxt, at: ctx.now };
       conn.max = Math.max(conn.max, conn.nxt);
-      emit(ctx, conn, { seq, flags: ['ACK'], length }, noteFor(conn, 'tcp-data', `${length} bytes, seq ${seq}`, `The sequence number counts bytes, so this segment's first byte is number ${seq}, and the next will be ${seq + length}.`));
+      emit(ctx, conn, { seq, flags: ['ACK'], length, ...marksIn(conn, seq, length) }, noteFor(conn, 'tcp-data', `${length} bytes, seq ${seq}`, `The sequence number counts bytes, so this segment's first byte is number ${seq}, and the next will be ${seq + length}.`));
     }
     if (conn.nxt === conn.dataEnd && (conn.state === 'FIN_WAIT_1' || conn.state === 'LAST_ACK')) {
       sendFin(ctx, conn, finNote(conn));
@@ -199,14 +226,14 @@ export function createTcp(host: TcpHost) {
     conn.nxt = Math.max(conn.nxt, seq + Math.max(length, 1));
     if (conn.state === 'SYN_SENT') sendSyn(ctx, conn, note);
     else if (conn.state === 'SYN_RCVD') sendSynAck(ctx, conn, note);
-    else if (length > 0) emit(ctx, conn, { seq, flags: ['ACK'], length }, note);
+    else if (length > 0) emit(ctx, conn, { seq, flags: ['ACK'], length, ...marksIn(conn, seq, length) }, note);
     else sendFin(ctx, conn, note);
   }
 
   function abort(ctx: Ctx, conn: Socket) {
-    conn.state = 'CLOSED';
-    stopTimer(conn);
+    closed(conn);
     emit(ctx, conn, { seq: conn.nxt, flags: ['RST'] }, noteFor(conn, 'abort', `Giving up after ${MAX_RETRIES} retries`, 'Nothing has been acknowledged for too long, so TCP resets the connection and tells the program it failed.'));
+    conn.options.onClosed?.(ctx, conn);
   }
 
   function expire(ctx: Ctx, conn: Socket) {
@@ -242,9 +269,9 @@ export function createTcp(host: TcpHost) {
   }
 
   function finish(ctx: Ctx, conn: Socket, action: string, title: string, why: string) {
-    conn.state = 'CLOSED';
-    stopTimer(conn);
+    closed(conn);
     ctx.note(noteFor(conn, action, title, why));
+    conn.options.onClosed?.(ctx, conn);
   }
 
   function refuse(ctx: Ctx, src: number, segment: Tcp) {
@@ -287,6 +314,7 @@ export function createTcp(host: TcpHost) {
     if (conn.state === 'SYN_RCVD') {
       establish(conn, undefined);
       ctx.note(noteFor(conn, 'tcp-accepted', 'The server is connected', 'The ACK proves the client heard the SYN ACK, so both directions work.'));
+      conn.options.onConnection?.(ctx, conn);
       applyClose(ctx, conn);
     } else if (conn.state === 'FIN_WAIT_1' && finAcked) {
       conn.state = 'FIN_WAIT_2';
@@ -318,7 +346,8 @@ export function createTcp(host: TcpHost) {
     const rate = conn.options.readRate || (ctx.now >= RESUME_AT_MS ? RESUME_RATE : 0);
     const bytes = Math.min(conn.unread, rate * READ_TICK_MS);
     conn.unread -= bytes;
-    if (bytes > 0) conn.options.onData?.(bytes);
+    // shortcut: a program with a readRate gets no marks, because no app sets one; attach them here if one does.
+    if (bytes > 0) conn.options.onData?.(bytes, [], ctx, conn);
     if (conn.state === 'ESTABLISHED' && conn.advertised < conn.mss && free(conn) >= conn.mss) {
       sendAck(ctx, conn, noteFor(conn, 'window-update', `Window update: ${free(conn)} bytes free`, 'The program has read enough for at least one full segment, so the receiver tells the sender to carry on.'));
     }
@@ -343,7 +372,9 @@ export function createTcp(host: TcpHost) {
     }
     const bytes = conn.rcvNxt - start;
     if (conn.options.readRate === undefined) {
-      conn.options.onData?.(bytes);
+      const ready = conn.waiting.filter((each) => each.end <= conn.rcvNxt).toSorted((a, b) => a.end - b.end);
+      conn.waiting = conn.waiting.filter((each) => each.end > conn.rcvNxt);
+      conn.options.onData?.(bytes, ready.map(({ mark }) => mark), ctx, conn);
       return;
     }
     conn.unread += bytes;
@@ -355,6 +386,9 @@ export function createTcp(host: TcpHost) {
     if (segment.flags.includes('FIN')) conn.peerFin = end;
     const before = conn.rcvNxt;
     if (end <= conn.rcvNxt + free(conn)) {
+      for (const each of segment.marks ?? []) {
+        if (each.end > conn.rcvNxt && !conn.waiting.includes(each)) conn.waiting.push(each);
+      }
       if (segment.seq > conn.rcvNxt) {
         if (segment.length > 0) {
           conn.held.push([segment.seq, end]);
@@ -410,9 +444,10 @@ export function createTcp(host: TcpHost) {
       startTimer(ctx, conn);
       return conn;
     },
-    write(ctx: Ctx, conn: Conn, bytes: number) {
+    write(ctx: Ctx, conn: Conn, bytes: number, mark?: unknown) {
       const socket = conn as Socket;
       socket.dataEnd += bytes;
+      if (mark !== undefined) socket.written.push({ end: socket.dataEnd, mark });
       pump(ctx, socket);
     },
     close(ctx: Ctx, conn: Conn) {
@@ -430,9 +465,9 @@ export function createTcp(host: TcpHost) {
         return;
       }
       if (flags.includes('RST')) {
-        conn.state = 'CLOSED';
-        stopTimer(conn);
+        closed(conn);
         ctx.note(noteFor(conn, 'tcp-rst', `RST from ${formatIp(src)}`, 'The other side ended the connection, or never had it, so this one stops at once.'));
+        conn.options.onClosed?.(ctx, conn);
         return;
       }
       if (conn.state === 'SYN_SENT') {
