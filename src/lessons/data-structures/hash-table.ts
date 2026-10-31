@@ -60,8 +60,8 @@ const content: LessonContent = {
       prompt: 'Why does every key have to be rehashed when the table doubles from 8 to 16 buckets?',
       options: [
         'The bucket is the hash mod the number of buckets, so it changes when the number of buckets changes',
-        'The keys are sorted again after a resize',
-        'The hash function is replaced with a new one',
+        'The keys must be sorted again, because buckets stay in key order after a resize',
+        'A new hash function is chosen at each resize, so every stored hash is out of date',
       ],
       answer: 0,
       explanation: 'h mod 8 and h mod 16 can differ. A key left in its old bucket would never be found, because lookups hash into the new 16 buckets.',

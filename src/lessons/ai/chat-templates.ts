@@ -69,7 +69,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'What does the system message do?',
-      options: ['Gives instructions from the app that shape every reply', 'Holds the model\'s weights', 'Ends the conversation', 'Stores the user\'s password'],
+      options: ['Gives instructions from the app that shape every reply', "Holds the model's weights for this one chat", 'Ends the conversation', "Stores the user's details between sessions"],
       answer: 0,
       explanation: 'It is the first message in the stream, and the model was trained to follow it.',
     },

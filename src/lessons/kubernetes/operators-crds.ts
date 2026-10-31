@@ -91,7 +91,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'The operator is down when the Database asks for 5 replicas. What happens?',
-      options: ['Nothing until it returns; then it scales the StatefulSet to 5 in one pass', 'The API server scales it', 'The change is lost', 'The StatefulSet scales itself'],
+      options: ['Nothing until it returns; then it scales the StatefulSet to 5 in one pass', 'The API server scales the StatefulSet in its place', 'The change is lost, and must be made again once it returns', 'The StatefulSet scales itself'],
       answer: 0,
       explanation: 'Operators are level-triggered controllers: they read the current state when they come back.',
     },

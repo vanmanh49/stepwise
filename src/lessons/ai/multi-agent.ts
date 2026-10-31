@@ -83,7 +83,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'What does the team gain?',
-      options: ['Smaller, focused contexts for each agent', 'Fewer model calls', 'No need for tools', 'A different answer'],
+      options: ['Smaller, focused contexts for each agent', 'Fewer model calls in total', 'No need for any tools at all', 'A different answer'],
       answer: 0,
       explanation: 'No agent reads everything; the largest context is smaller than the single agent\'s.',
     },

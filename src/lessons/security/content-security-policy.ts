@@ -91,7 +91,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'A strict policy blocked the payload. What is left to fix?',
-      options: ['The injection: the markup is still in the page', 'Nothing', 'The cookie flags', 'The database'],
+      options: ['The injection: the markup is still in the page', 'Nothing: the page is safe now', 'The cookie flags on the session', 'The database'],
       answer: 0,
       explanation: 'CSP is a second line. Encoding removes the cause.',
     },

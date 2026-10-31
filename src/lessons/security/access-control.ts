@@ -72,7 +72,7 @@ const content: LessonContent = {
       type: 'code',
       prompt: 'What attack does this line stop?',
       code: "editable = allowList ? ['name'] : allColumns",
-      options: ['A request that adds role=admin to an account edit', 'A stolen session', 'A guessed password', 'A forged token'],
+      options: ['A request that adds role=admin to an account edit', 'A stolen session used from another browser', 'A guessed password', 'A forged token with an edited payload'],
       answer: 0,
       explanation: 'That is mass assignment. Only listed fields are saved, so an extra field does nothing.',
     },

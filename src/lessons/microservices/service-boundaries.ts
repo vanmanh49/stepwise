@@ -66,7 +66,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'Why does the capability split make fewer calls between services?',
-      options: ['Orders holds the checkout rules and its own data, so it only needs inventory once', 'It skips the gateway', 'Its services are on faster machines', 'It caches every answer'],
+      options: ['Orders holds the checkout rules and its own data, so it only needs inventory once', 'It skips the gateway, so each request has one hop less', 'Its services are on faster machines', 'It caches every answer, so most calls never need to leave'],
       answer: 0,
       explanation: 'Code and data that work together live together. Only reserving stock belongs to another part of the business.',
     },

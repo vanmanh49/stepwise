@@ -79,7 +79,7 @@ const content: LessonContent = {
       type: 'code',
       prompt: 'What is the gradient for a word that is NOT the right next word?',
       code: 'grad = probs - oneHot(next)',
-      options: ['Its probability (a positive number), so its score goes down', 'Its probability minus 1', 'Always 0', 'The loss'],
+      options: ['Its probability (a positive number), so its score goes down', 'Its probability minus 1 (a negative number), so its score goes up', 'Always 0, because only the right word is updated', 'The loss'],
       answer: 0,
       explanation: 'oneHot is 0 for every other word, so its gradient is just its probability; subtracting it lowers that word\'s score.',
     },

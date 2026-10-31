@@ -64,7 +64,7 @@ const content: LessonContent = {
       type: 'predict-next',
       prompt: 'orders-1 has handed its call to its sidecar. Where does the sidecar send it?',
       view: handOff.view,
-      options: ['To payments-proxy, which hands it to payments-1', 'Straight to payments-1', 'Back to orders-1', 'To the client'],
+      options: ['To payments-proxy, which hands it to payments-1', 'Straight to payments-1, skipping its proxy', 'Back to orders-1, which makes the call itself', 'To the client'],
       answer: 0,
       explanation: 'In the mesh, traffic goes sidecar to sidecar. payments-proxy then passes the call to its own instance.',
     },

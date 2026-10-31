@@ -68,7 +68,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'A ReplicaSet with 5 replicas is scaled to 2. One of its pods is still Pending. Which pods go first?',
-      options: ['The Pending pod first, then not-ready ones, then the newest', 'The oldest pods first', 'Random pods', 'The pods on the busiest node'],
+      options: ['The Pending pod first, then not-ready ones, then the newest', 'The oldest pods first, to keep the newest running', 'Random pods', 'The pods on the busiest node, to even out the load'],
       answer: 0,
       explanation: 'Removing a pod that isn\'t running yet costs nothing, so unscheduled and not-ready pods go before healthy ones.',
     },

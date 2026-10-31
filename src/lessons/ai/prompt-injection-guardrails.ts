@@ -67,7 +67,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'Why did the allowlist stop the attack even though the model obeyed?',
-      options: ['Summarising only needs read_note, so send_email was refused', 'It hid the note', 'It changed the model', 'It deleted eve\'s address'],
+      options: ['Summarising only needs read_note, so send_email was refused', 'It hid the poisoned note from the model', 'It changed the model', "It deleted eve's address from the contact list"],
       answer: 0,
       explanation: 'The guard is in the runtime, not the model: forbidden tools never run.',
     },

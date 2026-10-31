@@ -72,7 +72,7 @@ const content: LessonContent = {
       type: 'code',
       prompt: 'Why does the last line use the embedding table?',
       code: 'logits = embed · x + b   // score every word with the same table',
-      options: ['Each word is scored by how closely its embedding matches the final vector', 'To look up the input token again', 'To add position information', 'To normalise the vector'],
+      options: ['Each word is scored by how closely its embedding matches the final vector', 'To look up the input token again, so it can be repeated', 'To add position information to the last word', 'To normalise the vector'],
       answer: 0,
       explanation: 'The dot product with each word\'s embedding gives that word\'s score. Sharing the table with the input is called tied embeddings.',
     },

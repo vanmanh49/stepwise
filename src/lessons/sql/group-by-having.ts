@@ -103,8 +103,8 @@ const content: LessonContent = {
       prompt: 'Why is SELECT category, name, COUNT(*) FROM products GROUP BY category rejected?',
       options: [
         'Each category group holds several names, so name must be grouped or aggregated',
-        'COUNT(*) cannot be used with GROUP BY',
-        'name is a reserved word',
+        'COUNT(*) cannot be used with GROUP BY, only with a plain SELECT',
+        'name is a reserved word, so it has to be written in quotes',
       ],
       answer: 0,
       explanation: 'A group becomes one row, and one row cannot show several names. Group by name too, or use an aggregate such as MIN(name).',

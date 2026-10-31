@@ -78,7 +78,7 @@ const content: LessonContent = {
       type: 'code',
       prompt: 'With retries 0, what does this line do after the first failed check?',
       code: 'if (failed.length === 0 || attempt === retries) break',
-      options: ['Breaks out, so the failing draft is sent', 'Retries forever', 'Throws an error', 'Skips the email'],
+      options: ['Breaks out, so the failing draft is sent', 'Retries forever until it passes', 'Throws an error', 'Skips the email and stops there'],
       answer: 0,
       explanation: 'attempt 0 equals retries 0, so the loop ends and the °F draft goes out, with the failure on record.',
     },

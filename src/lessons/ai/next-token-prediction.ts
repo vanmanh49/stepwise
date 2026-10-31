@@ -67,7 +67,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'What does softmax do to the logits?',
-      options: ['Turns them into positive probabilities that add up to 1', 'Picks the largest one', 'Sorts them', 'Removes the negative ones'],
+      options: ['Turns them into positive probabilities that add up to 1', 'Picks the largest one and sets the rest to zero', 'Sorts them', 'Removes the negative ones, and keeps the rest as they are'],
       answer: 0,
       explanation: 'softmax raises e to each score and divides by the total; the order stays the same.',
     },

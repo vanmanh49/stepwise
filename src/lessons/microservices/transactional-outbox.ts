@@ -71,7 +71,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'Publish then save, and the database goes down. What does email see?',
-      options: ['OrderPlaced events for orders that were never saved', 'Nothing at all', 'Every event twice', 'Only the saved orders'],
+      options: ['OrderPlaced events for orders that were never saved', 'Nothing at all, since the order was not saved', 'Every event twice, once per retry', 'Only the saved orders'],
       answer: 0,
       explanation: 'The events went out first, then the saves failed. Other services now act on ghost orders.',
     },

@@ -69,7 +69,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'The person denied the email. What should the agent do?',
-      options: ['Carry on without it and say it did not email Sam', 'Send it anyway', 'Retry until approved', 'Stop with an error'],
+      options: ['Carry on without it and say it did not email Sam', 'Send it anyway, since the plan said to', 'Retry until the person approves it', 'Stop with an error'],
       answer: 0,
       explanation: 'The denial is an observation; the agent finishes the rest and reports the missing action.',
     },

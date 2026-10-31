@@ -72,7 +72,7 @@ const content: LessonContent = {
       type: 'code',
       prompt: 'Why must the session id change at sign-in?',
       code: 'id = rotate ? newId() : (request.cookies.sid ?? newId())',
-      options: ['An id the attacker planted before sign-in would otherwise become a signed-in session', 'Cookies can only be set once', 'The old id expires at sign-in anyway', 'It makes the page load faster'],
+      options: ['An id the attacker planted before sign-in would otherwise become a signed-in session', 'Cookies can only be set once, so sign-in needs a new one', 'The old id expires at sign-in anyway', 'It makes the next page load faster, by clearing the old session'],
       answer: 0,
       explanation: 'That is session fixation: the attacker chooses the id, then waits for the victim to sign in on it.',
     },

@@ -71,7 +71,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'Without context propagation, what do you lose?',
-      options: ['The links between spans: each one is its own trace', 'All the spans', 'The span lengths', 'Nothing'],
+      options: ['The links between spans: each one is its own trace', 'All the spans: none get recorded', 'The span lengths, but the links stay', 'Nothing'],
       answer: 0,
       explanation: 'Spans are still recorded, but nothing says which request they belong to or who called them.',
     },

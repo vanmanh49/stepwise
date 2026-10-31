@@ -77,7 +77,7 @@ const content: LessonContent = {
       type: 'code',
       prompt: 'What does this line compute for each document?',
       code: 'scores = docs.map((d) => cosine(q, embed(d)))   // compare with every document',
-      options: ['How closely its vector points the same way as the query\'s', 'How many words it has', 'Its position in the corpus', 'The next word'],
+      options: ['How closely its vector points the same way as the query\'s', 'How many words it has, counted one by one', 'Its position in the corpus, from first to last', 'The next word'],
       answer: 0,
       explanation: 'Cosine similarity is 1 for the same direction and 0 for nothing in common.',
     },

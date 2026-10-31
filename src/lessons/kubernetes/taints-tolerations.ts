@@ -87,7 +87,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'What is the difference between NoSchedule and NoExecute?',
-      options: ['NoExecute also evicts pods already running there; NoSchedule only stops new ones', 'NoSchedule evicts; NoExecute doesn\'t', 'They are the same', 'NoExecute only applies to DaemonSets'],
+      options: ['NoExecute also evicts pods already running there; NoSchedule only stops new ones', 'NoSchedule evicts running pods, and NoExecute only stops new ones', 'They are the same, and only the names differ between versions', 'NoExecute only applies to DaemonSets'],
       answer: 0,
       explanation: 'Both keep untolerating pods from being scheduled; only NoExecute removes the ones already running.',
     },

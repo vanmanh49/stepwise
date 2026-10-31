@@ -60,8 +60,8 @@ const content: LessonContent = {
       prompt: 'Why is a new node coloured red rather than black?',
       options: [
         'A red node does not change the number of black nodes on any path',
-        'Red nodes are faster to search',
-        'The root must be red',
+        'Searching is faster through red nodes than through black ones',
+        'The root must be red, and a new node may become the root',
       ],
       answer: 0,
       explanation: 'Adding a black node would make one path longer in black nodes than all others, which is hard to fix. A red node can only break the red-red rule, which recolouring and rotations repair locally.',

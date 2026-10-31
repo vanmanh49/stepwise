@@ -73,7 +73,7 @@ const content: LessonContent = {
       type: 'code',
       prompt: 'What does this line add to the context?',
       code: "if (memory === 'notes') context.push(...notesMatching(task))   // long-term store",
-      options: ['Stored notes that match the task\'s key words', 'The whole old chat', 'Every note there is', 'Nothing'],
+      options: ['Stored notes that match the task\'s key words', 'The whole old chat, word for word', 'Every note there is, matching or not', 'Nothing'],
       answer: 0,
       explanation: 'Recall searches the store and adds only matching notes, here team and prefs.',
     },

@@ -72,7 +72,7 @@ const content: LessonContent = {
       type: 'code',
       prompt: 'What makes this line dangerous?',
       code: "if (header.alg == 'none') return payload",
-      options: ['The attacker writes the header, so the attacker turns the check off', 'none is a slow algorithm', 'It rejects valid tokens', 'Headers can\'t be read'],
+      options: ['The attacker writes the header, so the attacker turns the check off', 'none is a slow algorithm, which helps guessing attacks', 'It rejects valid tokens, which locks real users out', 'Headers can\'t be read'],
       answer: 0,
       explanation: 'The token decides how it gets checked. Pin the algorithm in the server\'s code instead.',
     },

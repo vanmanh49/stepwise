@@ -81,7 +81,7 @@ const content: LessonContent = {
       type: 'code',
       prompt: 'Why can anyone verify this signature but only one party make it?',
       code: 'function sign(message) { return hash(message) ^ d mod n }\nfunction verify(message, s) { return s ^ e mod n == hash(message) }',
-      options: ['Signing needs the private d; verifying needs only the public e', 'hash() is secret', 'n is secret', 'verify() can only run once'],
+      options: ['Signing needs the private d; verifying needs only the public e', 'hash() is secret, so only one party can run it', 'n is secret, and each verifier is given a copy', 'verify() can only run once'],
       answer: 0,
       explanation: 'Only the holder of d can produce a value that e turns back into the hash.',
     },

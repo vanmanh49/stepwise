@@ -82,7 +82,7 @@ const content: LessonContent = {
       type: 'code',
       prompt: 'Which line makes the caller stop waiting?',
       code: "const timer = setTimeout(() => reject('timed out'), ms)\nsend(service, req).then((answer) => {\n  clearTimeout(timer)\n  resolve(answer)\n})",
-      options: ["setTimeout(() => reject('timed out'), ms)", 'clearTimeout(timer)', 'resolve(answer)', 'send(service, req)'],
+      options: ["setTimeout(() => reject('timed out'), ms)", 'clearTimeout(timer): it cancels the timer', 'resolve(answer)', 'send(service, req): it sends the request out'],
       answer: 0,
       explanation: 'After ms milliseconds the timer rejects the promise, so the caller moves on even though no answer has come.',
     },

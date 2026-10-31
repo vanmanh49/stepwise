@@ -77,7 +77,7 @@ const content: LessonContent = {
       type: 'code',
       prompt: 'Why does the changed message get through here?',
       code: 'ciphertext[at] ^= bit\nplain = ctr(key, nonce, ciphertext)',
-      options: ['CTR has no check, so any ciphertext decrypts to something', 'The key was weak', 'The nonce was reused', 'The attacker knew the key'],
+      options: ['CTR has no check, so any ciphertext decrypts to something', 'The key was weak, so the ciphertext could be guessed', 'The nonce was reused', 'The attacker knew the key, so the change was encrypted again'],
       answer: 0,
       explanation: 'Plain CTR is just XOR with a keystream. Each ciphertext bit decides one plaintext bit, and nothing verifies the result.',
     },

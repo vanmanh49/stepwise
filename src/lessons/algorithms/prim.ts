@@ -55,8 +55,8 @@ const content: LessonContent = {
       options: [
         'Prim grows one tree from a start node; Kruskal takes the cheapest edges anywhere and merges pieces',
         'Prim finds a heavier tree',
-        'Prim only works on directed graphs',
-        'Prim needs the edges sorted in advance',
+        'Prim only works on directed graphs, while Kruskal works on undirected ones',
+        'Prim sorts every edge first, and Kruskal grows one tree from a start node',
       ],
       answer: 0,
       explanation: 'Both are greedy and both reach the minimum total weight. They differ in which edges are candidates at each step.',

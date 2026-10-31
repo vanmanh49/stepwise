@@ -61,7 +61,7 @@ const content: LessonContent = {
       type: 'predict-next',
       prompt: 'The attacker has this table of plain SHA-256 hashes. How many searches through the list does it take to crack both alice and bob?',
       view: leak.view,
-      options: ['One search: each word is hashed once and compared with every row', 'Two searches: one per user', 'Twelve searches: one per word', 'None: SHA-256 can be reversed'],
+      options: ['One search: each word is hashed once and compared with every row', 'Two searches: one through the list for each user', 'Twelve searches: one through the table per word', 'None: SHA-256 can be reversed'],
       answer: 0,
       explanation: 'Equal hashes mean equal passwords, and with no salt the word that matches one row matches the other in the same pass.',
     },
