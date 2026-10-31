@@ -178,3 +178,66 @@ describe('switches', () => {
     expect(run.events.filter((event) => event.action === 'learn' && event.title.includes('p3'))).toHaveLength(1);
   });
 });
+
+describe('UDP programs and app tables', () => {
+  const pair = () => {
+    const a = createHost({ id: 'a', label: 'A', column: 0, mac: mac(1), ip: ip('10.0.0.1'), prefix: 24, arp: { [ip('10.0.0.2')]: mac(2) } });
+    const b = createHost({ id: 'b', label: 'B', column: 1, mac: mac(2), ip: ip('10.0.0.2'), prefix: 24, arp: { [ip('10.0.0.1')]: mac(1) } });
+    const links: Link[] = [{ a: ['a', 'eth0'], b: ['b', 'eth0'] }];
+    return { a, b, links };
+  };
+
+  it('hands a datagram to a handler instead of noting it', () => {
+    const { a, b, links } = pair();
+    const got: [number, string][] = [];
+    const run = simulate({
+      devices: [a, b],
+      links,
+      commands: [
+        at(0, b, () => b.bindUdp(53, 'DNS', (_, src, udp) => got.push([src, String(udp.data)]))),
+        at(1, a, (ctx) => a.udp(ctx, ip('10.0.0.2'), 40000, 53, 'hello')),
+      ],
+    });
+    expect(got).toEqual([[ip('10.0.0.1'), 'hello']]);
+    expect(actions(run)).not.toContain('udp-received');
+  });
+
+  it('sends with a caller\'s note and no routing notes', () => {
+    const { a, b, links } = pair();
+    const note = { action: 'dns-query', title: 'asked', why: 'because' };
+    const run = simulate({
+      devices: [a, b],
+      links,
+      commands: [
+        at(0, b, () => b.bindUdp(53, 'DNS', () => undefined)),
+        at(1, a, (ctx) => a.udp(ctx, ip('10.0.0.2'), 40000, 53, 'hello', { size: 100, note })),
+      ],
+    });
+    expect(actions(run)).toEqual(['dns-query']);
+    const frame = run.events[0]!.frame!;
+    expect(frame.payload.kind === 'ip' && frame.payload.length).toBe(128);
+  });
+
+  it('shows an app table after the four built in', () => {
+    const { a } = pair();
+    a.addTable(() => ({ title: 'Streams', columns: ['Stream'], rows: [['0']] }));
+    expect(a.tables().map(({ title }) => title)).toEqual(['ARP cache', 'Replies', 'Connections', 'Congestion', 'Streams']);
+  });
+
+  it('names a structured datagram that reaches a program with no handler', () => {
+    const { a, b, links } = pair();
+    const data = { proto: 'dns' as const, id: 1, name: 'x', response: false, rcode: 'NOERROR' as const, answers: [], authority: [] };
+    const run = simulate({ devices: [a, b], links, commands: [at(0, b, () => b.bindUdp(53, 'DNS')), at(1, a, (ctx) => a.udp(ctx, ip('10.0.0.2'), 40000, 53, data))] });
+    expect(run.events.at(-1)!.title).toBe('DNS got "dns" on port 53');
+  });
+
+  it('ignores a BGP frame', () => {
+    const { a, b, links } = pair();
+    const run = simulate({
+      devices: [a, b],
+      links,
+      commands: [at(1, a, (ctx) => ctx.send(['eth0'], { srcMac: mac(1), dstMac: mac(2), payload: { kind: 'bgp', type: 'UPDATE', network: 1, prefix: 24, path: [65001] } }, { action: 'bgp-update', title: 'x', why: 'y' }))],
+    });
+    expect(actions(run)).toEqual(['bgp-update']);
+  });
+});

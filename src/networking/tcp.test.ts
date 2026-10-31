@@ -5,7 +5,7 @@ import { createHost, type Host } from './devices';
 import type { Frame, Tcp } from './packet';
 import { macOf } from './scenarios/topology';
 import { simulate, type Command, type Ctx, type Fault, type Link, type SimEvent, type SimResult } from './sim';
-import type { Conn, TcpOptions } from './tcp';
+import { createTcp, type Conn, type TcpOptions } from './tcp';
 
 const CLIENT = ipv4('10.0.0.1');
 const SERVER = ipv4('10.0.0.2');
@@ -342,5 +342,177 @@ describe('flow control', () => {
   it('never loses bytes when the window is smaller than a segment', () => {
     const { total } = transfer({ bytes: 3000, options: { fixedWindow: 8 }, serverOptions: { bufferBytes: 500, readRate: 200 } });
     expect(total).toBe(3000);
+  });
+});
+
+describe('marks and server writes', () => {
+  /** The client writes, each `[bytes, mark]` in turn; the server records what it reads. */
+  function marked(writes: [bytes: number, mark?: string][], faults: Fault[] = []) {
+    const { client, server, links } = pair();
+    const got: { bytes: number; marks: unknown[] }[] = [];
+    const commands: Command[] = [
+      on(server, 0, () => server.listen(PORT, { onData: (bytes, marks) => got.push({ bytes, marks }) })),
+      on(client, 1, (ctx) => {
+        const conn = client.connect(ctx, SERVER, PORT);
+        for (const [bytes, mark] of writes) client.write(ctx, conn, bytes, mark);
+      }),
+    ];
+    const run = simulate({ devices: [client, server], links, commands, faults });
+    return { got, run, marks: got.flatMap((each) => each.marks) };
+  }
+
+  it('hands a mark over once, with its last byte', () => {
+    const { got, run } = marked([[3000, 'whole']]);
+    expect(got.map(({ bytes, marks }) => [bytes, marks])).toEqual([[1000, []], [1000, []], [1000, ['whole']]]);
+    expect(segments(run, 'c').filter(({ length }) => length > 0).map(({ marks }) => marks?.length ?? 0)).toEqual([0, 0, 1]);
+  });
+
+  it('holds a mark until the segment before it is resent', () => {
+    const { got } = marked([[3000, 'whole']], dropEach(isData(2001), 1));
+    expect(got.at(-1)!.marks).toEqual(['whole']);
+    expect(got.at(-1)!.bytes).toBe(2000);
+    expect(got.slice(0, -1).flatMap(({ marks }) => marks)).toEqual([]);
+  });
+
+  it('gives two writes two marks, in order', () => {
+    expect(marked([[1500, 'one'], [1500, 'two']]).marks).toEqual(['one', 'two']);
+  });
+
+  it('gives a resent mark once', () => {
+    const { marks, run } = marked([[1000, 'once']], dropEach(isAck(2001), 1));
+    expect(segments(run, 'c').filter(({ marks: carried }) => carried).length).toBe(2);
+    expect(marks).toEqual(['once']);
+  });
+
+  it('gives a mark split across segments with its last byte only', () => {
+    const { got } = marked([[1500, 'split']]);
+    expect(got.map(({ bytes, marks }) => [bytes, marks])).toEqual([[1000, []], [500, ['split']]]);
+  });
+
+  it('tells the server once about a connection, and lets it write back', () => {
+    const { client, server, links } = pair();
+    const opened: Conn[] = [];
+    const read: unknown[] = [];
+    const commands = [
+      on(server, 0, () => server.listen(PORT, { onConnection: (ctx, conn) => { opened.push(conn); server.write(ctx, conn, 2500, 'reply'); } })),
+      on(client, 1, (ctx) => void client.connect(ctx, SERVER, PORT, { onData: (_, marks) => read.push(...marks) })),
+    ];
+    simulate({ devices: [client, server], links, commands });
+    expect(opened).toHaveLength(1);
+    expect(read).toEqual(['reply']);
+  });
+
+  it('lets a program answer from inside onData', () => {
+    const { client, server, links } = pair();
+    const read: unknown[] = [];
+    const commands = [
+      on(server, 0, () => server.listen(PORT, { onData: (bytes, _, ctx, conn) => server.write(ctx, conn, bytes, 'echoed') })),
+      on(client, 1, (ctx) => {
+        const conn = client.connect(ctx, SERVER, PORT, { onData: (_, marks) => read.push(...marks) });
+        client.write(ctx, conn, 500);
+      }),
+    ];
+    simulate({ devices: [client, server], links, commands });
+    expect(read).toEqual(['echoed']);
+  });
+
+  it('calls onClosed once when a connection ends, however it ends', () => {
+    const { client, server, links } = pair();
+    const closed: string[] = [];
+    const commands = [
+      on(server, 0, () => server.listen(PORT, { onClosed: () => closed.push('server') })),
+      on(client, 1, (ctx) => void client.connect(ctx, SERVER, PORT, { onClosed: () => closed.push('client') })),
+      on(client, 20, (ctx) => client.close(ctx, client.connections()[0]!)),
+      on(client, 25, (ctx) => void client.connect(ctx, SERVER, 81, { onClosed: () => closed.push('refused') })),
+    ];
+    simulate({ devices: [client, server], links, commands });
+    expect(closed.toSorted()).toEqual(['client', 'refused', 'server']);
+  });
+
+  it('reports a gap only while bytes are held', () => {
+    const { client, server, links } = pair();
+    const gaps: boolean[] = [];
+    const commands = [
+      on(server, 0, () => server.listen(PORT)),
+      on(client, 1, (ctx) => client.write(ctx, client.connect(ctx, SERVER, PORT, { fixedWindow: 3 }), 3000)),
+      ...[8, 12, 14, 1100, 1110].map((at) => on(server, at, () => gaps.push(server.connections()[0]!.gap))),
+    ];
+    simulate({ devices: [client, server], links, commands, faults: dropEach(isData(1001), 1) });
+    expect(gaps[0]).toBe(true);
+    expect(gaps.at(-1)).toBe(false);
+  });
+
+  it('delivers each mark once and in order both ways under seeded loss, or aborts', () => {
+    const anySegment = (frame: Frame) => segmentOf(frame) !== undefined;
+    const SIZES = [2500, 1000, 3000, 700, 1800];
+    const names = (side: string) => SIZES.map((_, i) => `${side}${i}`);
+    const total = SIZES.reduce((sum, each) => sum + each, 0);
+    for (let seed = 1; seed <= 50; seed++) {
+      const random = rng(seed);
+      const nths = Array.from({ length: 400 }, (_, i) => i + 1).filter(() => random() < 0.2);
+      const { client, server, links } = pair();
+      const got = { c: { bytes: 0, marks: [] as unknown[] }, s: { bytes: 0, marks: [] as unknown[] } };
+      const commands = [
+        on(server, 0, () => server.listen(PORT, {
+          onData: (bytes, marks) => { got.s.bytes += bytes; got.s.marks.push(...marks); },
+          onConnection: (ctx, conn) => SIZES.forEach((size, i) => server.write(ctx, conn, size, `s${i}`)),
+        })),
+        on(client, 1, (ctx) => {
+          const conn = client.connect(ctx, SERVER, PORT, { onData: (bytes, marks) => { got.c.bytes += bytes; got.c.marks.push(...marks); } });
+          SIZES.forEach((size, i) => client.write(ctx, conn, size, `c${i}`));
+          client.close(ctx, conn);
+        }),
+      ];
+      const run = simulate({ devices: [client, server], links, commands, faults: dropEach(anySegment, ...nths), maxEvents: 20000 });
+      const aborted = run.events.some(({ action }) => action === 'abort' || action === 'tcp-rst');
+      expect(run.cut, `seed ${seed}`).toBe(false);
+      for (const [reader, writer, name] of [['s', 'c', 'c'], ['c', 's', 's']] as const) {
+        const { bytes, marks } = got[reader];
+        expect(marks, `seed ${seed}`).toEqual(names(name).slice(0, marks.length));
+        // Counted from what crossed the wire, so bytes TCP only claims to have can't pass.
+        const arrived = new Set(run.events.filter((event) => event.device === writer && event.hops.some((hop) => !hop.lost)).flatMap((event) => { const tcp = segment(event); return tcp ? Array.from({ length: tcp.length }, (_, i) => tcp.seq + i) : []; }));
+        expect(bytes, `seed ${seed}`).toBeLessThanOrEqual(arrived.size);
+        if (!aborted) {
+          expect(bytes, `seed ${seed}`).toBe(total);
+          expect(marks, `seed ${seed}`).toHaveLength(SIZES.length);
+        }
+      }
+    }
+  });
+});
+
+describe('initial window', () => {
+  it('sends that many segments in the first flight', () => {
+    const { run } = transfer({ bytes: 3000, options: { initialWindow: 3 } });
+    expect(dataSeqs(run)).toEqual([1001, 2001, 3001]);
+    const times = run.events.filter((event) => event.device === 'c' && (segment(event)?.length ?? 0) > 0).map(({ time }) => time);
+    expect(new Set(times).size).toBe(1);
+  });
+});
+
+describe('a client connection', () => {
+  it('tells the client when it is established', () => {
+    const { client, server, links } = pair();
+    const states2: string[] = [];
+    const commands = [on(server, 0, () => server.listen(PORT)), on(client, 1, (ctx) => void client.connect(ctx, SERVER, PORT, { onConnection: (_, conn) => states2.push(conn.state) }))];
+    simulate({ devices: [client, server], links, commands });
+    expect(states2).toEqual(['ESTABLISHED']);
+  });
+});
+
+describe('a segment for no known connection', () => {
+  const notes: string[] = [];
+  const tcp = createTcp({ ip: () => CLIENT, mss: () => 1000, transmit: (_, __, ___, note) => notes.push(note.title) });
+  tcp.listen(PORT);
+  const stray: Tcp = { kind: 'tcp', srcPort: 50000, dstPort: PORT, seq: 1, ack: 1, flags: ['ACK'], window: 1000, length: 1000 };
+
+  it('says the port is open, but the connection is unknown', () => {
+    tcp.receive({ now: 0 } as Ctx, SERVER, stray);
+    expect(notes.at(-1)).toBe(`RST: no such connection on port ${PORT}`);
+  });
+
+  it('still says nothing is listening on a closed port', () => {
+    tcp.receive({ now: 0 } as Ctx, SERVER, { ...stray, dstPort: 81 });
+    expect(notes.at(-1)).toBe('RST: nothing is listening on port 81');
   });
 });

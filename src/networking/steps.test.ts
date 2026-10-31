@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { parseIp } from './address';
 import { createHost } from './devices';
-import type { Frame } from './packet';
+import type { Dns, Frame, Quic } from './packet';
 import { createRouter } from './router';
 import { simulate, type Device, type Fault, type SimEvent, type SimResult } from './sim';
-import { tcpPath } from './scenarios/topology';
-import { ladderView, MAX_STEPS, packetGrid, roundSteps, tableGrid, traceSteps } from './steps';
+import { asNet, cdnNet, dnsTree, pagePath, tcpPath, webPath } from './scenarios/topology';
+import { ladderView, MAX_STEPS, networkView, packetGrid, pageSpans, roundSteps, streamGrid, tableGrid, traceSteps } from './steps';
 import type { ChartView, GridView, LadderView, PanelsView, ServicesView, Step } from '../types/visualization';
 
 function ip(text: string): number {
@@ -268,5 +268,135 @@ describe('roundSteps', () => {
   it('folds past the cap into one summary', () => {
     const steps = roundSteps(longRun(3, 1500000), CODE, LINES, options);
     expect(steps.length).toBeLessThanOrEqual(MAX_STEPS + 1);
+  });
+});
+
+describe('new packet fields', () => {
+  const asFrame = (data: Dns | Quic): Frame => ({ srcMac: 'a', dstMac: 'b', payload: { kind: 'ip', src: 1, dst: 2, ttl: 64, id: 1, payload: { kind: 'udp', srcPort: 1, dstPort: 53, data } } });
+  const dns = (over: Partial<Dns>): Dns => ({ proto: 'dns', id: 7, name: 'www.example.com', response: false, rcode: 'NOERROR', answers: [], authority: [], ...over });
+  const rowsOf = (frame: Frame) => packetGrid(frame).rows.map((row) => [row.label, row.cells[0]!.value]);
+  const label = (frame: Frame) => {
+    const run: SimResult = { events: [{ action: 'x', title: 't', why: 'w', time: 0, device: 'a', frame, hops: [{ from: 'a', to: 'b' }], tables: {}, badges: {}, down: [], stopped: [], queues: {} }], cut: false, devices: [], links: [] };
+    return networkView(run, run.events[0]!, []).messages[0]!.label;
+  };
+
+  it('labels DNS by what it says', () => {
+    expect(label(asFrame(dns({})))).toBe('DNS www.example.com');
+    const a = { name: 'www.example.com', type: 'A' as const, value: '192.0.2.1', ttl: 60 };
+    expect(label(asFrame(dns({ response: true, answers: [a] })))).toBe('DNS answer');
+    expect(label(asFrame(dns({ response: true, authority: [{ ...a, type: 'NS', value: 'ns.example.com' }] })))).toBe('DNS referral');
+    expect(label(asFrame(dns({ response: true, rcode: 'NXDOMAIN' })))).toBe('DNS NXDOMAIN');
+  });
+
+  it('lists the DNS fields', () => {
+    const answer = { name: 'www.example.com', type: 'A' as const, value: '192.0.2.1', ttl: 60 };
+    expect(rowsOf(asFrame(dns({ response: true, answers: [answer] })))).toEqual(expect.arrayContaining([['DNS name', 'www.example.com'], ['Rcode', 'NOERROR'], ['Answer', 'www.example.com A 192.0.2.1 TTL 60']]));
+  });
+
+  it('keeps packet rows unique when records repeat', () => {
+    const record = { name: 'example.com', type: 'NS' as const, value: 'ns.example.com', ttl: 60 };
+    const labels = rowsOf(asFrame(dns({ response: true, authority: [record, record] }))).map(([name]) => name);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it('labels and lists QUIC', () => {
+    const data: Quic = { proto: 'quic', number: 5, space: '1rtt', frames: [{ stream: 4, offset: 1000, length: 1000 }], acks: [[1, 3], [5, 5]] };
+    expect(label(asFrame(data))).toBe('QUIC #5 stream 4');
+    expect(rowsOf(asFrame(data))).toEqual(expect.arrayContaining([['Packet number', '5'], ['Space', '1rtt'], ['Stream', '4 at 1000, 1000 bytes'], ['ACK ranges', '1–3, 5–5']]));
+    expect(label(asFrame({ ...data, frames: [] }))).toBe('QUIC ACK 1–3, 5–5');
+    expect(label(asFrame({ ...data, frames: [], acks: [], space: 'initial' }))).toBe('QUIC initial #5');
+  });
+
+  it('shows no Ethernet addresses on BGP, and no prefix on a probe', () => {
+    const payload = { kind: 'bgp' as const, type: 'PROBE' as const, network: 0, prefix: 0, path: [65200], dst: ip('203.0.113.10') };
+    const labels = rowsOf({ srcMac: 'as-1-x', dstMac: 'peer', payload }).map(([name]) => name);
+    expect(labels).toEqual(['BGP', 'AS_PATH', 'Destination IP']);
+  });
+
+  it('labels and lists BGP', () => {
+    const frame: Frame = { srcMac: 'a', dstMac: 'b', payload: { kind: 'bgp', type: 'UPDATE', network: ip('203.0.113.0'), prefix: 24, path: [65002, 65001] } };
+    expect(label(frame)).toBe('BGP UPDATE 203.0.113.0/24');
+    expect(rowsOf(frame)).toEqual(expect.arrayContaining([['BGP', 'UPDATE'], ['Prefix', '203.0.113.0/24'], ['AS_PATH', '65002 65001']]));
+  });
+});
+
+describe('stream grid', () => {
+  const table = { title: 'Streams', columns: ['Stream', 'Path', 'Bytes', 'State'], rows: [['1', '/a.js', '3000', 'done'], ['3', '/b.css', '1000', 'stalled'], ['5', '/c.png', '2000', 'sending'], ['7', '/d.png', '0', 'waiting']] };
+
+  it('gives one row per stream, with unique cell ids', () => {
+    const { rows } = streamGrid(table);
+    expect(rows).toHaveLength(4);
+    const ids = rows.flatMap((row) => row.cells.map((cell) => cell!.id));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('colours a row by its state', () => {
+    const roles = streamGrid(table).rows.map((row) => row.cells.at(-1)!.role);
+    expect(roles).toEqual(['found', 'discarded', 'active', 'default']);
+  });
+});
+
+describe('page waterfall', () => {
+  const table = { title: 'Page', columns: ['Phase', 'Start', 'Ms'], rows: [['DNS', '0', '40'], ['TCP', '40', '44'], ['/a.js', '84', '']] };
+
+  it('draws a finished phase with its length', () => {
+    expect(pageSpans(table, 100, 500).rows[0]).toMatchObject({ label: 'DNS', start: 0, ms: 40 });
+  });
+
+  it('leaves a running phase open', () => {
+    const { rows, nowMs, endMs } = pageSpans(table, 100, 500);
+    expect(rows[2]!.ms).toBeUndefined();
+    expect([nowMs, endMs]).toEqual([100, 500]);
+  });
+
+  it('reaches the Network panel through a trace option, within 3 panels', () => {
+    const steps = traceSteps(routed(), CODE, LINES, { spans: () => pageSpans(table, 1, 10) });
+    const network = (steps[0]!.view as PanelsView).panels.find((panel) => panel.label === 'Network')!.view as ServicesView;
+    expect(network.spans?.rows).toHaveLength(3);
+    for (const step of steps) expect((step.view as PanelsView).panels.length).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('marks in the views', () => {
+  const marked: Frame = { srcMac: 'a', dstMac: 'b', payload: { kind: 'ip', src: 1, dst: 2, ttl: 64, id: 1, payload: { kind: 'tcp', srcPort: 1, dstPort: 80, seq: 1, ack: 1, flags: ['ACK'], window: 1, length: 400, marks: [{ end: 401, mark: { label: 'GET /a.js', headers: { Host: 'www.example.com' } } }] } } };
+
+  it('names a segment by its mark', () => {
+    const run: SimResult = { events: [{ action: 'x', title: 't', why: 'w', time: 0, device: 'a', frame: marked, hops: [{ from: 'a', to: 'b' }], tables: {}, badges: {}, down: [], stopped: [], queues: {} }], cut: false, devices: [], links: [] };
+    expect(ladderView(run, 0, [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }]).rows[0]!.label).toBe('GET /a.js');
+  });
+
+  it('lists a mark\'s headers in the packet', () => {
+    expect(packetGrid(marked).rows.map((row) => row.label)).toContain('Host');
+  });
+});
+
+describe('a ladder across a router', () => {
+  it('draws a packet end to end when its destination is a column', () => {
+    const run = routed();
+    const a = ip('10.1.0.2');
+    const b = ip('10.2.0.2');
+    const frameTo: Frame = { srcMac: 'a', dstMac: 'r', payload: { kind: 'ip', src: a, dst: b, ttl: 64, id: 1, payload: { kind: 'icmp', type: 'echo-request', seq: 1 } } };
+    const event: SimEvent = { ...run.events[0]!, frame: frameTo, hops: [{ from: 'a', to: 'r' }] };
+    const view = ladderView({ ...run, events: [event] }, 0, [{ id: 'a', label: 'A', ip: a }, { id: 'b', label: 'B', ip: b }]);
+    expect(view.rows.map(({ from, to }) => [from, to])).toEqual([['a', 'b']]);
+    expect(view.columns[0]).toEqual({ id: 'a', label: 'A' });
+  });
+});
+
+describe('web topologies', () => {
+  it('keeps every network to 6 nodes', () => {
+    for (const { devices } of [dnsTree(), webPath(), cdnNet(), asNet(), pagePath()]) expect(devices.length).toBeLessThanOrEqual(6);
+  });
+
+  it('gives webPath the same path as tcpPath, with room for a whole page in its queue', () => {
+    const web = webPath().links[1]!;
+    const tcp = tcpPath().links[1]!;
+    expect([web.rate, web.ms]).toEqual([tcp.rate, tcp.ms]);
+    expect(web.queueBytes).toBeGreaterThan(tcp.queueBytes!);
+  });
+
+  it('puts the near edge first by metric, sharing one address', () => {
+    const { edges, anycast } = cdnNet();
+    expect(edges.map((edge) => edge.address())).toEqual([anycast, anycast]);
   });
 });

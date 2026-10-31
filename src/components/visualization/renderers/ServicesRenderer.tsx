@@ -30,6 +30,8 @@ const TYPE_NAME: Record<ServicesView['nodes'][number]['type'], string> = {
   switch: 'switch',
   router: 'router',
   dhcp: 'DHCP server',
+  dns: 'DNS server',
+  as: 'autonomous system',
 };
 
 /** A rectangle with a role's fill, border cue and mark, like ValueBox but in SVG. */

@@ -62,8 +62,9 @@ export function createDhcpServer({ id, label, column, mac, ip, pool, leaseS }: D
     receive(ctx, frame, port) {
       if (frame.dstMac !== mac && frame.dstMac !== BROADCAST_MAC) return;
       if (frame.payload.kind === 'arp') return arp.receive(ctx, port, own, frame.payload);
+      if (frame.payload.kind !== 'ip') return;
       const { payload } = frame.payload;
-      if (payload.kind === 'udp' && typeof payload.data !== 'string') handle(ctx, frame.srcMac, frame.payload, payload.data);
+      if (payload.kind === 'udp' && typeof payload.data === 'object' && 'op' in payload.data) handle(ctx, frame.srcMac, frame.payload, payload.data);
     },
     tables: () => [{ title: 'Leases', columns: ['Address', 'Client', 'Expires'], rows: [...leases].map(([client, lease]) => [formatIp(lease.address), client, formatTime(lease.expiresAt)]) }],
   };

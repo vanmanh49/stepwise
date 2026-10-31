@@ -1,5 +1,5 @@
 import { formatIp, inSubnet, ipv4 } from './address';
-import { BROADCAST_MAC, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, ICMP_NAME, ipLength, type Arp, type Dhcp, type Frame, type Icmp, type IpPacket, type Udp } from './packet';
+import { BROADCAST_MAC, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, ICMP_NAME, ipLength, type Arp, type Dhcp, type Dns, type Frame, type Icmp, type IpPacket, type Quic, type Udp } from './packet';
 import { formatTime, type Ctx, type Device, type Note, type TableSnapshot } from './sim';
 import { createTcp, type Conn, type TcpOptions } from './tcp';
 
@@ -85,6 +85,10 @@ export interface HostConfig {
   echoDelayMs?: number;
   /** Sets the MSS to `mtu − 40`; otherwise it is 1000. */
   mtu?: number;
+  /** How the network map draws it. */
+  type?: Device['type'];
+  /** First TCP client port. Two hosts sharing an address must not collide. */
+  firstPort?: number;
 }
 
 export interface Reply {
@@ -97,14 +101,18 @@ export interface Reply {
 export interface Host extends Device {
   ping(ctx: Ctx, dst: number, seq: number, ttl?: number): void;
   /** `size` sets the data bytes; with none, the packet counts as 40 bytes. */
-  udp(ctx: Ctx, dst: number, srcPort: number, dstPort: number, text: string, options?: { size?: number; df?: boolean }): void;
-  bindUdp(port: number, label: string): void;
+  /** With a `note`, a program speaks for itself, so the routing notes are left out. */
+  udp(ctx: Ctx, dst: number, srcPort: number, dstPort: number, data: string | Dns | Quic, options?: { size?: number; df?: boolean; note?: Note }): void;
+  /** A handler receives each datagram, so a program can answer. */
+  bindUdp(port: number, label: string, handler?: (ctx: Ctx, src: number, udp: Udp) => void): void;
+  /** Shows a program's state, after the four built-in tables. */
+  addTable(table: () => TableSnapshot): void;
   /** Starts DHCP. A host that will boot has an address of 0. */
   boot(ctx: Ctx): void;
   address(): number;
   listen(port: number, options?: TcpOptions): void;
   connect(ctx: Ctx, dst: number, port: number, options?: TcpOptions): Conn;
-  write(ctx: Ctx, conn: Conn, bytes: number): void;
+  write(ctx: Ctx, conn: Conn, bytes: number, mark?: unknown): void;
   close(ctx: Ctx, conn: Conn): void;
   connections(): Conn[];
   mac: string;
@@ -118,6 +126,8 @@ export function createHost(config: HostConfig): Host {
   const arp = createArp(config.arp);
   const sent = new Map<number, number>();
   const programs = new Map<number, string>();
+  const handlers = new Map<number, (ctx: Ctx, src: number, udp: Udp) => void>();
+  const appTables: (() => TableSnapshot)[] = [];
   const fragments = new Map<string, IpPacket[]>();
   let nextId = 1;
 
@@ -125,7 +135,7 @@ export function createHost(config: HostConfig): Host {
     ip: () => ip,
     mss: () => (config.mtu ? config.mtu - IP_TCP_HEADERS : DEFAULT_MSS),
     transmit: (ctx, dst, segment, note) => transmit(ctx, { ...packet(dst, DEFAULT_TTL, segment), length: IP_TCP_HEADERS + segment.length, df: true }, note),
-  });
+  }, config.firstPort);
 
   const own = (): Own => ({ mac, ip });
   const packet = (dst: number, ttl: number, payload: IpPacket['payload']): IpPacket => ({ kind: 'ip', src: ip, dst, ttl, id: nextId++, payload });
@@ -204,8 +214,8 @@ export function createHost(config: HostConfig): Host {
       return;
     }
     if (payload.kind === 'tcp') return tcp.receive(ctx, src, payload);
-    if (typeof payload.data === 'string') receiveUdp(ctx, src, payload);
-    else receiveDhcp(ctx, payload.data);
+    if (typeof payload.data === 'object' && 'op' in payload.data) receiveDhcp(ctx, payload.data);
+    else receiveUdp(ctx, src, payload);
   }
 
   const broadcastDhcp = (data: Dhcp): Frame => ({
@@ -276,9 +286,12 @@ export function createHost(config: HostConfig): Host {
       });
       return;
     }
+    const handler = handlers.get(udp.dstPort);
+    if (handler) return handler(ctx, src, udp);
+    const text = typeof udp.data === 'object' && 'proto' in udp.data ? udp.data.proto : String(udp.data);
     ctx.note({
       action: 'udp-received',
-      title: `${programs.get(udp.dstPort) ?? config.label} got "${String(udp.data)}" on port ${udp.dstPort}`,
+      title: `${programs.get(udp.dstPort) ?? config.label} got "${text}" on port ${udp.dstPort}`,
       why: `The datagram came from ${formatIp(src)} port ${udp.srcPort}.`,
     });
     if (!config.echo) return;
@@ -295,7 +308,7 @@ export function createHost(config: HostConfig): Host {
   const host: Host = {
     id: config.id,
     label: config.label,
-    type: 'host',
+    type: config.type ?? 'host',
     column: config.column,
     mac,
     replies: [],
@@ -314,14 +327,20 @@ export function createHost(config: HostConfig): Host {
     write: tcp.write,
     close: tcp.close,
     connections: tcp.connections,
-    udp(ctx, dst, srcPort, dstPort, text, { size, df } = {}) {
+    udp(ctx, dst, srcPort, dstPort, data, { size, df, note } = {}) {
       if (!programs.has(srcPort)) programs.set(srcPort, config.label);
       sent.set(0, ctx.now);
-      const datagram = packet(dst, DEFAULT_TTL, { kind: 'udp', srcPort, dstPort, data: text });
-      originate(ctx, { ...datagram, ...(size === undefined ? {} : { length: IP_UDP_HEADERS + size }), ...(df ? { df } : {}) }, `A UDP datagram`);
+      const datagram = packet(dst, DEFAULT_TTL, { kind: 'udp', srcPort, dstPort, data });
+      const sized = { ...datagram, ...(size === undefined ? {} : { length: IP_UDP_HEADERS + size }), ...(df ? { df } : {}) };
+      if (note) transmit(ctx, sized, note);
+      else originate(ctx, sized, `A UDP datagram`);
     },
-    bindUdp(port, label) {
+    bindUdp(port, label, handler) {
       programs.set(port, label);
+      if (handler) handlers.set(port, handler);
+    },
+    addTable(table) {
+      appTables.push(table);
     },
     receive(ctx, frame: Frame, port) {
       if (frame.dstMac !== mac && frame.dstMac !== BROADCAST_MAC) {
@@ -329,13 +348,14 @@ export function createHost(config: HostConfig): Host {
         return;
       }
       if (frame.payload.kind === 'arp') arp.receive(ctx, port, own(), frame.payload);
-      else if (frame.payload.dst === ip || frame.payload.dst === 0xffffffff) receiveIp(ctx, frame.payload);
+      else if (frame.payload.kind === 'ip' && (frame.payload.dst === ip || frame.payload.dst === 0xffffffff)) receiveIp(ctx, frame.payload);
     },
     tables: () => [
       arp.table(),
       { title: 'Replies', columns: ['Seq', 'From', 'Reply', 'Time'], rows: host.replies.map(({ seq, from, type, rttMs }) => [String(seq), formatIp(from), ICMP_NAME[type], formatTime(rttMs)]) },
       tcp.table(),
       tcp.congestion(),
+      ...appTables.map((table) => table()),
     ],
   };
   return host;
