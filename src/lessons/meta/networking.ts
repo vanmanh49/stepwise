@@ -222,4 +222,14 @@ export const networkingMeta: LessonMeta[] = [
     keywords: ['bgp', 'autonomous system', 'as', 'as_path', 'peering', 'transit', 'customer', 'provider', 'local preference', 'prepending', 'hijack', 'rpki', 'looking glass', 'traceroute'],
     prerequisites: ['ip-routing'],
   },
+  {
+    id: 'url-to-page',
+    title: 'From URL to Page',
+    category: 'networking',
+    difficulty: 'advanced',
+    group: 'Web & Internet Scale',
+    description: 'Follow one page load from the first DNS query to the last file, with every protocol in one run and a waterfall to show where the time went.',
+    keywords: ['url', 'page load', 'waterfall', 'dns', 'tcp', 'tls', 'http', 'quic', 'first byte', 'ttfb', 'network panel', 'latency'],
+    prerequisites: ['dns', 'quic-http-3'],
+  },
 ];

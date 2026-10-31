@@ -116,7 +116,7 @@ export function dropResponse(server: Host, n: number): Fault {
     matches({ srcMac, payload }) {
       if (srcMac !== server.mac || payload.kind !== 'ip') return false;
       const inner = payload.payload;
-      if (inner.kind === 'tcp') return (inner.marks ?? []).some(({ mark }) => !tlsMark(mark)) && firstSend(`${inner.seq}`);
+      if (inner.kind === 'tcp') return (inner.marks ?? []).some(({ mark }) => !tlsMark(mark)) && firstSend(`${inner.dstPort}:${inner.seq}`);
       if (inner.kind !== 'udp' || typeof inner.data !== 'object' || !('proto' in inner.data) || inner.data.proto !== 'quic') return false;
       const [frame] = inner.data.frames;
       return frame !== undefined && firstSend(`${frame.stream}:${frame.offset}`);
