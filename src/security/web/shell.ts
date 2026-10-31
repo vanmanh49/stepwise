@@ -34,14 +34,14 @@ function closingParen(text: string, open: number): number {
   return -1;
 }
 
-/** Calls `each` for every character outside quotes and `$(...)`. */
+/** Calls `each` for every character outside quotes, backticks and `$(...)`. */
 function walk(line: string, each: (at: number) => number | void) {
   let quote = '';
   for (let at = 0; at < line.length; at++) {
     const char = line[at]!;
     if (quote) {
       if (char === quote) quote = '';
-    } else if (char === "'" || char === '"') {
+    } else if (char === "'" || char === '"' || (char === '`' && line.includes('`', at + 1))) {
       quote = char;
     } else if (line.startsWith('$(', at)) {
       const end = closingParen(line, at + 1);
@@ -126,7 +126,13 @@ function runCommand([name = '', ...args]: string[], input: string): Result {
   }
 }
 
-/** Replaces each `$(...)` with what it printed, unless it is in single quotes. */
+/** Where a substitution at `at` ends, and what it holds. Null if there is none. */
+function substitutionAt(text: string, at: number): { end: number; body: string } | null {
+  const end = text[at] === '`' ? text.indexOf('`', at + 1) : text.startsWith('$(', at) ? closingParen(text, at + 1) : -1;
+  return end < 0 ? null : { end, body: text.slice(at + (text[at] === '`' ? 1 : 2), end) };
+}
+
+/** Replaces each `$(...)` or backtick pair with what it printed, unless it is in single quotes. */
 function expand(text: string, depth: number, commands: string[]): string {
   let result = '';
   let at = 0;
@@ -135,15 +141,15 @@ function expand(text: string, depth: number, commands: string[]): string {
     const char = text[at]!;
     if (quote) quote = char === quote ? '' : quote;
     else if (char === "'" || char === '"') quote = char;
-    const end = quote !== "'" && text.startsWith('$(', at) ? closingParen(text, at + 1) : -1;
-    if (end < 0) {
+    const found = quote === "'" ? null : substitutionAt(text, at);
+    if (!found) {
       result += char;
       at++;
       continue;
     }
     // Past the limit the text stays as it is, but the scan moves on, so inner `$(` stay too.
-    result += depth < MAX_NESTING ? runLine(text.slice(at + 2, end), depth + 1, commands) : text.slice(at, end + 1);
-    at = end + 1;
+    result += depth < MAX_NESTING ? runLine(found.body, depth + 1, commands) : text.slice(at, found.end + 1);
+    at = found.end + 1;
   }
   return result;
 }

@@ -78,6 +78,24 @@ describe('cross-site scripting', () => {
     expect(words(steps)).toContain('click');
   });
 
+  it('does not call a waiting handler safe', () => {
+    const steps = run(REFLECTED!, '<input autofocus onfocus=alert(1)>', OFF!);
+    expect(words(steps)).not.toContain('only runs if someone clicks');
+    expect(last(steps).why).toContain('still a bug');
+  });
+
+  it('does not say nothing ran straight after saying a browser would run it', () => {
+    const steps = run(REFLECTED!, '<script>eval(1)</script>', OFF!);
+    expect(last(steps).why).not.toContain('Nothing in this text ran');
+    expect(last(steps).why).toContain('could not read');
+  });
+
+  it('only blames HttpOnly when the script read the cookie', () => {
+    const steps = run(REFLECTED!, "<script>fetch('https://evil.example/c')</script>", HTTP_ONLY!);
+    expect(words(steps)).not.toContain('gave empty text');
+    expect(last(steps).variables!.stolen).toBe('nothing');
+  });
+
   it('runs nothing from unfinished markup', () => {
     expect(result(REFLECTED!, '<script>alert(1)', OFF!)).toBe('stopped');
     expect(result(REFLECTED!, '<img src=x onerror=alert(1)', OFF!)).toBe('stopped');

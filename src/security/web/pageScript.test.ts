@@ -92,6 +92,13 @@ describe('runPageScript', () => {
     expect(world.events.at(-1)!.request.headers.cookie).toBeUndefined();
   });
 
+  it('sends cookies with a fetch to its own origin, as fetch does by default', () => {
+    const { world, run } = setup();
+    world.browser.plant(ORIGIN, { name: 'sid', value: 'abc', httpOnly: true });
+    run("fetch('/c')");
+    expect(world.events.at(-1)!.request.headers.cookie).toBe('sid=abc');
+  });
+
   it('sends an image request as a subresource', () => {
     const { world, run } = setup();
     expect(run("new Image().src = 'https://evil.example/c?x=1'")).toEqual(['sent a request to https://evil.example/c?x=1']);

@@ -15,7 +15,7 @@ const content: LessonContent = {
     'A blocklist of bad addresses is easy to get around. The same service may have another name, and a redirect from a site the attacker owns gets past a check that only reads the first address.',
     'An allow-list starts from the other side: it names the hosts a feature may use, and refuses the rest. It has to apply to every hop, so the simplest rule is to follow no redirects.',
     'Hosts on this kind of list can still change where they point, through DNS. So a strong check resolves the name, checks the address, and connects to that address and no other. This lesson leaves that out.',
-    'In production, send these requests through an egress proxy that can\'t reach internal addresses, require the signed metadata requests that cloud providers offer (such as AWS IMDSv2), and give the server only the permissions it needs. Network rules and the app\'s own checks each cover what the other misses.',
+    'In production, send these requests through an egress proxy that can\'t reach internal addresses, require session tokens for metadata requests (such as AWS IMDSv2), which a plain forged GET can\'t get, and give the server only the permissions it needs. Network rules and the app\'s own checks each cover what the other misses.',
   ],
   howItWorks: [
     'A feature takes an address from the user.',
@@ -43,7 +43,7 @@ const content: LessonContent = {
   },
   code: ssrfCode,
   prosCons: {
-    pros: ['An allow-list refuses addresses nobody thought of', 'An egress proxy protects every feature at once', 'Signed metadata requests stop the simplest theft'],
+    pros: ['An allow-list refuses addresses nobody thought of', 'An egress proxy protects every feature at once', 'Metadata session tokens stop the simplest theft'],
     cons: ['Features that fetch any address can\'t use a short list', 'Each redirect is another chance to get it wrong', 'DNS can change after a check'],
     useWhen: ['Any feature that fetches an address a user gave it'],
     avoidWhen: ['Blocking a few bad addresses and calling it done', 'Following redirects without checking each one'],

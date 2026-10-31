@@ -93,7 +93,7 @@ export function sameOriginCorsSteps(values: Record<string, string>): Step[] {
   world.browser.visit(`${EVIL_ORIGIN}/`);
   story.step({
     title: 'alice opens a page on evil.example',
-    why: 'alice is signed in to shop.example with a SameSite=None cookie, so the browser will send it with requests from any site. The page on evil.example now tries its script.',
+    why: 'alice is signed in to shop.example with a SameSite=None cookie, so this browser, like Chrome, sends it with requests from other sites. Firefox and Safari limit third-party cookies, so they might not. The page on evil.example now tries its script.',
     next: 'The page calls the shop from alice\'s browser.',
     line: '// a page on evil.example',
   });

@@ -104,8 +104,10 @@ const firesAlone = ({ name, attributes }: Tag, attribute: string, sink: 'page' |
 export function findScripts(html: string, sink: 'page' | 'inner'): FoundScript[] {
   const scripts: FoundScript[] = [];
   for (const tag of parseHtml(html)) {
-    const { nonce } = tag.attributes;
     if (tag.name === 'script') {
+      // Browsers refuse a nonce on a tag that swallowed another, so an open tag can't borrow the next one's.
+      const stolen = Object.entries(tag.attributes).some(([name, value]) => /<(script|style)/i.test(name + value));
+      const nonce = stolen ? undefined : tag.attributes.nonce;
       if (sink === 'inner') continue;
       const { src } = tag.attributes;
       if (src !== undefined) scripts.push({ source: src, kind: 'external', ...(nonce && { nonce }) });

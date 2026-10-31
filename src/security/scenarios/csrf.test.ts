@@ -47,6 +47,11 @@ describe('CSRF', () => {
     expect(last(run(FORM!, TOKEN!)).why).toContain('read');
   });
 
+  it('says where the form leaves alice', () => {
+    expect(last(run(FORM!, NONE!)).why).not.toContain('page reload');
+    expect(last(run(FORM!, NONE!)).why).toContain('Order placed');
+  });
+
   it('refuses bad knobs with one step', () => {
     expect(run('nope', NONE!)).toHaveLength(1);
     expect(run(FORM!, 'nope')).toHaveLength(1);

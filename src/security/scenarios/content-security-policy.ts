@@ -35,15 +35,27 @@ const STATUS_LINES: Record<ScriptRun['status'], string> = {
   'failed to load': 'if (script.src)',
 };
 
+const OWN_SCRIPT_RAN: Record<string, string> = {
+  None: 'as every script does with no policy.',
+  'unsafe-inline': "because 'unsafe-inline' allows inline code.",
+  Nonce: "because its tag carries this response's nonce. A strict policy must not break the site.",
+};
+
+const RUN_REASON: Record<string, string> = {
+  None: 'With no policy, nothing stood in the way.',
+  'unsafe-inline': "'unsafe-inline' allows every inline script, so it can't tell the attacker's from the shop's.",
+  Nonce: 'This tag carried a nonce copied from an earlier run. Runs here repeat, but a real server makes a new nonce for every response, so a copied one would fail.',
+};
+
 function reportInjected(story: Story, script: ScriptRun) {
   const why: Record<ScriptRun['status'], string> = {
     ran: `It did this: ${script.actions.join(' ')}. The policy allowed it.`,
     blocked: `The browser refused it under ${script.rule}.`,
     'not understood': 'This simulation does not understand this script. It runs no real code, so it can\'t say what it would do. A browser would try to run it, if the policy allowed it.',
-    'waits for a click': 'This handler only runs if someone clicks, so no one has run it yet.',
+    'waits for a click': 'This simulation only fires onerror on an image and onload on svg or body. Other handlers wait for their event, and a real browser fires some with no click.',
     'failed to load': `${script.actions.join(' ')}.`,
   };
-  story.step({ title: script.status === 'blocked' ? 'The browser blocks a script' : `A script: ${script.status}`, why: why[script.status], line: STATUS_LINES[script.status], ...(script.rule && { variables: { rule: script.rule } }), text: { label: 'Script', lines: { Source: script.source } } });
+  story.step({ title: script.status === 'blocked' ? 'The browser blocks a script' : script.status === 'waits for a click' ? 'A handler is waiting' : `A script: ${script.status}`, why: why[script.status], line: STATUS_LINES[script.status], ...(script.rule && { variables: { rule: script.rule } }), text: { label: 'Script', lines: { Source: script.source } } });
 }
 
 export function contentSecurityPolicySteps(values: Record<string, string>): Step[] {
@@ -71,8 +83,8 @@ export function contentSecurityPolicySteps(values: Record<string, string>): Step
   const injected = injectedScripts(run.scripts);
   for (const script of injected) reportInjected(story, script);
   const own = ownScript(run.scripts);
-  if (own) story.step({ title: "The page's own script", why: "The page's own script ran, because the policy names it. A strict policy must not break the site.", line: 'function mayRun', text: { label: 'Script', lines: { Source: own.source } } });
-  else story.step({ title: "The page's own script is gone", why: "The browser never reached the page's own script. The text left a tag open, so everything up to the next > was read as part of that tag.", line: "page = 'Results for '" });
+  if (own) story.step({ title: "The page's own script", why: `The page's own script ran, ${OWN_SCRIPT_RAN[policy.value]}`, line: 'function mayRun', text: { label: 'Script', lines: { Source: own.source } } });
+  else story.step({ title: "The page's own script is gone", why: "The browser never reached the page's own script. The text changed how the rest of the page was read, so that tag is no longer a script of its own.", line: "page = 'Results for '" });
 
   const ran = injected.some((script) => script.status === 'ran');
   const blocked = injected.find((script) => script.status === 'blocked');
@@ -80,7 +92,7 @@ export function contentSecurityPolicySteps(values: Record<string, string>): Step
   let why = 'This text has nothing for the browser to run, so the page simply shows it.';
   if (injected.length > 0) why = 'Nothing else in this page ran.';
   if (blocked) why = `The policy stopped it, under ${blocked.rule}. The markup is still in the page, though, so the bug is still there. CSP is a second line, and encoding is the first.`;
-  if (ran) why = `The input ran as code${stolen === 'nothing' ? '.' : `, and ${stolen} reached evil.example.`} ${policy.value === 'None' ? 'With no policy, nothing stood in the way.' : "'unsafe-inline' allows every inline script, so it can't tell the attacker's from the shop's."}`;
+  if (ran) why = `The input ran as code${stolen === 'nothing' ? '.' : `, and ${stolen} reached evil.example.`} ${RUN_REASON[policy.value]}`;
   story.step({ title: ran ? 'The input ran as code' : blocked ? 'The policy held' : 'Nothing else ran', why, line: 'function mayRun', variables: { stolen, result: resultOf(ran) } });
   return story.steps;
 }

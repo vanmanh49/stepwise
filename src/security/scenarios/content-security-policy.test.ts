@@ -71,6 +71,35 @@ describe('content security policy', () => {
     expect(words(steps)).toContain("never reached the page's own script");
   });
 
+  it('blocks an open tag that tries to take the nonce of the next one', () => {
+    const steps = run(NONCE!, '<script src=https://evil.example/x.js ');
+    expect(last(steps).variables!.result).toBe('stopped');
+    expect(last(steps).variables!.stolen).toBe('nothing');
+  });
+
+  it('gives the right reason when a replayed nonce runs', () => {
+    const nonce = /'nonce-([0-9a-f]+)'/.exec(JSON.stringify(run(NONCE!, 'hello')))![1]!;
+    const { why, variables } = last(run(NONCE!, `<script nonce=${nonce}>alert(1)</script>`));
+    expect(variables!.result).toBe('attacker in');
+    expect(why).toContain('new nonce for every response');
+    expect(why).not.toContain('unsafe-inline');
+  });
+
+  it("gives a true reason for the page's own script under each policy", () => {
+    expect(words(run(NONE!, 'hello'))).not.toContain('policy names it');
+    expect(words(run(UNSAFE!, 'hello'))).not.toContain('policy names it');
+    expect(words(run(NONCE!, 'hello'))).toContain("carries this response's nonce");
+  });
+
+  it('does not say a handler can only fire on a click', () => {
+    expect(words(run(NONE!, '<input autofocus onfocus=alert(1)>'))).not.toContain('only runs if someone clicks');
+    expect(words(run(NONE!, '<input autofocus onfocus=alert(1)>'))).toContain('with no click');
+  });
+
+  it("does not say a closed tag was left open when the page's script is lost", () => {
+    expect(words(run(NONE!, '<script>alert(1)'))).not.toContain('left a tag open');
+  });
+
   it('refuses bad knobs with one step', () => {
     expect(run('nope', 'x')).toHaveLength(1);
     expect(run(NONE!, '')).toHaveLength(1);

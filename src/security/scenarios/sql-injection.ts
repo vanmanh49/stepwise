@@ -67,7 +67,7 @@ function signIn(run: Run) {
   showQuery(run, LINES['Sign-in']!);
   const changed = tablesNow(db) !== before;
   const signedIn = answer.status === 200;
-  let why = `The password was wrong, so no row matched: ${answer.body}`;
+  let why = `No account matched this name and password: ${answer.body}`;
   if (signedIn) why = `${answer.body} The password was wrong, but the input rewrote the query, so the password check never ran.`;
   if (answer.status === 500) why = `The shop shows: ${answer.body} A real site logs this and shows a plain page, because an error like this tells an attacker how the query is built.`;
   if (changed) why = `The sign-in query ran a second statement, and a table changed. Many real drivers refuse two statements in one call, but that is a side effect, not a defense.`;
@@ -83,7 +83,7 @@ function search(run: Run) {
   showQuery(run, LINES.Search!);
   const changed = tablesNow(db) !== before;
   const leaked = answer.status === 200 && JSON.stringify(answer.rows) !== honest;
-  let why = `Rows returned: ${answer.rows?.length ?? 0}. The input was only a search term.`;
+  let why = `Rows returned: ${answer.rows?.length ?? 0}. These are the rows a plain search would give.`;
   if (answer.status === 500) why = `The shop shows: ${answer.body} A real site logs this and shows a plain page, because an error like this tells an attacker how the query is built.`;
   if (leaked) why = 'The input changed what the query returns, so these rows are not what a search should give. Each one came from the database, through a page meant for orders.';
   if (changed) why = 'The second statement ran and changed a table, so nothing here needed to be read. Many real drivers refuse two statements in one call, but that is a side effect, not a defense.';

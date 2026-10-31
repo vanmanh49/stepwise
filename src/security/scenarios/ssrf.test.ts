@@ -76,6 +76,11 @@ describe('SSRF', () => {
     expect(last(steps).why).not.toContain('keys');
   });
 
+  it('does not describe a check that is not there', () => {
+    expect(words(run(REDIRECT, NONE!))).not.toContain('The check only read');
+    expect(words(run(REDIRECT, BLOCKLIST!))).toContain('The blocklist only read the first address');
+  });
+
   it('refuses bad knobs with one step', () => {
     expect(run('', NONE!)).toHaveLength(1);
     expect(run(CAT, 'nope')).toHaveLength(1);

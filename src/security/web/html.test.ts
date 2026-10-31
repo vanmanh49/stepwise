@@ -56,6 +56,11 @@ describe('findScripts', () => {
     expect(findScripts('<!-- a --><script>alert(1)</script>', 'page')).toEqual([inline('alert(1)')]);
   });
 
+  it('drops the nonce of a tag that swallowed another script tag', () => {
+    const scripts = findScripts('<script src=https://evil.example/x.js <script nonce="abc"></script>', 'page');
+    expect(scripts).toEqual([{ source: 'https://evil.example/x.js', kind: 'external' }]);
+  });
+
   it('finds several, in page order', () => {
     expect(findScripts('hi <script>alert(1)</script> <img src=x onerror=alert(2)>', 'page')).toEqual([inline('alert(1)'), handler('alert(2)')]);
   });

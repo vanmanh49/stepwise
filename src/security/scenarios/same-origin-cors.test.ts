@@ -50,6 +50,11 @@ describe('same origin and CORS', () => {
     expect(run(READ!, NONE!)[0]!.why).toContain('SameSite=None');
   });
 
+  it('does not say every browser sends the cookie', () => {
+    expect(run(READ!, NONE!)[0]!.why).not.toContain('with requests from any site');
+    expect(run(READ!, NONE!)[0]!.why).toContain('Firefox and Safari');
+  });
+
   it('refuses unknown choices', () => {
     expect(run('nope', NONE!)).toHaveLength(1);
     expect(run(READ!, 'nope')).toHaveLength(1);

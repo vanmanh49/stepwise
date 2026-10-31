@@ -47,7 +47,7 @@ function outcome(status: number, attack: string, defense: string): { why: string
   if (defense === 'Token') return { why: 'The request has no valid token. The token sits in the shop\'s own form, and evil.example can\'t read that page, so it has nothing to send.', line: 'if (checkToken' };
   if (status === 403) return { why: 'The origin header says evil.example, and that is not the shop, so the shop refused.', line: 'if (checkOrigin' };
   if (defense === 'Origin check') return { why: 'An image request has no origin header, so the check had nothing to compare and let it through. Here is the real flaw: a GET must not change state. Orders belong behind a POST.', line: 'if (checkOrigin' };
-  return { why: `The cookie went with the request, so the shop saw alice and placed the order. ${attack === 'Image tag' ? 'alice saw a broken image.' : 'alice saw a page reload.'} Nothing told the shop that alice never chose this.`, line: 'insertOrder(user, request.item)' };
+  return { why: `The cookie went with the request, so the shop saw alice and placed the order. ${attack === 'Image tag' ? 'alice saw a broken image.' : "alice's tab landed on the shop's Order placed page."} Nothing told the shop that alice never chose this.`, line: 'insertOrder(user, request.item)' };
 }
 
 export function csrfSteps(values: Record<string, string>): Step[] {

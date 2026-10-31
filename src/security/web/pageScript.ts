@@ -1,5 +1,5 @@
 import type { Browser } from './browser';
-import { absoluteUrl, cookieHeader } from './http';
+import { absoluteUrl, cookieHeader, originOf } from './http';
 
 export type Value = ({ text: string } | { read: 'cookie' | 'href' })[];
 
@@ -95,7 +95,8 @@ export function runPageScript(statements: Statement[], origin: string, browser: 
     if (kind === 'log') return `console.log(${JSON.stringify(read(value))})`;
     const url = absoluteUrl(origin, read(value));
     if (kind === 'navigate') return reported(browser.visit(url, origin).status, url, `moved the page to ${url}`);
-    const { status } = kind === 'fetch' ? browser.fetchFrom(origin, url) : browser.subresource(url, origin);
+    // A plain fetch sends cookies to its own origin only.
+    const { status } = kind === 'fetch' ? browser.fetchFrom(origin, url, { credentials: originOf(url) === origin }) : browser.subresource(url, origin);
     return reported(status, url, `sent a request to ${url}`);
   });
 }

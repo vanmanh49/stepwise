@@ -98,6 +98,16 @@ describe('SQL injection', () => {
     expect(rows.rows.length).toBeLessThanOrEqual(8);
   });
 
+  it('does not say no row matched when the name query found alice', () => {
+    expect(last(run(SIGN_IN!, 'alice', PARAMETERS!)).why).not.toContain('no row matched');
+  });
+
+  it('does not call a rewritten query only a search term', () => {
+    const { why } = last(run(SEARCH!, "x' AND 1=2 --", STRING!));
+    expect(why).not.toContain('only a search term');
+    expect(why).toContain('a plain search would give');
+  });
+
   it('refuses bad knobs with one step', () => {
     expect(run('nope', 'x', STRING!)).toHaveLength(1);
     expect(run(SEARCH!, 'x', 'nope')).toHaveLength(1);

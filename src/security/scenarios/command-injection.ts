@@ -66,10 +66,10 @@ function ping({ world, story, input, defense }: Run) {
 function download({ world, story, input, defense }: Run) {
   const answer = world.send({ method: 'GET', url: `${SHOP_ORIGIN}/download?file=${inAddress(input)}`, headers: {}, body: {} }, 'attacker');
   const path = traced(world).at(-1)!;
-  const outside = !path.startsWith(`${FILES_ROOT}/`);
+  const outside = path !== FILES_ROOT && !path.startsWith(`${FILES_ROOT}/`);
   story.step({
     title: `The path resolved to ${path}`,
-    why: outside ? `${path} is outside ${FILES_ROOT}. Each .. went up one folder.` : `${path} is inside ${FILES_ROOT}.`,
+    why: outside ? `${path} is outside ${FILES_ROOT}. Nothing checked where the path ended up.` : `${path} stays within ${FILES_ROOT}.`,
     next: 'Does the shop serve it?',
     line: defense === 'No shell + allow-list' ? "path = resolve('" : 'return read(join(',
     text: { label: 'On the server', lines: { Path: path } },

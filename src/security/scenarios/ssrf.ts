@@ -41,7 +41,7 @@ export function ssrfSteps(values: Record<string, string>): Step[] {
 
   story.step({
     title: `The shop made ${hops.length} request${hops.length === 1 ? '' : 's'}`,
-    why: hops.length > 1 ? `The first answer was a redirect, and the shop followed it. The check only read the first address, so the second was never checked: ${hops.map((hop) => hop.request.url).join(' → ')}.` : `The shop asked ${hops[0]!.request.url} itself, from inside the network.`,
+    why: hops.length > 1 ? `The first answer was a redirect, and the shop followed it: ${hops.map((hop) => hop.request.url).join(' → ')}.${defense.value === 'Blocklist' ? ' The blocklist only read the first address.' : ''}` : `The shop asked ${hops[0]!.request.url} itself, from inside the network.`,
     next: 'What came back?',
     line: hops.length > 1 ? 'while (answer.isRedirect' : 'answer = fetch(url)',
     text: { label: 'Requests from the shop', lines: Object.fromEntries(hops.map((hop, i) => [`${i + 1}`, `${hop.request.url} → ${hop.response.status}`])) },

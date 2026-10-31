@@ -67,6 +67,16 @@ describe('runShell', () => {
     expect(runShell('echo $(whoami; id)').commands).toEqual(['whoami', 'id', expect.stringContaining('echo www-data')]);
   });
 
+  it('replaces backticks with their output, as $(...) does', () => {
+    expect(runShell('echo `whoami`').commands).toEqual(['whoami', 'echo www-data']);
+    expect(runShell('echo `whoami; id`').commands).toEqual(['whoami', 'id', expect.stringContaining('echo www-data')]);
+  });
+
+  it('leaves an unclosed backtick and single-quoted backticks as text', () => {
+    expect(runShell('echo `whoami').commands).toHaveLength(1);
+    expect(runShell("echo '`whoami`'").output).toBe('`whoami`');
+  });
+
   it('keeps a separator inside quotes', () => {
     const run = runShell("echo 'a; cat /app/.env'");
     expect(run.commands).toHaveLength(1);

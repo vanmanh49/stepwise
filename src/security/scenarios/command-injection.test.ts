@@ -73,6 +73,25 @@ describe('command injection and path traversal', () => {
     expect(last(run(PING!, '8.8.8.8; cat /app/.env', NO_SHELL!)).variables!.status).toBe(400);
   });
 
+  it.each([
+    [SHELL!, 'attacker in'],
+    [BLOCKLIST!, 'attacker in'],
+    [NO_SHELL!, 'stopped'],
+  ])('runs backticks as a second command under %s', (defense, result) => {
+    const steps = run(PING!, '8.8.8.8 `cat /app/.env`', defense);
+    expect(last(steps).variables!.result).toBe(result);
+  });
+
+  it('does not credit .. for an absolute path', () => {
+    const steps = run(DOWNLOAD!, '/etc/passwd', SHELL!);
+    expect(last(steps).variables!.result).toBe('attacker in');
+    expect(words(steps)).not.toContain('Each ..');
+  });
+
+  it('does not call the folder itself outside the folder', () => {
+    expect(words(run(DOWNLOAD!, '.', SHELL!))).not.toContain('is outside');
+  });
+
   it('refuses bad knobs with one step', () => {
     expect(run('nope', 'x', SHELL!)).toHaveLength(1);
     expect(run(PING!, 'x', 'nope')).toHaveLength(1);
