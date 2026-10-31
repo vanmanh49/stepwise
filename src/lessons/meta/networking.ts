@@ -122,4 +122,14 @@ export const networkingMeta: LessonMeta[] = [
     keywords: ['tcp', 'flow control', 'receive window', 'advertised window', 'rwnd', 'zero window', 'window probe', 'window update', 'receive buffer', 'backpressure', 'ss'],
     prerequisites: ['reliable-delivery'],
   },
+  {
+    id: 'congestion-control',
+    title: 'Congestion Control',
+    category: 'networking',
+    difficulty: 'intermediate',
+    group: 'Transport',
+    description: 'Fill a slow link until its queue overflows, and watch the window double, halve, and grow back in a sawtooth.',
+    keywords: ['tcp', 'congestion control', 'congestion window', 'cwnd', 'ssthresh', 'slow start', 'congestion avoidance', 'reno', 'cubic', 'bbr', 'aimd', 'sawtooth', 'tail drop', 'ss'],
+    prerequisites: ['reliable-delivery'],
+  },
 ];

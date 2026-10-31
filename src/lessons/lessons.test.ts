@@ -198,6 +198,7 @@ const EXPECTED_IDS = [
   'tcp-connections',
   'reliable-delivery',
   'flow-control',
+  'congestion-control',
 ];
 
 describe('lesson registry', () => {

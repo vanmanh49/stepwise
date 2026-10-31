@@ -197,6 +197,12 @@ export function traceSteps(result: SimResult, code: string, lines: Record<string
   return steps;
 }
 
+/** A number from a device's Congestion table, by column title. */
+export function congestionValue(event: SimEvent, device: string, column: string): number {
+  const table = event.tables[device]?.[CONGESTION_TABLE];
+  return Number(table?.rows[0]?.[table.columns.indexOf(column)] ?? 0);
+}
+
 /** Adds a closing step, standing in for the fold-up step if the run hit the cap. */
 export function endWith(steps: Step[], ending: Partial<Step>): Step[] {
   steps.splice(Math.min(steps.length, MAX_STEPS), 1, { ...steps.at(-1)!, ...ending });
@@ -213,8 +219,8 @@ export interface RoundOptions {
   watchTable: string;
   /** Extra node badges, such as the queue at the bottleneck. */
   badges?: (event: SimEvent) => Record<string, string>;
-  /** Explains a round, given the values before and after it. */
-  explain?: (values: number[], previous: number[] | undefined) => string;
+  /** Explains a round. */
+  explain?: (event: SimEvent) => string;
 }
 
 /** The events worth a step: the start of each round trip, the first drop in a round, and each retransmission. */
@@ -282,7 +288,7 @@ export function roundSteps(result: SimResult, code: string, lines: Record<string
     if (snippet) codeLine = lineOf(code, snippet);
     return {
       title: stepTitle,
-      why: isRound && explain ? explain(now.map(({ value }) => value), values[i - 1]?.map(({ value }) => value)) : event.why,
+      why: isRound && explain ? explain(event) : event.why,
       codeLine,
       variables: { time: formatTime(event.time), device: labels.get(event.device) ?? event.device },
       view: view(i),

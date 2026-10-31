@@ -28,6 +28,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   // From 6: below that, the Timeout preset's Segment 6 doesn't exist and is refused, as its own test checks.
   'reliable-delivery': { segments: [6, 8] },
   'flow-control': { buffer: [2000, 64000], rate: [0, 200] },
+  'congestion-control': { queue: [2, 40], ssthresh: [2, 64] },
 };
 
 function checkView(view: View, label: string) {
