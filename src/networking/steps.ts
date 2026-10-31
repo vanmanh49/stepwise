@@ -197,6 +197,12 @@ export function traceSteps(result: SimResult, code: string, lines: Record<string
   return steps;
 }
 
+/** Adds a closing step, standing in for the fold-up step if the run hit the cap. */
+export function endWith(steps: Step[], ending: Partial<Step>): Step[] {
+  steps.splice(Math.min(steps.length, MAX_STEPS), 1, { ...steps.at(-1)!, ...ending });
+  return steps;
+}
+
 export interface RoundOptions {
   /** The chart's lines at this event: one or two, on one axis. */
   series: (event: SimEvent) => { label: string; value: number }[];

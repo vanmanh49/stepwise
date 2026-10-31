@@ -112,4 +112,14 @@ export const networkingMeta: LessonMeta[] = [
     keywords: ['tcp', 'sequence number', 'ack', 'cumulative ack', 'retransmission', 'rto', 'timeout', 'fast retransmit', 'duplicate ack', 'sliding window', 'wireshark'],
     prerequisites: ['tcp-connections'],
   },
+  {
+    id: 'flow-control',
+    title: 'Flow Control',
+    category: 'networking',
+    difficulty: 'intermediate',
+    group: 'Transport',
+    description: 'Watch a receiver\'s advertised window shrink as its program falls behind, hit zero, and open again when it reads.',
+    keywords: ['tcp', 'flow control', 'receive window', 'advertised window', 'rwnd', 'zero window', 'window probe', 'window update', 'receive buffer', 'backpressure', 'ss'],
+    prerequisites: ['reliable-delivery'],
+  },
 ];

@@ -197,6 +197,7 @@ const EXPECTED_IDS = [
   'ports-udp',
   'tcp-connections',
   'reliable-delivery',
+  'flow-control',
 ];
 
 describe('lesson registry', () => {
