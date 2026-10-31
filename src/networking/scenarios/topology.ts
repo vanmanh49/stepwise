@@ -344,6 +344,8 @@ const asEdges: [from: string, to: string, relation: Relation][] = [
   ['core', 'origin', 'customer'],
   ['tb', 'evil', 'customer'],
 ];
+/** Transit A to Origin, the link the Link fails scene cuts. */
+export const ORIGIN_LINK = 3;
 const AS_NAMES: Record<string, { label: string; asn: number; column: number }> = {
   isp: { label: 'ISP', asn: 65200, column: 0 },
   ta: { label: 'Transit A', asn: 65010, column: 1 },
@@ -365,5 +367,5 @@ export function asNet({ prepend = 0 }: { prepend?: number } = {}) {
     return [id, createAs({ id, label, column, asn, neighbours })];
   }));
   const links: Link[] = asEdges.map(([from, to]) => ({ a: [from, to], b: [to, from], ms: AS_LINK_MS }));
-  return { routers, devices: Object.values(routers) as Device[], links, asnOf: (id: string) => AS_NAMES[id]!.asn };
+  return { routers, devices: Object.values(routers) as Device[], links };
 }

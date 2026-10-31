@@ -80,6 +80,13 @@ describe('BGP', () => {
     expect(paths).toEqual([[asnOf('x'), asnOf('a')], [asnOf('x'), asnOf('b')]]);
   });
 
+  it('takes a route back from the neighbour it now depends on', () => {
+    const { on, go, get } = network([['t', 'o', 'customer'], ['t', 'p', 'peer'], ['p', 'o', 'customer']]);
+    const run = go([on('o', 0, announce), on('t', 50, (router, ctx) => router.peerDown(ctx, 'o'))]);
+    expect(get('t').best(NETWORK, 24)).toBeDefined();
+    expect(run.events.filter(({ action, device }) => action === 'bgp-withdraw' && device === 't')).toHaveLength(1);
+  });
+
   it('moves traffic to the other path when prepending', () => {
     const { on, go, get, asnOf } = network([['x', 'a', 'customer'], ['x', 'b', 'customer'], ['o', 'a', 'provider', 2], ['o', 'b', 'provider']]);
     go([on('o', 0, announce)]);

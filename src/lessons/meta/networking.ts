@@ -212,4 +212,14 @@ export const networkingMeta: LessonMeta[] = [
     keywords: ['cdn', 'anycast', 'edge', 'cache', 'cache hit', 'cache miss', 'origin', 'x-cache', 'age', 'ttl', 'rst', 'curl', 'dig'],
     prerequisites: ['dns', 'http-1-1'],
   },
+  {
+    id: 'bgp',
+    title: 'BGP',
+    category: 'networking',
+    difficulty: 'advanced',
+    group: 'Web & Internet Scale',
+    description: 'Watch routes spread between networks, see a link fail and traffic move, and let a more specific prefix steal it.',
+    keywords: ['bgp', 'autonomous system', 'as', 'as_path', 'peering', 'transit', 'customer', 'provider', 'local preference', 'prepending', 'hijack', 'rpki', 'looking glass', 'traceroute'],
+    prerequisites: ['ip-routing'],
+  },
 ];

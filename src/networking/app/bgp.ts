@@ -64,8 +64,7 @@ export function createAs({ id, label, column, asn, neighbours }: AsConfig): AsRo
     const sent = told.get(key) ?? new Set<string>();
     told.set(key, sent);
     for (const { port, prepend = 0 } of neighbours) {
-      if (route && port === route.port) continue;
-      if (route && mayExport(route, port)) {
+      if (route && port !== route.port && mayExport(route, port)) {
         const path = [...Array.from({ length: prepend + 1 }, () => asn), ...route.path];
         sent.add(port);
         send(ctx, port, { kind: 'bgp', type: 'UPDATE', network, prefix, path }, {
@@ -79,7 +78,7 @@ export function createAs({ id, label, column, asn, neighbours }: AsConfig): AsRo
           title: `AS ${asn} tells ${port} to forget ${routeText({ network, prefix })}`,
           why: 'This AS can no longer reach the network that way, so it takes back what it said.',
         });
-      } else if (route) {
+      } else if (route && port !== route.port) {
         ctx.note({ action: 'bgp-filtered', title: `AS ${asn} keeps this route from ${port}`, why: `It came from a ${relationOf(route.port!)}, and ${port} is a ${relationOf(port)}. Passing it on would mean carrying their traffic for free.` });
       }
     }
