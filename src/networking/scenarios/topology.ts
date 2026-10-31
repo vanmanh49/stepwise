@@ -1,7 +1,9 @@
 import { ipv4 } from '../address';
+import { dnsResolver, dnsServer } from '../app/dns';
 import { createHost, createSwitch, type Host, type HostConfig } from '../devices';
 import { createDhcpServer } from '../dhcp';
 import { createRouter, type Interface, type Route } from '../router';
+import type { DnsRecord } from '../packet';
 import type { Device, Link } from '../sim';
 
 export const macOf = (n: number) => `aa:00:00:00:00:${n.toString(16).padStart(2, '0')}`;
@@ -244,4 +246,33 @@ export function mtuPath({ mtu, silent = false }: { mtu: number; silent?: boolean
     { a: ['r2', 'p1'], b: ['server', 'eth0'] },
   ];
   return { client, server, devices: [client, r1, r2, server] as Device[], links };
+}
+
+export const RESOLVER_IP = ipv4('10.0.2.2');
+const DNS_TTL_S = 60;
+const dnsRecord = (name: string, type: DnsRecord['type'], value: string): DnsRecord => ({ name, type, value, ttl: DNS_TTL_S });
+const EXAMPLE_NS = [dnsRecord('example.com', 'NS', 'ns1.example.com'), dnsRecord('ns1.example.com', 'A', '10.0.5.2')];
+
+/** One Router joining a Client and four name servers on their own subnets, so each link is a real hop. */
+export function dnsTree({ seeded = false }: { seeded?: boolean } = {}) {
+  const hostOn = (id: string, label: string, n: number, column: number, type?: Device['type']) => createHost({ id, label, column, mac: macOf(n), ip: ipv4(`10.0.${n}.2`), prefix: 24, gateway: ipv4(`10.0.${n}.1`), arp: { [ipv4(`10.0.${n}.1`)]: macOf(0x10 + n) }, ...(type ? { type } : {}) });
+  const client = hostOn('client', 'Client', 1, 0);
+  const resolver = hostOn('resolver', 'Resolver', 2, 0, 'dns');
+  const root = hostOn('root', 'Root', 3, 2, 'dns');
+  const tld = hostOn('tld', 'TLD', 4, 2, 'dns');
+  const auth = hostOn('auth', 'Authoritative', 5, 2, 'dns');
+  const hosts = [client, resolver, root, tld, auth];
+  const router = createRouter({
+    id: 'router',
+    label: 'Router',
+    column: 1,
+    interfaces: hosts.map((_, i) => ({ port: `p${i + 1}`, ip: ipv4(`10.0.${i + 1}.1`), prefix: 24, mac: macOf(0x11 + i) })),
+    routes: [],
+  });
+  dnsResolver(resolver, root.address(), seeded ? EXAMPLE_NS : []);
+  dnsServer(root, [dnsRecord('com', 'NS', 'a.gtld-servers.net'), dnsRecord('a.gtld-servers.net', 'A', '10.0.4.2')]);
+  dnsServer(tld, EXAMPLE_NS);
+  dnsServer(auth, [dnsRecord('www.example.com', 'A', '192.0.2.10'), dnsRecord('api.example.com', 'A', '192.0.2.20')]);
+  const links: Link[] = hosts.map((host, i) => ({ a: [host.id, 'eth0'], b: ['router', `p${i + 1}`], ms: 10 }));
+  return { client, resolver, root, tld, auth, devices: [...hosts, router] as Device[], links };
 }

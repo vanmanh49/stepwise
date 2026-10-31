@@ -85,6 +85,8 @@ export interface HostConfig {
   echoDelayMs?: number;
   /** Sets the MSS to `mtu − 40`; otherwise it is 1000. */
   mtu?: number;
+  /** How the network map draws it. */
+  type?: Device['type'];
 }
 
 export interface Reply {
@@ -304,7 +306,7 @@ export function createHost(config: HostConfig): Host {
   const host: Host = {
     id: config.id,
     label: config.label,
-    type: 'host',
+    type: config.type ?? 'host',
     column: config.column,
     mac,
     replies: [],
