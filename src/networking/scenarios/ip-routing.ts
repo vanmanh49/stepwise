@@ -8,9 +8,11 @@ import { R1_R2_LINK, threeRouters } from './topology';
 export const ipRoutingCode = `on packet(dst, ttl):
   if ttl <= 1:
     send Time Exceeded to the source
+    drop(packet)
   best = longest prefix in the table matching dst
   if no best:
     send Destination Unreachable to the source
+    drop(packet)
   ttl = ttl - 1
   frame = new frame to best.nextHop
   send(frame, best.port)`;

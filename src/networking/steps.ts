@@ -111,7 +111,7 @@ export function traceSteps(result: SimResult, code: string, lines: Record<string
     if (snippet) codeLine = lineOf(code, snippet);
     return {
       title: event.title,
-      why: event.why,
+      why: event.hops.some((hop) => hop.lost) ? `${event.why} This packet is lost on the way and never arrives.` : event.why,
       codeLine,
       variables: { time: formatTime(event.time), device: labels.get(event.device) ?? event.device },
       view: {

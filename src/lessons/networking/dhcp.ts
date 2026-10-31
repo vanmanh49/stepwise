@@ -1,7 +1,7 @@
 import { dhcpCode, dhcpSteps, SCENES } from '../../networking/scenarios/dhcp';
 import type { LessonContent } from '../../types/lesson';
 
-const defaults = { scene: SCENES[0]!, lease: '60', pool: '4' };
+const defaults = { scene: SCENES[0]!, lease: '60', pool: '2' };
 const steps = dhcpSteps(defaults);
 const offered = steps.find((step) => step.title.startsWith('Offer:'))!;
 
@@ -28,9 +28,9 @@ const content: LessonContent = {
     fields: [
       { name: 'scene', label: 'Scene', type: 'choice', sample: defaults.scene, options: SCENES },
       { name: 'lease', label: 'Lease time (s)', type: 'number', sample: defaults.lease, help: 'From 10 to 3600.' },
-      { name: 'pool', label: 'Pool size', type: 'number', sample: defaults.pool, help: 'From 1 to 4. Pool exhausted always uses 1.' },
+      { name: 'pool', label: 'Pool size', type: 'number', sample: defaults.pool, help: '1 or 2. Matters in Pool exhausted, where two clients boot.' },
     ],
-    presets: SCENES.map((scene) => ({ label: scene, values: { ...defaults, scene } })),
+    presets: SCENES.map((scene) => ({ label: scene, values: { ...defaults, scene, pool: scene === SCENES[2] ? '1' : defaults.pool } })),
     generate: dhcpSteps,
     codeLabel: 'Pseudocode',
   },

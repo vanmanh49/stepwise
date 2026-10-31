@@ -43,14 +43,13 @@ export function dhcpSteps(values: Record<string, string>): Step[] {
   if (!scene.ok) return refusal(TITLE, scene.why, EMPTY);
   const lease = readInt(values, 'lease', 'Lease time', { min: 10, max: 3600 });
   if (!lease.ok) return refusal(TITLE, lease.why, EMPTY);
-  const pool = readInt(values, 'pool', 'Pool size', { min: 1, max: 4 });
+  const pool = readInt(values, 'pool', 'Pool size', { min: 1, max: 2 });
   if (!pool.ok) return refusal(TITLE, pool.why, EMPTY);
 
-  const exhausted = scene.value === SCENES[2];
-  const { hosts, devices, links } = dhcpNetwork({ pool: exhausted ? 1 : pool.value, leaseS: lease.value });
+  const { hosts, devices, links } = dhcpNetwork({ pool: pool.value, leaseS: lease.value });
   const [laptop, phone] = hosts;
   const commands: Command[] = [{ at: 0, device: laptop!.id, run: (_, ctx) => laptop!.boot(ctx) }];
-  if (exhausted) commands.push({ at: SECOND_BOOT_MS, device: phone!.id, run: (_, ctx) => phone!.boot(ctx) });
+  if (scene.value === SCENES[2]) commands.push({ at: SECOND_BOOT_MS, device: phone!.id, run: (_, ctx) => phone!.boot(ctx) });
   const faults: Fault[] = scene.value === SCENES[3] ? [{ at: 0, kind: 'stopDevice', device: 'dhcp' }] : [];
   const endAt = scene.value === SCENES[1] ? lease.value * 1000 * RENEWAL_RUN : END_MS;
 

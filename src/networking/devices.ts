@@ -1,4 +1,4 @@
-import { formatIp, inSubnet } from './address';
+import { formatIp, inSubnet, ipv4 } from './address';
 import { BROADCAST_MAC, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, ICMP_NAME, type Arp, type Dhcp, type Frame, type Icmp, type IpPacket, type Udp } from './packet';
 import { formatTime, type Ctx, type Device, type Note, type TableSnapshot } from './sim';
 
@@ -6,6 +6,7 @@ export const ARP_TIMEOUT_MS = 1000;
 export const DHCP_RETRY_MS = 4000;
 const DEFAULT_TTL = 64;
 const ETH = 'eth0';
+const LOOPBACK = ipv4('127.0.0.0');
 
 export interface Own {
   mac: string;
@@ -120,8 +121,8 @@ export function createHost(config: HostConfig): Host {
   /** The routing decision every host makes before sending. */
   function originate(ctx: Ctx, ipPacket: IpPacket, label: string) {
     const dst = formatIp(ipPacket.dst);
-    if (ipPacket.dst === ip) {
-      ctx.note({ action: 'loopback', title: `${dst} is this host`, why: 'A host that sends to its own address needs no network. Nothing goes on the wire.' });
+    if (ipPacket.dst === ip || inSubnet(ipPacket.dst, LOOPBACK, 8)) {
+      ctx.note({ action: 'loopback', title: `${dst} is this host`, why: 'A host that sends to itself needs no network, and every 127.x.x.x address means "this machine". Nothing goes on the wire.' });
       return;
     }
     if (!isLocal(ipPacket.dst) && gateway === undefined) {

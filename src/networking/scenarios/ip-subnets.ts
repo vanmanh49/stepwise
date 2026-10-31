@@ -18,6 +18,7 @@ const TITLE = "Can't work out this subnet";
 const LENGTH = { min: 1, max: 18 };
 
 const line = (snippet: string) => lineOf(ipSubnetsCode, snippet);
+const hostBits = (count: number) => `${count} host ${count === 1 ? 'bit' : 'bits'}`;
 
 /** One row per octet, because 32 cells across would scroll on a phone. `|` falls where network bits end. */
 function bitsGrid(ip: number, prefix: number, role: Role): GridView {
@@ -67,14 +68,14 @@ export function ipSubnetsSteps(values: Record<string, string>): Step[] {
 
   const steps: Step[] = [
     {
-      title: `${cidr}: ${prefix} network bits, ${32 - prefix} host bits`,
-      why: `An IPv4 address is 32 bits. The /${prefix} says the first ${prefix} name the network and the other ${32 - prefix} name a host on it.`,
+      title: `${cidr}: ${prefix} network bits, ${hostBits(32 - prefix)}`,
+      why: `An IPv4 address is 32 bits. The /${prefix} says the first ${prefix} name the network and the rest name a host on it.`,
       codeLine: line('mask = ones(prefix) + zeros(32 - prefix)'),
       view: panels(ip, 'default'),
     },
     {
       title: `The mask is ${formatIp(mask(prefix))}`,
-      why: `The mask is ${prefix} ones then ${32 - prefix} zeros. The | marks where the network bits end.`,
+      why: `The mask is ${prefix} ones, then zeros for the rest. The | marks where the network bits end.`,
       codeLine: line('mask = ones(prefix) + zeros(32 - prefix)'),
       view: panels(mask(prefix), 'active'),
     },
@@ -105,7 +106,7 @@ export function ipSubnetsSteps(values: Record<string, string>): Step[] {
   results.push(['First host', formatIp(first)], ['Last host', formatIp(last)]);
   steps.push({
     title: `${hostCount} usable ${hostCount === 1 ? 'host' : 'hosts'}: ${formatIp(first)} to ${formatIp(last)}`,
-    why: pointToPoint ? 'There is no network or broadcast address to set aside here.' : `${32 - prefix} host bits give 2^${32 - prefix} addresses. Two are set aside: the network and the broadcast.`,
+    why: pointToPoint ? 'There is no network or broadcast address to set aside here.' : `With ${hostBits(32 - prefix)} there are 2^${32 - prefix} addresses. Two are set aside: the network and the broadcast.`,
     codeLine: line('hosts = 2 ^ (32 - prefix) - 2'),
     view: panels(ip, 'default'),
   });
@@ -113,6 +114,20 @@ export function ipSubnetsSteps(values: Record<string, string>): Step[] {
   const local = inSubnet(other, network, prefix);
   const name = formatIp(other);
   const offLink = pointToPoint ? `${name} is not on this link` : `${name} is on another subnet, so it goes via the gateway`;
+  const special =
+    other === ip
+      ? { title: `${name} is the same address`, why: 'A host that sends to itself needs no network at all.' }
+      : pointToPoint || !local
+        ? undefined
+        : other === network
+          ? { title: `${name} is the network address`, why: 'This address names the subnet itself, so no host can use it.' }
+          : other === broadcast
+            ? { title: `${name} is the broadcast address`, why: 'A packet to this address reaches every host on the subnet, in one frame to the Ethernet broadcast address, with no ARP.' }
+            : undefined;
+  if (special) {
+    steps.push({ ...special, codeLine: line('send directly'), view: panels(other, 'active') });
+    return steps;
+  }
   steps.push({
     title: local ? `${name} is on this subnet, so it is sent directly` : offLink,
     why: local

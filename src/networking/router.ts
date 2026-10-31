@@ -98,13 +98,14 @@ export function createRouter(config: RouterConfig): Device {
     const dst = formatIp(packet.dst);
     const route = lookup(routes, packet.dst, ctx.linkUp);
     if (!route) {
-      reportError(ctx, arrival, packet, 'unreachable', 'no-route', `${label} has no route to ${dst}`, 'No row in the table matches and there is no default route, so the packet is dropped and the sender is told.');
+      reportError(ctx, arrival, packet, 'unreachable', 'no-route', `${label} has no route to ${dst}`, 'No usable row in the table matches, so the packet is dropped and the sender is told.');
       return;
     }
+    const skipped = routes.find((each) => !ctx.linkUp(each.port) && inSubnet(packet.dst, each.network, each.prefix) && (each.prefix > route.prefix || (each.prefix === route.prefix && each.metric < route.metric)));
     ctx.note({
       action: 'route-match',
       title: `${dst} matches ${cidr(route)}`,
-      why: `${label} picks the matching row with the longest prefix. Here that is /${route.prefix}, going out of ${route.port}.`,
+      why: `${label} picks the matching row with the longest prefix. Here that is /${route.prefix}, going out of ${route.port}.${skipped?.nextHop === undefined ? '' : ` The row via ${formatIp(skipped.nextHop)} is skipped because its link is down.`}`,
       table: { index: 0, row: routes.indexOf(route) },
     }, arrived);
     const out = ifaceOn(route.port);
@@ -115,10 +116,14 @@ export function createRouter(config: RouterConfig): Device {
         return;
       }
       const onward: IpPacket = { ...packet, ttl: packet.ttl - 1 };
+      const seen = arrived.payload.kind === 'ip' ? arrived.payload : packet;
+      const newSource = seen.src !== packet.src;
+      const newDestination = seen.dst !== packet.dst;
+      const change = newSource ? `NAT changed the source IP to ${formatIp(packet.src)}.` : newDestination ? `NAT changed the destination IP to ${dst}.` : `The source and destination IPs stay ${formatIp(packet.src)} and ${dst}.`;
       ctx.send([route.port], { srcMac: out.mac, dstMac, payload: onward }, {
-        action: 'forward-hop',
+        action: newSource ? 'nat-send-out' : newDestination ? 'nat-send-in' : 'forward-hop',
         title: `${label} forwards it, TTL ${packet.ttl} → ${onward.ttl}`,
-        why: `A new frame carries it to the next hop, so both MAC addresses change. The source and destination IPs stay ${formatIp(packet.src)} and ${dst}.`,
+        why: `A new frame carries it to the next hop, so both MAC addresses change. ${change}`,
         before: arrived,
       });
     });
@@ -139,14 +144,14 @@ export function createRouter(config: RouterConfig): Device {
         while (taken.has(publicPort)) publicPort++;
       }
       mappings.splice(0, mappings.length, ...active);
-      mapping = { insideIp: packet.src, insidePort: udp.srcPort, publicPort, expiresAt: 0 };
+      mapping = { insideIp: packet.src, insidePort: udp.srcPort, publicPort, expiresAt: ctx.now + timeoutS * 1000 };
       mappings.push(mapping);
       const clash = publicPort !== udp.srcPort;
       ctx.note({
         action: clash ? 'nat-new-port' : 'nat-out',
         title: clash ? `Port ${udp.srcPort} is taken, so ${inside} gets public port ${publicPort}` : `${inside} goes out as ${formatIp(publicIp)}:${publicPort}`,
         why: clash
-          ? 'Replies are matched on the public port alone, so two inside hosts can never share one.'
+          ? 'This router matches replies on the public port alone, so two inside hosts can\'t share one.'
           : 'Private addresses mean nothing on the internet, so the router swaps in its public address and notes the swap in its table.',
         table: { index: 2, row: mappings.length - 1 },
       }, frame);
@@ -158,6 +163,17 @@ export function createRouter(config: RouterConfig): Device {
   function natIn(ctx: Ctx, packet: IpPacket, frame: Frame): IpPacket | undefined {
     const udp = packet.payload.kind === 'udp' ? packet.payload : undefined;
     const mapping = udp && live(ctx.now).find((each) => each.publicPort === udp.dstPort);
+    const lapsed = udp && !mapping ? mappings.find((each) => each.publicPort === udp.dstPort) : undefined;
+    if (lapsed) {
+      ctx.note({
+        action: 'nat-expired',
+        title: `The mapping for port ${lapsed.publicPort} expired at ${formatTime(lapsed.expiresAt)}, so the packet is dropped`,
+        why: 'The conversation went quiet for longer than the timeout, so the router forgot it. The reply came too late, and the router no longer knows who asked.',
+        table: { index: 2, row: mappings.indexOf(lapsed) },
+      }, frame);
+      mappings.splice(mappings.indexOf(lapsed), 1);
+      return undefined;
+    }
     if (!udp || !mapping) {
       ctx.note({
         action: 'nat-drop',

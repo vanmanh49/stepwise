@@ -71,6 +71,11 @@ describe('hosts and ARP', () => {
     expect(actions(run)).toEqual(['loopback']);
   });
 
+  it('keeps 127.0.0.1 on the host', () => {
+    const run = lan(([a]) => [at(0, a!, (ctx) => a!.ping(ctx, ip('127.0.0.1'), 1))]);
+    expect(actions(run)).toEqual(['loopback']);
+  });
+
   it('drops a frame for another MAC', () => {
     const a = createHost({ id: 'h1', label: 'H1', column: 0, mac: mac(1), ip: ip('10.0.0.1'), prefix: 24, arp: { [ip('10.0.0.2')]: mac(2) } });
     const others = [host(2), host(3)];

@@ -28,6 +28,11 @@ describe('Ping & Traceroute', () => {
     expect(lost).toHaveLength(1);
   });
 
+  it('says so when a packet is lost', () => {
+    const lost = run({ drop: '1' }).find((step) => JSON.stringify(step.view).includes('"progress":0.25'))!;
+    expect(lost.why).toContain('lost');
+  });
+
   it('reports Time Exceeded from R1 at a TTL of 1 and from R2 at a TTL of 2', () => {
     expect(run({ ttl: '1' }).map((step) => step.title).join()).toContain('Time Exceeded from 10.1.0.1');
     expect(run({ ttl: '2' }).map((step) => step.title).join()).toContain('Time Exceeded from 10.12.0.2');

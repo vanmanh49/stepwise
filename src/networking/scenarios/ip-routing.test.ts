@@ -49,6 +49,21 @@ describe('Routing Tables', () => {
     expect(titles(steps).join()).toContain('Server answers');
   });
 
+  it('explains why the higher metric won', () => {
+    const match = run('10.3.0.2', DOWN).find((step) => step.title.includes('matches'))!;
+    expect(match.why).toContain('The row via 10.12.0.2 is skipped because its link is down');
+  });
+
+  it('does not deny a default route the table shows', () => {
+    const steps = run('192.0.2.10', DOWN);
+    expect(steps.map((step) => step.why).join()).not.toContain('no default route');
+  });
+
+  it('says nothing about a skipped row when the link is up', () => {
+    const match = run('10.3.0.2').find((step) => step.title.includes('matches'))!;
+    expect(match.why).not.toContain('skipped');
+  });
+
   it('ends a loop in Time Exceeded after 8 hops', () => {
     const steps = run('192.0.2.10', UP, LOOP);
     expect(steps.filter((step) => step.title.includes('forwards it') && packet(step)['ICMP']?.startsWith('Echo Request'))).toHaveLength(7);

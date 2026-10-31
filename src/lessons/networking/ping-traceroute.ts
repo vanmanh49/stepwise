@@ -13,7 +13,7 @@ const content: LessonContent = {
     'Ping tells you less than it seems to. A lost reply looks exactly like a lost request, because the sender only sees silence. Many firewalls drop ICMP too, so no reply doesn\'t prove that a host is down.',
     'Traceroute reuses the rule that routers drop a packet when its TTL runs out, and send Time Exceeded back. It sends a probe with a TTL of 1, which dies at the first router. Then it sends a TTL of 2, which dies at the second, and so on.',
     'Each Time Exceeded comes from the router that dropped the probe, which gives away its address. When a probe finally reaches the destination, the answer is an Echo Reply and the list is finished. Nothing in the network was built for this: it is a side effect of TTL.',
-    'A router may forward traffic but refuse to send ICMP errors. It shows as * in the list, and everything after it still works. This simulation sends one probe per hop using ICMP echo, as Windows tracert does. Linux traceroute sends UDP by default and tries each hop 3 times, and real paths can differ from one probe to the next.',
+    'A router may forward traffic but refuse to send ICMP errors. It shows as * in the list, and everything after it still works. This simulation sends one ICMP echo probe per hop. Windows tracert also uses ICMP echo, Linux traceroute sends UDP by default, and both try each hop 3 times. Real paths can differ from one probe to the next.',
     'To see this on a real machine, run ping, then traceroute or mtr. mtr repeats traceroute live and shows the loss at each hop.',
   ],
   howItWorks: [

@@ -8,8 +8,8 @@ import { EMPTY } from '../steps';
 
 export const layersEncapsulationCode = `// sender: each layer wraps what the layer above gave it
 data = "hello"
-segment = udpHeader + data
-packet = ipHeader + segment
+datagram = udpHeader + data
+packet = ipHeader + datagram
 ipHeader.checksum = sum(ipHeader)
 frame = ethernetHeader + packet
 send(frame)
@@ -17,8 +17,8 @@ send(frame)
 // receiver: each layer unwraps its own header
 packet = frame.payload
 if (sum(packet.header) != 0) drop(packet)
-segment = packet.payload
-data = segment.payload
+datagram = packet.payload
+data = datagram.payload
 deliver(data)`;
 
 export const CORRUPT_OPTIONS = ['No', 'Yes'];
@@ -63,8 +63,8 @@ export function layersEncapsulationSteps(values: Record<string, string>): Step[]
 
   const text = message.value;
   const dataBytes = utf8(text).length;
-  const segmentBytes = UDP_HEADER + dataBytes;
-  const packetBytes = IP_HEADER + segmentBytes;
+  const datagramBytes = UDP_HEADER + dataBytes;
+  const packetBytes = IP_HEADER + datagramBytes;
   const frameBytes = ETHERNET_HEADER + packetBytes;
   const sent = ipv4Header({ src: SRC, dst: DST, ttl: 64, id: 1, protocol: UDP_PROTOCOL, totalLength: packetBytes });
   const received = sent.slice();
@@ -86,14 +86,14 @@ export function layersEncapsulationSteps(values: Record<string, string>): Step[]
   });
   steps.push({
     title: `UDP adds ${UDP_HEADER} bytes: ports`,
-    why: 'Ports say which program on each machine this is for. The message is now the payload of a UDP segment.',
-    codeLine: line('segment = udpHeader + data'),
+    why: 'Ports say which program on each machine this is for. The message is now the payload of a UDP datagram.',
+    codeLine: line('datagram = udpHeader + data'),
     view: stackGrid([data, udp], 1),
   });
   steps.push({
     title: `IP adds ${IP_HEADER} bytes: addresses and a TTL`,
-    why: 'IP names the two machines, wherever they are in the world. The UDP segment is now the payload of an IP packet.',
-    codeLine: line('packet = ipHeader + segment'),
+    why: 'IP names the two machines, wherever they are in the world. The UDP datagram is now the payload of an IP packet.',
+    codeLine: line('packet = ipHeader + datagram'),
     view: stackGrid([data, udp, ip], 2),
   });
   steps.push({
@@ -125,7 +125,7 @@ export function layersEncapsulationSteps(values: Record<string, string>): Step[]
   if (result !== 0) {
     steps.push({
       title: `IP checksum failed: ${hex(result, 4)} instead of 0, so the packet is dropped`,
-      why: 'A valid header sums to 0 here. This one does not, so a field can no longer be trusted, and IP drops the packet without telling anyone. Fixing that is a job for a higher layer.',
+      why: 'A valid header gives 0 here. This one does not, so a field can no longer be trusted, and IP drops the packet without telling anyone. Fixing that is a job for a higher layer.',
       codeLine: line('if (sum(packet.header) != 0) drop(packet)'),
       variables,
       view: { kind: 'panels', panels: [{ label: 'IPv4 header', view: headerGrid(received, (i) => (i === TTL_BYTE ? 'discarded' : 'default')) }] },
@@ -134,7 +134,7 @@ export function layersEncapsulationSteps(values: Record<string, string>): Step[]
   }
   steps.push({
     title: 'IP checks the header: the sum is 0, so it is intact',
-    why: 'Summing the header with its stored checksum gives 0 only if nothing changed.',
+    why: 'Running the same sum over the header, checksum included, gives 0 only if nothing changed.',
     codeLine: line('if (sum(packet.header) != 0) drop(packet)'),
     variables,
     view: { kind: 'panels', panels: [{ label: 'IPv4 header', view: headerGrid(received, () => 'found') }] },
@@ -142,14 +142,14 @@ export function layersEncapsulationSteps(values: Record<string, string>): Step[]
   steps.push({
     title: 'IP removes its header',
     why: 'The destination address is this machine, and the protocol field says UDP, so the payload goes up to UDP.',
-    codeLine: line('segment = packet.payload'),
+    codeLine: line('datagram = packet.payload'),
     variables,
     view: stackGrid([data, udp], 1),
   });
   steps.push({
     title: 'UDP removes its header',
     why: 'Port 7 says which program gets the data.',
-    codeLine: line('data = segment.payload'),
+    codeLine: line('data = datagram.payload'),
     variables,
     view: stackGrid([data], 0),
   });

@@ -10,9 +10,9 @@ const content: LessonContent = {
     'A message never crosses a network on its own. Each layer of software wraps it in a header of its own, and the other side unwraps those headers in reverse order. This lesson wraps your message in real UDP, IP and Ethernet layers, works out the real IPv4 checksum, then corrupts a byte to show what the checksum is for.',
   concept: [
     'Networking is split into layers so that each one solves a single problem. Ethernet moves a frame across one wire. IP moves a packet between any two machines on earth. UDP and TCP deliver data to the right program. The application decides what the data means.',
-    'Each layer treats everything it gets from above as an opaque payload and puts its own header in front. This is called encapsulation. IP has no idea that a UDP segment is inside its packet, and Ethernet has no idea that an IP packet is inside its frame.',
+    'Each layer treats everything it gets from above as an opaque payload and puts its own header in front. This is called encapsulation. IP doesn\'t read the UDP datagram inside its packet, and Ethernet doesn\'t read the IP packet inside its frame. Each keeps one small field naming what it carries, so the other side knows which layer to hand it to.',
     'The receiver undoes this in reverse. Each layer reads only its own header, removes it, and passes the rest up. That means one layer can change without touching the others: Wi-Fi replaces Ethernet, and IP and everything above carry on as before.',
-    'The IPv4 header carries a checksum: the header\'s 16-bit words added up and inverted. Add the same words at the other end, with the checksum included, and a clean header gives 0. It covers the header only, so the layers above must protect the payload. It catches accidents, not attackers.',
+    'The IPv4 header carries a checksum: the header\'s 16-bit words added up and inverted. Run the same sum at the other end, with the checksum included, and a clean header gives 0. It covers the header only, so the layers above must protect the payload. It catches accidents, not attackers.',
     'This simulation shows one exchange with fixed addresses. Its IPv4 header is real, byte for byte, while the UDP and Ethernet headers are described and not encoded. It leaves out the Ethernet frame check, the UDP checksum and IP options.',
     'To see this on a real machine, run tcpdump or open Wireshark. Both show every captured packet split into these same layers, with each header\'s fields spelled out.',
   ],
@@ -61,7 +61,7 @@ const content: LessonContent = {
       view: beforeIp.view,
       options: ['IP adds source and destination IP addresses', 'Ethernet adds MAC addresses', 'The application adds a port', 'UDP adds a second header'],
       answer: 0,
-      explanation: 'The stack runs top to bottom: application, UDP, IP, Ethernet. IP takes the UDP segment as its payload.',
+      explanation: 'The stack runs top to bottom: application, UDP, IP, Ethernet. IP takes the UDP datagram as its payload.',
     },
     {
       id: 'q2',
@@ -75,9 +75,9 @@ const content: LessonContent = {
       id: 'q3',
       type: 'code',
       prompt: 'In the pseudocode, which line makes a damaged header stop here?',
-      options: ['if (sum(packet.header) != 0) drop(packet)', 'frame = ethernetHeader + packet', 'segment = udpHeader + data', 'deliver(data)'],
+      options: ['if (sum(packet.header) != 0) drop(packet)', 'frame = ethernetHeader + packet', 'datagram = udpHeader + data', 'deliver(data)'],
       answer: 0,
-      explanation: 'A clean header sums to 0 with its stored checksum, so any other result means a byte changed on the way.',
+      explanation: 'A clean header gives 0 with its stored checksum included, so any other result means a byte changed on the way.',
     },
     {
       id: 'q4',

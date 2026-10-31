@@ -12,6 +12,7 @@ if (mac is missing):
   broadcast("who has ip?")
   wait for a reply, up to 1 second
   if (no reply): give up
+  cache[ip] = reply.mac
 send(mac, packet)
 
 // every host hears the question

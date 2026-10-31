@@ -8,7 +8,7 @@ import { MAX_STEPS } from './steps';
 const GARBAGE = ['', 'abc', '-3', '1e9'];
 
 /** Typed addresses reach parsers, so a text field also gets input built to break them. */
-const HOSTILE = ['1.2.3', '256.1.1.1', '1.1.1.1/99', '0.0.0.0', '255.255.255.255', '0.0.0.0/0', '/', '...', ' ', '٠.٠.٠.٠'];
+const HOSTILE = ['010.0.0.1', '1.2.3.4/', ' 10.0.0.1 ', '1.2.3', '256.1.1.1', '1.1.1.1/99', '0.0.0.0', '255.255.255.255', '0.0.0.0/0', '/', '...', ' ', '٠.٠.٠.٠'];
 
 function valueFor(field: FormField, r: () => number, range?: [number, number]): string {
   if (field.type === 'choice') return pick(r, [field.sample, ...(field.options ?? [])]);
@@ -22,7 +22,7 @@ function valueFor(field: FormField, r: () => number, range?: [number, number]): 
 const RANGES: Record<string, Record<string, [number, number]>> = {
   'ethernet-switching': { aging: [1, 600] },
   'ping-traceroute': { ttl: [1, 64] },
-  dhcp: { lease: [10, 3600], pool: [1, 4] },
+  dhcp: { lease: [10, 3600], pool: [1, 2] },
   nat: { port: [1024, 65535], timeout: [1, 300] },
 };
 

@@ -3,7 +3,7 @@ import { dhcpSteps, SCENES } from './dhcp';
 import { MAX_STEPS } from '../steps';
 
 const [FIRST, RENEWAL, EXHAUSTED, DOWN] = SCENES;
-const run = (scene: string, overrides: Record<string, string> = {}) => dhcpSteps({ scene, lease: '60', pool: '4', ...overrides });
+const run = (scene: string, overrides: Record<string, string> = {}) => dhcpSteps({ scene, lease: '60', pool: '2', ...overrides });
 const titles = (scene: string, overrides?: Record<string, string>) => run(scene, overrides).map((step) => step.title);
 
 describe('DHCP lesson', () => {
@@ -29,6 +29,20 @@ describe('DHCP lesson', () => {
     const list = titles(EXHAUSTED!, { pool: '1' });
     expect(list.join()).toContain('pool is empty');
     expect(list.at(-1)).toContain('Phone gives itself 169.254.0.2');
+  });
+
+  it('gives both clients an address when the pool has room', () => {
+    const list = titles(EXHAUSTED!, { pool: '2' });
+    expect(list.join()).toContain('Phone now has 10.0.0.101');
+    expect(list.join()).not.toContain('pool is empty');
+  });
+
+  it('refuses a pool of 3', () => {
+    expect(run(FIRST!, { pool: '3' })).toHaveLength(1);
+  });
+
+  it('says one address in the singular', () => {
+    expect(run(EXHAUSTED!, { pool: '1' }).map((step) => step.why).join()).not.toContain('All 1');
   });
 
   it('gives the laptop a link-local address when the server is down', () => {

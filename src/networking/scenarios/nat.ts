@@ -12,14 +12,14 @@ if no mapping for key:
   port = inside port, or the next free one if taken
   table[port] = key
 packet.source = (public ip, port)
-send(packet)
+send(packet to the server)
 
 // coming back
 key = table[packet.destination port]
 if no key:
   drop(packet)
 packet.destination = key
-send(packet)`;
+send(packet to the inside host)`;
 
 export const SCENES = ['One host', 'Same port on two hosts', 'Unsolicited inbound', 'Mapping expired'];
 
@@ -28,7 +28,9 @@ const LINES = {
   'nat-new-port': 'port = inside port, or the next free one if taken',
   'nat-in': 'key = table[packet.destination port]',
   'nat-drop': 'drop(packet)',
-  'forward-hop': 'send(packet)',
+  'nat-expired': 'drop(packet)',
+  'nat-send-out': 'send(packet to the server)',
+  'nat-send-in': 'send(packet to the inside host)',
 };
 
 const TITLE = "Can't run this";

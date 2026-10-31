@@ -37,7 +37,7 @@ export function createDhcpServer({ id, label, column, mac, ip, pool, leaseS }: D
       const taken = new Set([...leases.values()].map((lease) => lease.address));
       const address = leases.get(clientMac)?.address ?? pool.find((each) => !taken.has(each));
       if (address === undefined) {
-        ctx.note({ action: 'dhcp-silent', title: 'The pool is empty, so the server says nothing', why: `All ${pool.length} addresses are out on lease. DHCP has no "sorry" message for a Discover, so the client just hears silence.` });
+        ctx.note({ action: 'dhcp-silent', title: 'The pool is empty, so the server says nothing', why: `${pool.length === 1 ? 'The only address is' : `All ${pool.length} addresses are`} out on lease. DHCP has no "sorry" message for a Discover, so the client just hears silence.` });
         return;
       }
       // Held from the Offer, so a client asking at the same moment can't be offered the same address.

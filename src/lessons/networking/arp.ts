@@ -76,9 +76,9 @@ const content: LessonContent = {
       id: 'q3',
       type: 'code',
       prompt: 'Which line makes every later packet to this IP skip the broadcast?',
-      options: ['cache[question.senderIp] = question.senderMac', 'broadcast("who has ip?")', 'hold(packet)', 'if (no reply): give up'],
+      options: ['cache[ip] = reply.mac', 'broadcast("who has ip?")', 'hold(packet)', 'if (no reply): give up'],
       answer: 0,
-      explanation: 'Both sides keep what they learn, so neither needs to ask again while the entry lasts.',
+      explanation: 'The asker keeps the answer, so it doesn\'t need to ask again while the entry lasts.',
     },
     {
       id: 'q4',

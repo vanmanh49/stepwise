@@ -10,6 +10,8 @@ const packet = (step: Step) => {
   return Object.fromEntries((view?.rows ?? []).map((row) => [row.label, row.cells[0]!.value]));
 };
 
+const packetIsOutbound = (step: Step) => packet(step)['Destination IP'] === '203.0.113.5';
+
 describe('NAT lesson', () => {
   it('rewrites the source going out', () => {
     const hop = run(ONE!).find((step) => step.title.startsWith('Router forwards'))!;
@@ -35,7 +37,16 @@ describe('NAT lesson', () => {
   });
 
   it('drops a reply after the mapping expires', () => {
-    expect(run(EXPIRED!, { timeout: '1' }).at(-1)!.title).toContain('dropped');
+    const last = run(EXPIRED!, { timeout: '1' }).at(-1)!;
+    expect(last.title).toContain('expired');
+    expect(last.title).toContain('dropped');
+  });
+
+  it('highlights a different code line on the way back', () => {
+    const steps = run(ONE!);
+    const out = steps.find((step) => step.title.startsWith('Router forwards') && packetIsOutbound(step))!;
+    const back = steps.findLast((step) => step.title.startsWith('Router forwards'))!;
+    expect(out.codeLine).not.toBe(back.codeLine);
   });
 
   it('never shows a private address past the router', () => {

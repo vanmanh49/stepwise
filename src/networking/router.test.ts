@@ -187,9 +187,25 @@ describe('NAT', () => {
     const net = natNet();
     const run = simulate({ devices: net.devices, links: net.links, commands: [udp(net.a, '198.51.100.2', 5000)] });
     const out = run.events.find((event) => event.action === 'nat-out')!;
-    const hop = run.events.find((event) => event.action === 'forward-hop')!;
+    const hop = run.events.find((event) => event.action === 'nat-send-out')!;
     expect(out).toBeDefined();
     expect(hop.frame!.payload).toMatchObject({ src: ip(PUBLIC), payload: { srcPort: 5000 } });
+  });
+
+  it('shows a new mapping with its real expiry', () => {
+    const net = natNet();
+    const run = simulate({ devices: net.devices, links: net.links, commands: [udp(net.a, '198.51.100.2', 5000)] });
+    const out = run.events.find((event) => event.action === 'nat-out')!;
+    expect(out.tables.nat![2]!.rows[0]![2]).not.toBe('0 ms');
+  });
+
+  it('says what NAT changed instead of saying the IPs stay the same', () => {
+    const net = natNet();
+    const run = simulate({ devices: net.devices, links: net.links, commands: [udp(net.a, '198.51.100.2', 5000)] });
+    const out = run.events.find((event) => event.action === 'nat-send-out')!;
+    const back = run.events.find((event) => event.action === 'nat-send-in')!;
+    expect(out.why).toContain('NAT changed the source IP to 198.51.100.1');
+    expect(back.why).toContain('NAT changed the destination IP to 192.168.1.10');
   });
 
   it('restores the inside address on the reply', () => {
@@ -236,7 +252,7 @@ describe('NAT', () => {
     });
     const list = run.events.map((event) => event.action);
     expect(list).toContain('nat-in');
-    expect(list.at(-1)).toBe('nat-drop');
+    expect(list.at(-1)).toBe('nat-expired');
   });
 });
 

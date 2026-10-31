@@ -46,6 +46,24 @@ describe('IP Addresses & Subnets', () => {
     expect(run('10.0.0.0/31', '10.0.0.9').at(-1)!.title).not.toContain('gateway');
   });
 
+  it('names a broadcast as a broadcast', () => {
+    expect(run('192.168.1.10/24', '192.168.1.255').at(-1)!.title).toContain('broadcast address');
+  });
+
+  it('names a network address as a network address', () => {
+    expect(run('192.168.1.10/24', '192.168.1.0').at(-1)!.title).toContain('network address');
+  });
+
+  it('notices the same address', () => {
+    expect(run('192.168.1.10/24', '192.168.1.10').at(-1)!.title).toContain('same address');
+  });
+
+  it('counts a single bit in the singular', () => {
+    const text = run('10.0.0.0/31', '10.0.0.1').map((step) => `${step.title} ${step.why}`).join();
+    expect(text).not.toContain('1 host bits');
+    expect(text).not.toContain('1 zeros');
+  });
+
   it('marks the boundary between network and host bits', () => {
     const view = run('10.0.12.7/20', '10.0.12.8')[0]!.view as PanelsView;
     const bits = view.panels[0]!.view as GridView;

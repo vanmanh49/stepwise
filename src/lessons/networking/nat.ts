@@ -3,7 +3,7 @@ import type { LessonContent } from '../../types/lesson';
 
 const defaults = { scene: SCENES[0]!, port: '5000', timeout: '30' };
 const steps = natSteps(defaults);
-const atServer = steps.find((step) => step.title.includes('replies to'))!;
+const atServer = steps[steps.findIndex((step) => step.title.includes('replies to')) - 1]!;
 
 const content: LessonContent = {
   overview:
@@ -12,7 +12,7 @@ const content: LessonContent = {
     'IPv4 has about 4 billion addresses, far fewer than there are devices. NAT, Network Address Translation, stretches them. Private ranges like 192.168.0.0/16 are reused in every building, and internet routers won\'t carry them, so a private address can never appear on the public internet.',
     'Ports make sharing possible. A port is a number that names a conversation on a machine, and every UDP or TCP packet carries a source and a destination port. The next part of this course covers them properly.',
     'When a packet goes out, the router swaps its private source for the router\'s own public address, and notes the swap in a table. The server only ever sees the router. When the reply arrives at that public port, the router looks up who asked and swaps the address back.',
-    'Two inside hosts may pick the same port. Replies are matched on the public port alone, so the router gives the second host a different one. Mappings also time out: a UDP conversation that goes quiet is forgotten, and a late reply has nowhere to go.',
+    'Two inside hosts may pick the same port. This router matches replies on the public port alone, so it gives the second host a different one. Real NATs also track the remote address, so they can reuse a port for different destinations. Mappings also time out: a UDP conversation that goes quiet is forgotten, and a late reply has nowhere to go.',
     'A packet that arrives with no mapping is dropped, because the router has no idea who it is for. That is why you can\'t reach a home computer from outside without setting up port forwarding, and why NAT feels like a firewall even though it wasn\'t designed as one. This simulation translates UDP only, and keeps the inside port when it can, as many routers do.',
     'To see this on a real machine, run conntrack -L on a Linux router, which lists every mapping it is holding.',
   ],
@@ -67,7 +67,7 @@ const content: LessonContent = {
       prompt: 'Two inside hosts both send from port 5000. What does the router do?',
       options: ['Gives the second a different public port', 'Drops the second packet', 'Merges them into one', 'Gives the second another public IP'],
       answer: 0,
-      explanation: 'Replies are matched on the public port, so no two conversations can share one.',
+      explanation: 'This router matches replies on the public port, so two inside hosts can\'t share one.',
     },
     {
       id: 'q3',
@@ -89,7 +89,7 @@ const content: LessonContent = {
   summary: [
     'NAT lets many private hosts share one public address.',
     'The router rewrites the source and records the swap in a table.',
-    'Replies are matched on the public port, so ports may be changed.',
+    'Replies are matched by their public port, so a port may have to change.',
     'Inbound packets with no mapping are dropped, and idle mappings expire.',
   ],
 };
