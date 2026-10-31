@@ -182,4 +182,14 @@ export const networkingMeta: LessonMeta[] = [
     keywords: ['http/2', 'h2', 'multiplexing', 'stream', 'frame', 'hpack', 'header compression', 'head of line blocking', 'tls', 'curl'],
     prerequisites: ['http-1-1'],
   },
+  {
+    id: 'quic-http-3',
+    title: 'QUIC & HTTP/3',
+    category: 'networking',
+    difficulty: 'advanced',
+    group: 'Web & Internet Scale',
+    description: 'Skip a round trip with one combined handshake, send data in the first packet on a return visit, and lose a packet that stalls only one stream.',
+    keywords: ['quic', 'http/3', 'h3', 'udp', '0-rtt', 'stream', 'packet number', 'ack ranges', 'head of line blocking', 'tls 1.3', 'curl'],
+    prerequisites: ['http-2', 'congestion-control'],
+  },
 ];
