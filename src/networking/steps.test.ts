@@ -3,9 +3,10 @@ import { parseIp } from './address';
 import { createHost } from './devices';
 import type { Frame } from './packet';
 import { createRouter } from './router';
-import { simulate, type Device, type SimResult } from './sim';
-import { MAX_STEPS, packetGrid, tableGrid, traceSteps } from './steps';
-import type { GridView, PanelsView, ServicesView, Step } from '../types/visualization';
+import { simulate, type Device, type Fault, type SimEvent, type SimResult } from './sim';
+import { tcpPath } from './scenarios/topology';
+import { ladderView, MAX_STEPS, packetGrid, roundSteps, tableGrid, traceSteps } from './steps';
+import type { ChartView, GridView, LadderView, PanelsView, ServicesView, Step } from '../types/visualization';
 
 function ip(text: string): number {
   const parsed = parseIp(text);
@@ -132,5 +133,140 @@ describe('grids', () => {
   it('lists DHCP fields', () => {
     const frame: Frame = { srcMac: 'x', dstMac: 'y', payload: { kind: 'ip', src: 0, dst: 0xffffffff, ttl: 64, id: 1, payload: { kind: 'udp', srcPort: 68, dstPort: 67, data: { op: 'offer', yourIp: 5, serverIp: 6, leaseS: 60 } } } };
     expect(packetGrid(frame).rows.map((row) => row.label)).toContain('DHCP');
+  });
+});
+
+const COLUMNS = [{ id: 'client', label: 'Client' }, { id: 'server', label: 'Server' }];
+
+function direct(faults: Fault[] = [], bytes = 8000): SimResult {
+  const client = createHost({ id: 'client', label: 'Client', column: 0, mac: 'aa:00:00:00:00:01', ip: ip('10.0.0.1'), prefix: 24, arp: { [ip('10.0.0.2')]: 'aa:00:00:00:00:02' } });
+  const server = createHost({ id: 'server', label: 'Server', column: 1, mac: 'aa:00:00:00:00:02', ip: ip('10.0.0.2'), prefix: 24, arp: { [ip('10.0.0.1')]: 'aa:00:00:00:00:01' } });
+  return simulate({
+    devices: [client, server],
+    links: [{ a: ['client', 'eth0'], b: ['server', 'eth0'] }],
+    commands: [
+      { at: 0, device: 'server', run: () => server.listen(80) },
+      { at: 1, device: 'client', run: (_, ctx) => client.write(ctx, client.connect(ctx, ip('10.0.0.2'), 80, { fixedWindow: 4 }), bytes) },
+    ],
+    ...(faults.length > 0 ? { faults } : {}),
+  });
+}
+
+describe('ladderView', () => {
+  it('keeps the newest 12 rows and counts the rest', () => {
+    const run = direct();
+    const view = ladderView(run, run.events.length - 1, COLUMNS);
+    expect(view.rows).toHaveLength(12);
+    expect(view.earlier).toBe(run.events.filter((event) => event.hops.length > 0).length - 12);
+    expect(view.rows.at(-1)!.role).toBe('active');
+  });
+
+  it('shows no earlier count on a short ladder', () => {
+    expect(ladderView(direct(), 0, COLUMNS).earlier).toBeUndefined();
+  });
+
+  it('marks a lost hop', () => {
+    const faults: Fault[] = [{ kind: 'dropPacket', matches: (frame) => frame.payload.kind === 'ip' && frame.payload.payload.kind === 'tcp' && frame.payload.payload.flags.join() === 'SYN', nth: 1 }];
+    const row = ladderView(direct(faults), 0, COLUMNS).rows[0]!;
+    expect(row.lost).toBe(true);
+    expect(row.role).toBe('discarded');
+  });
+
+  it('names real header fields on each row', () => {
+    const run = direct();
+    expect(ladderView(run, 2, COLUMNS).rows.map((row) => row.label)).toEqual(['SYN seq=1000', 'SYN ACK seq=5000 ack=1001', 'ACK ack=5001 win=64000']);
+  });
+
+  it('follows the connection state in each column', () => {
+    const run = direct();
+    const states = (upTo: number) => ladderView(run, upTo, COLUMNS).columns.map((column) => column.state);
+    expect(states(0)).toEqual(['SYN_SENT', undefined]);
+    expect(states(2)).toEqual(['ESTABLISHED', 'SYN_RCVD']);
+  });
+
+  it('leaves out hops off the page, such as ones through a router', () => {
+    const run = routed();
+    expect(ladderView(run, run.events.length - 1, COLUMNS).rows).toEqual([]);
+  });
+});
+
+describe('traceSteps with a ladder', () => {
+  const steps = traceSteps(direct(), CODE, LINES, { ladder: COLUMNS });
+
+  it('swaps the Network panel for the ladder', () => {
+    expect(panels(steps[0]!).map((panel) => panel.label)).toContain('Ladder');
+    expect(panels(steps[0]!).map((panel) => panel.label)).not.toContain('Network');
+  });
+
+  it('lays out at most 3 panels', () => {
+    expect(Math.max(...steps.map((step) => panels(step).length))).toBeLessThanOrEqual(3);
+  });
+
+  it('builds each ladder from the frames up to that step', () => {
+    const ladder = (step: Step) => panels(step).find((panel) => panel.label === 'Ladder')!.view as LadderView;
+    expect(ladder(steps[0]!).rows).toHaveLength(1);
+    expect(ladder(steps[1]!).rows).toHaveLength(2);
+  });
+});
+
+describe('packetGrid with TCP', () => {
+  it('lists the TCP header fields', () => {
+    const frame = direct().events.find((event) => event.action === 'tcp-data')!.frame!;
+    const labels = packetGrid(frame).rows.map((row) => row.label);
+    for (const label of ['Seq', 'Ack', 'Flags', 'Window', 'Length']) expect(labels).toContain(label);
+  });
+
+  it('adds fragment fields only when a packet has them', () => {
+    const frame: Frame = { srcMac: 'a', dstMac: 'b', payload: { kind: 'ip', src: 1, dst: 2, ttl: 9, id: 1, length: 996, offset: 0, more: true, payload: { kind: 'udp', srcPort: 1, dstPort: 2, data: 'x' } } };
+    expect(packetGrid(frame).rows.map((row) => row.label)).toEqual(expect.arrayContaining(['Total length', 'Offset', 'More fragments']));
+    expect(packetGrid(routed().events.find((event) => event.frame?.payload.kind === 'ip')!.frame!).rows.map((row) => row.label)).not.toContain('Offset');
+  });
+});
+
+describe('roundSteps', () => {
+  const longRun = (queue: number, bytes: number) => {
+    const { client, server, devices, links } = tcpPath({ queue });
+    return simulate({
+      devices,
+      links,
+      watch: ['client'],
+      maxEvents: 20000,
+      commands: [
+        { at: 0, device: 'server', run: () => server.listen(80) },
+        { at: 1, device: 'client', run: (_, ctx) => client.write(ctx, client.connect(ctx, server.address(), 80), bytes) },
+      ],
+    });
+  };
+  const cwnd = (event: SimEvent) => Number(event.tables.client?.[3]?.rows[0]?.[1] ?? 0);
+  const options = { series: (event: SimEvent) => [{ label: 'cwnd', value: cwnd(event) / 1000 }], title: 'Window', yLabel: 'Segments', watchTable: 'client' };
+  const chart = (step: Step) => panels(step).find((panel) => panel.label === 'Chart')!.view as ChartView;
+
+  it('gives one step per loss signal, and stays within the cap', () => {
+    const run = longRun(4, 150000);
+    const steps = roundSteps(run, CODE, LINES, options);
+    expect(steps.length).toBeLessThanOrEqual(MAX_STEPS + 1);
+    const retransmits = run.events.filter((event) => event.action === 'fast-retransmit' || event.action === 'timeout');
+    expect(retransmits.length).toBeGreaterThan(0);
+    for (const event of retransmits) expect(steps.some((step) => step.title === event.title)).toBe(true);
+  });
+
+  it('moves the chart along by one point per step', () => {
+    const steps = roundSteps(longRun(10, 40000), CODE, LINES, options);
+    expect(steps.map((step) => chart(step).now)).toEqual(steps.map((_, i) => i));
+    expect(chart(steps[0]!).lines[0]!.points).toHaveLength(steps.length);
+  });
+
+  it('doubles cwnd per round in slow start', () => {
+    const steps = roundSteps(longRun(40, 12000), CODE, LINES, options);
+    expect(chart(steps[0]!).lines[0]!.points.slice(0, 4)).toEqual([1, 2, 4, 8]);
+  });
+
+  it('lays out at most 3 panels', () => {
+    expect(Math.max(...roundSteps(longRun(10, 40000), CODE, LINES, options).map((step) => panels(step).length))).toBeLessThanOrEqual(3);
+  });
+
+  it('folds past the cap into one summary', () => {
+    const steps = roundSteps(longRun(3, 1500000), CODE, LINES, options);
+    expect(steps.length).toBeLessThanOrEqual(MAX_STEPS + 1);
   });
 });
