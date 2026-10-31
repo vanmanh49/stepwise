@@ -190,6 +190,8 @@ const EXPECTED_IDS = [
   'ethernet-switching',
   'arp',
   'ip-subnets',
+  'ip-routing',
+  'ping-traceroute',
 ];
 
 describe('lesson registry', () => {

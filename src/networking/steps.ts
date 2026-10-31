@@ -1,7 +1,7 @@
 import { lineOf } from '../data-structures/shared';
 import type { ArrayView, GridView, PanelsView, Role, ServicesView, Step } from '../types/visualization';
 import { formatIp } from './address';
-import type { Frame } from './packet';
+import { ICMP_NAME, type Frame } from './packet';
 import { formatTime, type SimEvent, type SimResult, type TableSnapshot } from './sim';
 
 export const MAX_STEPS = 200;
@@ -10,8 +10,6 @@ export const EMPTY: ArrayView = { kind: 'array', cells: [] };
 
 const LOG_LENGTH = 4;
 const LOST_PROGRESS = 0.25;
-
-const ICMP_NAME = { 'echo-request': 'Echo Request', 'echo-reply': 'Echo Reply', 'time-exceeded': 'Time Exceeded', unreachable: 'Destination Unreachable' };
 
 function frameLabel({ payload }: Frame): string {
   if (payload.kind === 'arp') return payload.op === 'request' ? 'ARP ask' : 'ARP reply';

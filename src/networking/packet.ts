@@ -17,6 +17,8 @@ export interface Icmp {
   seq: number;
 }
 
+export const ICMP_NAME: Record<Icmp['type'], string> = { 'echo-request': 'Echo Request', 'echo-reply': 'Echo Reply', 'time-exceeded': 'Time Exceeded', unreachable: 'Destination Unreachable' };
+
 export interface Dhcp {
   op: 'discover' | 'offer' | 'request' | 'ack';
   yourIp: number;

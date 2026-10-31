@@ -1,5 +1,5 @@
 import { formatIp, inSubnet } from './address';
-import { BROADCAST_MAC, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, type Arp, type Dhcp, type Frame, type Icmp, type IpPacket, type Udp } from './packet';
+import { BROADCAST_MAC, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, ICMP_NAME, type Arp, type Dhcp, type Frame, type Icmp, type IpPacket, type Udp } from './packet';
 import { formatTime, type Ctx, type Device, type Note, type TableSnapshot } from './sim';
 
 export const ARP_TIMEOUT_MS = 1000;
@@ -154,7 +154,7 @@ export function createHost(config: HostConfig): Host {
       }
       const rttMs = ctx.now - (sent.get(payload.seq) ?? ctx.now);
       host.replies.push({ seq: payload.seq, from: src, type: payload.type, rttMs });
-      ctx.note({ action: 'reply-received', title: `${payload.type} from ${formatIp(src)}`, why: `It came back ${formatTime(rttMs)} after the request left.` }, undefined);
+      ctx.note({ action: 'reply-received', title: `${ICMP_NAME[payload.type]} from ${formatIp(src)}`, why: `It came back ${formatTime(rttMs)} after the request left.` }, undefined);
       return;
     }
     if (typeof payload.data === 'string') receiveUdp(ctx, src, payload);
@@ -257,7 +257,10 @@ export function createHost(config: HostConfig): Host {
       if (frame.payload.kind === 'arp') arp.receive(ctx, port, own(), frame.payload);
       else if (frame.payload.dst === ip || frame.payload.dst === 0xffffffff) receiveIp(ctx, frame.payload);
     },
-    tables: () => [arp.table()],
+    tables: () => [
+      arp.table(),
+      { title: 'Replies', columns: ['Seq', 'From', 'Reply', 'Time'], rows: host.replies.map(({ seq, from, type, rttMs }) => [String(seq), formatIp(from), ICMP_NAME[type], formatTime(rttMs)]) },
+    ],
   };
   return host;
 }

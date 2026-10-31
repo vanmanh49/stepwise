@@ -21,6 +21,7 @@ function valueFor(field: FormField, r: () => number, range?: [number, number]): 
 /** The valid range of each number field, so random runs exercise real settings and their extremes. */
 const RANGES: Record<string, Record<string, [number, number]>> = {
   'ethernet-switching': { aging: [1, 600] },
+  'ping-traceroute': { ttl: [1, 64] },
 };
 
 function checkView(view: View, label: string) {
