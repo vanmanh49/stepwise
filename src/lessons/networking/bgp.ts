@@ -2,7 +2,7 @@ import { bgpCode, bgpSteps, SCENES } from '../../networking/scenarios/bgp';
 import type { LessonContent } from '../../types/lesson';
 
 const defaults = { scene: SCENES[0]! };
-const update = bgpSteps(defaults).find((step) => step.title.startsWith('AS 65010 tells isp'))!;
+const update = bgpSteps(defaults).find((step) => step.title.startsWith('AS 65010 tells ISP'))!;
 
 const content: LessonContent = {
   overview:

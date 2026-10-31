@@ -307,6 +307,12 @@ describe('new packet fields', () => {
     expect(label(asFrame({ ...data, frames: [], acks: [], space: 'initial' }))).toBe('QUIC initial #5');
   });
 
+  it('shows no Ethernet addresses on BGP, and no prefix on a probe', () => {
+    const payload = { kind: 'bgp' as const, type: 'PROBE' as const, network: 0, prefix: 0, path: [65200], dst: ip('203.0.113.10') };
+    const labels = rowsOf({ srcMac: 'as-1-x', dstMac: 'peer', payload }).map(([name]) => name);
+    expect(labels).toEqual(['BGP', 'AS_PATH', 'Destination IP']);
+  });
+
   it('labels and lists BGP', () => {
     const frame: Frame = { srcMac: 'a', dstMac: 'b', payload: { kind: 'bgp', type: 'UPDATE', network: ip('203.0.113.0'), prefix: 24, path: [65002, 65001] } };
     expect(label(frame)).toBe('BGP UPDATE 203.0.113.0/24');

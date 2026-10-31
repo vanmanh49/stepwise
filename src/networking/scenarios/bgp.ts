@@ -53,7 +53,7 @@ export function bgpSteps(values: Record<string, string>): Step[] {
   const faults: Fault[] = [];
   if (scene.value === SCENES[1]) {
     faults.push({ at: CHANGE_MS, kind: 'linkDown', link: ORIGIN_LINK });
-    commands.push(on('ta', CHANGE_MS, (router, ctx) => router.peerDown(ctx, 'origin')));
+    commands.push(on('ta', CHANGE_MS, (router, ctx) => router.peerDown(ctx, 'Origin')));
   }
   if (scene.value === SCENES[3]) commands.push(on('evil', CHANGE_MS, (router, ctx) => router.announce(ctx, NETWORK, SPECIFIC_PREFIX)));
   const run = simulate({ devices, links, commands, faults, maxEvents: 5000 });

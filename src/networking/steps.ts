@@ -100,17 +100,16 @@ function quicFields({ number, space, frames, acks }: Quic): [string, string][] {
 }
 
 function fields({ srcMac, dstMac, payload }: Frame): [string, string][] {
+  if (payload.kind === 'bgp') {
+    const route: [string, string][] = payload.type === 'PROBE' ? [] : [['Prefix', bgpRoute(payload)]];
+    return [['BGP', payload.type], ...route, ['AS_PATH', payload.path.join(' ')], ...(payload.dst === undefined ? [] : ([['Destination IP', formatIp(payload.dst)]] as [string, string][]))];
+  }
   const list: [string, string][] = [
     ['Source MAC', srcMac],
     ['Destination MAC', dstMac],
   ];
   if (payload.kind === 'arp') {
     list.push(['ARP', payload.op], ['Sender IP', formatIp(payload.senderIp)], ['Target IP', formatIp(payload.targetIp)]);
-    return list;
-  }
-  if (payload.kind === 'bgp') {
-    list.push(['BGP', payload.type], ['Prefix', bgpRoute(payload)], ['AS_PATH', payload.path.join(' ')]);
-    if (payload.dst !== undefined) list.push(['Destination IP', formatIp(payload.dst)]);
     return list;
   }
   list.push(['Source IP', formatIp(payload.src)], ['Destination IP', formatIp(payload.dst)], ['TTL', String(payload.ttl)]);

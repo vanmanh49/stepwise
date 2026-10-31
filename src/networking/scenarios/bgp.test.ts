@@ -22,6 +22,12 @@ describe('BGP', () => {
     expect(map.nodes.length).toBeLessThanOrEqual(6);
   });
 
+  it('names neighbours as the map does', () => {
+    const steps = run('Shortest path');
+    expect(titles(steps).some((title) => title.includes('tells ISP'))).toBe(true);
+    expect(titles(steps).some((title) => / tells [a-z]+:/.test(title))).toBe(false);
+  });
+
   it('reroutes the probe after a withdraw', () => {
     const steps = run('Link fails');
     expect(titles(steps).some((title) => title.includes('to forget'))).toBe(true);

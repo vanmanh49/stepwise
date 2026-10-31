@@ -360,12 +360,12 @@ const OPPOSITE: Record<Relation, Relation> = { customer: 'provider', provider: '
 export function asNet({ prepend = 0 }: { prepend?: number } = {}) {
   const routers = Object.fromEntries(Object.entries(AS_NAMES).map(([id, { label, asn, column }]) => {
     const neighbours = asEdges.flatMap(([from, to, relation]): AsConfig['neighbours'] => {
-      if (from === id) return [{ port: to, relation }];
-      if (to === id) return [{ port: from, relation: OPPOSITE[relation], ...(id === 'origin' && from === 'ta' && prepend ? { prepend } : {}) }];
+      if (from === id) return [{ port: AS_NAMES[to]!.label, relation }];
+      if (to === id) return [{ port: AS_NAMES[from]!.label, relation: OPPOSITE[relation], ...(id === 'origin' && from === 'ta' && prepend ? { prepend } : {}) }];
       return [];
     });
     return [id, createAs({ id, label, column, asn, neighbours })];
   }));
-  const links: Link[] = asEdges.map(([from, to]) => ({ a: [from, to], b: [to, from], ms: AS_LINK_MS }));
+  const links: Link[] = asEdges.map(([from, to]) => ({ a: [from, AS_NAMES[to]!.label], b: [to, AS_NAMES[from]!.label], ms: AS_LINK_MS }));
   return { routers, devices: Object.values(routers) as Device[], links };
 }
