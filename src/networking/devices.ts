@@ -1,11 +1,14 @@
 import { formatIp, inSubnet, ipv4 } from './address';
 import { BROADCAST_MAC, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, ICMP_NAME, type Arp, type Dhcp, type Frame, type Icmp, type IpPacket, type Udp } from './packet';
 import { formatTime, type Ctx, type Device, type Note, type TableSnapshot } from './sim';
+import { createTcp, type Conn, type TcpOptions } from './tcp';
 
 export const ARP_TIMEOUT_MS = 1000;
 export const DHCP_RETRY_MS = 4000;
 const DEFAULT_TTL = 64;
 const ETH = 'eth0';
+const IP_TCP_HEADERS = 40;
+const DEFAULT_MSS = 1000;
 const LOOPBACK = ipv4('127.0.0.0');
 
 export interface Own {
@@ -78,6 +81,8 @@ export interface HostConfig {
   echo?: boolean;
   /** How long an echo waits before it leaves. */
   echoDelayMs?: number;
+  /** Sets the MSS to `mtu − 40`; otherwise it is 1000. */
+  mtu?: number;
 }
 
 export interface Reply {
@@ -93,6 +98,11 @@ export interface Host extends Device {
   /** Starts DHCP. A host that will boot has an address of 0. */
   boot(ctx: Ctx): void;
   address(): number;
+  listen(port: number, options?: TcpOptions): void;
+  connect(ctx: Ctx, dst: number, port: number, options?: TcpOptions): Conn;
+  write(ctx: Ctx, conn: Conn, bytes: number): void;
+  close(ctx: Ctx, conn: Conn): void;
+  connections(): Conn[];
   mac: string;
   replies: Reply[];
 }
@@ -104,6 +114,12 @@ export function createHost(config: HostConfig): Host {
   const arp = createArp(config.arp);
   const sent = new Map<number, number>();
   let nextId = 1;
+
+  const tcp = createTcp({
+    ip: () => ip,
+    mss: () => (config.mtu ? config.mtu - IP_TCP_HEADERS : DEFAULT_MSS),
+    transmit: (ctx, dst, segment, note) => transmit(ctx, { ...packet(dst, DEFAULT_TTL, segment), length: IP_TCP_HEADERS + segment.length, df: true }, note),
+  });
 
   const own = (): Own => ({ mac, ip });
   const packet = (dst: number, ttl: number, payload: IpPacket['payload']): IpPacket => ({ kind: 'ip', src: ip, dst, ttl, id: nextId++, payload });
@@ -160,7 +176,7 @@ export function createHost(config: HostConfig): Host {
       ctx.note({ action: 'reply-received', title: `${ICMP_NAME[payload.type]} from ${formatIp(src)}`, why: `It came back ${formatTime(rttMs)} after the request left.` }, undefined);
       return;
     }
-    if (payload.kind === 'tcp') return;
+    if (payload.kind === 'tcp') return tcp.receive(ctx, src, payload);
     if (typeof payload.data === 'string') receiveUdp(ctx, src, payload);
     else receiveDhcp(ctx, payload.data);
   }
@@ -258,6 +274,11 @@ export function createHost(config: HostConfig): Host {
       discover(ctx, 1);
     },
     address: () => ip,
+    listen: tcp.listen,
+    connect: tcp.connect,
+    write: tcp.write,
+    close: tcp.close,
+    connections: tcp.connections,
     udp(ctx, dst, srcPort, dstPort, text) {
       originate(ctx, packet(dst, DEFAULT_TTL, { kind: 'udp', srcPort, dstPort, data: text }), `A UDP datagram`);
     },
@@ -272,6 +293,7 @@ export function createHost(config: HostConfig): Host {
     tables: () => [
       arp.table(),
       { title: 'Replies', columns: ['Seq', 'From', 'Reply', 'Time'], rows: host.replies.map(({ seq, from, type, rttMs }) => [String(seq), formatIp(from), ICMP_NAME[type], formatTime(rttMs)]) },
+      tcp.table(),
     ],
   };
   return host;
