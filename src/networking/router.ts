@@ -241,6 +241,7 @@ export function createRouter(config: RouterConfig): Device {
         arps.get(port)!.receive(ctx, port, arrival, frame.payload);
         return;
       }
+      if (frame.payload.kind !== 'ip') return;
       let packet = frame.payload;
       if (nat && port === nat.outsidePort && packet.dst === nat.publicIp) {
         const restored = natIn(ctx, packet, frame);

@@ -1,7 +1,7 @@
 import { lineOf } from '../data-structures/shared';
 import type { ArrayView, ChartView, GridView, LadderView, PanelsView, Role, ServicesView, Step } from '../types/visualization';
 import { formatIp } from './address';
-import { ICMP_NAME, type Frame, type Tcp } from './packet';
+import { ICMP_NAME, type Bgp, type Dns, type DnsRecord, type Frame, type Quic, type Tcp } from './packet';
 import { formatTime, QUEUE_DROP, type SimEvent, type SimResult, type TableSnapshot } from './sim';
 
 export const MAX_STEPS = 200;
@@ -26,13 +26,56 @@ function segmentLabel({ flags, seq, ack, window, length }: Tcp): string {
   return length > 0 ? `seq=${seq} len=${length}` : `ACK ack=${ack} win=${window}`;
 }
 
+function dnsLabel({ name, response, rcode, answers }: Dns): string {
+  if (!response) return `DNS ${name}`;
+  if (rcode === 'NXDOMAIN') return 'DNS NXDOMAIN';
+  return answers.length > 0 ? 'DNS answer' : 'DNS referral';
+}
+
+const ackRanges = (acks: Quic['acks']) => acks.map(([from, to]) => `${from}–${to}`).join(', ');
+
+function quicLabel({ number, space, frames, acks }: Quic): string {
+  const [first] = frames;
+  if (first) return `QUIC #${number} stream ${first.stream}`;
+  return acks.length > 0 ? `QUIC ACK ${ackRanges(acks)}` : `QUIC ${space} #${number}`;
+}
+
+const bgpRoute = ({ network, prefix }: Bgp) => `${formatIp(network)}/${prefix}`;
+
 function frameLabel({ payload }: Frame): string {
   if (payload.kind === 'arp') return payload.op === 'request' ? 'ARP ask' : 'ARP reply';
+  if (payload.kind === 'bgp') return payload.type === 'PROBE' ? `Probe to ${formatIp(payload.dst ?? 0)}` : `BGP ${payload.type} ${bgpRoute(payload)}`;
   const inner = payload.payload;
   if (payload.offset !== undefined) return `Fragment offset=${payload.offset}`;
   if (inner.kind === 'icmp') return ICMP_NAME[inner.type];
   if (inner.kind === 'tcp') return segmentLabel(inner);
-  return typeof inner.data === 'string' ? 'UDP' : `DHCP ${inner.data.op}`;
+  if (typeof inner.data === 'string') return 'UDP';
+  if ('op' in inner.data) return `DHCP ${inner.data.op}`;
+  return inner.data.proto === 'dns' ? dnsLabel(inner.data) : quicLabel(inner.data);
+}
+
+/** Rows of a packet grid need unique labels, since each names its cell. */
+const numbered = (label: string, i: number) => (i === 0 ? label : `${label} ${i + 1}`);
+
+const recordText = ({ name, type, value, ttl }: DnsRecord) => `${name} ${type} ${value} TTL ${ttl}`;
+
+function dnsFields(dns: Dns): [string, string][] {
+  return [
+    ['DNS name', dns.name],
+    ['DNS type', dns.response ? 'response' : 'query'],
+    ...(dns.response ? ([['Rcode', dns.rcode]] as [string, string][]) : []),
+    ...dns.answers.map((record, i): [string, string] => [numbered('Answer', i), recordText(record)]),
+    ...dns.authority.map((record, i): [string, string] => [numbered('Authority', i), recordText(record)]),
+  ];
+}
+
+function quicFields({ number, space, frames, acks }: Quic): [string, string][] {
+  return [
+    ['Packet number', String(number)],
+    ['Space', space],
+    ...frames.map(({ stream, offset, length }, i): [string, string] => [numbered('Stream', i), `${stream} at ${offset}, ${length} bytes`]),
+    ...(acks.length > 0 ? ([['ACK ranges', ackRanges(acks)]] as [string, string][]) : []),
+  ];
 }
 
 function fields({ srcMac, dstMac, payload }: Frame): [string, string][] {
@@ -42,6 +85,11 @@ function fields({ srcMac, dstMac, payload }: Frame): [string, string][] {
   ];
   if (payload.kind === 'arp') {
     list.push(['ARP', payload.op], ['Sender IP', formatIp(payload.senderIp)], ['Target IP', formatIp(payload.targetIp)]);
+    return list;
+  }
+  if (payload.kind === 'bgp') {
+    list.push(['BGP', payload.type], ['Prefix', bgpRoute(payload)], ['AS_PATH', payload.path.join(' ')]);
+    if (payload.dst !== undefined) list.push(['Destination IP', formatIp(payload.dst)]);
     return list;
   }
   list.push(['Source IP', formatIp(payload.src)], ['Destination IP', formatIp(payload.dst)], ['TTL', String(payload.ttl)]);
@@ -61,7 +109,8 @@ function fields({ srcMac, dstMac, payload }: Frame): [string, string][] {
     return list;
   }
   if (typeof inner.data === 'string') list.push(['Data', inner.data]);
-  else list.push(['DHCP', inner.data.op], ['Your IP', formatIp(inner.data.yourIp)]);
+  else if ('op' in inner.data) list.push(['DHCP', inner.data.op], ['Your IP', formatIp(inner.data.yourIp)]);
+  else list.push(...(inner.data.proto === 'dns' ? dnsFields(inner.data) : quicFields(inner.data)));
   return list;
 }
 

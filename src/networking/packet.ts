@@ -30,11 +30,55 @@ export interface Dhcp {
   leaseS: number;
 }
 
+export interface DnsRecord {
+  name: string;
+  type: 'A' | 'NS';
+  value: string;
+  ttl: number;
+}
+
+export interface Dns {
+  proto: 'dns';
+  id: number;
+  name: string;
+  response: boolean;
+  rcode: 'NOERROR' | 'NXDOMAIN';
+  answers: DnsRecord[];
+  authority: DnsRecord[];
+}
+
+export interface QuicFrame {
+  stream: number;
+  offset: number;
+  length: number;
+  fin?: boolean;
+  marks?: Mark[];
+}
+
+export interface Quic {
+  proto: 'quic';
+  number: number;
+  space: 'initial' | 'handshake' | '0rtt' | '1rtt';
+  frames: QuicFrame[];
+  acks: [from: number, to: number][];
+}
+
 export interface Udp {
   kind: 'udp';
   srcPort: number;
   dstPort: number;
-  data: string | Dhcp;
+  data: string | Dhcp | Dns | Quic;
+}
+
+/** Goes straight over a link, with no IP or TCP under it. A real one runs on TCP port 179. */
+export interface Bgp {
+  kind: 'bgp';
+  type: 'UPDATE' | 'WITHDRAW' | 'PROBE';
+  network: number;
+  prefix: number;
+  path: number[];
+  /** On a PROBE: where it is going. */
+  dst?: number;
 }
 
 /** A label on the byte stream. `end` is the position just past its last byte. */
@@ -74,9 +118,9 @@ export interface IpPacket {
 export interface Frame {
   srcMac: string;
   dstMac: string;
-  payload: Arp | IpPacket;
+  payload: Arp | IpPacket | Bgp;
 }
 
 const DEFAULT_BYTES = 40;
 
-export const ipLength = (packet: Arp | IpPacket) => (packet.kind === 'ip' ? (packet.length ?? DEFAULT_BYTES) : DEFAULT_BYTES);
+export const ipLength = (packet: Frame['payload']) => (packet.kind === 'ip' ? (packet.length ?? DEFAULT_BYTES) : DEFAULT_BYTES);

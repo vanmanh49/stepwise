@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { parseIp } from './address';
 import { createHost } from './devices';
-import type { Frame } from './packet';
+import type { Dns, Frame, Quic } from './packet';
 import { createRouter } from './router';
 import { simulate, type Device, type Fault, type SimEvent, type SimResult } from './sim';
 import { tcpPath } from './scenarios/topology';
-import { ladderView, MAX_STEPS, packetGrid, roundSteps, tableGrid, traceSteps } from './steps';
+import { ladderView, MAX_STEPS, networkView, packetGrid, roundSteps, tableGrid, traceSteps } from './steps';
 import type { ChartView, GridView, LadderView, PanelsView, ServicesView, Step } from '../types/visualization';
 
 function ip(text: string): number {
@@ -268,5 +268,48 @@ describe('roundSteps', () => {
   it('folds past the cap into one summary', () => {
     const steps = roundSteps(longRun(3, 1500000), CODE, LINES, options);
     expect(steps.length).toBeLessThanOrEqual(MAX_STEPS + 1);
+  });
+});
+
+describe('new packet fields', () => {
+  const asFrame = (data: Dns | Quic): Frame => ({ srcMac: 'a', dstMac: 'b', payload: { kind: 'ip', src: 1, dst: 2, ttl: 64, id: 1, payload: { kind: 'udp', srcPort: 1, dstPort: 53, data } } });
+  const dns = (over: Partial<Dns>): Dns => ({ proto: 'dns', id: 7, name: 'www.example.com', response: false, rcode: 'NOERROR', answers: [], authority: [], ...over });
+  const rowsOf = (frame: Frame) => packetGrid(frame).rows.map((row) => [row.label, row.cells[0]!.value]);
+  const label = (frame: Frame) => {
+    const run: SimResult = { events: [{ action: 'x', title: 't', why: 'w', time: 0, device: 'a', frame, hops: [{ from: 'a', to: 'b' }], tables: {}, badges: {}, down: [], stopped: [], queues: {} }], cut: false, devices: [], links: [] };
+    return networkView(run, run.events[0]!, []).messages[0]!.label;
+  };
+
+  it('labels DNS by what it says', () => {
+    expect(label(asFrame(dns({})))).toBe('DNS www.example.com');
+    const a = { name: 'www.example.com', type: 'A' as const, value: '192.0.2.1', ttl: 60 };
+    expect(label(asFrame(dns({ response: true, answers: [a] })))).toBe('DNS answer');
+    expect(label(asFrame(dns({ response: true, authority: [{ ...a, type: 'NS', value: 'ns.example.com' }] })))).toBe('DNS referral');
+    expect(label(asFrame(dns({ response: true, rcode: 'NXDOMAIN' })))).toBe('DNS NXDOMAIN');
+  });
+
+  it('lists the DNS fields', () => {
+    const answer = { name: 'www.example.com', type: 'A' as const, value: '192.0.2.1', ttl: 60 };
+    expect(rowsOf(asFrame(dns({ response: true, answers: [answer] })))).toEqual(expect.arrayContaining([['DNS name', 'www.example.com'], ['Rcode', 'NOERROR'], ['Answer', 'www.example.com A 192.0.2.1 TTL 60']]));
+  });
+
+  it('keeps packet rows unique when records repeat', () => {
+    const record = { name: 'example.com', type: 'NS' as const, value: 'ns.example.com', ttl: 60 };
+    const labels = rowsOf(asFrame(dns({ response: true, authority: [record, record] }))).map(([name]) => name);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it('labels and lists QUIC', () => {
+    const data: Quic = { proto: 'quic', number: 5, space: '1rtt', frames: [{ stream: 4, offset: 1000, length: 1000 }], acks: [[1, 3], [5, 5]] };
+    expect(label(asFrame(data))).toBe('QUIC #5 stream 4');
+    expect(rowsOf(asFrame(data))).toEqual(expect.arrayContaining([['Packet number', '5'], ['Space', '1rtt'], ['Stream', '4 at 1000, 1000 bytes'], ['ACK ranges', '1–3, 5–5']]));
+    expect(label(asFrame({ ...data, frames: [] }))).toBe('QUIC ACK 1–3, 5–5');
+    expect(label(asFrame({ ...data, frames: [], acks: [], space: 'initial' }))).toBe('QUIC initial #5');
+  });
+
+  it('labels and lists BGP', () => {
+    const frame: Frame = { srcMac: 'a', dstMac: 'b', payload: { kind: 'bgp', type: 'UPDATE', network: ip('203.0.113.0'), prefix: 24, path: [65002, 65001] } };
+    expect(label(frame)).toBe('BGP UPDATE 203.0.113.0/24');
+    expect(rowsOf(frame)).toEqual(expect.arrayContaining([['BGP', 'UPDATE'], ['Prefix', '203.0.113.0/24'], ['AS_PATH', '65002 65001']]));
   });
 });

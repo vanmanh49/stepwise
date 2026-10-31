@@ -33,7 +33,7 @@ export interface Ctx {
 export interface Device {
   id: string;
   label: string;
-  type: 'host' | 'switch' | 'router' | 'dhcp';
+  type: 'host' | 'switch' | 'router' | 'dhcp' | 'dns' | 'as';
   column: number;
   badge?(): string | undefined;
   receive(ctx: Ctx, frame: Frame, port: string): void;

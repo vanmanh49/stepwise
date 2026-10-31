@@ -213,7 +213,7 @@ export interface ServicesView {
   nodes: {
     id: string;
     label: string;
-    type: 'client' | 'gateway' | 'registry' | 'balancer' | 'service' | 'db' | 'broker' | 'relay' | 'sidecar' | 'attacker' | 'host' | 'switch' | 'router' | 'dhcp';
+    type: 'client' | 'gateway' | 'registry' | 'balancer' | 'service' | 'db' | 'broker' | 'relay' | 'sidecar' | 'attacker' | 'host' | 'switch' | 'router' | 'dhcp' | 'dns' | 'as';
     column: number;
     role: Role;
     badge?: string;

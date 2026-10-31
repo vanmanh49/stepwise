@@ -101,3 +101,23 @@ describe('chart', () => {
     expect(draw({ ...view, lines: [{ id: 'a', label: 'cwnd', points: [0], role: 'active' }], now: 0 })).not.toContain('NaN');
   });
 });
+
+describe('network node types', () => {
+  it('names DNS servers and autonomous systems', () => {
+    const view: View = {
+      kind: 'services',
+      nodes: [
+        { id: 'd', label: 'Root', type: 'dns', column: 0, role: 'default' },
+        { id: 'a', label: 'AS 65001', type: 'as', column: 1, role: 'active', badge: '65001' },
+      ],
+      links: [{ from: 'd', to: 'a', role: 'default' }],
+      messages: [],
+      requests: [],
+      log: [],
+    };
+    const html = draw(view).replaceAll('<!-- -->', '');
+    expect(html).not.toMatch(/NaN|undefined|\[object Object\]/);
+    expect(html).toContain('DNS server');
+    expect(html).toContain('autonomous system');
+  });
+});
