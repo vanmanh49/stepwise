@@ -23,6 +23,16 @@ const X_LABEL = 'Round trips and losses';
 const marked = (marks: Mark[] | undefined) => (marks ?? []).map(({ mark }) => mark as { label?: string; headers?: Record<string, string> });
 const markLabel = (marks: Mark[] | undefined) => marked(marks).find(({ label }) => label)?.label;
 
+const framesOf = (data: Quic) => data.frames.flatMap(({ marks }) => marks ?? []);
+
+/** A packet an application named: its row stays on a ladder when plain data and ACKs don't. */
+function namedByApp({ payload }: Frame) {
+  const inner = payload.kind === 'ip' ? payload.payload : undefined;
+  if (inner?.kind === 'tcp') return markLabel(inner.marks) !== undefined;
+  if (inner?.kind === 'udp' && typeof inner.data === 'object' && 'proto' in inner.data && inner.data.proto === 'quic') return markLabel(framesOf(inner.data)) !== undefined;
+  return false;
+}
+
 function segmentLabel({ flags, seq, ack, window, length, marks }: Tcp): string {
   const name = markLabel(marks);
   if (name) return name;
@@ -220,12 +230,12 @@ export interface LadderColumn {
 }
 
 /** The packets sent up to event `upTo`, between the listed devices only. */
-export function ladderView(result: SimResult, upTo: number, columns: LadderColumn[]): LadderView {
+export function ladderView(result: SimResult, upTo: number, columns: LadderColumn[], skip: string[] = []): LadderView {
   const ids = new Set(columns.map((column) => column.id));
   const byIp = new Map(columns.flatMap(({ id, ip }) => (ip === undefined ? [] : [[ip, id] as const])));
   const rows: LadderView['rows'] = [];
-  result.events.slice(0, upTo + 1).forEach(({ frame, hops }, e) => {
-    if (frame?.payload.kind !== 'ip') return;
+  result.events.slice(0, upTo + 1).forEach(({ frame, hops, action }, e) => {
+    if (frame?.payload.kind !== 'ip' || (skip.includes(action) && !namedByApp(frame))) return;
     const { dst } = frame.payload;
     hops.forEach(({ from, to: next, lost }, h) => {
       const to = ids.has(next) ? next : byIp.get(dst);
@@ -259,6 +269,8 @@ export interface TraceOptions {
   hide?: string[];
   /** Replaces the Network panel with a ladder of these devices. */
   ladder?: LadderColumn[];
+  /** Actions a ladder leaves out, unless an application named the packet. */
+  ladderSkip?: string[];
   /** A waterfall under the Network panel. */
   spans?: (event: SimEvent) => ServicesView['spans'];
 }
@@ -270,7 +282,7 @@ export function traceSteps(result: SimResult, code: string, lines: Record<string
   const events = result.events.filter((event) => !options.hide?.includes(event.action));
   const { ladder } = options;
   const movement = (event: SimEvent): PanelsView['panels'][number] =>
-    ladder ? { label: 'Ladder', view: ladderView(result, result.events.indexOf(event), ladder) } : { label: 'Network', view: networkView(result, event, log.slice(-LOG_LENGTH), options.spans?.(event)) };
+    ladder ? { label: 'Ladder', view: ladderView(result, result.events.indexOf(event), ladder, options.ladderSkip) } : { label: 'Network', view: networkView(result, event, log.slice(-LOG_LENGTH), options.spans?.(event)) };
   let codeLine = 1;
   const steps = events.slice(0, MAX_STEPS).map((event): Step => {
     log.push(event.title);

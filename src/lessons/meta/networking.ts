@@ -162,4 +162,14 @@ export const networkingMeta: LessonMeta[] = [
     keywords: ['dns', 'domain name', 'resolver', 'recursive resolver', 'root server', 'tld', 'authoritative', 'a record', 'ns record', 'ttl', 'cache', 'nxdomain', 'udp 53', 'dig'],
     prerequisites: ['ports-udp'],
   },
+  {
+    id: 'http-1-1',
+    title: 'HTTP/1.1',
+    category: 'networking',
+    difficulty: 'advanced',
+    group: 'Web & Internet Scale',
+    description: 'Fetch a page over real TCP: count the handshakes keep-alive saves, and watch one slow response hold up everything behind it.',
+    keywords: ['http', 'http/1.1', 'request', 'response', 'headers', 'keep-alive', 'connection: close', 'get', 'status code', 'head of line blocking', 'curl'],
+    prerequisites: ['tcp-connections'],
+  },
 ];

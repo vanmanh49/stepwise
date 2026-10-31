@@ -29,6 +29,7 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   'reliable-delivery': { segments: [6, 8] },
   'flow-control': { buffer: [2000, 64000], rate: [0, 200] },
   'congestion-control': { queue: [2, 40], ssthresh: [2, 64] },
+  'http-1-1': { resources: [1, 8] },
 };
 
 function checkView(view: View, label: string) {
