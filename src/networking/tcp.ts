@@ -25,12 +25,14 @@ export interface TcpOptions {
   ssthreshMss?: number;
   /** In segments. Replaces `cwnd`, so congestion control can't hide what a lesson teaches. */
   fixedWindow?: number;
+  /** In segments; 1 by default. A server sending a certificate needs its whole flight to fit. */
+  initialWindow?: number;
   bufferBytes?: number;
   /** Bytes per ms; 0 is paused. With none, the program reads everything at once. */
   readRate?: number;
   /** `marks` are those whose last byte has now arrived in order. */
   onData?: (bytes: number, marks: unknown[], ctx: Ctx, conn: Conn) => void;
-  /** On a server, once the handshake is done. */
+  /** Once the handshake is done, on either side. */
   onConnection?: (ctx: Ctx, conn: Conn) => void;
   /** However the connection ended. */
   onClosed?: (ctx: Ctx, conn: Conn) => void;
@@ -263,6 +265,7 @@ export function createTcp(host: TcpHost) {
     conn.state = 'ESTABLISHED';
     conn.mss = Math.min(conn.mss, mss ?? conn.mss);
     startReno(conn, conn.mss, conn.options.ssthreshMss);
+    if (conn.options.initialWindow) conn.cwnd = conn.options.initialWindow * conn.mss;
     conn.rto = INITIAL_RTO_MS;
     conn.retries = 0;
     stopTimer(conn);
@@ -430,6 +433,7 @@ export function createTcp(host: TcpHost) {
     conn.peerWindow = segment.window;
     establish(conn, segment.mss);
     sendAck(ctx, conn, noteFor(conn, 'tcp-established', `ACK ${conn.rcvNxt}: the client is connected`, 'The server\'s SYN is acknowledged, so the client has heard both directions work. It can send data from here on.'));
+    conn.options.onConnection?.(ctx, conn);
     applyClose(ctx, conn);
     pump(ctx, conn);
   }

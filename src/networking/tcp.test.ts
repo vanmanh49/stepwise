@@ -480,3 +480,22 @@ describe('marks and server writes', () => {
     }
   });
 });
+
+describe('initial window', () => {
+  it('sends that many segments in the first flight', () => {
+    const { run } = transfer({ bytes: 3000, options: { initialWindow: 3 } });
+    expect(dataSeqs(run)).toEqual([1001, 2001, 3001]);
+    const times = run.events.filter((event) => event.device === 'c' && (segment(event)?.length ?? 0) > 0).map(({ time }) => time);
+    expect(new Set(times).size).toBe(1);
+  });
+});
+
+describe('a client connection', () => {
+  it('tells the client when it is established', () => {
+    const { client, server, links } = pair();
+    const states2: string[] = [];
+    const commands = [on(server, 0, () => server.listen(PORT)), on(client, 1, (ctx) => void client.connect(ctx, SERVER, PORT, { onConnection: (_, conn) => states2.push(conn.state) }))];
+    simulate({ devices: [client, server], links, commands });
+    expect(states2).toEqual(['ESTABLISHED']);
+  });
+});
