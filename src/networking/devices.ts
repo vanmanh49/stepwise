@@ -75,6 +75,8 @@ export interface HostConfig {
   arp?: Record<number, string>;
   /** Sends UDP back to its sender, as an echo server does. */
   echo?: boolean;
+  /** How long an echo waits before it leaves. */
+  echoDelayMs?: number;
 }
 
 export interface Reply {
@@ -208,8 +210,14 @@ export function createHost(config: HostConfig): Host {
         why: 'This is still a broadcast, so any other server that made an offer learns which one was chosen.',
       });
     } else if (data.op === 'ack') {
+      const renewed = ip === data.yourIp;
       ip = data.yourIp;
       dhcpState = 'bound';
+      ctx.note({
+        action: 'dhcp-bound',
+        title: renewed ? `${config.label} keeps ${formatIp(ip)}` : `${config.label} now has ${formatIp(ip)}`,
+        why: `The lease lasts ${data.leaseS} s. The client will ask to renew at half that time.`,
+      });
       renew(ctx, data);
     }
   }
@@ -222,11 +230,13 @@ export function createHost(config: HostConfig): Host {
     });
     if (!config.echo) return;
     const reply = packet(src, DEFAULT_TTL, { kind: 'udp', srcPort: udp.dstPort, dstPort: udp.srcPort, data: udp.data });
-    transmit(ctx, reply, {
-      action: 'udp-echo',
-      title: `${config.label} replies to ${formatIp(src)} port ${udp.srcPort}`,
-      why: 'It swaps the source and destination it saw. It only knows the address the packet arrived with.',
-    });
+    ctx.after(config.echoDelayMs ?? 0, () =>
+      transmit(ctx, reply, {
+        action: 'udp-echo',
+        title: `${config.label} replies to ${formatIp(src)} port ${udp.srcPort}`,
+        why: 'It swaps the source and destination it saw. It only knows the address the packet arrived with.',
+      }),
+    );
   }
 
   const host: Host = {
@@ -236,7 +246,7 @@ export function createHost(config: HostConfig): Host {
     column: config.column,
     mac,
     replies: [],
-    badge: () => formatIp(ip),
+    badge: () => (ip === 0 ? 'no address' : formatIp(ip)),
     ping(ctx, dst, seq, ttl = DEFAULT_TTL) {
       sent.set(seq, ctx.now);
       originate(ctx, packet(dst, ttl, { kind: 'icmp', type: 'echo-request', seq }), `Ping ${seq}`);

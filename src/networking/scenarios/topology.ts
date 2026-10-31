@@ -1,5 +1,6 @@
 import { ipv4 } from '../address';
 import { createHost, createSwitch, type Host, type HostConfig } from '../devices';
+import { createDhcpServer } from '../dhcp';
 import { createRouter, type Interface, type Route } from '../router';
 import type { Device, Link } from '../sim';
 
@@ -94,4 +95,74 @@ export function threeRouters({ web, backup, loop, silent }: ThreeRoutersOptions 
   }
   if (backup) links.push({ a: ['r1', 'p2'], b: ['r3', 'p3'] });
   return { host, hosts: [host, server], devices, links };
+}
+
+/** A public-address router outside, so a private address has nowhere to go. */
+export interface HomeNetwork extends Lan {
+  a: Host;
+  b: Host;
+  server: Host;
+}
+
+/** Hosts A and B on a switch, behind one NAT router, across an Internet router from a server that echoes UDP. */
+export function homeNetwork({ timeoutS, echoDelayMs }: { timeoutS: number; echoDelayMs?: number }): HomeNetwork {
+  const inside = (id: string, n: number) => createHost({ id, label: id, column: 0, mac: macOf(n), ip: ipv4(`192.168.1.${9 + n}`), prefix: 24, gateway: ipv4('192.168.1.1') });
+  const a = inside('A', 1);
+  const b = inside('B', 2);
+  const sw = createSwitch({ id: 'sw', label: 'Switch', column: 1, ports: ['p1', 'p2', 'p3'], agingS: 300 });
+  const nat = createRouter({
+    id: 'nat',
+    label: 'Router',
+    column: 2,
+    interfaces: [
+      { port: 'in', ip: ipv4('192.168.1.1'), prefix: 24, mac: macOf(0x11) },
+      { port: 'out', ip: ipv4('198.51.100.1'), prefix: 24, mac: macOf(0x12) },
+    ],
+    routes: [route('0.0.0.0', 0, '198.51.100.2', 'out')],
+    nat: { insidePort: 'in', outsidePort: 'out', publicIp: ipv4('198.51.100.1'), timeoutS },
+  });
+  const internet = createRouter({
+    id: 'internet',
+    label: 'Internet',
+    column: 3,
+    interfaces: [
+      { port: 'p0', ip: ipv4('198.51.100.2'), prefix: 24, mac: macOf(0x21) },
+      { port: 'p1', ip: ipv4('203.0.113.1'), prefix: 24, mac: macOf(0x22) },
+    ],
+    routes: [],
+  });
+  const server = createHost({ id: 'server', label: 'Server', column: 4, mac: macOf(3), ip: ipv4('203.0.113.5'), prefix: 24, gateway: ipv4('203.0.113.1'), echo: true, echoDelayMs });
+  return {
+    a,
+    b,
+    server,
+    hosts: [a, b, server],
+    devices: [a, b, sw, nat, internet, server],
+    links: [
+      { a: ['A', 'eth0'], b: ['sw', 'p1'] },
+      { a: ['B', 'eth0'], b: ['sw', 'p2'] },
+      { a: ['sw', 'p3'], b: ['nat', 'in'] },
+      { a: ['nat', 'out'], b: ['internet', 'p0'] },
+      { a: ['internet', 'p1'], b: ['server', 'eth0'] },
+    ],
+  };
+}
+
+/** A laptop and a phone with no address yet, on a switch with a DHCP server at 10.0.0.1. */
+export function dhcpNetwork({ pool, leaseS }: { pool: number; leaseS: number }): Lan {
+  const client = (id: string, label: string, n: number) => createHost({ id, label, column: 0, mac: macOf(n), ip: 0, prefix: 24 });
+  const laptop = client('laptop', 'Laptop', 1);
+  const phone = client('phone', 'Phone', 2);
+  const sw = createSwitch({ id: 'sw', label: 'Switch', column: 1, ports: ['p1', 'p2', 'p3'], agingS: 300 });
+  const addresses = Array.from({ length: pool }, (_, i) => ipv4(`10.0.0.${100 + i}`));
+  const server = createDhcpServer({ id: 'dhcp', label: 'DHCP', column: 2, mac: macOf(9), ip: ipv4('10.0.0.1'), pool: addresses, leaseS });
+  return {
+    hosts: [laptop, phone],
+    devices: [laptop, phone, sw, server],
+    links: [
+      { a: ['laptop', 'eth0'], b: ['sw', 'p1'] },
+      { a: ['phone', 'eth0'], b: ['sw', 'p2'] },
+      { a: ['dhcp', 'eth0'], b: ['sw', 'p3'] },
+    ],
+  };
 }

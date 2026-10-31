@@ -87,7 +87,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'Traceroute shows * at hop 2, but hops 3 and 4 answer. What does that mean?',
-      options: ['Hop 2 forwards traffic but sends no ICMP errors', 'Hop 2 is down', 'Hops 3 and 4 are lying', 'The path has a loop'],
+      options: ['It forwards traffic but sends no ICMP errors', 'It is down, and traffic goes around it', 'Hops 3 and 4 are answering for it', 'The path has a routing loop at that hop'],
       answer: 0,
       explanation: 'Probes got past hop 2, so it is working. It just doesn\'t answer.',
     },

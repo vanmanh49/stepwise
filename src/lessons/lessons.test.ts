@@ -192,6 +192,8 @@ const EXPECTED_IDS = [
   'ip-subnets',
   'ip-routing',
   'ping-traceroute',
+  'dhcp',
+  'nat',
 ];
 
 describe('lesson registry', () => {
