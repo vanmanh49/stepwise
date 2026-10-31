@@ -1,8 +1,9 @@
 import { formatIp, inSubnet } from './address';
-import { BROADCAST_MAC, type Arp, type Frame, type Icmp, type IpPacket, type Udp } from './packet';
+import { BROADCAST_MAC, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, type Arp, type Dhcp, type Frame, type Icmp, type IpPacket, type Udp } from './packet';
 import { formatTime, type Ctx, type Device, type Note, type TableSnapshot } from './sim';
 
 export const ARP_TIMEOUT_MS = 1000;
+export const DHCP_RETRY_MS = 4000;
 const DEFAULT_TTL = 64;
 const ETH = 'eth0';
 
@@ -86,12 +87,16 @@ export interface Reply {
 export interface Host extends Device {
   ping(ctx: Ctx, dst: number, seq: number, ttl?: number): void;
   udp(ctx: Ctx, dst: number, srcPort: number, dstPort: number, text: string): void;
+  /** Starts DHCP. A host that will boot has an address of 0. */
+  boot(ctx: Ctx): void;
+  address(): number;
   replies: Reply[];
 }
 
 export function createHost(config: HostConfig): Host {
-  const { mac, prefix, gateway } = config;
-  const ip = config.ip;
+  const { mac, gateway } = config;
+  let { ip, prefix } = config;
+  let dhcpState: 'off' | 'discovering' | 'requesting' | 'bound' = 'off';
   const arp = createArp(config.arp);
   const sent = new Map<number, number>();
   let nextId = 1;
@@ -152,6 +157,60 @@ export function createHost(config: HostConfig): Host {
       return;
     }
     if (typeof payload.data === 'string') receiveUdp(ctx, src, payload);
+    else receiveDhcp(ctx, payload.data);
+  }
+
+  const broadcastDhcp = (data: Dhcp): Frame => ({
+    srcMac: mac,
+    dstMac: BROADCAST_MAC,
+    payload: { kind: 'ip', src: 0, dst: 0xffffffff, ttl: DEFAULT_TTL, id: nextId++, payload: { kind: 'udp', srcPort: DHCP_CLIENT_PORT, dstPort: DHCP_SERVER_PORT, data } },
+  });
+
+  function discover(ctx: Ctx, retries: number) {
+    ctx.send([ETH], broadcastDhcp({ op: 'discover', yourIp: 0, serverIp: 0, leaseS: 0 }), {
+      action: 'dhcp-discover',
+      title: `${config.label} asks for an address`,
+      why: 'It has no address and knows no server, so it sends from 0.0.0.0 to 255.255.255.255, the one address that reaches everyone on this network.',
+    });
+    ctx.after(DHCP_RETRY_MS, () => {
+      if (dhcpState !== 'discovering') return;
+      if (retries > 0) {
+        ctx.note({ action: 'dhcp-retry', title: `No answer after ${formatTime(DHCP_RETRY_MS)}`, why: 'Broadcasts can be missed, so the client asks again.' });
+        discover(ctx, retries - 1);
+        return;
+      }
+      const [, , , , high = '0', low = '0'] = mac.split(':');
+      ip = (((169 * 256 + 254) * 65536) + parseInt(high, 16) * 256 + parseInt(low, 16)) >>> 0;
+      prefix = 16;
+      dhcpState = 'off';
+      ctx.note({ action: 'dhcp-fallback', title: `${config.label} gives itself ${formatIp(ip)}`, why: 'With no server, a host picks a link-local address from 169.254.0.0/16. It can talk to neighbours, but not to the internet.' });
+    });
+  }
+
+  function renew(ctx: Ctx, data: Dhcp) {
+    ctx.after(data.leaseS * 500, () => {
+      const request = packet(data.serverIp, DEFAULT_TTL, { kind: 'udp', srcPort: DHCP_CLIENT_PORT, dstPort: DHCP_SERVER_PORT, data: { op: 'request', yourIp: ip, serverIp: data.serverIp, leaseS: 0 } });
+      transmit(ctx, request, {
+        action: 'dhcp-renew',
+        title: `${config.label} renews ${formatIp(ip)}`,
+        why: `Half of the ${data.leaseS} s lease has passed, so the client asks to keep the address. This time it can ask the server directly.`,
+      });
+    });
+  }
+
+  function receiveDhcp(ctx: Ctx, data: Dhcp) {
+    if (data.op === 'offer' && dhcpState === 'discovering') {
+      dhcpState = 'requesting';
+      ctx.send([ETH], broadcastDhcp({ op: 'request', yourIp: data.yourIp, serverIp: data.serverIp, leaseS: 0 }), {
+        action: 'dhcp-request',
+        title: `${config.label} requests ${formatIp(data.yourIp)}`,
+        why: 'This is still a broadcast, so any other server that made an offer learns which one was chosen.',
+      });
+    } else if (data.op === 'ack') {
+      ip = data.yourIp;
+      dhcpState = 'bound';
+      renew(ctx, data);
+    }
   }
 
   function receiveUdp(ctx: Ctx, src: number, udp: Udp) {
@@ -180,6 +239,11 @@ export function createHost(config: HostConfig): Host {
       sent.set(seq, ctx.now);
       originate(ctx, packet(dst, ttl, { kind: 'icmp', type: 'echo-request', seq }), `Ping ${seq}`);
     },
+    boot(ctx) {
+      dhcpState = 'discovering';
+      discover(ctx, 1);
+    },
+    address: () => ip,
     udp(ctx, dst, srcPort, dstPort, text) {
       originate(ctx, packet(dst, DEFAULT_TTL, { kind: 'udp', srcPort, dstPort, data: text }), `A UDP datagram`);
     },
@@ -189,7 +253,7 @@ export function createHost(config: HostConfig): Host {
         return;
       }
       if (frame.payload.kind === 'arp') arp.receive(ctx, port, own(), frame.payload);
-      else if (frame.payload.dst === ip) receiveIp(ctx, frame.payload);
+      else if (frame.payload.dst === ip || frame.payload.dst === 0xffffffff) receiveIp(ctx, frame.payload);
     },
     tables: () => [arp.table()],
   };

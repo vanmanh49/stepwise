@@ -1,4 +1,6 @@
 export const BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff';
+export const DHCP_SERVER_PORT = 67;
+export const DHCP_CLIENT_PORT = 68;
 
 export interface Arp {
   kind: 'arp';
