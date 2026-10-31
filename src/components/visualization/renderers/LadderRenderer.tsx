@@ -2,6 +2,8 @@ import type { LadderView } from '../../../types/visualization';
 import { roleBorder } from '../roles';
 
 const ROW_HEIGHT = 38;
+/** How far from the middle (in %) a hop's label stops being centred, or it would run off the figure. */
+const CENTRED_WITHIN = 10;
 
 /** Packets as arrows between device lifelines. A lost packet stops halfway across. */
 export function LadderRenderer({ view }: { view: LadderView }) {
@@ -28,13 +30,15 @@ export function LadderRenderer({ view }: { view: LadderView }) {
           const from = at(row.from);
           const to = at(row.to);
           const end = row.lost ? (from + to) / 2 : to;
-          const color = roleBorder(row.role);
+          const middle = (from + to) / 2;
+          const centred = Math.abs(middle - 50) <= CENTRED_WITHIN;
+          const color = row.role === 'default' ? 'var(--text-muted)' : roleBorder(row.role);
           return (
             <li key={row.id} className="relative" style={{ height: ROW_HEIGHT }}>
               <span className="sr-only">
                 {name(row.from)} to {name(row.to)}: {row.lost ? 'lost: ' : ''}
               </span>
-              <span className="absolute top-0.5 -translate-x-1/2 whitespace-nowrap rounded bg-surface px-1" style={{ left: `${(from + to) / 2}%` }}>
+              <span className={`absolute top-0.5 whitespace-nowrap rounded bg-surface px-1 ${centred ? '-translate-x-1/2' : ''}`} style={centred ? { left: `${middle}%` } : middle < 50 ? { left: 0 } : { right: 0 }}>
                 {row.label}
               </span>
               <span aria-hidden className="absolute" style={{ left: `${Math.min(from, end)}%`, width: `${Math.abs(end - from)}%`, top: ROW_HEIGHT - 12, borderTop: `2px ${row.lost ? 'dashed' : 'solid'} ${color}` }} />

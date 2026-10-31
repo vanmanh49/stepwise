@@ -40,6 +40,24 @@ describe('ladder', () => {
   });
 });
 
+describe('ladder on narrow columns', () => {
+  const columns = ['a', 'b', 'c', 'd'].map((id) => ({ id, label: id }));
+  const row = (from: string, to: string) => draw({ kind: 'ladder', columns, rows: [{ id: 'r', from, to, label: 'SYN ACK', role: 'default' }] });
+
+  it('keeps an outer hop\'s label inside the figure', () => {
+    expect(row('a', 'b')).toMatch(/style="left:0"[^>]*>SYN ACK/);
+    expect(row('c', 'd')).toMatch(/style="right:0"[^>]*>SYN ACK/);
+  });
+
+  it('centres a middle hop\'s label on its arrow', () => {
+    expect(row('b', 'c')).toMatch(/-translate-x-1\/2[^>]*style="left:50%"[^>]*>SYN ACK/);
+  });
+
+  it('draws a plain row\'s arrow in text ink, not the faint border colour', () => {
+    expect(row('a', 'b')).toContain('var(--text-muted)');
+  });
+});
+
 describe('chart', () => {
   const view: View = {
     kind: 'chart',
