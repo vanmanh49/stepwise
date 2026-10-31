@@ -26,6 +26,10 @@ const TYPE_NAME: Record<ServicesView['nodes'][number]['type'], string> = {
   relay: 'outbox relay',
   sidecar: 'sidecar proxy',
   attacker: 'attacker',
+  host: 'host',
+  switch: 'switch',
+  router: 'router',
+  dhcp: 'DHCP server',
 };
 
 /** A rectangle with a role's fill, border cue and mark, like ValueBox but in SVG. */

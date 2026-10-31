@@ -12,6 +12,12 @@ export function parseIp(text: string): Read<number> {
   return { ok: true, value: octets.reduce((value, octet) => value * 256 + octet, 0) };
 }
 
+/** For addresses written in code, which are known to be valid. */
+export function ipv4(text: string): number {
+  const parsed = parseIp(text);
+  return parsed.ok ? parsed.value : 0;
+}
+
 export function parseCidr(text: string): Read<{ ip: number; prefix: number }> {
   const [address = '', prefix, ...rest] = text.trim().split('/');
   const ip = parseIp(address);
