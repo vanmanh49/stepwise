@@ -19,11 +19,12 @@ interface Setup {
   paths?: string[];
   faults?: Fault[];
   net?: ReturnType<typeof tcpPath>;
+  returning?: boolean;
 }
 
-function fetchAll({ net = tcpPath(), version = 'HTTP/1.1', tls = false, keepAlive = true, connections = 1, resources = RESOURCES, paths = resources.map(({ path }) => path), faults = [] }: Setup = {}) {
+function fetchAll({ net = tcpPath(), version = 'HTTP/1.1', tls = false, keepAlive = true, connections = 1, resources = RESOURCES, paths = resources.map(({ path }) => path), faults = [], returning = false }: Setup = {}) {
   httpServer(net.server, { port: SERVER_PORT, resources, version, tls });
-  const client = httpClient(net.client, { server: net.server.address(), port: SERVER_PORT, version, tls, keepAlive, connections });
+  const client = httpClient(net.client, { server: net.server.address(), port: SERVER_PORT, version, tls, keepAlive, connections, returning });
   const commands: Command[] = [{ at: 0, device: 'client', run: (_, ctx) => client.get(ctx, paths) }];
   const run = simulate({ devices: net.devices, links: net.links, commands, faults, maxEvents: 20000 });
   const actions = run.events.map(({ action }) => action);
@@ -155,6 +156,63 @@ describe('HTTP/2', () => {
       expect(responses[2]!.hops[0]!.lost, version).toBe(true);
       expect(carrying.filter(({ hops }) => hops[0]!.lost)).toHaveLength(1);
     }
+  });
+});
+
+describe('HTTP/3', () => {
+  const FOUR: Resource[] = ['/a.js', '/b.css', '/c.png', '/d.png'].map((path) => ({ path, bytes: 3000 }));
+  const h3 = (setup: Setup = {}) => fetchAll({ version: 'HTTP/3', resources: FOUR, ...setup });
+  const h2 = (setup: Setup = {}) => fetchAll({ version: 'HTTP/2', tls: true, resources: FOUR, ...setup });
+  const firstByte = (setup: ReturnType<typeof fetchAll>) => setup.fetches[0]!.firstByteAt!;
+
+  it('fetches everything on one connection, on streams 0, 4, 8 and 12', () => {
+    const { fetches, http } = h3();
+    expect(http.opened()).toBe(1);
+    expect(fetches.map(({ stream, status, bytes }) => [stream, status, bytes])).toEqual([[0, 200, 3000], [4, 200, 3000], [8, 200, 3000], [12, 200, 3000]]);
+  });
+
+  it('reaches the first byte about one round trip before HTTP/2 on TLS', () => {
+    const gained = firstByte(h2()) - firstByte(h3());
+    expect(gained).toBeGreaterThanOrEqual(RTT * 0.75);
+    expect(gained).toBeLessThanOrEqual(RTT * 1.5);
+  });
+
+  it('reaches it a round trip sooner again on a return visit', () => {
+    const gained = firstByte(h3()) - firstByte(h3({ returning: true }));
+    expect(gained).toBeGreaterThanOrEqual(RTT * 0.75);
+    expect(gained).toBeLessThanOrEqual(RTT * 1.5);
+  });
+
+  it('finishes the whole page in about the same time as HTTP/2 otherwise', () => {
+    const lastDone = (run: ReturnType<typeof fetchAll>) => Math.max(...run.fetches.map(({ doneAt }) => doneAt!));
+    const gained = lastDone(h2()) - lastDone(h3());
+    expect(gained).toBeGreaterThan(0);
+    expect(gained).toBeLessThanOrEqual(RTT * 2);
+  });
+
+  it('shares the header table with HTTP/2', () => {
+    expect(h3({ paths: ['/a.js', '/a.js'] }).fetches[1]!.headerBytes).toBe(h2({ paths: ['/a.js', '/a.js'] }).fetches[1]!.headerBytes);
+  });
+
+  it('picks the same nth response packet as HTTP/2', () => {
+    const net = tcpPath();
+    const { run } = h3({ net, faults: [dropResponse(net.server, 3)] });
+    const carrying = run.events.filter(({ device, frame }) => {
+      const inner = device === 'server' && frame?.payload.kind === 'ip' ? frame.payload.payload : undefined;
+      return inner?.kind === 'udp' && typeof inner.data === 'object' && 'proto' in inner.data && inner.data.proto === 'quic' && inner.data.frames.length > 0;
+    });
+    expect(carrying[2]!.hops[0]!.lost).toBe(true);
+    expect(carrying.filter(({ hops }) => hops[0]!.lost)).toHaveLength(1);
+  });
+
+  it('stalls exactly one stream on the loss that stalls every HTTP/2 stream', () => {
+    const stalled = (run: SimResult) => run.events.map((event) => event.tables.client![4]!.rows.filter((row) => row[3] === 'stalled').length);
+    const quic = tcpPath();
+    const three = h3({ net: quic, faults: [dropResponse(quic.server, 3)] });
+    expect(Math.max(...stalled(three.run))).toBe(1);
+    expect(three.fetches.map(({ bytes }) => bytes)).toEqual([3000, 3000, 3000, 3000]);
+    const tcp = tcpPath();
+    expect(Math.max(...stalled(h2({ net: tcp, faults: [dropResponse(tcp.server, 3)] }).run))).toBe(4);
   });
 });
 

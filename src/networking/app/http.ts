@@ -1,4 +1,5 @@
 import type { Host } from '../devices';
+import { createQuic, type QuicConn } from '../quic';
 import { formatTime, type Ctx, type Fault, type TableSnapshot } from '../sim';
 import type { Conn } from '../tcp';
 import { tlsClient, TLS_FLIGHT_SEGMENTS, tlsMark, tlsServer, type TlsMark } from './tls';
@@ -95,23 +96,30 @@ interface Mux {
   streams: Outgoing[];
   table: Set<string>;
   thinking: boolean;
+  /** Bytes the transport can take now. QUIC takes all of it and shares packets out itself. */
+  room(): number;
+  write(ctx: Ctx, stream: number, bytes: number, mark: HttpMark): void;
 }
+
+type Reply = (ctx: Ctx, status: number, bytes: number, extra?: Record<string, string>) => void;
 
 /** So requests sent together are scheduled together, though they arrive a few ms apart. */
 const THINK_MS = 10;
 
 /** The nth packet from the server carrying response data, counting first sends only and skipping TLS. */
 export function dropResponse(server: Host, n: number): Fault {
-  const seen = new Set<number>();
+  const seen = new Set<string>();
+  const firstSend = (key: string) => !seen.has(key) && seen.add(key).size > 0;
   return {
     kind: 'dropPacket',
     nth: n,
     matches({ srcMac, payload }) {
-      if (srcMac !== server.mac || payload.kind !== 'ip' || payload.payload.kind !== 'tcp') return false;
-      const { seq, marks = [] } = payload.payload;
-      if (seen.has(seq) || !marks.some(({ mark }) => !tlsMark(mark))) return false;
-      seen.add(seq);
-      return true;
+      if (srcMac !== server.mac || payload.kind !== 'ip') return false;
+      const inner = payload.payload;
+      if (inner.kind === 'tcp') return (inner.marks ?? []).some(({ mark }) => !tlsMark(mark)) && firstSend(`${inner.seq}`);
+      if (inner.kind !== 'udp' || typeof inner.data !== 'object' || !('proto' in inner.data) || inner.data.proto !== 'quic') return false;
+      const [frame] = inner.data.frames;
+      return frame !== undefined && firstSend(`${frame.stream}:${frame.offset}`);
     },
   };
 }
@@ -126,32 +134,39 @@ export interface HttpServerOptions {
 }
 
 export function httpServer(host: Host, { port, resources, version, tls, edge }: HttpServerOptions) {
-  const muxes = new Map<Conn, Mux>();
+  const muxes = new Map<Conn | QuicConn, Mux>();
 
-  function drain(ctx: Ctx, conn: Conn, mux: Mux) {
-    while (mux.streams.length > 0 && conn.room > 0) {
+  function drain(ctx: Ctx, mux: Mux) {
+    while (mux.streams.length > 0 && mux.room() > 0) {
       const out = mux.streams.shift()!;
       const [bytes, mark] = nextFrame(out);
-      host.write(ctx, conn, bytes, mark);
+      mux.write(ctx, out.stream, bytes, mark);
       if (out.head || out.left > 0) mux.streams.push(out);
     }
   }
 
-  /** Writes only what TCP can send now, so a stream arriving later still gets its turn. */
-  function respondMux(ctx: Ctx, conn: Conn, request: HttpMark, status: number, bytes: number) {
-    const mux = muxes.get(conn) ?? { streams: [], table: new Set<string>(), thinking: false };
-    muxes.set(conn, mux);
+  /** Writes only what the transport can send now, so a stream arriving later still gets its turn. */
+  function respondMux(ctx: Ctx, mux: Mux, request: HttpMark, status: number, bytes: number) {
     mux.streams.push(headFor(mux.table, request, status, bytes));
     if (mux.thinking) return;
     mux.thinking = true;
     ctx.after(THINK_MS, () => {
       mux.thinking = false;
-      drain(ctx, conn, mux);
+      drain(ctx, mux);
     });
   }
 
+  function muxOn(conn: Conn | QuicConn, room: Mux['room'], write: Mux['write']) {
+    const mux = muxes.get(conn) ?? { streams: [], table: new Set<string>(), thinking: false, room, write };
+    muxes.set(conn, mux);
+    return mux;
+  }
+
   function respond(ctx: Ctx, conn: Conn, request: HttpMark, status: number, bytes: number, extra: Record<string, string> = {}) {
-    if (version !== 'HTTP/1.1') return respondMux(ctx, conn, request, status, bytes);
+    if (version === 'HTTP/2') {
+      const mux = muxOn(conn, () => conn.room, (at, _, size, mark) => host.write(at, conn, size, mark));
+      return respondMux(ctx, mux, request, status, bytes);
+    }
     const { path, headers } = request;
     const close = headers?.Connection === 'close';
     const label = `${status} ${STATUS_TEXT[status]}`;
@@ -182,39 +197,50 @@ export function httpServer(host: Host, { port, resources, version, tls, edge }: 
     host.addTable((): TableSnapshot => ({ title: 'Edge cache', columns: ['Path', 'Bytes', 'Stored'], rows: [...cache].map(([path, { bytes, storedAt }]) => [path, String(bytes), formatTime(storedAt)]) }));
   }
 
-  function fromOrigin(ctx: Ctx, conn: Conn, request: HttpMark) {
+  function fromOrigin(ctx: Ctx, reply: Reply, request: HttpMark) {
     const { path } = request;
     const copy = cache.get(path);
     if (copy && ctx.now - copy.storedAt < edge!.ttlS * 1000) {
       const age = Math.floor((ctx.now - copy.storedAt) / 1000);
       ctx.note({ action: 'cache-hit', title: `Cache hit for ${path}`, why: `The edge stored this ${formatTime(ctx.now - copy.storedAt)} ago, so the origin isn't asked. Age tells the client how old the copy is.` });
-      respond(ctx, conn, request, copy.status, copy.bytes, { Age: String(age), 'X-Cache': 'HIT' });
+      reply(ctx, copy.status, copy.bytes, { Age: String(age), 'X-Cache': 'HIT' });
       return;
     }
     ctx.note({ action: 'cache-miss', title: `Cache miss for ${path}`, why: 'The edge has no fresh copy, so it fetches one from the origin and keeps it for the next visitor.' });
     const answers = waiting.get(path) ?? [];
-    waiting.set(path, [...answers, (at, status, bytes) => respond(at, conn, request, status, bytes, { 'X-Cache': 'MISS' })]);
+    waiting.set(path, [...answers, (at, status, bytes) => reply(at, status, bytes, { 'X-Cache': 'MISS' })]);
     if (answers.length === 0) origin!.get(ctx, [path]);
   }
 
-  function onRequest(ctx: Ctx, conn: Conn, request: HttpMark) {
-    if (edge) return fromOrigin(ctx, conn, request);
+  function onRequest(ctx: Ctx, reply: Reply, request: HttpMark) {
+    if (edge) return fromOrigin(ctx, reply, request);
     const resource = resources.find(({ path }) => path === request.path);
-    const answer = (at: Ctx) => respond(at, conn, request, resource ? 200 : 404, resource?.bytes ?? 0);
+    const answer = (at: Ctx) => reply(at, resource ? 200 : 404, resource?.bytes ?? 0);
     if (resource?.delayMs) ctx.after(resource.delayMs, () => answer(ctx));
     else answer(ctx);
+  }
+
+  if (version === 'HTTP/3') {
+    const quic = createQuic(host);
+    quic.listen(port, {
+      onData(ctx, conn, _, __, marks) {
+        const mux = muxOn(conn, () => Infinity, (at, stream, size, mark) => quic.send(at, conn, stream, size, mark));
+        for (const mark of marks as HttpMark[]) onRequest(ctx, (at, status, bytes) => respondMux(at, mux, mark, status, bytes), mark);
+      },
+    });
+    return;
   }
 
   host.listen(port, {
     ...(tls ? { initialWindow: TLS_FLIGHT_SEGMENTS } : {}),
     onAcked(ctx, conn) {
       const mux = muxes.get(conn);
-      if (mux && !mux.thinking) drain(ctx, conn, mux);
+      if (mux && !mux.thinking) drain(ctx, mux);
     },
     onData(_, marks, ctx, conn) {
       for (const mark of marks) {
         if (tlsMark(mark)) tlsServer(ctx, host, conn, mark);
-        else if ((mark as HttpMark).type === 'request') onRequest(ctx, conn, mark as HttpMark);
+        else if ((mark as HttpMark).type === 'request') onRequest(ctx, (at, status, bytes, extra) => respond(at, conn, mark as HttpMark, status, bytes, extra), mark as HttpMark);
       }
     },
   });
@@ -228,6 +254,8 @@ export interface HttpClientOptions {
   keepAlive?: boolean;
   /** Most connections open at once, on HTTP/1.1. Six is what browsers use. */
   connections?: number;
+  /** On HTTP/3: has a saved key, so its requests go in the first flight. */
+  returning?: boolean;
   onDone?: (ctx: Ctx, fetch: Fetch) => void;
 }
 
@@ -239,7 +267,7 @@ interface Slot {
   tls?: (ctx: Ctx, mark: TlsMark) => void;
 }
 
-export function httpClient(host: Host, { server, port, version, tls, keepAlive = true, connections = 1, onDone }: HttpClientOptions) {
+export function httpClient(host: Host, { server, port, version, tls, keepAlive = true, connections = 1, returning = false, onDone }: HttpClientOptions) {
   const fetches: Fetch[] = [];
   const queue: Fetch[] = [];
   const slots: Slot[] = [];
@@ -343,20 +371,29 @@ export function httpClient(host: Host, { server, port, version, tls, keepAlive =
 
   const byStream = new Map<number, Fetch>();
   const muxTable = new Set<string>();
-  let nextStream = 1;
+  const quic = version === 'HTTP/3' ? createQuic(host) : undefined;
+  const streamStep = quic ? 4 : 2;
+  let nextStream = quic ? 0 : 1;
   let muxConn: Conn | undefined;
+  let quicConn: QuicConn | undefined;
   let muxReady = false;
+
+  const muxWrite = (ctx: Ctx, stream: number, bytes: number, mark: HttpMark) => {
+    if (quicConn) quic!.send(ctx, quicConn, stream, bytes, mark);
+    else host.write(ctx, muxConn!, bytes, mark);
+  };
+  const muxGap = (stream: number) => (quicConn ? quicConn.gaps.includes(stream) : muxConn!.gap);
 
   function muxRequest(ctx: Ctx, fetch: Fetch) {
     const stream = nextStream;
-    nextStream += 2;
+    nextStream += streamStep;
     const headers = muxRequestHeaders(fetch.path);
     const bytes = headerBytes(muxTable, headers);
     Object.assign(fetch, { stream, startedAt: ctx.now, headerBytes: bytes });
     byStream.set(stream, fetch);
-    blocked.set(fetch, () => muxConn!.gap);
+    blocked.set(fetch, () => muxGap(stream));
     ctx.note({ action: 'http-request', title: `GET ${fetch.path} on stream ${stream}`, why: `The headers cost ${bytes} bytes, because the table already holds what earlier requests sent. Streams share this one connection.` });
-    host.write(ctx, muxConn!, bytes, { type: 'request', path: fetch.path, stream, label: `GET ${fetch.path}`, headers } satisfies HttpMark);
+    muxWrite(ctx, stream, bytes, { type: 'request', path: fetch.path, stream, label: `GET ${fetch.path}`, headers });
   }
 
   function muxFlush(ctx: Ctx) {
@@ -372,8 +409,25 @@ export function httpClient(host: Host, { server, port, version, tls, keepAlive =
     }
   }
 
+  function onMuxMark(ctx: Ctx, mark: HttpMark) {
+    const fetch = byStream.get(mark.stream ?? 0);
+    if (fetch) receive(ctx, fetch, mark);
+  }
+
   function muxDispatch(ctx: Ctx) {
     if (muxReady) return muxFlush(ctx);
+    if (quic) {
+      quicConn ??= quic.connect(ctx, server, port, {
+        returning,
+        onConnection: muxFlush,
+        onData(at, _, __, ___, marks) {
+          for (const mark of marks) onMuxMark(at, mark as HttpMark);
+        },
+        onClosed: muxClosed,
+      });
+      if (returning) muxFlush(ctx);
+      return;
+    }
     let tlsDone: ((at: Ctx, mark: TlsMark) => void) | undefined;
     muxConn ??= host.connect(ctx, server, port, {
       onConnection(at, conn) {
@@ -383,10 +437,7 @@ export function httpClient(host: Host, { server, port, version, tls, keepAlive =
       onData(_, marks, at) {
         for (const mark of marks) {
           if (tlsMark(mark)) tlsDone?.(at, mark);
-          else {
-            const fetch = byStream.get((mark as HttpMark).stream ?? 0);
-            if (fetch) receive(at, fetch, mark as HttpMark);
-          }
+          else onMuxMark(at, mark as HttpMark);
         }
       },
       onClosed: muxClosed,
@@ -398,6 +449,7 @@ export function httpClient(host: Host, { server, port, version, tls, keepAlive =
     columns: ['Stream', 'Path', 'Bytes', 'State'],
     rows: fetches.map((fetch) => [fetch.stream === undefined ? '–' : String(fetch.stream), fetch.path, String(fetch.bytes), stateOf(fetch)]),
   }));
+  if (quic) host.addTable(quic.table);
 
   return {
     get(ctx: Ctx, paths: string[]) {
