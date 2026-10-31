@@ -230,6 +230,35 @@ export const curriculum: Topic[] = [
     ['ssrf', 'SSRF', 'Web Attacks & Defenses'],
     ['threat-modeling', 'Threat Modeling & Defense in Depth', 'Web Attacks & Defenses'],
   ]),
+  ...topics('networking', 'beginner', [
+    ['layers-encapsulation', 'Layers & Encapsulation', 'Link & Internet'],
+    ['ethernet-switching', 'Ethernet & Switches', 'Link & Internet'],
+    ['arp', 'ARP', 'Link & Internet'],
+    ['ip-subnets', 'IP Addresses & Subnets', 'Link & Internet'],
+    ['ip-routing', 'Routing Tables', 'Link & Internet'],
+    ['ping-traceroute', 'Ping & Traceroute', 'Link & Internet'],
+    ['dhcp', 'DHCP', 'Link & Internet'],
+    ['nat', 'NAT', 'Link & Internet'],
+  ]),
+  ...topics('networking', 'intermediate', [
+    ['ports-udp', 'Ports & UDP', 'Transport'],
+    ['tcp-connections', 'TCP Connections', 'Transport'],
+    ['reliable-delivery', 'Reliable Delivery', 'Transport'],
+    ['flow-control', 'Flow Control', 'Transport'],
+    ['congestion-control', 'Congestion Control', 'Transport'],
+    ['queues-bufferbloat', 'Queues & Bufferbloat', 'Transport'],
+    ['mtu-mss', 'MTU & MSS', 'Transport'],
+  ]),
+  ...topics('networking', 'advanced', [
+    ['dns', 'DNS', 'Web & Internet Scale'],
+    ['http-1-1', 'HTTP/1.1', 'Web & Internet Scale'],
+    ['http-2', 'HTTP/2', 'Web & Internet Scale'],
+    ['quic-http-3', 'QUIC & HTTP/3', 'Web & Internet Scale'],
+    ['websockets', 'WebSockets', 'Web & Internet Scale'],
+    ['cdn-anycast', 'CDNs & Anycast', 'Web & Internet Scale'],
+    ['bgp', 'BGP', 'Web & Internet Scale'],
+    ['url-to-page', 'From URL to Page', 'Web & Internet Scale'],
+  ]),
 ];
 
 export const DIFFICULTIES: Difficulty[] = ['beginner', 'intermediate', 'advanced'];

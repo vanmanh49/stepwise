@@ -1,11 +1,11 @@
-import { ArrowDown, ArrowUp, Boxes, Brain, Container, CornerDownLeft, Database, Network, Search, Shield, Workflow, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Boxes, Brain, Container, CornerDownLeft, Database, Globe, Network, Search, Shield, Workflow, X } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { CATEGORY_TITLE } from '../../lessons/labels';
 import { searchIndex, searchTopics } from './search';
 import type { Category } from '../../types/lesson';
 
-const CATEGORY_ICON: Record<Category, typeof Boxes> = { 'data-structures': Boxes, algorithms: Workflow, sql: Database, microservices: Network, kubernetes: Container, ai: Brain, security: Shield };
+const CATEGORY_ICON: Record<Category, typeof Boxes> = { 'data-structures': Boxes, algorithms: Workflow, sql: Database, microservices: Network, kubernetes: Container, ai: Brain, security: Shield, networking: Globe };
 
 const SUGGESTED = ['binary-search', 'bubble-sort', 'binary-search-tree', 'bfs', 'dijkstra'];
 
