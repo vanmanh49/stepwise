@@ -8,7 +8,11 @@ export type Handler = (request: WebRequest, world: World) => WebResponse;
 
 export type Route = { method: WebRequest['method']; path: string | RegExp; handler: Handler };
 
-export type Site = { origin: string; party: Party; routes: Route[]; db?: ShopDb };
+/**
+ * `hosts` are other names the site answers to. `trace` lists what the server really ran, such as
+ * statements, commands and paths, for a step to show.
+ */
+export type Site = { origin: string; party: Party; routes: Route[]; hosts?: string[]; db?: ShopDb; trace?: string[] };
 
 export const randomHex = (world: World, length: number): string => hex(Uint8Array.from({ length }, () => Math.floor(world.random() * 256)));
 

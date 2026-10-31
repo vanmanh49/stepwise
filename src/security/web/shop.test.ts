@@ -6,6 +6,7 @@ import { sha256 } from '../crypto/sha256';
 import { totp } from '../crypto/totp';
 import { TOKEN_SECRET, TOTP_SECRET } from './data';
 import { hashPassword, createShop, PASSKEY_KEY, ROUNDS, SAFE_SHOP, type ShopOptions } from './shop';
+import { blockedInput } from './shop-pages';
 import { createWorld, type World } from './world';
 
 const SHOP = 'https://shop.example';
@@ -64,7 +65,7 @@ describe('signing in', () => {
   });
 
   it('applies the cookie flags', () => {
-    const { world, signIn } = setup({ cookie: { httpOnly: false, secure: false } });
+    const { world, signIn } = setup({ cookie: { httpOnly: false, secure: false, sameSite: 'Lax' } });
     signIn();
     expect(world.browser.jar()[0]).toMatchObject({ httpOnly: false, secure: false, sameSite: 'Lax' });
   });
@@ -343,5 +344,189 @@ describe('access control', () => {
   it('starts safe', () => {
     expect(SAFE_SHOP.access).toEqual(access);
     expect(SAFE_SHOP.rotateOnSignIn && SAFE_SHOP.randomIds && SAFE_SHOP.revokeOnSignOut && SAFE_SHOP.checkState).toBe(true);
+  });
+});
+
+describe('injection routes', () => {
+  const get = (world: World, path: string) => world.send({ method: 'GET', url: `${SHOP}${path}`, headers: {}, body: {} }, 'browser');
+  const search = (world: World, q: string) => get(world, `/search?q=${encodeURIComponent(q)}`);
+  const ping = (world: World, host: string) => get(world, `/ping?host=${encodeURIComponent(host)}`);
+  /** Sent raw, as an address bar sends it: `%` stays, and the server decodes once. */
+  const download = (world: World, file: string) => get(world, `/download?file=${file}`);
+  const string = { storage: 'sha256', limit: 'none', queries: 'string' } as const;
+  const blocklist = { ...string, queries: 'blocklist' } as const;
+  const parameters = { ...string, queries: 'parameters' } as const;
+  const signInAs = (shop: Partial<ShopOptions>, name: string) => {
+    const { world } = setup(shop);
+    return world.browser.submit(`${SHOP}/signin`, { name, password: 'wrong' });
+  };
+
+  describe('POST /signin', () => {
+    it.each<[Partial<ShopOptions>, string, number, string]>([
+      [string, "alice' --", 200, 'Signed in as alice.'],
+      [string, "' or 1=1 or '", 200, 'Signed in as alice.'],
+      [blocklist, "' or 1=1 or '", 200, 'Signed in as alice.'],
+      [blocklist, "alice' --", 400, 'refused'],
+      [parameters, "alice' --", 401, 'Wrong name'],
+      [parameters, "' or 1=1 or '", 401, 'Wrong name'],
+      [string, 'alice', 401, 'Wrong name'],
+      [blocklist, 'alice', 401, 'Wrong name'],
+      [parameters, 'alice', 401, 'Wrong name'],
+    ])('%o with %s', (shop, name, status, text) => {
+      const answer = signInAs(shop, name);
+      expect(answer.status).toBe(status);
+      expect(answer.body).toContain(text);
+    });
+
+    it('gives a 500 with the interpreter message for a stray quote', () => {
+      const answer = signInAs(string, "'");
+      expect(answer.status).toBe(500);
+      expect(answer.body).toContain('SQL error');
+    });
+
+    it('records the statement it ran', () => {
+      const { site, world } = setup(string);
+      world.browser.submit(`${SHOP}/signin`, { name: "alice' --", password: 'wrong' });
+      expect(site.trace!.at(-1)).toBe(`SELECT * FROM users WHERE name = 'alice' --' AND hash = '${hashPassword('wrong', 'sha256', '')}'`);
+    });
+
+    it('records the quoted statement with parameters', () => {
+      const { site, world } = setup(parameters);
+      world.browser.submit(`${SHOP}/signin`, { name: "alice' --", password: 'wrong' });
+      expect(site.trace!.at(-1)).toBe("SELECT * FROM users WHERE name = 'alice'' --'");
+    });
+
+    it('still signs in with the right password under string', () => {
+      expect(setup(string).signIn().status).toBe(200);
+    });
+  });
+
+  describe('GET /search', () => {
+    const UNION = "' UNION SELECT name, hash, role FROM users --";
+    const LOWER = "' union select name, hash, role from users where name like '";
+    const DROP = "'; DROP TABLE orders --";
+    const alicesHash = hashPassword('sunshine', 'sha256', '');
+
+    it.each(['string', 'blocklist', 'parameters'] as const)('finds order 101 for lamp under %s', (queries) => {
+      const { world } = setup({ ...string, queries });
+      const answer = search(world, 'lamp');
+      expect(answer.status).toBe(200);
+      expect(answer.rows).toEqual([{ item: 'Lamp', total: 40, owner: 'alice' }]);
+    });
+
+    it('returns user rows for a UNION under string', () => {
+      const answer = search(setup(string).world, UNION);
+      expect(answer.rows!.map((row) => row.total)).toContain(alicesHash);
+      expect(answer.body).toContain(alicesHash);
+    });
+
+    it('refuses the upper-case UNION under blocklist', () => {
+      const answer = search(setup(blocklist).world, UNION);
+      expect(answer.status).toBe(400);
+      expect(answer.rows).toBeUndefined();
+    });
+
+    it('misses the lower-case one under blocklist', () => {
+      expect(search(setup(blocklist).world, LOWER).rows!.map((row) => row.total)).toContain(alicesHash);
+    });
+
+    it('drops the table for a stacked statement under string', () => {
+      const { world, db } = setup(string);
+      expect(search(world, DROP).status).toBe(200);
+      expect(db.execute('SELECT * FROM orders').ok).toBe(false);
+    });
+
+    it.each([UNION, LOWER, DROP, "'", "' UNION SELECT 1 --"])('keeps %s as plain text under parameters', (q) => {
+      const { world, db } = setup(parameters);
+      const answer = search(world, q);
+      expect(answer.status).toBe(200);
+      expect(answer.rows).toEqual([]);
+      expect(db.rows('orders')).toHaveLength(3);
+      expect(db.rows('users')).toHaveLength(4);
+    });
+
+    it.each(["'", "' UNION SELECT 1 --"])('gives a 500 with the interpreter message for %s', (q) => {
+      const answer = search(setup(string).world, q);
+      expect(answer.status).toBe(500);
+      expect(answer.body).toContain('SQL error');
+    });
+
+    it('records the final query', () => {
+      const { site, world } = setup(string);
+      search(world, 'lamp');
+      expect(site.trace!.at(-1)).toBe("SELECT item, total, owner FROM orders WHERE item LIKE '%lamp%'");
+    });
+  });
+
+  describe('GET /ping', () => {
+    const noShell = { commands: 'noShell' } as const;
+
+    it('runs a second command under shell', () => {
+      const { site, world } = setup({ commands: 'shell' });
+      expect(ping(world, '8.8.8.8; cat /app/.env').body).toContain('DB_PASSWORD=fake-password');
+      expect(site.trace).toEqual(['ping -c 1 8.8.8.8', 'cat /app/.env']);
+    });
+
+    it('refuses ; under blocklist and misses |', () => {
+      const { world } = setup({ commands: 'blocklist' });
+      expect(ping(world, '8.8.8.8; cat /app/.env').status).toBe(400);
+      expect(ping(world, '8.8.8.8 && cat /app/.env').status).toBe(400);
+      expect(ping(world, '8.8.8.8 | cat /app/.env').body).toContain('DB_PASSWORD=fake-password');
+    });
+
+    it.each(['8.8.8.8; cat /app/.env', '8.8.8.8 | cat /app/.env', '8.8.8.8 $(whoami)', '-c', ''])('gives 400 for %j under noShell', (host) => {
+      expect(ping(setup(noShell).world, host).status).toBe(400);
+    });
+
+    it.each(['shell', 'blocklist', 'noShell'] as const)('pings 8.8.8.8 under %s', (commands) => {
+      const answer = ping(setup({ commands }).world, '8.8.8.8');
+      expect(answer.status).toBe(200);
+      expect(answer.body).toContain('8.8.8.8');
+    });
+  });
+
+  describe('GET /download', () => {
+    const PASSWD = 'root:x:0:0';
+
+    it.each(['../../etc/passwd', '%2e%2e%2f%2e%2e%2fetc/passwd'])('leaves the folder for %s under shell', (file) => {
+      const { site, world } = setup({ commands: 'shell' });
+      expect(download(world, file).body).toContain(PASSWD);
+      expect(site.trace!.at(-1)).toBe('/etc/passwd');
+    });
+
+    it('stays in the folder for the plain form under blocklist', () => {
+      expect(download(setup({ commands: 'blocklist' }).world, '../../etc/passwd').status).toBe(404);
+    });
+
+    it.each(['....//....//etc/passwd', '%2e%2e%2f%2e%2e%2fetc/passwd'])('leaves the folder for %s under blocklist', (file) => {
+      expect(download(setup({ commands: 'blocklist' }).world, file).body).toContain(PASSWD);
+    });
+
+    it.each(['../../etc/passwd', '%2e%2e%2f%2e%2e%2fetc/passwd', '....//....//etc/passwd', '/etc/passwd', '../files/../../app/.env'])('refuses %s under noShell', (file) => {
+      expect(download(setup({ commands: 'noShell' }).world, file).status).toBeGreaterThanOrEqual(400);
+    });
+
+    it.each(['shell', 'blocklist', 'noShell'] as const)('serves invoice.txt under %s', (commands) => {
+      const answer = download(setup({ commands }).world, 'invoice.txt');
+      expect(answer.status).toBe(200);
+      expect(answer.body).toContain('Invoice');
+    });
+
+    it('does not throw on a bad escape', () => {
+      expect(download(setup({ commands: 'shell' }).world, '%zz').status).toBe(404);
+    });
+  });
+});
+
+describe('blockedInput', () => {
+  it.each([
+    ['a OR b', true],
+    ['a UNION b', true],
+    ['a -- b', true],
+    ['a or b', false],
+    ['a union b', false],
+    ['lamp', false],
+  ])('%s', (text, blocked) => {
+    expect(blockedInput(text)).toBe(blocked);
   });
 });

@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { GridView, PanelsView, ServicesView } from '../../types/visualization';
 import { MAX_STEPS } from '../steps';
 import { createEvil } from './evil';
+import { createInternal } from './internal';
 import { createLogin, LOGIN_ORIGIN } from './login';
 import { createShop, SHOP_ORIGIN } from './shop';
-import { cookieGrid, createStory, resultOf, rowsGrid, type NodeId } from './story';
+import { cookieGrid, createStory, resultOf, rowsGrid, textGrid, type NodeId } from './story';
 import { createWorld } from './world';
 
 const CODE = 'first line\nsecond line';
@@ -158,5 +159,31 @@ describe('resultOf', () => {
   it('names the two outcomes', () => {
     expect(resultOf(true)).toBe('attacker in');
     expect(resultOf(false)).toBe('stopped');
+  });
+});
+
+describe('the inside of the network', () => {
+  it('draws the shop asking the internal site', () => {
+    const world = createWorld([createShop({ preview: 'open' }), createInternal()]);
+    const story = createStory({ world, code: CODE, nodes: ['browser', 'shop', 'internal'] });
+    world.browser.visit(`${SHOP_ORIGIN}/preview?url=http://metadata.internal/latest/credentials`);
+    story.step({ title: 'Preview', why: 'Because.', line: 'first' });
+    expect(wire(story.steps[0]!.view).messages.map((m) => [m.from, m.to])).toEqual([['browser', 'shop'], ['shop', 'internal']]);
+  });
+});
+
+describe('textGrid', () => {
+  it('gives each line a label and one cell', () => {
+    const grid = textGrid({ Query: 'SELECT 1', Result: 'none' }, 'lines');
+    expect(grid.rows.map((row) => [row.label, row.cells[0]!.value])).toEqual([['Query', 'SELECT 1'], ['Result', 'none']]);
+    expect(new Set(grid.rows.map((row) => row.cells[0]!.id)).size).toBe(2);
+  });
+});
+
+describe('a step with text panels', () => {
+  it('draws each after the rows', () => {
+    const { story } = setup();
+    story.step({ title: 'T', why: 'W', line: 'first', rows: rowsGrid([], 'r'), text: { label: 'Query', lines: { Sent: 'SELECT 1' } } });
+    expect(panels(story.steps[0]!.view).map((panel) => panel.label)).toEqual(['On the wire', 'Cookies', 'Query', 'Rows']);
   });
 });

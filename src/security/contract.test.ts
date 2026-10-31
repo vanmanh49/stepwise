@@ -7,8 +7,12 @@ import { MAX_STEPS } from './steps';
 
 const GARBAGE = ['', 'abc', '-3', '1e9'];
 
+/** Typed payloads reach parsers, so a text field also gets input built to break them. */
+const HOSTILE = ["'", '"', "' OR '", '<', '<<<', '<script', '<img src=', '$(', '$(whoami', '%', '%zz', '\\', '\\\'', `${'$('.repeat(40)}`];
+
 function valueFor(field: FormField, r: () => number, range?: [number, number]): string {
   if (field.type === 'choice') return pick(r, [field.sample, ...(field.options ?? [])]);
+  if (field.type === 'text') return pick(r, [field.sample, ...HOSTILE]);
   if (!range) return pick(r, [field.sample, String(int(r, -5, 30))]);
   const [lo, hi] = range;
   return pick(r, [String(lo), String(hi), String(int(r, lo, hi)), String(int(r, lo, hi)), String(int(r, lo, hi))]);

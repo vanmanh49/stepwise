@@ -39,3 +39,25 @@ describe('identity lesson copy', () => {
     expect(text('multi-factor-auth')).not.toContain('where most MFA gets bypassed');
   });
 });
+
+/** Claims the phase 3 final review found false. */
+describe('web attack lesson copy', () => {
+  it('says IMDSv2 uses session tokens, not signatures', () => {
+    expect(text('ssrf')).not.toMatch(/signed metadata/i);
+    expect(text('ssrf')).toContain('session tokens');
+  });
+
+  it('does not say a SameSite=None cookie goes everywhere', () => {
+    expect(text('csrf')).not.toContain('None always goes');
+    expect(text('csrf')).toContain('Firefox and Safari');
+  });
+
+  it('says three layers failed before the role check, in the right order', () => {
+    expect(text('threat-modeling')).not.toContain('The last layer held, but two earlier ones failed');
+    expect(text('threat-modeling')).toContain('encoding, CSP and HttpOnly all failed before it');
+  });
+
+  it('does not say encoding fixes input', () => {
+    expect(text('threat-modeling')).not.toContain('Encoding fixes input');
+  });
+});

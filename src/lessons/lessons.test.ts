@@ -178,6 +178,14 @@ const EXPECTED_IDS = [
   'oauth-pkce',
   'openid-connect',
   'access-control',
+  'same-origin-cors',
+  'sql-injection',
+  'command-injection',
+  'cross-site-scripting',
+  'content-security-policy',
+  'csrf',
+  'ssrf',
+  'threat-modeling',
 ];
 
 describe('lesson registry', () => {

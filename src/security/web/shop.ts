@@ -1,3 +1,4 @@
+import type { SqlValue } from '../../sql/values';
 import { hex, utf8 } from '../crypto/bytes';
 import { hs256Signature, signHs256, splitToken } from '../crypto/jwt';
 import { pbkdf2 } from '../crypto/pbkdf2';
@@ -6,8 +7,11 @@ import { sha256 } from '../crypto/sha256';
 import { totp } from '../crypto/totp';
 import { TOKEN_SECRET, TOTP_SECRET, USERS } from './data';
 import { createDb, quote, sql } from './db';
-import { cookiesOf, pathOf, response, type SetCookie, type WebRequest, type WebResponse } from './http';
+import { cookiesOf, pathOf, queryOf, response, type SetCookie, type WebRequest, type WebResponse } from './http';
 import { oauthRoutes } from './shop-oauth';
+import { corsHeaders } from './shop-cors';
+import { blockedInput, pageRoutes, REFUSED_INPUT } from './shop-pages';
+import { FILES, FILES_ROOT, resolvePath, runArgs, runShell } from './shell';
 import { randomHex, type Handler, type Route, type Site } from './site';
 import type { World } from './world';
 
@@ -23,6 +27,7 @@ const FIRST_GUESSABLE_ID = 1001;
 const TOTP_STEP = 30;
 const EDITABLE = ['name'];
 const USER_COLUMNS = ['name', 'role', 'hash', 'salt'];
+const VALID_HOST = /^[a-z0-9][a-z0-9.-]*$/i;
 
 /** The browser's passkey. The shop stores only the public half, as it would in real life. */
 export const PASSKEY_KEY = keyPair(701, 811, 17)!;
@@ -33,7 +38,7 @@ export type ShopOptions = {
   users: readonly { name: string; password: string; role: string }[];
   storage: Storage;
   limit: 'none' | 'ip' | 'lockout';
-  cookie: { httpOnly: boolean; secure: boolean };
+  cookie: { httpOnly: boolean; secure: boolean; sameSite: 'Strict' | 'Lax' | 'None' };
   rotateOnSignIn: boolean;
   randomIds: boolean;
   revokeOnSignOut: boolean;
@@ -42,6 +47,14 @@ export type ShopOptions = {
   access: { ownership: boolean; roleCheck: boolean; allowList: boolean };
   checkState: boolean;
   idToken: { aud: boolean; nonce: boolean; exp: boolean; idTokenOnly: boolean };
+  queries: 'string' | 'blocklist' | 'parameters';
+  commands: 'shell' | 'blocklist' | 'noShell';
+  encode: boolean;
+  csp: 'none' | 'unsafeInline' | 'nonce';
+  cors: 'none' | 'one' | 'reflect' | 'wildcard';
+  csrf: 'none' | 'token' | 'origin';
+  preview: 'open' | 'blocklist' | 'allowList';
+  egress: boolean;
 };
 
 /** Every control on. A lesson turns one off to show what it stops. */
@@ -49,7 +62,7 @@ export const SAFE_SHOP: ShopOptions = {
   users: USERS,
   storage: 'pbkdf2',
   limit: 'lockout',
-  cookie: { httpOnly: true, secure: true },
+  cookie: { httpOnly: true, secure: true, sameSite: 'Lax' },
   rotateOnSignIn: true,
   randomIds: true,
   revokeOnSignOut: true,
@@ -58,6 +71,14 @@ export const SAFE_SHOP: ShopOptions = {
   access: { ownership: true, roleCheck: true, allowList: true },
   checkState: true,
   idToken: { aud: true, nonce: true, exp: true, idTokenOnly: true },
+  queries: 'parameters',
+  commands: 'noShell',
+  encode: true,
+  csp: 'nonce',
+  cors: 'none',
+  csrf: 'token',
+  preview: 'allowList',
+  egress: true,
 };
 
 export const DEFAULT_TOKEN = { verifySignature: true, fixedAlg: true, secret: TOKEN_SECRET, ttl: 300 };
@@ -81,6 +102,7 @@ export function createShop(overrides: Partial<ShopOptions> = {}): Site {
       return { name, role, salt, hash: hashPassword(password, options.storage, salt) };
     }),
   );
+  const trace: string[] = [];
   const failures = new Map<string, number>();
   const attempts = new Map<string, number[]>();
   const usedCodes = new Set<string>();
@@ -88,7 +110,7 @@ export function createShop(overrides: Partial<ShopOptions> = {}): Site {
   let nextId = FIRST_GUESSABLE_ID;
 
   const newId = (world: World) => (options.randomIds ? randomHex(world, 16) : String(nextId++));
-  const flags: Partial<SetCookie> = { path: '/', sameSite: 'Lax', ...options.cookie };
+  const flags: Partial<SetCookie> = { path: '/', ...options.cookie };
 
   const userNamed = (name: string) => db.query(sql`SELECT * FROM users WHERE name = ${name}`)[0];
   const sessionOf = (request: WebRequest) => db.query(sql`SELECT * FROM sessions WHERE id = ${cookiesOf(request).sid ?? ''}`)[0];
@@ -115,10 +137,10 @@ export function createShop(overrides: Partial<ShopOptions> = {}): Site {
 
   /** Every page goes through here, so a page is closed unless it says otherwise. */
   const signedIn =
-    (page: (account: Account, request: WebRequest) => WebResponse): Handler =>
+    (page: (account: Account, request: WebRequest, world: World) => WebResponse): Handler =>
     (request, world) => {
       const account = accountOf(request, world);
-      return account ? page(account, request) : response(401, 'Sign in first.');
+      return account ? page(account, request, world) : response(401, 'Sign in first.');
     };
 
   function refusedByLimit(name: string, ip: string, now: number): WebResponse | null {
@@ -146,11 +168,30 @@ export function createShop(overrides: Partial<ShopOptions> = {}): Site {
 
   const passSecondStep = (id: string) => db.run(sql`UPDATE sessions SET level = ${'full'} WHERE id = ${id}`);
 
+  /** Runs text built from learner input, and shows a failure as the page would. */
+  function runBuilt(statement: string): { rows: Record<string, SqlValue>[] } | WebResponse {
+    trace.push(statement);
+    const result = db.execute(statement);
+    return result.ok ? { rows: result.rows } : response(500, `SQL error: ${result.error}`);
+  }
+
+  function signInByString(request: WebRequest, world: World): WebResponse {
+    const { name = '', password = '' } = request.body;
+    if (options.queries === 'blocklist' && blockedInput(name + password)) return response(400, REFUSED_INPUT);
+    const answer = runBuilt(`SELECT * FROM users WHERE name = '${name}' AND hash = '${hashPassword(password, options.storage, '')}'`);
+    if ('status' in answer) return answer;
+    const user = answer.rows[0];
+    return user ? startSession(request, world, String(user.name), String(user.role)) : response(401, 'Wrong name or password.');
+  }
+
   const signIn: Handler = (request, world) => {
     const { name = '', password = '' } = request.body;
     const refused = refusedByLimit(name, request.headers.ip ?? 'browser', world.now());
     if (refused) return refused;
-    const user = userNamed(name);
+    if (options.queries !== 'parameters') return signInByString(request, world);
+    const statement = sql`SELECT * FROM users WHERE name = ${name}`;
+    trace.push(statement);
+    const user = db.query(statement)[0];
     if (!user || hashPassword(password, options.storage, String(user.salt)) !== user.hash) {
       failures.set(name, (failures.get(name) ?? 0) + 1);
       return response(401, 'Wrong name or password.');
@@ -218,17 +259,48 @@ export function createShop(overrides: Partial<ShopOptions> = {}): Site {
     return response(200, `Users: ${db.rows('users').map((user) => user.name).join(', ')}.`);
   });
 
+  const ping: Handler = (request) => {
+    const host = queryOf(request.url).host ?? '';
+    if (options.commands === 'noShell' && !VALID_HOST.test(host)) return response(400, 'That is not a host name.');
+    if (options.commands === 'blocklist' && /;|&&/.test(host)) return response(400, REFUSED_INPUT);
+    const run = options.commands === 'noShell' ? runArgs(['ping', '-c', '1', host]) : runShell(`ping -c 1 ${host}`);
+    trace.push(...run.commands);
+    return response(200, run.output);
+  };
+
+  const download: Handler = (request) => {
+    // The blocklist reads the raw address, so text it can't see until decoding gets past it.
+    const { file = '' } = queryOf(options.commands === 'blocklist' ? request.url.replaceAll('../', '') : request.url);
+    const path = resolvePath(FILES_ROOT, file);
+    trace.push(path);
+    if (options.commands === 'noShell' && !path.startsWith(`${FILES_ROOT}/`)) return response(403, 'That file is outside the folder.');
+    const content = FILES[path];
+    return content === undefined ? response(404, 'No such file.') : response(200, content);
+  };
+
+  const withCors =
+    (handler: Handler): Handler =>
+    (request, world) => {
+      const answer = handler(request, world);
+      return { ...answer, headers: { ...answer.headers, ...corsHeaders(options.cors, request) } };
+    };
+
   const routes: Route[] = [
     { method: 'POST', path: '/signin', handler: signIn },
     { method: 'POST', path: '/signin/code', handler: checkCode },
     { method: 'GET', path: '/signin/challenge', handler: challenge },
     { method: 'POST', path: '/signin/passkey', handler: checkPasskey },
     { method: 'POST', path: '/signout', handler: signOut },
-    { method: 'GET', path: '/account', handler: accountPage },
+    { method: 'GET', path: '/account', handler: withCors(accountPage) },
     { method: 'POST', path: '/account', handler: editAccount },
+    { method: 'OPTIONS', path: '/account', handler: withCors(() => response(204)) },
+    { method: 'PUT', path: '/account', handler: withCors(editAccount) },
     { method: 'GET', path: /^\/orders\/\d+$/, handler: orderPage },
     { method: 'GET', path: '/admin', handler: adminPage },
+    { method: 'GET', path: '/ping', handler: ping },
+    { method: 'GET', path: '/download', handler: download },
     ...oauthRoutes({ options, db, flags, startSession }),
+    ...pageRoutes({ options, db, origin: SHOP_ORIGIN, signedIn, runBuilt }),
   ];
-  return { origin: SHOP_ORIGIN, party: 'shop', routes, db };
+  return { origin: SHOP_ORIGIN, party: 'shop', routes, db, trace };
 }

@@ -1,4 +1,4 @@
-export type WebRequest = { method: 'GET' | 'POST'; url: string; headers: Record<string, string>; body: Record<string, string> };
+export type WebRequest = { method: 'GET' | 'POST' | 'PUT' | 'OPTIONS'; url: string; headers: Record<string, string>; body: Record<string, string> };
 
 export type SetCookie = {
   name: string;
@@ -11,7 +11,8 @@ export type SetCookie = {
   maxAge?: number;
 };
 
-export type WebResponse = { status: number; headers: Record<string, string>; setCookies: SetCookie[]; body: string; redirect?: string };
+/** `rows` are what a query returned, for a step to draw; a response on a real wire has only its body. */
+export type WebResponse = { status: number; headers: Record<string, string>; setCookies: SetCookie[]; body: string; redirect?: string; rows?: Record<string, unknown>[] };
 
 export const response = (status: number, body = '', extra: Partial<WebResponse> = {}): WebResponse => ({ status, headers: {}, setCookies: [], body, ...extra });
 
@@ -23,6 +24,9 @@ export const originOf = (url: string): string => {
   const parts = PARTS.exec(url);
   return parts ? `${parts[1]}//${parts[2]}` : '';
 };
+
+/** A path on the page's own origin, or a full address as it stands. */
+export const absoluteUrl = (origin: string, url: string): string => (url.startsWith('/') ? `${origin}${url}` : url);
 
 /** The registrable part of a host. Good enough for `.example` names, which have no public suffix to look up. */
 export const siteOf = (host: string): string => host.split('.').slice(-2).join('.');
