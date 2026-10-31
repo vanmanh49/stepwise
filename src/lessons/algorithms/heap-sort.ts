@@ -49,8 +49,8 @@ const content: LessonContent = {
       view: heapBuilt.view,
       options: [
         'Swaps the root with the last item, putting the largest value in its final place',
-        'Swaps the two smallest values',
-        'Rebuilds the heap from the bottom again',
+        'Swaps the two smallest values, so the sorted part starts at the front',
+        'Rebuilds the whole heap from the bottom up before it moves anything',
         'Reverses the whole array',
       ],
       answer: 0,

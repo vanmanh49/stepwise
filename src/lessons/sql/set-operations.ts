@@ -109,7 +109,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'What happens to SELECT id, name FROM customers UNION SELECT id FROM products?',
-      options: ['It fails because the two sides have different numbers of columns', 'name is NULL for the products', 'Only the id column is kept'],
+      options: ['It fails because the two sides have different numbers of columns', 'It runs, and name is NULL for every row from products', 'It runs, and only the id column appears in the result'],
       answer: 0,
       explanation: 'Every SELECT in a set operation must return the same number of columns.',
     },

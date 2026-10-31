@@ -88,7 +88,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'Why do Services find pods by labels instead of by name?',
-      options: ['Pods are replaced with new names all the time, but keep their labels', 'Names are secret', 'Labels are faster to type', 'Pods have no names'],
+      options: ['Pods are replaced with new names all the time, but keep their labels', 'Names are secret, and only the kubelet can read them', 'Labels are faster to look up than names are in etcd', 'Pods have no names'],
       answer: 0,
       explanation: 'A replacement pod gets a new generated name, but the same labels from its template, so the selector keeps finding it.',
     },

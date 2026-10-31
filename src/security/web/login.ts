@@ -24,7 +24,7 @@ const CLIENTS = [SHOP_CLIENT, EVIL_CLIENT];
 
 export type LoginOptions = { pkce: boolean; exactRedirect: boolean };
 
-export const SAFE_LOGIN: LoginOptions = { pkce: true, exactRedirect: true };
+const SAFE_LOGIN: LoginOptions = { pkce: true, exactRedirect: true };
 
 export const s256Challenge = (verifier: string): string => encodeBase64url(sha256(utf8(verifier)));
 

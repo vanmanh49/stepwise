@@ -1,7 +1,7 @@
 import { seeded } from '../../utils/random';
 import { createBrowser, type Browser, type Network, type Party } from './browser';
 import { START_TIME } from './data';
-import { cookiesOf, hostOf, response, type WebRequest, type WebResponse } from './http';
+import { connectHost, cookiesOf, hostOf, response, type WebRequest, type WebResponse } from './http';
 import { handle, type Site } from './site';
 
 /** `to` is null when the host doesn't exist. */
@@ -29,7 +29,7 @@ export function createWorld(sites: Site[], seed = 1): World {
   const siteFor = (host: string) => sites.find((site) => hostOf(site.origin) === host || site.hosts?.includes(host)) ?? (host.endsWith('.evil.example') ? sites.find((site) => site.party === 'evil') : undefined);
 
   const send: Network['send'] = (request, from) => {
-    const found = siteFor(hostOf(request.url));
+    const found = siteFor(connectHost(request.url));
     // Internal hosts answer only the server, so a typed address in a browser can't reach them.
     const site = found?.party === 'internal' && from !== 'shop' ? undefined : found;
     // In the list before the handler runs, so a request appears ahead of any it causes.

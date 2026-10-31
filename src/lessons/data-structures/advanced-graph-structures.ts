@@ -67,7 +67,7 @@ const content: LessonContent = {
       type: 'code',
       prompt: 'In an undirected graph, this code adds an edge. What is wrong with it?',
       code: `function addEdge(u: number, v: number) {\n  matrix[u][v] = 1;\n  list[u].push(v);\n}`,
-      options: ['It stores only one direction, so v does not know about u', 'It should use edges.push', 'Nothing is wrong'],
+      options: ['It stores only one direction, so v does not know about u', 'It should use edges.push so the list stays in order', 'Nothing is wrong: one entry is enough for both directions'],
       answer: 0,
       explanation: 'An undirected edge works both ways, so matrix[v][u] and list[v] must be updated too. Otherwise a search starting at v never reaches u.',
     },

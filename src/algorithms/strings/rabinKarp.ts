@@ -17,8 +17,8 @@ export const rabinKarpCode = `function rabinKarp(text: string, pattern: string):
 
 const LINE = { target: 3, window: 4, compare: 6, match: 7, roll: 9, done: 11 };
 
-export const BASE = 256;
-export const MOD = 101;
+const BASE = 256;
+const MOD = 101;
 
 function hash(s: string): number {
   let h = 0;

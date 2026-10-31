@@ -53,7 +53,7 @@ export interface Forward {
 }
 
 /** Everything after attention for one position. */
-export interface PositionOut {
+interface PositionOut {
   resid1: Vec;
   norm1: Vec;
   mlp: Vec;

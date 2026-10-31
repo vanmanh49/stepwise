@@ -94,6 +94,13 @@ export const saltFor = (name: string, storage: Storage): string => (storage === 
 
 type Account = { name: string; role: string };
 
+/** Signs `account` in from outside any browser, and saves a comment as them. */
+export function postComment(world: World, account: { name: string; password: string }, body: string): void {
+  const request = { method: 'POST' as const, url: `${SHOP_ORIGIN}/signin`, headers: {}, body: { name: account.name, password: account.password } };
+  const cookie = `sid=${world.send(request, 'attacker').setCookies[0]!.value}`;
+  world.send({ method: 'POST', url: `${SHOP_ORIGIN}/comments`, headers: { cookie }, body: { body } }, 'attacker');
+}
+
 export function createShop(overrides: Partial<ShopOptions> = {}): Site {
   const options = { ...SAFE_SHOP, ...overrides };
   const db = createDb(

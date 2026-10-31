@@ -27,7 +27,7 @@ async function handleQuery(q) {
 //   const items = await products.get(order.items)`;
 
 const KEY = 'order 42';
-export const STATUSES = ['placed', 'paid', 'shipped'];
+const STATUSES = ['placed', 'paid', 'shipped'];
 const WRITE_GAP_MS = 150;
 
 interface Settings {

@@ -1,4 +1,4 @@
-export type SqlErrorKind = 'syntax' | 'name' | 'unsupported' | 'limit' | 'constraint';
+type SqlErrorKind = 'syntax' | 'name' | 'unsupported' | 'limit' | 'constraint';
 
 export interface ConstraintInfo {
   rule: 'NOT NULL' | 'UNIQUE' | 'PRIMARY KEY' | 'CHECK' | 'FOREIGN KEY';

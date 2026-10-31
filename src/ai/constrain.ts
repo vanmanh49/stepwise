@@ -2,9 +2,9 @@ import { END, tokenId, VOCAB } from './corpus';
 import { forward } from './model';
 import { argmax, type Vec } from './tensor';
 
-export const ANIMALS = ['cat', 'dog', 'bird', 'fish'] as const;
-export const PLACES = ['mat', 'rug', 'tree', 'park', 'door', 'pond'] as const;
-export const FOODS = ['fish', 'bone', 'seed'] as const;
+const ANIMALS = ['cat', 'dog', 'bird', 'fish'] as const;
+const PLACES = ['mat', 'rug', 'tree', 'park', 'door', 'pond'] as const;
+const FOODS = ['fish', 'bone', 'seed'] as const;
 
 /** A fixed word, or a named field that takes one of the allowed words. */
 export type Slot = { word: string } | { name: string; allowed: readonly string[] };
@@ -22,7 +22,7 @@ export const SCHEMAS: readonly Schema[] = [
   { id: 'food', pattern: 'the <animal> ate the <food>', slots: [{ word: 'the' }, animal, { word: 'ate' }, { word: 'the' }, { name: 'food', allowed: FOODS }] },
 ];
 
-export interface DecodeStep {
+interface DecodeStep {
   /** Index into the schema's slots. */
   slot: number;
   /** The model's probabilities before any cut. */
@@ -36,7 +36,7 @@ export interface DecodeStep {
   valid: boolean;
 }
 
-export interface Decoded {
+interface Decoded {
   steps: DecodeStep[];
   words: string[];
   /** Each named slot that was reached, with its word. */

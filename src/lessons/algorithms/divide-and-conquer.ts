@@ -51,7 +51,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'Where can the best run of a range be?',
-      options: ['In the left half, in the right half, or crossing the middle', 'Only in the left half', 'Only crossing the middle', 'Always the whole range'],
+      options: ['In the left half, in the right half, or crossing the middle', 'Only in one half, so the other half can be skipped', 'Only crossing the middle, since that joins the two halves', 'Always the whole range'],
       answer: 0,
       explanation: 'Every run is entirely left of the middle, entirely right of it, or contains both middle positions.',
     },

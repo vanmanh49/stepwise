@@ -63,7 +63,7 @@ const content: LessonContent = {
       type: 'predict-next',
       prompt: 'With CQRS, the client set order 42 to placed and reads it at once. What will the read return?',
       view: emptyRead.view,
-      options: ['Nothing yet: the projector hasn\'t written order 42', '"placed"', 'An error', '"paid"'],
+      options: ['Nothing yet: the projector hasn\'t written order 42', '"placed": the write side answers at once', 'An error, because the read model is locked', '"paid"'],
       answer: 0,
       explanation: 'The write side saved it, but the event still has to reach the projector and be written into view-db. Until then, the read model doesn\'t have it.',
     },

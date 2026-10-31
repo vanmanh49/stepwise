@@ -72,7 +72,7 @@ export interface AntiTerm {
   selector: Selector;
   topologyKey: 'kubernetes.io/hostname' | 'zone';
 }
-export interface Probe {
+interface Probe {
   periodS: number;
   failureThreshold: number;
   initialDelayS?: number;
@@ -83,7 +83,7 @@ export interface Resources {
   memory?: { request?: number; limit?: number };
 }
 /** Optional pod settings phase 2 adds; leaving them out keeps phase 1 behaviour. */
-export interface PodExtras {
+interface PodExtras {
   resources?: Resources;
   tolerations?: Toleration[];
   affinity?: {
@@ -99,9 +99,9 @@ export interface PodExtras {
   /** `kubectl rollout restart` writes restartedAt here. */
   annotations?: Labels;
 }
-export type OwnerKind = 'ReplicaSet' | 'StatefulSet' | 'DaemonSet' | 'Job';
+type OwnerKind = 'ReplicaSet' | 'StatefulSet' | 'DaemonSet' | 'Job';
 export type Volume = { name: string; emptyDir: true } | { name: string; claim: string } | { name: string; configMap: string };
-export interface EnvVar {
+interface EnvVar {
   name: string;
   from: { configMap: string; key: string } | { secret: string; key: string };
 }
@@ -219,7 +219,7 @@ export interface Secret {
   /** Stored as given; the view shows it base64-encoded, which is all Kubernetes does by default. */
   data: Record<string, string>;
 }
-export type AccessMode = 'ReadWriteOnce' | 'ReadWriteMany';
+type AccessMode = 'ReadWriteOnce' | 'ReadWriteMany';
 export interface StorageClass {
   kind: 'StorageClass';
   name: string;

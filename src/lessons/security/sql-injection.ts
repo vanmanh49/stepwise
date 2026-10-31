@@ -92,7 +92,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'A typed quote gives a 500 page showing the SQL error. Why does that matter?',
-      options: ['It tells an attacker how the query is built, and that input reaches it', 'It deletes the table', 'It signs the user in', 'It has no effect'],
+      options: ['It tells an attacker how the query is built, and that input reaches it', 'It deletes the table the query was reading', 'It signs the user in without a password check', 'It has no effect'],
       answer: 0,
       explanation: 'An error like this is often the first sign an attacker looks for. Log it, and show a plain page.',
     },

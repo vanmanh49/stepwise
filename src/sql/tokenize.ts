@@ -1,6 +1,6 @@
 import { SqlError } from './errors';
 
-export type TokenKind = 'keyword' | 'identifier' | 'number' | 'string' | 'operator' | 'punct' | 'eof';
+type TokenKind = 'keyword' | 'identifier' | 'number' | 'string' | 'operator' | 'punct' | 'eof';
 
 export interface Token {
   kind: TokenKind;
@@ -17,7 +17,7 @@ export interface Token {
 }
 
 /** Every word the parser recognises, including ones it only recognises to explain they are unsupported. */
-export const KEYWORDS: ReadonlySet<string> = new Set([
+const KEYWORDS: ReadonlySet<string> = new Set([
   'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'AS', 'DISTINCT', 'ALL',
   'JOIN', 'INNER', 'LEFT', 'OUTER', 'ON', 'GROUP', 'BY', 'HAVING', 'ORDER', 'ASC', 'DESC',
   'LIMIT', 'OFFSET', 'IS', 'NULL', 'IN', 'BETWEEN', 'LIKE', 'TRUE', 'FALSE',

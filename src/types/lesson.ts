@@ -145,7 +145,7 @@ export interface QuizQuestion {
   view?: View;
 }
 
-export interface ComplexityRow {
+interface ComplexityRow {
   label: string;
   best: string;
   average: string;

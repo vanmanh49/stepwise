@@ -18,7 +18,7 @@ return 'stopped: out of steps'`;
 
 export const TASK_IDS = TASKS.map((t) => t.id);
 export const QUIRKS = ['none', 'answers-early'];
-export const MAX_STEPS_RANGE = { min: 1, max: 12 };
+const MAX_STEPS_RANGE = { min: 1, max: 12 };
 
 const line = (snippet: string) => lineOf(agentLoopCode, snippet);
 

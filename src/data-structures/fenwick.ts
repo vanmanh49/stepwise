@@ -2,7 +2,7 @@ import type { StructureDef } from '../types/lesson';
 import type { Cell, GridView, Role, Step } from '../types/visualization';
 import { lineOf } from './shared';
 
-export const SIZE = 8;
+const SIZE = 8;
 
 const code = `// tree[i] holds the sum of a[i - (i & -i) + 1 .. i] (positions from 1).
 function prefix(i: number): number {

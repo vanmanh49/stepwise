@@ -2,7 +2,7 @@ import { lineOf } from '../data-structures/shared';
 import type { Role, ServicesView, Step } from '../types/visualization';
 import { MAX_STEPS, type BreakerState, type Message, type NodeSpec, type Scenario, type SimResult, type Strategy, type TraceEvent } from './model';
 
-export interface Narration {
+interface Narration {
   title: string;
   why: string;
   next?: string;

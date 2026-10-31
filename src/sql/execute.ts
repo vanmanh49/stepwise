@@ -98,14 +98,14 @@ export type TraceEvent =
   | { kind: 'recursion-round'; name: string; round: number; read: Relation; added: Relation; total: Relation }
   | { kind: 'combined'; op: SetOp; left: Relation; right: Relation; relation: Relation; notes: Record<string, string> };
 
-export type RunResult = { ok: true; result: QueryResult; statement: SelectStatement } | { ok: false; error: SqlError };
+type RunResult = { ok: true; result: QueryResult; statement: SelectStatement } | { ok: false; error: SqlError };
 
 export type Trace = (event: TraceEvent) => void;
 
 /** Largest relation a JOIN may build; the sample tables are tiny, so more means a missing condition. */
-export const MAX_ROWS = 2000;
+const MAX_ROWS = 2000;
 /** Row checks allowed per query, including subqueries, so a query can never freeze the page. */
-export const MAX_WORK = 200_000;
+const MAX_WORK = 200_000;
 
 /** Everything a scope needs except its columns and row. */
 export type Env = Omit<Scope, 'columns' | 'row'>;
@@ -130,7 +130,7 @@ export function cellValue(v: number | string | null, type: ColumnType): SqlValue
  * Runs a view's query; its rows work like a table's for this query. A view can't refer to itself,
  * even through another view: CREATE VIEW runs its query, so everything it reads must exist already.
  */
-export function viewRelation(db: Dataset, view: ViewDef, ctx?: ExecContext): Relation {
+function viewRelation(db: Dataset, view: ViewDef, ctx?: ExecContext): Relation {
   const result = executeSelect(db, view.query, undefined, undefined, undefined, undefined, ctx);
   const names = view.columns ?? result.columns;
   return { columns: names.map((name) => ({ table: view.name, name })), rows: result.rows.map((values, i) => ({ id: `${view.name}#${i}`, values })) };
@@ -620,8 +620,8 @@ function checkRecursiveStep(step: SelectStatement) {
 }
 
 /** Most rounds and rows a recursive CTE may produce, so a recursion without an end cannot freeze the page. */
-export const MAX_ROUNDS = 100;
-export const MAX_RECURSIVE_ROWS = 1000;
+const MAX_ROUNDS = 100;
+const MAX_RECURSIVE_ROWS = 1000;
 
 /**
  * WITH RECURSIVE name AS (anchor UNION [ALL] step): the anchor runs once, then the step runs
@@ -1086,7 +1086,7 @@ function computeWindows(
 }
 
 /** A window's rows split by PARTITION BY (first-seen order), each sorted by its ORDER BY. */
-export function windowPartitions(expr: Extract<Expr, { type: 'window' }>, rows: readonly Row[], scopeOf: (row: Row) => Scope): Row[][] {
+function windowPartitions(expr: Extract<Expr, { type: 'window' }>, rows: readonly Row[], scopeOf: (row: Row) => Scope): Row[][] {
   const groups = new Map<string, Row[]>();
   for (const row of rows) {
     const key = expr.partitionBy.map((p) => valueKey(evaluate(p, scopeOf(row)))).join('|');

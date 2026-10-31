@@ -113,7 +113,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'What is the difference between DELETE FROM clubs and DROP TABLE clubs?',
-      options: ['DELETE removes the rows and keeps the table; DROP removes the table too', 'They are the same', 'DROP only removes the first row'],
+      options: ['DELETE removes the rows and keeps the table; DROP removes the table too', 'They are the same, and DROP is only the shorter way to write it', 'DROP only removes the first row, and DELETE removes the table'],
       answer: 0,
       explanation: 'After DELETE you can still insert into clubs. After DROP TABLE, clubs no longer exists.',
     },

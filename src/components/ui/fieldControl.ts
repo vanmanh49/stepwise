@@ -1,6 +1,6 @@
 import { createContext, use, useId } from 'react';
 
-export interface FieldControl {
+interface FieldControl {
   id: string;
   describedBy?: string;
   invalid: boolean;

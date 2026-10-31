@@ -60,7 +60,7 @@ const content: LessonContent = {
       type: 'predict-next',
       prompt: 'minAvailable is 3. One pod has been evicted, 3 of 4 are ready, and drain now asks to evict the second pod on node-1. What happens?',
       view: firstEvict.view,
-      options: ['The eviction is refused and retried until a replacement is ready', 'It is evicted at once', 'The drain gives up', 'The PDB is deleted'],
+      options: ['The eviction is refused and retried until a replacement is ready', 'It is evicted at once, because a drain ignores the PDB', 'The drain gives up and leaves node-1 as it is', 'The PDB is deleted'],
       answer: 0,
       explanation: 'Evicting it would leave 2 ready, below minAvailable 3. Once the first replacement is ready, the budget allows the eviction.',
     },

@@ -5,7 +5,7 @@ import { CORPUS } from './corpus';
  * here fixed rules play the model, so every reply can be explained. Rules read each message's `key`
  * (the id of the choice behind it), never its text.
  */
-export type Speaker = 'system' | 'user' | 'assistant' | 'tool';
+type Speaker = 'system' | 'user' | 'assistant' | 'tool';
 
 export interface Message {
   speaker: Speaker;
@@ -14,7 +14,7 @@ export interface Message {
   key?: string;
 }
 
-export interface Choice {
+interface Choice {
   id: string;
   text: string;
 }
@@ -85,7 +85,7 @@ export const TOOLS: readonly Tool[] = [
 ];
 
 /** Made-up weather for the toy tool. */
-export const WEATHER: Readonly<Record<string, string>> = { Paris: '18°C and cloudy', Tokyo: '24°C and sunny', Hanoi: '31°C and rainy' };
+const WEATHER: Readonly<Record<string, string>> = { Paris: '18°C and cloudy', Tokyo: '24°C and sunny', Hanoi: '31°C and rainy' };
 
 export interface ToolCall {
   name: string;

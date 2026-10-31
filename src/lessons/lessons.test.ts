@@ -250,6 +250,15 @@ describe.each(allLessons.map((l) => [l.id, l] as const))('lesson %s', (_id, less
     }
   });
 
+  // Options are shuffled, so position gives nothing away, but a far longer option would. Short literal answers such as O(n) are fine.
+  it('never makes the answer stand out by its length', () => {
+    for (const question of lesson.quiz) {
+      const answer = question.options[question.answer]!.length;
+      const longestOther = Math.max(...question.options.filter((_, i) => i !== question.answer).map((option) => option.length));
+      expect(answer >= 40 && answer > 2 * longestOther, question.id).toBe(false);
+    }
+  });
+
   it('runs every form preset', () => {
     const config = lesson.visualization;
     if (config.kind !== 'form') return;

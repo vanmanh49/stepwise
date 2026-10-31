@@ -67,7 +67,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'Why have an egress filter if the role check is on?',
-      options: ['If the role check fails or an admin session is stolen, the data still can\'t leave', 'It makes the role check faster', 'It replaces encoding', 'It stops the script from running'],
+      options: ['If the role check fails or an admin session is stolen, the data still can\'t leave', 'It makes the role check faster, as fewer requests reach it', 'It replaces encoding', 'It stops the script from running, so the cookie never leaves'],
       answer: 0,
       explanation: 'Each layer assumes the one before it can fail.',
     },

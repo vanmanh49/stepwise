@@ -105,6 +105,18 @@ describe('repeat runs', () => {
   });
 });
 
+describe('connecting', () => {
+  const internal: Site = { origin: 'http://metadata.internal', party: 'internal', routes: [{ method: 'GET', path: '/', handler: () => response(200, 'secret') }] };
+
+  it.each(['http://METADATA.INTERNAL/', 'http://metadata.internal:80/', 'http://user@metadata.internal/', 'HTTP://metadata.internal/'])('reaches the host %s names', (url) => {
+    expect(createWorld([internal]).send(get(url), 'shop').status).toBe(200);
+  });
+
+  it('does not treat another port as the same site', () => {
+    expect(createWorld([internal]).send(get('http://metadata.internal:8080/'), 'shop').status).toBe(0);
+  });
+});
+
 describe('site names', () => {
   const internal: Site = { origin: 'http://metadata.internal', party: 'internal', hosts: ['169.254.169.254'], routes: [{ method: 'GET', path: '/', handler: () => response(200, 'secret') }] };
 

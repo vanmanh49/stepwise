@@ -10,7 +10,7 @@ export type NodeId = 'browser' | 'attacker' | 'evil' | 'shop' | 'login' | 'db' |
 export type Note = { from: NodeId; to: NodeId; label: string };
 
 /** Lines that wrap, such as a query or a page, each under a label. */
-export type TextPanel = { label: string; lines: Record<string, string> };
+type TextPanel = { label: string; lines: Record<string, string> };
 
 export type Story = {
   step(input: { title: string; why: string; next?: string; line: string; variables?: Step['variables']; rows?: GridView; text?: TextPanel; note?: Note }): void;

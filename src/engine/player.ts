@@ -7,7 +7,7 @@ export interface PlayerState {
   total: number;
 }
 
-export type PlayerAction =
+type PlayerAction =
   | { type: 'play' | 'pause' | 'next' | 'prev' | 'restart' | 'tick' }
   | { type: 'seek'; index: number }
   | { type: 'speed'; speed: number }

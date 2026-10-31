@@ -13,6 +13,9 @@ export const USERS = [
   { name: 'root', password: 'dragon', role: 'admin' },
 ] as const;
 
+/** The attacker's own ordinary account, for lessons that plant a comment. */
+export const MALLORY = { name: 'mallory', password: 'stored-xss', role: 'customer' };
+
 export const ORDERS = [
   { id: 101, owner: 'alice', item: 'Lamp', total: 40 },
   { id: 102, owner: 'bob', item: 'Desk', total: 250 },

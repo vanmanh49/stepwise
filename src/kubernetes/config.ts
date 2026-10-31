@@ -2,7 +2,7 @@ import type { Env } from './env';
 import type { Pod } from './model';
 import type { Store } from './store';
 
-export type Resolved = { ok: true; env: Record<string, string>; mounted: Record<string, string> } | { ok: false; reason: string; mount: boolean };
+type Resolved = { ok: true; env: Record<string, string>; mounted: Record<string, string> } | { ok: false; reason: string; mount: boolean };
 
 /** What a container would read from its ConfigMaps and Secrets if it started now, or why it can't start. */
 export function resolveConfig(store: Store, pod: Pod): Resolved {

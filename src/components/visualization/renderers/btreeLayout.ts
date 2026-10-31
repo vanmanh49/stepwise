@@ -5,7 +5,7 @@ export const NODE_HEIGHT = 30;
 const LEAF_GAP = 14;
 const LEVEL_GAP = 52;
 
-export interface PlacedNode {
+interface PlacedNode {
   id: string;
   x: number;
   y: number;

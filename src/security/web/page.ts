@@ -20,6 +20,11 @@ function runScript(world: World, script: FoundScript, pageUrl: string, policy: s
   const { allowed, rule } = allowsScript(policy, script, origin, url);
   if (!allowed) return { source, status: 'blocked', ...(rule && { rule }), actions: [] };
 
+  // A browser only fires onerror if the image really fails.
+  if (script.image !== undefined && world.browser.subresource(absoluteUrl(origin, script.image), origin).headers['content-type']?.startsWith('image/')) {
+    return { source, status: 'waits for a click', actions: [] };
+  }
+
   let text = source;
   if (url !== undefined) {
     const answer = world.browser.subresource(url, origin);

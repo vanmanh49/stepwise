@@ -72,7 +72,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'What does a failing readiness probe do?',
-      options: ['Takes the pod out of the Service\'s endpoints, without restarting it', 'Restarts the container', 'Deletes the pod', 'Stops the node'],
+      options: ['Takes the pod out of the Service\'s endpoints, without restarting it', 'Restarts the container, as a failing liveness probe does', 'Deletes the pod so its ReplicaSet makes a new one', 'Stops the node'],
       answer: 0,
       explanation: 'Readiness only controls whether the pod gets traffic.',
     },

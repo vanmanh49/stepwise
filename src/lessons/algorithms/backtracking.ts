@@ -60,7 +60,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'What does backtracking do when a row has no safe square?',
-      options: ['Removes the queen from the previous row and tries its next column', 'Starts over from an empty board', 'Places the queen anyway', 'Skips the row'],
+      options: ['Removes the queen from the previous row and tries its next column', 'Starts over from an empty board with a different first queen', 'Places the queen anyway and repairs the conflict later', 'Skips the row'],
       answer: 0,
       explanation: 'The dead end means an earlier choice was wrong. Undoing only the most recent choice keeps all the work above it.',
     },

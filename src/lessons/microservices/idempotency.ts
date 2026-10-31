@@ -89,7 +89,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'What gives an effect of exactly once over an unreliable network?',
-      options: ['At-least-once delivery plus an idempotent service', 'At-most-once delivery', 'A longer timeout', 'Retrying faster'],
+      options: ['At-least-once delivery plus an idempotent service', 'At-most-once delivery with no retries', 'A longer timeout on every call', 'Retrying faster'],
       answer: 0,
       explanation: 'Retries make sure the request gets through, and the idempotency key makes extra tries harmless.',
     },

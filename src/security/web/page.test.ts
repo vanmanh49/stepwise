@@ -77,6 +77,28 @@ describe('loadPage', () => {
   });
 });
 
+describe('an image handler', () => {
+  const images: Site = {
+    origin: 'https://images.example',
+    party: 'images',
+    routes: [{ method: 'GET', path: '/ok.png', handler: () => response(200, 'bytes', { headers: { 'content-type': 'image/png' } }) }],
+  };
+  const load = (src: string) => loadPage(createWorld([shop(`<img src=${src} onerror=alert(1)>`), images]), `${SHOP}/page`).scripts[0]!;
+
+  it('fires when the image fails to load', () => {
+    expect(load('https://images.example/nope.png').status).toBe('ran');
+    expect(load('x').status).toBe('ran');
+  });
+
+  it('fires when the answer is not an image', () => {
+    expect(load(`${SHOP}/page`).status).toBe('ran');
+  });
+
+  it('stays quiet when the image loads', () => {
+    expect(load('https://images.example/ok.png')).toMatchObject({ status: 'waits for a click', actions: [] });
+  });
+});
+
 describe('loadInner', () => {
   it('leaves <script> inert and runs onerror', () => {
     expect(loadInner(world('hi'), `${SHOP}/page`, '<script>alert(1)</script>').scripts).toEqual([]);

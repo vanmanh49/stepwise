@@ -1,12 +1,12 @@
 import type { ServicesView } from '../../../types/visualization';
 
-export const NODE_WIDTH = 132;
+const NODE_WIDTH = 132;
 export const HEADER = 30;
 export const INSTANCE_HEIGHT = 26;
 export const INSTANCE_GAP = 6;
 export const PAD = 8;
-export const COLUMN_GAP = 64;
-export const ROW_GAP = 20;
+const COLUMN_GAP = 64;
+const ROW_GAP = 20;
 /** The space a phone leaves: 375 px minus a 16 px gutter on each side. */
 export const NARROW_WIDTH = 343;
 /** Room around the diagram for badges and rings. */
@@ -126,7 +126,7 @@ export function placeBadge(id: string, badge: string | undefined, width: number)
   return first ? { text: first, below: false } : undefined;
 }
 
-export type StackedPill = ServicesView['messages'][number] & { slot: number };
+type StackedPill = ServicesView['messages'][number] & { slot: number };
 
 /** How close two messages on one link may be, in progress, before their pills would overlap. */
 const STACK_WITHIN = 0.05;

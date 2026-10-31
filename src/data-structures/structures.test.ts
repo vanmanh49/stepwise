@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { simpleGraph } from '../algorithms/graph/graphs';
 import type { StructureDef } from '../types/lesson';
-import { sampleInputs } from './shared';
+import { sampleInputs } from './random.testutil';
 import type { Step, View } from '../types/visualization';
 import { arrayStructure } from './array';
 import { bstStructure } from './bst';

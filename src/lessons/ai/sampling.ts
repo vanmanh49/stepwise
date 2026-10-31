@@ -71,7 +71,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'What does a temperature above 1 do?',
-      options: ['Flattens the distribution, so unlikely words are drawn more often', 'Makes the top word more likely', 'Removes the least likely words', 'Changes the model\'s weights'],
+      options: ['Flattens the distribution, so unlikely words are drawn more often', 'Makes the top word more likely, so output gets more repetitive', 'Removes the least likely words', "Changes the model's weights for the rest of the run"],
       answer: 0,
       explanation: 'Dividing logits by a number above 1 shrinks the gaps between them, so softmax spreads the probability out.',
     },

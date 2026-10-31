@@ -1,7 +1,7 @@
 import type { TableSchema } from './schema';
 import type { SqlValue } from './values';
 
-export type BinaryOp = '+' | '-' | '*' | '/' | '%' | '=' | '<>' | '<' | '<=' | '>' | '>=' | 'AND' | 'OR';
+type BinaryOp = '+' | '-' | '*' | '/' | '%' | '=' | '<>' | '<' | '<=' | '>' | '>=' | 'AND' | 'OR';
 export type AggregateFn = 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX';
 
 /** Every node keeps its trimmed source text and where it starts, for step titles and error positions. */
@@ -125,7 +125,7 @@ export type SetOp = 'UNION' | 'UNION ALL' | 'INTERSECT' | 'EXCEPT';
 
 export type IsolationLevel = 'READ UNCOMMITTED' | 'READ COMMITTED' | 'REPEATABLE READ' | 'SERIALIZABLE';
 
-export type TransactionAction = 'begin' | 'commit' | 'rollback' | 'savepoint' | 'release' | 'rollback-to';
+type TransactionAction = 'begin' | 'commit' | 'rollback' | 'savepoint' | 'release' | 'rollback-to';
 
 /**
  * One statement of a script. Every line is 1-based in the whole script. `session` is set in a

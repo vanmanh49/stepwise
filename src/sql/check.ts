@@ -7,7 +7,7 @@ import { isSessionsScript } from './sessions';
 import { valueKey, type SqlValue } from './values';
 
 /** What a probe did: returned rows (none for a write that succeeded), broke a constraint, or failed otherwise. */
-export type ProbeOutcome =
+type ProbeOutcome =
   /** `plan` marks EXPLAIN QUERY PLAN rows, which compare more loosely (see samePlan). */
   | { kind: 'rows'; columns: number; keys: string[]; plan?: boolean }
   | { kind: 'constraint'; rule: ConstraintInfo['rule']; table: string }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Step } from '../../types/visualization';
-import { contentSecurityPolicySteps, POLICY_OPTIONS } from './content-security-policy';
+import { contentSecurityPolicyCode, contentSecurityPolicySteps, POLICY_OPTIONS } from './content-security-policy';
 
 const [NONE, UNSAFE, NONCE] = POLICY_OPTIONS;
 
@@ -98,6 +98,10 @@ describe('content security policy', () => {
 
   it("does not say a closed tag was left open when the page's script is lost", () => {
     expect(words(run(NONE!, '<script>alert(1)'))).not.toContain('left a tag open');
+  });
+
+  it('compares a nonce only when the policy has one', () => {
+    expect(contentSecurityPolicyCode).toContain('if (policy.nonce && script.nonce == policy.nonce)');
   });
 
   it('refuses bad knobs with one step', () => {

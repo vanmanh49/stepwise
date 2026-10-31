@@ -7,7 +7,7 @@ import { sign, verify, type RsaKey } from './rsa';
 
 type Json = Record<string, unknown>;
 
-export type TokenParts = { header: Json; payload: Json; signature: string; signedPart: string };
+type TokenParts = { header: Json; payload: Json; signature: string; signedPart: string };
 
 const encodeJson = (value: Json) => encodeBase64url(utf8(JSON.stringify(value)));
 

@@ -7,7 +7,7 @@ export function retryDelay(retry: RetryPolicy, n: number, rng: () => number): nu
   return retry.jitter ? Math.floor(delay / 2 + rng() * (delay / 2)) : delay;
 }
 
-export type CallDone = (ok: boolean, reason?: string, value?: string) => void;
+type CallDone = (ok: boolean, reason?: string, value?: string) => void;
 export type CallFn = (
   from: string,
   to: string,

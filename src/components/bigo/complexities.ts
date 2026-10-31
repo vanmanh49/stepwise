@@ -73,7 +73,7 @@ export const COMPLEXITIES: Complexity[] = [
   },
 ];
 
-export function getComplexity(id: string): Complexity | undefined {
+function getComplexity(id: string): Complexity | undefined {
   return COMPLEXITIES.find((c) => c.id === id);
 }
 

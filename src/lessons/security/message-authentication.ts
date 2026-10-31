@@ -75,7 +75,7 @@ const content: LessonContent = {
       type: 'code',
       prompt: 'What stops length extension in HMAC?',
       code: 'inner = sha256((key ^ ipad) + message)\nreturn sha256((key ^ opad) + inner)',
-      options: ['The tag is an outer hash over the inner result, so resuming it extends the wrong hash', 'The key is longer', 'The message is encrypted first', 'SHA-256 runs twice as many rounds'],
+      options: ['The tag is an outer hash over the inner result, so resuming it extends the wrong hash', "The key is longer than the block, so the length can't be guessed", 'The message is encrypted first', 'SHA-256 runs twice as many rounds, so the state is too mixed to resume'],
       answer: 0,
       explanation: 'An attacker who resumes from the tag extends the outer hash, which the server never computes that way.',
     },

@@ -73,7 +73,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'With a token bucket (limit 5, refilling 1 token every 20 ms), the same edge burst arrives. How many requests pass?',
-      options: ['6: 5 saved tokens, plus 1 refilled before the second burst', '10: the window resets', '5: never more than the limit', '0: bursts are always refused'],
+      options: ['6: 5 saved tokens, plus 1 refilled before the second burst', '10: 5 on each side of the window reset', '5: a bucket never passes more than its limit', '0: bursts are always refused'],
       answer: 0,
       explanation: 'The full bucket allows the first 5. Only 20 ms pass before the second burst, which refills 1 token, so 1 more passes and 4 get 429.',
     },

@@ -2,7 +2,7 @@ import type { Env } from './env';
 import type { Termination } from './kubelet';
 import { BASE_MEMORY_MI, cpuRequestM, loadAt, memoryRequestMi, NODE_MEMORY_MI, qosOf, type Pod, type Scenario } from './model';
 
-export interface MetricsHooks {
+interface MetricsHooks {
   startedAt(pod: string): number | undefined;
   kill(pod: string, end: Termination): void;
   /** Requests per second at each tick, recorded before the tick is narrated. */

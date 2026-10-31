@@ -99,8 +99,8 @@ const content: LessonContent = {
       prompt: 'Why is a link table needed between students and courses?',
       options: [
         'Both sides can have many of the other, and one column can hold only one id',
-        'Tables cannot be joined directly',
-        'It makes queries faster',
+        'Tables cannot be joined directly, so every join needs a table between them',
+        'It makes queries faster, because each table then needs fewer indexes',
       ],
       answer: 0,
       explanation: 'A course_id column in students could hold only one course. The link table holds one row per pair.',

@@ -68,7 +68,7 @@ export interface HeapView {
   items: Cell[];
 }
 
-export interface GraphNodeView {
+interface GraphNodeView {
   id: string;
   label: string;
   x: number;

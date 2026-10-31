@@ -1,7 +1,7 @@
 import { isZero, type Kind, type Obj, type ObjOf, type Snapshot } from './model';
 
 export type Write = { op: 'create' | 'update' | 'delete'; object: Obj };
-export type WriteResult = { ok: true; version: number } | { ok: false; reason: string };
+type WriteResult = { ok: true; version: number } | { ok: false; reason: string };
 
 /** What the API server's validation refuses, in Kubernetes' words. */
 function invalid(object: Obj, stored: Map<string, Obj>): string | undefined {

@@ -1,6 +1,6 @@
 import { readInts, readText } from '../algorithms/form';
 
-export type ParseResult = { ok: true; values: number[] } | { ok: false; error: string };
+type ParseResult = { ok: true; values: number[] } | { ok: false; error: string };
 
 /** A list typed into "Your data": the same rules as a form lesson's number list. */
 export function parseNumberList(text: string, limits: { min: number; max: number }): ParseResult {

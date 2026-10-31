@@ -29,7 +29,7 @@ export interface BTree {
 }
 
 /** What a search looks for: values for the leading columns, then an optional range on the next one. */
-export interface Bounds {
+interface Bounds {
   equal: SqlValue[];
   low?: { value: SqlValue; inclusive: boolean };
   high?: { value: SqlValue; inclusive: boolean };

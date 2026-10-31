@@ -1,6 +1,6 @@
 import type { Ingress, IngressPath, RuleTable } from './model';
 
-export interface IngressMatch {
+interface IngressMatch {
   service: string;
   rule: { ingress: string; host?: string; path: string; pathType: IngressPath['pathType'] } | 'default';
 }

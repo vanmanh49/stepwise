@@ -71,7 +71,7 @@ const content: LessonContent = {
       id: 'q2',
       type: 'multiple-choice',
       prompt: 'The score drops from 6/6 to 5/6 when k goes from 2 to 1. What does that tell you?',
-      options: ['One answer needed a document that only k = 2 retrieved', 'The model got worse', 'The grader is broken', 'Nothing'],
+      options: ['One answer needed a document that only k = 2 retrieved', 'The model got worse, because k changed its weights', 'The grader is broken, because scores should never drop', 'Nothing'],
       answer: 0,
       explanation: '"What did the dog chase?" needs "the dog chased the ball", which ranks second.',
     },

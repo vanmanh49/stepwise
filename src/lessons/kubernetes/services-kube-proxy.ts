@@ -87,7 +87,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'Why do clients call a Service instead of a pod\'s address?',
-      options: ['Pods are replaced with new addresses; the Service address stays the same', 'Pods have no addresses', 'Services are faster than pods', 'Only Services can use HTTP'],
+      options: ['Pods are replaced with new addresses; the Service address stays the same', 'Pods have no addresses until a Service gives them one', 'Services answer faster, because they cache each reply', 'Only Services can use HTTP'],
       answer: 0,
       explanation: 'A replacement pod gets a new name and address. The Service\'s ClusterIP and selector keep pointing at whichever pods are ready.',
     },

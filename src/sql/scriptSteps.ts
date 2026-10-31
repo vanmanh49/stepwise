@@ -11,7 +11,7 @@ import { btreeView, buildDrafts, fit, focusOf, querySteps, rowIndex, toTable, ty
 import { formatValue, toPlain, type SqlValue, type Truth } from './values';
 import { relationOf, type WriteEvent } from './write';
 
-export type ScriptStepsResult =
+type ScriptStepsResult =
   /** Includes scripts stopped by a broken constraint: their steps end on the failure and the undo. */
   | { ok: true; steps: Step[]; result: ScriptResult }
   /** Syntax errors and other runtime errors; `steps` covers the statements that ran before it. */

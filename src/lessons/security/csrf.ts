@@ -89,7 +89,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'What does CSRF give the attacker?',
-      options: ['A request made as the victim, with no view of the answer', 'The victim\'s password', 'The session cookie', 'The page\'s content'],
+      options: ['A request made as the victim, with no view of the answer', "The victim's password, read from the form", 'The session cookie, sent to the attacker', 'The page\'s content'],
       answer: 0,
       explanation: 'It is a forged action, not a theft. That is why reading rules don\'t stop it.',
     },

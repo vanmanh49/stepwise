@@ -86,7 +86,7 @@ const content: LessonContent = {
       id: 'q4',
       type: 'multiple-choice',
       prompt: 'What does a gateway cost every request?',
-      options: ['One extra network hop and a little processing time', 'A full database query', 'A second login', 'Nothing at all'],
+      options: ['One extra network hop and a little processing time', 'A full database query for each request', 'A second login for the user on each call', 'Nothing at all'],
       answer: 0,
       explanation: 'Every request passes through the gateway first, which adds a hop. That is why it must stay simple and fast.',
     },

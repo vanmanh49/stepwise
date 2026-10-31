@@ -5,11 +5,11 @@ import { simulate } from '../sim';
 import { emptyServicesView, traceSteps, type StepOptions } from '../steps';
 
 /** The shared numbers every scenario starts from, unless a lesson says otherwise. */
-export const LINK_MS = 5;
-export const INSTANCE_MS = 10;
+const LINK_MS = 5;
+const INSTANCE_MS = 10;
 export const GATEWAY_MS = 2;
-export const DB_MS = 3;
-export const BROKER_MS = 2;
+const DB_MS = 3;
+const BROKER_MS = 2;
 /** A sidecar's own processing; it sits on its service's host, so its links are 1 ms. */
 export const SIDECAR_MS = 1;
 /** What an event store spends per event it replays. */
