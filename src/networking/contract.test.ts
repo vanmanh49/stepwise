@@ -25,6 +25,8 @@ const RANGES: Record<string, Record<string, [number, number]>> = {
   dhcp: { lease: [10, 3600], pool: [1, 2] },
   nat: { port: [1024, 65535], timeout: [1, 300] },
   'ports-udp': { port: [1, 65535] },
+  // From 6: below that, the Timeout preset's Segment 6 doesn't exist and is refused, as its own test checks.
+  'reliable-delivery': { segments: [6, 8] },
 };
 
 function checkView(view: View, label: string) {

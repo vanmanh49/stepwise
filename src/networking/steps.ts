@@ -141,6 +141,12 @@ export function ladderView(result: SimResult, upTo: number, columns: { id: strin
   };
 }
 
+/** The deciding device's Connections table. */
+export function connectionPanel(event: SimEvent): PanelsView['panels'][number] | undefined {
+  const table = event.tables[event.device]?.[CONNECTIONS_TABLE];
+  return table && { label: 'Connection', view: tableGrid(table, event.device, event.table?.row) };
+}
+
 export interface TraceOptions {
   /** Replaces the deciding device's table with a panel of the lesson's own. */
   panel?: (event: SimEvent) => PanelsView['panels'][number] | undefined;

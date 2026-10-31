@@ -195,6 +195,8 @@ const EXPECTED_IDS = [
   'dhcp',
   'nat',
   'ports-udp',
+  'tcp-connections',
+  'reliable-delivery',
 ];
 
 describe('lesson registry', () => {
