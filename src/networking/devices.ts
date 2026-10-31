@@ -160,6 +160,7 @@ export function createHost(config: HostConfig): Host {
       ctx.note({ action: 'reply-received', title: `${ICMP_NAME[payload.type]} from ${formatIp(src)}`, why: `It came back ${formatTime(rttMs)} after the request left.` }, undefined);
       return;
     }
+    if (payload.kind === 'tcp') return;
     if (typeof payload.data === 'string') receiveUdp(ctx, src, payload);
     else receiveDhcp(ctx, payload.data);
   }

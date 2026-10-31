@@ -15,6 +15,7 @@ function frameLabel({ payload }: Frame): string {
   if (payload.kind === 'arp') return payload.op === 'request' ? 'ARP ask' : 'ARP reply';
   const inner = payload.payload;
   if (inner.kind === 'icmp') return ICMP_NAME[inner.type];
+  if (inner.kind === 'tcp') return 'TCP';
   return typeof inner.data === 'string' ? 'UDP' : `DHCP ${inner.data.op}`;
 }
 
@@ -34,6 +35,7 @@ function fields({ srcMac, dstMac, payload }: Frame): [string, string][] {
     return list;
   }
   list.push(['Source port', String(inner.srcPort)], ['Destination port', String(inner.dstPort)]);
+  if (inner.kind === 'tcp') return list;
   if (typeof inner.data === 'string') list.push(['Data', inner.data]);
   else list.push(['DHCP', inner.data.op], ['Your IP', formatIp(inner.data.yourIp)]);
   return list;
