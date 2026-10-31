@@ -1,6 +1,6 @@
 import { broadcastOf, formatIp, inSubnet, networkOf } from './address';
-import { createArp } from './devices';
-import { BROADCAST_MAC, type Frame, type Icmp, type IpPacket, type Udp } from './packet';
+import { createArp, IP_HEADER } from './devices';
+import { BROADCAST_MAC, ipLength, type Frame, type Icmp, type IpPacket, type Udp } from './packet';
 import { formatTime, type Ctx, type Device } from './sim';
 
 const LIMITED_BROADCAST = 0xffffffff;
@@ -54,7 +54,19 @@ export function lookup(routes: Route[], dst: number, isUp: (port: string) => boo
 }
 
 const cidr = (route: Route) => `${formatIp(route.network)}/${route.prefix}`;
-const isError = (packet: IpPacket) => packet.payload.kind === 'icmp' && (packet.payload.type === 'time-exceeded' || packet.payload.type === 'unreachable');
+const isError = (packet: IpPacket) => packet.payload.kind === 'icmp' && packet.payload.type !== 'echo-request' && packet.payload.type !== 'echo-reply';
+
+/** Cuts a packet to fit `mtu`. Every piece but the last holds a multiple of 8 bytes, because offsets count in eights. */
+function fragment(packet: IpPacket, mtu: number): IpPacket[] {
+  const most = Math.floor((mtu - IP_HEADER) / 8) * 8;
+  const bytes = ipLength(packet) - IP_HEADER;
+  const pieces: IpPacket[] = [];
+  for (let start = 0; start < bytes; start += most) {
+    const size = Math.min(most, bytes - start);
+    pieces.push({ ...packet, length: size + IP_HEADER, offset: (packet.offset ?? 0) + start, more: start + size < bytes || packet.more === true });
+  }
+  return pieces;
+}
 
 export function createRouter(config: RouterConfig): Device {
   const { interfaces, nat, label } = config;
@@ -94,6 +106,14 @@ export function createRouter(config: RouterConfig): Device {
     originate(ctx, arrival, packet.src, { kind: 'icmp', type, seq }, title, why, action);
   }
 
+  function tooBig(ctx: Ctx, arrival: Interface, packet: IpPacket, arrived: Frame, mtu: number) {
+    if (config.silent) {
+      ctx.note({ action: 'black-hole', title: `${label} drops ${ipLength(packet)} bytes and says nothing`, why: `The next link's MTU is ${mtu} and the packet says Don't Fragment. This router sends no ICMP, so the sender never learns why its data vanishes.` }, arrived);
+      return;
+    }
+    originate(ctx, arrival, packet.src, { kind: 'icmp', type: 'frag-needed', seq: 0, mtu, dst: packet.dst }, `${ipLength(packet)} bytes won't fit: Fragmentation Needed`, `The next link's MTU is ${mtu} and the packet says Don't Fragment, so ${label} drops it and tells the sender the size that fits.`, 'frag-needed');
+  }
+
   function forward(ctx: Ctx, packet: IpPacket, arrived: Frame, arrival: Interface) {
     const dst = formatIp(packet.dst);
     const route = lookup(routes, packet.dst, ctx.linkUp);
@@ -116,6 +136,22 @@ export function createRouter(config: RouterConfig): Device {
         return;
       }
       const onward: IpPacket = { ...packet, ttl: packet.ttl - 1 };
+      const mtu = ctx.mtu(route.port);
+      if (mtu !== undefined && ipLength(packet) > mtu) {
+        if (packet.df) {
+          tooBig(ctx, arrival, packet, arrived, mtu);
+          return;
+        }
+        for (const piece of fragment(onward, mtu)) {
+          ctx.send([route.port], { srcMac: out.mac, dstMac, payload: piece }, {
+            action: 'fragment',
+            title: `${label} sends a fragment of ${piece.length} bytes, offset ${piece.offset}`,
+            why: `${ipLength(packet)} bytes won't fit the next link's MTU of ${mtu}, and this packet may be split. Offsets count in eights, so each fragment's data is a multiple of 8 bytes, except the last.`,
+            before: arrived,
+          });
+        }
+        return;
+      }
       const seen = arrived.payload.kind === 'ip' ? arrived.payload : packet;
       const newSource = seen.src !== packet.src;
       const newDestination = seen.dst !== packet.dst;

@@ -1,5 +1,5 @@
 import { formatIp, inSubnet, ipv4 } from './address';
-import { BROADCAST_MAC, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, ICMP_NAME, type Arp, type Dhcp, type Frame, type Icmp, type IpPacket, type Udp } from './packet';
+import { BROADCAST_MAC, DHCP_CLIENT_PORT, DHCP_SERVER_PORT, ICMP_NAME, ipLength, type Arp, type Dhcp, type Frame, type Icmp, type IpPacket, type Udp } from './packet';
 import { formatTime, type Ctx, type Device, type Note, type TableSnapshot } from './sim';
 import { createTcp, type Conn, type TcpOptions } from './tcp';
 
@@ -7,6 +7,8 @@ export const ARP_TIMEOUT_MS = 1000;
 export const DHCP_RETRY_MS = 4000;
 const DEFAULT_TTL = 64;
 const ETH = 'eth0';
+export const IP_HEADER = 20;
+const IP_UDP_HEADERS = 28;
 const IP_TCP_HEADERS = 40;
 const DEFAULT_MSS = 1000;
 const LOOPBACK = ipv4('127.0.0.0');
@@ -94,7 +96,9 @@ export interface Reply {
 
 export interface Host extends Device {
   ping(ctx: Ctx, dst: number, seq: number, ttl?: number): void;
-  udp(ctx: Ctx, dst: number, srcPort: number, dstPort: number, text: string): void;
+  /** `size` sets the data bytes; with none, the packet counts as 40 bytes. */
+  udp(ctx: Ctx, dst: number, srcPort: number, dstPort: number, text: string, options?: { size?: number; df?: boolean }): void;
+  bindUdp(port: number, label: string): void;
   /** Starts DHCP. A host that will boot has an address of 0. */
   boot(ctx: Ctx): void;
   address(): number;
@@ -113,6 +117,8 @@ export function createHost(config: HostConfig): Host {
   let dhcpState: 'off' | 'discovering' | 'requesting' | 'bound' = 'off';
   const arp = createArp(config.arp);
   const sent = new Map<number, number>();
+  const programs = new Map<number, string>();
+  const fragments = new Map<string, IpPacket[]>();
   let nextId = 1;
 
   const tcp = createTcp({
@@ -159,7 +165,26 @@ export function createHost(config: HostConfig): Host {
     transmit(ctx, ipPacket, { action: 'send', title: `${label} leaves ${config.label}`, why: `The packet goes out with destination ${dst}.` });
   }
 
-  function receiveIp(ctx: Ctx, ipPacket: IpPacket) {
+  /** Returns the whole packet once every piece is here. */
+  function reassemble(ctx: Ctx, piece: IpPacket): IpPacket | undefined {
+    const key = `${piece.src}:${piece.id}`;
+    const pieces = [...(fragments.get(key) ?? []), piece].toSorted((a, b) => (a.offset ?? 0) - (b.offset ?? 0));
+    fragments.set(key, pieces);
+    let end = 0;
+    for (const each of pieces) {
+      if ((each.offset ?? 0) !== end) return undefined;
+      end += ipLength(each) - IP_HEADER;
+    }
+    if (pieces.at(-1)!.more) return undefined;
+    fragments.delete(key);
+    ctx.note({ action: 'reassembled', title: `${config.label} joins ${pieces.length} fragments back together`, why: `Every fragment of packet ${piece.id} is here, so the offsets line up into ${end} bytes. Only the destination does this.` });
+    const { offset: _offset, more: _more, ...whole } = piece;
+    return { ...whole, length: end + IP_HEADER };
+  }
+
+  function receiveIp(ctx: Ctx, arrived: IpPacket) {
+    const ipPacket = arrived.more || arrived.offset ? reassemble(ctx, arrived) : arrived;
+    if (!ipPacket) return;
     const { payload, src } = ipPacket;
     if (payload.kind === 'icmp') {
       if (payload.type === 'echo-request') {
@@ -173,7 +198,9 @@ export function createHost(config: HostConfig): Host {
       }
       const rttMs = ctx.now - (sent.get(payload.seq) ?? ctx.now);
       host.replies.push({ seq: payload.seq, from: src, type: payload.type, rttMs });
-      ctx.note({ action: 'reply-received', title: `${ICMP_NAME[payload.type]} from ${formatIp(src)}`, why: `It came back ${formatTime(rttMs)} after the request left.` }, undefined);
+      const why = payload.type === 'frag-needed' ? `A link on the way only carries ${payload.mtu} bytes, and this packet may not be split.` : `It came back ${formatTime(rttMs)} after the request left.`;
+      ctx.note({ action: 'reply-received', title: `${ICMP_NAME[payload.type]} from ${formatIp(src)}`, why }, undefined);
+      if (payload.type === 'frag-needed') tcp.lowerMss(ctx, payload.dst!, payload.mtu!);
       return;
     }
     if (payload.kind === 'tcp') return tcp.receive(ctx, src, payload);
@@ -241,9 +268,17 @@ export function createHost(config: HostConfig): Host {
   }
 
   function receiveUdp(ctx: Ctx, src: number, udp: Udp) {
+    if (!config.echo && !programs.has(udp.dstPort)) {
+      transmit(ctx, packet(src, DEFAULT_TTL, { kind: 'icmp', type: 'port-unreachable', seq: 0 }), {
+        action: 'port-unreachable',
+        title: `Nothing is bound to port ${udp.dstPort}`,
+        why: 'The host has no program for this port, so it throws the datagram away and tells the sender with an ICMP error.',
+      });
+      return;
+    }
     ctx.note({
       action: 'udp-received',
-      title: `${config.label} got "${String(udp.data)}" on port ${udp.dstPort}`,
+      title: `${programs.get(udp.dstPort) ?? config.label} got "${String(udp.data)}" on port ${udp.dstPort}`,
       why: `The datagram came from ${formatIp(src)} port ${udp.srcPort}.`,
     });
     if (!config.echo) return;
@@ -279,8 +314,14 @@ export function createHost(config: HostConfig): Host {
     write: tcp.write,
     close: tcp.close,
     connections: tcp.connections,
-    udp(ctx, dst, srcPort, dstPort, text) {
-      originate(ctx, packet(dst, DEFAULT_TTL, { kind: 'udp', srcPort, dstPort, data: text }), `A UDP datagram`);
+    udp(ctx, dst, srcPort, dstPort, text, { size, df } = {}) {
+      if (!programs.has(srcPort)) programs.set(srcPort, config.label);
+      sent.set(0, ctx.now);
+      const datagram = packet(dst, DEFAULT_TTL, { kind: 'udp', srcPort, dstPort, data: text });
+      originate(ctx, { ...datagram, ...(size === undefined ? {} : { length: IP_UDP_HEADERS + size }), ...(df ? { df } : {}) }, `A UDP datagram`);
+    },
+    bindUdp(port, label) {
+      programs.set(port, label);
     },
     receive(ctx, frame: Frame, port) {
       if (frame.dstMac !== mac && frame.dstMac !== BROADCAST_MAC) {

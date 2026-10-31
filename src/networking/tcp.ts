@@ -17,6 +17,7 @@ const READ_TICK_MS = 10;
 const RESUME_AT_MS = 2000;
 const RESUME_RATE = 200;
 const CONNECTIONS_TABLE = 2;
+const IP_TCP_HEADERS = 40;
 const SENDING: TcpState[] = ['ESTABLISHED', 'CLOSE_WAIT', 'FIN_WAIT_1', 'LAST_ACK'];
 
 export type TcpState = 'CLOSED' | 'LISTEN' | 'SYN_SENT' | 'SYN_RCVD' | 'ESTABLISHED' | 'FIN_WAIT_1' | 'FIN_WAIT_2' | 'CLOSE_WAIT' | 'LAST_ACK' | 'TIME_WAIT';
@@ -454,7 +455,16 @@ export function createTcp(host: TcpHost) {
       if (flags.includes('ACK')) onAck(ctx, conn, segment);
       if (conn.state !== 'CLOSED' && (segment.length > 0 || flags.includes('FIN'))) onSegment(ctx, conn, segment);
     },
-    lowerMss(_ctx: Ctx, _dst: number, _mtu: number) {},
+    lowerMss(ctx: Ctx, dst: number, mtu: number) {
+      const mss = mtu - IP_TCP_HEADERS;
+      for (const conn of conns.filter((each) => each.remote === dst && each.state !== 'CLOSED' && each.mss > mss)) {
+        conn.mss = mss;
+        conn.nxt = conn.una;
+        delete conn.timed;
+        ctx.note(noteFor(conn, 'mss-lowered', `MSS lowered to ${mss} bytes`, `A ${mtu}-byte packet is the most this path carries, and ${IP_TCP_HEADERS} of those bytes are headers. Anything unacknowledged goes again in smaller segments.`));
+        pump(ctx, conn);
+      }
+    },
     connections: (): Conn[] => conns,
     table: (): TableSnapshot => ({
       title: 'Connections',

@@ -17,6 +17,8 @@ export interface Icmp {
   seq: number;
   /** On `frag-needed`: the size that would have fit. */
   mtu?: number;
+  /** On `frag-needed`: where the refused packet was going. A real ICMP quotes its header. */
+  dst?: number;
 }
 
 export const ICMP_NAME: Record<Icmp['type'], string> = { 'echo-request': 'Echo Request', 'echo-reply': 'Echo Reply', 'time-exceeded': 'Time Exceeded', unreachable: 'Destination Unreachable', 'port-unreachable': 'Port Unreachable', 'frag-needed': 'Fragmentation Needed' };
