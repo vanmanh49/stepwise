@@ -1,7 +1,7 @@
 import { lineOf } from '../data-structures/shared';
 import type { ArrayView, ChartView, GridView, LadderView, PanelsView, Role, ServicesView, Step } from '../types/visualization';
 import { formatIp } from './address';
-import { ICMP_NAME, type Bgp, type Dns, type DnsRecord, type Frame, type Quic, type Tcp } from './packet';
+import { ICMP_NAME, type Bgp, type Dns, type DnsRecord, type Frame, type Mark, type Quic, type Tcp } from './packet';
 import { formatTime, QUEUE_DROP, type SimEvent, type SimResult, type TableSnapshot } from './sim';
 
 export const MAX_STEPS = 200;
@@ -19,7 +19,13 @@ const RETRANSMITS = ['fast-retransmit', 'timeout'];
 const LINE_ROLES: Role[] = ['active', 'pivot'];
 const X_LABEL = 'Round trips and losses';
 
-function segmentLabel({ flags, seq, ack, window, length }: Tcp): string {
+/** What a mark on the stream may offer the views: an application's name for this message, and its headers. */
+const marked = (marks: Mark[] | undefined) => (marks ?? []).map(({ mark }) => mark as { label?: string; headers?: Record<string, string> });
+const markLabel = (marks: Mark[] | undefined) => marked(marks).find(({ label }) => label)?.label;
+
+function segmentLabel({ flags, seq, ack, window, length, marks }: Tcp): string {
+  const name = markLabel(marks);
+  if (name) return name;
   if (flags.includes('RST')) return 'RST';
   if (flags.includes('SYN')) return flags.includes('ACK') ? `SYN ACK seq=${seq} ack=${ack}` : `SYN seq=${seq}`;
   if (flags.includes('FIN')) return `FIN seq=${seq}`;
@@ -36,6 +42,8 @@ const ackRanges = (acks: Quic['acks']) => acks.map(([from, to]) => `${from}–${
 
 function quicLabel({ number, space, frames, acks }: Quic): string {
   const [first] = frames;
+  const name = markLabel(first?.marks);
+  if (name) return name;
   if (first) return `QUIC #${number} stream ${first.stream}`;
   return acks.length > 0 ? `QUIC ACK ${ackRanges(acks)}` : `QUIC ${space} #${number}`;
 }
@@ -58,6 +66,9 @@ function frameLabel({ payload }: Frame): string {
 const numbered = (label: string, i: number) => (i === 0 ? label : `${label} ${i + 1}`);
 
 const recordText = ({ name, type, value, ttl }: DnsRecord) => `${name} ${type} ${value} TTL ${ttl}`;
+
+/** The first message's headers: a segment could end two messages, and rows need unique labels. */
+const headerFields = (marks: Mark[] | undefined): [string, string][] => Object.entries(marked(marks).find(({ headers }) => headers)?.headers ?? {});
 
 function dnsFields(dns: Dns): [string, string][] {
   return [
@@ -106,11 +117,13 @@ function fields({ srcMac, dstMac, payload }: Frame): [string, string][] {
   if (inner.kind === 'tcp') {
     list.push(['Seq', String(inner.seq)], ['Ack', String(inner.ack)], ['Flags', inner.flags.join(' ')], ['Window', String(inner.window)], ['Length', String(inner.length)]);
     if (inner.mss !== undefined) list.push(['MSS', String(inner.mss)]);
+    list.push(...headerFields(inner.marks));
     return list;
   }
   if (typeof inner.data === 'string') list.push(['Data', inner.data]);
   else if ('op' in inner.data) list.push(['DHCP', inner.data.op], ['Your IP', formatIp(inner.data.yourIp)]);
-  else list.push(...(inner.data.proto === 'dns' ? dnsFields(inner.data) : quicFields(inner.data)));
+  else if (inner.data.proto === 'dns') list.push(...dnsFields(inner.data));
+  else list.push(...quicFields(inner.data), ...headerFields(inner.data.frames[0]?.marks));
   return list;
 }
 
@@ -137,7 +150,39 @@ export function tableGrid(table: TableSnapshot, device: string, row?: number): G
   };
 }
 
-export function networkView(result: SimResult, event: SimEvent, log: string[]): ServicesView {
+const STREAM_ROLES: Record<string, Role> = { stalled: 'discarded', done: 'found', sending: 'active' };
+
+/** One row per stream, coloured by its state. */
+export function streamGrid(table: TableSnapshot): GridView {
+  const state = table.columns.indexOf('State');
+  return {
+    kind: 'grid',
+    colLabels: table.columns,
+    rows: table.rows.map((cells, r) => ({
+      cells: cells.map((value, c) => ({ id: `stream-${r}-${c}`, value, role: (c === state ? (STREAM_ROLES[value] ?? 'default') : 'default') as Role })),
+    })),
+  };
+}
+
+/** A `Page` table as a waterfall. A phase with no length yet is still running, so its bar stays open. */
+export function pageSpans(table: TableSnapshot, nowMs: number, endMs: number): NonNullable<ServicesView['spans']> {
+  return {
+    title: 'Page load',
+    endMs,
+    nowMs,
+    rows: table.rows.map(([label = '', start = '0', ms = ''], i) => ({
+      id: `phase-${i}`,
+      label,
+      start: Number(start),
+      ...(ms === '' ? {} : { ms: Number(ms) }),
+      depth: 0,
+      trace: 'page',
+      role: (ms === '' ? 'active' : 'found') as Role,
+    })),
+  };
+}
+
+export function networkView(result: SimResult, event: SimEvent, log: string[], spans?: ServicesView['spans']): ServicesView {
   const nodeRole = (id: string): Role => (event.stopped.includes(id) ? 'discarded' : id === event.device ? 'active' : 'default');
   return {
     kind: 'services',
@@ -156,6 +201,7 @@ export function networkView(result: SimResult, event: SimEvent, log: string[]): 
     })),
     requests: [],
     log,
+    ...(spans ? { spans } : {}),
   };
 }
 
@@ -166,14 +212,24 @@ function tablePanel(event: SimEvent): PanelsView['panels'][number] | undefined {
   return { label: table.title, view: tableGrid(table, event.device, event.table?.row) };
 }
 
+/** A ladder column. With an `ip`, a packet to that address draws end to end, whatever routers it crosses. */
+export interface LadderColumn {
+  id: string;
+  label: string;
+  ip?: number;
+}
+
 /** The packets sent up to event `upTo`, between the listed devices only. */
-export function ladderView(result: SimResult, upTo: number, columns: { id: string; label: string }[]): LadderView {
+export function ladderView(result: SimResult, upTo: number, columns: LadderColumn[]): LadderView {
   const ids = new Set(columns.map((column) => column.id));
+  const byIp = new Map(columns.flatMap(({ id, ip }) => (ip === undefined ? [] : [[ip, id] as const])));
   const rows: LadderView['rows'] = [];
   result.events.slice(0, upTo + 1).forEach(({ frame, hops }, e) => {
     if (frame?.payload.kind !== 'ip') return;
-    hops.forEach(({ from, to, lost }, h) => {
-      if (!ids.has(from) || !ids.has(to)) return;
+    const { dst } = frame.payload;
+    hops.forEach(({ from, to: next, lost }, h) => {
+      const to = ids.has(next) ? next : byIp.get(dst);
+      if (!ids.has(from) || !to) return;
       const role: Role = lost ? 'discarded' : e === upTo ? 'active' : 'default';
       rows.push({ id: `packet-${e}-${h}`, from, to, label: frameLabel(frame), role, ...(lost ? { lost } : {}) });
     });
@@ -181,9 +237,9 @@ export function ladderView(result: SimResult, upTo: number, columns: { id: strin
   const tables = result.events[upTo]?.tables ?? {};
   return {
     kind: 'ladder',
-    columns: columns.map((column) => {
-      const state = tables[column.id]?.[CONNECTIONS_TABLE]?.rows.at(-1)?.[1];
-      return { ...column, ...(state ? { state } : {}) };
+    columns: columns.map(({ id, label }) => {
+      const state = tables[id]?.[CONNECTIONS_TABLE]?.rows.at(-1)?.[1];
+      return { id, label, ...(state ? { state } : {}) };
     }),
     rows: rows.slice(-LADDER_ROWS),
     ...(rows.length > LADDER_ROWS ? { earlier: rows.length - LADDER_ROWS } : {}),
@@ -202,7 +258,9 @@ export interface TraceOptions {
   /** Actions to leave out, such as ARP in a lesson about routing. */
   hide?: string[];
   /** Replaces the Network panel with a ladder of these devices. */
-  ladder?: { id: string; label: string }[];
+  ladder?: LadderColumn[];
+  /** A waterfall under the Network panel. */
+  spans?: (event: SimEvent) => ServicesView['spans'];
 }
 
 /** One step per event; a Note's `action` picks the code line. Past MAX_STEPS the rest fold into one summary step. */
@@ -212,7 +270,7 @@ export function traceSteps(result: SimResult, code: string, lines: Record<string
   const events = result.events.filter((event) => !options.hide?.includes(event.action));
   const { ladder } = options;
   const movement = (event: SimEvent): PanelsView['panels'][number] =>
-    ladder ? { label: 'Ladder', view: ladderView(result, result.events.indexOf(event), ladder) } : { label: 'Network', view: networkView(result, event, log.slice(-LOG_LENGTH)) };
+    ladder ? { label: 'Ladder', view: ladderView(result, result.events.indexOf(event), ladder) } : { label: 'Network', view: networkView(result, event, log.slice(-LOG_LENGTH), options.spans?.(event)) };
   let codeLine = 1;
   const steps = events.slice(0, MAX_STEPS).map((event): Step => {
     log.push(event.title);

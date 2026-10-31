@@ -1,4 +1,5 @@
 import { ipv4 } from '../address';
+import { createAs, type AsConfig, type Relation } from '../app/bgp';
 import { dnsResolver, dnsServer } from '../app/dns';
 import { createHost, createSwitch, type Host, type HostConfig } from '../devices';
 import { createDhcpServer } from '../dhcp';
@@ -248,31 +249,120 @@ export function mtuPath({ mtu, silent = false }: { mtu: number; silent?: boolean
   return { client, server, devices: [client, r1, r2, server] as Device[], links };
 }
 
+/** Hidden on any run through a Router, where the hops themselves aren't the lesson. */
+export const WEB_QUIET = ['arp-request', 'arp-reply', 'not-mine', 'route-match', 'forward-hop'];
+
+/** Holds every packet of a whole page, so a web lesson loses only the packets it chooses. */
+const WEB_QUEUE = 64;
+
+/** Client — Router — Server, as `tcpPath`, with a queue that doesn't overflow. */
+export const webPath = ({ rate, queue = WEB_QUEUE, ms }: { rate?: number; queue?: number; ms?: number } = {}) => tcpPath({ ...(rate === undefined ? {} : { rate }), queue, ...(ms === undefined ? {} : { ms }) });
+
 export const RESOLVER_IP = ipv4('10.0.2.2');
+const AUTH_IP = '10.0.5.2';
 const DNS_TTL_S = 60;
 const dnsRecord = (name: string, type: DnsRecord['type'], value: string): DnsRecord => ({ name, type, value, ttl: DNS_TTL_S });
-const EXAMPLE_NS = [dnsRecord('example.com', 'NS', 'ns1.example.com'), dnsRecord('ns1.example.com', 'A', '10.0.5.2')];
+const EXAMPLE_NS = [dnsRecord('example.com', 'NS', 'ns1.example.com'), dnsRecord('ns1.example.com', 'A', AUTH_IP)];
+
+/** A host on its own subnet 10.0.n.0/24, one link from a Router that has interface pn. */
+const hostOn = (id: string, label: string, n: number, column: number, type?: Device['type']) => createHost({ id, label, column, mac: macOf(n), ip: ipv4(`10.0.${n}.2`), prefix: 24, gateway: ipv4(`10.0.${n}.1`), arp: { [ipv4(`10.0.${n}.1`)]: macOf(0x10 + n) }, ...(type ? { type } : {}) });
+
+const hub = (column: number, subnets: number[], routes: Route[] = []) => createRouter({
+  id: 'router',
+  label: 'Router',
+  column,
+  interfaces: subnets.map((n) => ({ port: `p${n}`, ip: ipv4(`10.0.${n}.1`), prefix: 24, mac: macOf(0x10 + n) })),
+  routes,
+});
 
 /** One Router joining a Client and four name servers on their own subnets, so each link is a real hop. */
 export function dnsTree({ seeded = false }: { seeded?: boolean } = {}) {
-  const hostOn = (id: string, label: string, n: number, column: number, type?: Device['type']) => createHost({ id, label, column, mac: macOf(n), ip: ipv4(`10.0.${n}.2`), prefix: 24, gateway: ipv4(`10.0.${n}.1`), arp: { [ipv4(`10.0.${n}.1`)]: macOf(0x10 + n) }, ...(type ? { type } : {}) });
   const client = hostOn('client', 'Client', 1, 0);
   const resolver = hostOn('resolver', 'Resolver', 2, 0, 'dns');
   const root = hostOn('root', 'Root', 3, 2, 'dns');
   const tld = hostOn('tld', 'TLD', 4, 2, 'dns');
   const auth = hostOn('auth', 'Authoritative', 5, 2, 'dns');
   const hosts = [client, resolver, root, tld, auth];
-  const router = createRouter({
-    id: 'router',
-    label: 'Router',
-    column: 1,
-    interfaces: hosts.map((_, i) => ({ port: `p${i + 1}`, ip: ipv4(`10.0.${i + 1}.1`), prefix: 24, mac: macOf(0x11 + i) })),
-    routes: [],
-  });
   dnsResolver(resolver, root.address(), seeded ? EXAMPLE_NS : []);
   dnsServer(root, [dnsRecord('com', 'NS', 'a.gtld-servers.net'), dnsRecord('a.gtld-servers.net', 'A', '10.0.4.2')]);
   dnsServer(tld, EXAMPLE_NS);
   dnsServer(auth, [dnsRecord('www.example.com', 'A', '192.0.2.10'), dnsRecord('api.example.com', 'A', '192.0.2.20')]);
   const links: Link[] = hosts.map((host, i) => ({ a: [host.id, 'eth0'], b: ['router', `p${i + 1}`], ms: 10 }));
-  return { client, resolver, root, tld, auth, devices: [...hosts, router] as Device[], links };
+  return { client, resolver, root, tld, auth, devices: [...hosts, hub(1, [1, 2, 3, 4, 5])] as Device[], links };
+}
+
+/** Client, Resolver and Authoritative round a Router, with the Server on tcpPath's slow link. The Resolver already knows where example.com is. */
+export function pagePath() {
+  const client = hostOn('client', 'Client', 1, 0);
+  const resolver = hostOn('resolver', 'Resolver', 2, 1, 'dns');
+  const auth = hostOn('auth', 'Authoritative', 5, 1, 'dns');
+  const server = hostOn('server', 'Server', 6, 3);
+  dnsResolver(resolver, ipv4('10.0.3.2'), EXAMPLE_NS);
+  dnsServer(auth, [dnsRecord('www.example.com', 'A', '10.0.6.2')]);
+  const links: Link[] = [
+    { a: ['client', 'eth0'], b: ['router', 'p1'] },
+    { a: ['resolver', 'eth0'], b: ['router', 'p2'], ms: 10 },
+    { a: ['auth', 'eth0'], b: ['router', 'p5'], ms: 10 },
+    { a: ['router', 'p6'], b: ['server', 'eth0'], rate: 104, ms: 20, queueBytes: WEB_QUEUE * SEGMENT_BYTES },
+  ];
+  return { client, resolver, auth, server, devices: [client, resolver, auth, hub(2, [1, 2, 5, 6]), server] as Device[], links };
+}
+
+export const ANYCAST_IP = ipv4('198.51.100.10');
+const NEAR_MS = 5;
+const FAR_MS = 30;
+const ORIGIN_MS = 60;
+
+/** Two edges share one address. The Router knows both ways to it, and the lower metric wins while its link is up. */
+export function cdnNet() {
+  const client = hostOn('client', 'Client', 1, 0);
+  const resolver = hostOn('resolver', 'Resolver', 2, 0, 'dns');
+  const edge = (id: string, label: string, n: number) => createHost({ id, label, column: 2, mac: macOf(n), ip: ANYCAST_IP, prefix: 32, gateway: ipv4(`10.0.${n}.1`), arp: { [ipv4(`10.0.${n}.1`)]: macOf(0x10 + n) } });
+  const edges = [edge('near', 'Near edge', 3), edge('far', 'Far edge', 4)];
+  const origin = hostOn('origin', 'Origin', 5, 3);
+  const anycast = (port: string, metric: number): Route => ({ network: ANYCAST_IP, prefix: 32, port, metric });
+  const router = hub(1, [1, 2, 3, 4, 5], [anycast('p3', 1), anycast('p4', 2)]);
+  dnsResolver(resolver, ipv4('10.0.3.2'), [dnsRecord('www.example.com', 'A', '198.51.100.10')]);
+  const links: Link[] = [
+    { a: ['client', 'eth0'], b: ['router', 'p1'] },
+    { a: ['resolver', 'eth0'], b: ['router', 'p2'] },
+    { a: ['near', 'eth0'], b: ['router', 'p3'], ms: NEAR_MS },
+    { a: ['far', 'eth0'], b: ['router', 'p4'], ms: FAR_MS },
+    { a: ['origin', 'eth0'], b: ['router', 'p5'], ms: ORIGIN_MS },
+  ];
+  return { client, resolver, edges, origin, anycast: ANYCAST_IP, devices: [client, resolver, router, ...edges, origin] as Device[], links, nearLink: 2 };
+}
+
+const AS_LINK_MS = 5;
+const asEdges: [from: string, to: string, relation: Relation][] = [
+  ['isp', 'ta', 'provider'],
+  ['isp', 'tb', 'provider'],
+  ['ta', 'tb', 'peer'],
+  ['ta', 'origin', 'customer'],
+  ['tb', 'core', 'customer'],
+  ['core', 'origin', 'customer'],
+  ['tb', 'evil', 'customer'],
+];
+const AS_NAMES: Record<string, { label: string; asn: number; column: number }> = {
+  isp: { label: 'ISP', asn: 65200, column: 0 },
+  ta: { label: 'Transit A', asn: 65010, column: 1 },
+  tb: { label: 'Transit B', asn: 65020, column: 1 },
+  core: { label: 'Core', asn: 65030, column: 2 },
+  evil: { label: 'Hijacker', asn: 65666, column: 2 },
+  origin: { label: 'Origin', asn: 65001, column: 3 },
+};
+const OPPOSITE: Record<Relation, Relation> = { customer: 'provider', provider: 'customer', peer: 'peer' };
+
+/** Six ASes. The ISP's way through Transit A is shorter than through Transit B and Core. `prepend` is what Origin adds towards Transit A. */
+export function asNet({ prepend = 0 }: { prepend?: number } = {}) {
+  const routers = Object.fromEntries(Object.entries(AS_NAMES).map(([id, { label, asn, column }]) => {
+    const neighbours = asEdges.flatMap(([from, to, relation]): AsConfig['neighbours'] => {
+      if (from === id) return [{ port: to, relation }];
+      if (to === id) return [{ port: from, relation: OPPOSITE[relation], ...(id === 'origin' && from === 'ta' && prepend ? { prepend } : {}) }];
+      return [];
+    });
+    return [id, createAs({ id, label, column, asn, neighbours })];
+  }));
+  const links: Link[] = asEdges.map(([from, to]) => ({ a: [from, to], b: [to, from], ms: AS_LINK_MS }));
+  return { routers, devices: Object.values(routers) as Device[], links, asnOf: (id: string) => AS_NAMES[id]!.asn };
 }
