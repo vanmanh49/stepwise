@@ -12,7 +12,7 @@ export function ComplexityTable({ lesson }: { lesson: LessonMeta }) {
   const isAlgorithm = lesson.category === 'algorithms';
 
   return (
-    <div className="card relative overflow-x-auto">
+    <div className="card overflow-x-auto">
       <table className="w-full min-w-[30rem] text-left text-sm">
         <caption className="sr-only">Time and space complexity of {lesson.title}</caption>
         <thead>

@@ -15,7 +15,7 @@ const STATUS: Record<SessionsView['rows'][number]['status'], string> = {
 export function SessionsRenderer({ view }: { view: SessionsView }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative overflow-x-auto">
+      <div className="overflow-x-auto">
         <table className="w-full min-w-[20rem] table-fixed border-collapse font-mono text-xs">
           <caption className="sr-only">Statements of sessions A and B in the order they were tried</caption>
           <thead>

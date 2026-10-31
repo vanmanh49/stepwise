@@ -205,7 +205,7 @@ export function ServicesRenderer({ view }: { view: ServicesView }) {
       {view.spans && <SpanWaterfall spans={view.spans} />}
 
       {view.requests.length > 0 && (
-        <div className="relative overflow-x-auto">
+        <div className="overflow-x-auto">
           <table className="w-full min-w-[18rem] border-collapse text-left font-mono text-xs">
             <caption className="sr-only">Each request, its status, the path it took and how long it took</caption>
             <thead>

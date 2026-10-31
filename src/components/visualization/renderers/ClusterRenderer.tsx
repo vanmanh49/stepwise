@@ -132,7 +132,7 @@ function ObjectsTable({ objects }: { objects: ClusterView['objects'] }) {
   if (objects.length === 0) return null;
   const cell = 'py-1 pr-2';
   return (
-    <div className="relative overflow-x-auto">
+    <div className="overflow-x-auto">
       <table className="w-full min-w-[18rem] border-collapse text-left font-mono text-xs">
         <caption className="sr-only">Each object: how many pods it wants, has and has ready</caption>
         <thead>
@@ -165,7 +165,7 @@ function ObjectsTable({ objects }: { objects: ClusterView['objects'] }) {
 
 function RequestList({ requests, earlier }: { requests: NonNullable<ClusterView['requests']>; earlier?: ClusterView['requestsEarlier'] }) {
   return (
-    <div className="relative overflow-x-auto">
+    <div className="overflow-x-auto">
       <table className="w-full min-w-[16rem] border-collapse text-left font-mono text-xs">
         <caption className="sr-only">Each request, the pod kube-proxy sent it to, and its status</caption>
         <thead>
