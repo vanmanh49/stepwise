@@ -32,4 +32,14 @@ export const networkingMeta: LessonMeta[] = [
     keywords: ['arp', 'address resolution protocol', 'mac address', 'arp cache', 'broadcast', 'who has', 'ip neigh'],
     prerequisites: ['ethernet-switching'],
   },
+  {
+    id: 'ip-subnets',
+    title: 'IP Addresses & Subnets',
+    category: 'networking',
+    difficulty: 'beginner',
+    group: 'Link & Internet',
+    description: 'Type any address and prefix, work out its network, broadcast and hosts in bits, and see when a packet needs a gateway.',
+    keywords: ['ip address', 'ipv4', 'subnet', 'cidr', 'subnet mask', 'prefix', 'network address', 'broadcast', 'gateway', 'ipv6'],
+    prerequisites: [],
+  },
 ];

@@ -62,6 +62,16 @@ describe('traceSteps', () => {
     expect(steps[0]!.codeLine).toBe(1);
   });
 
+  it('keeps the last code line on a step with no line of its own', () => {
+    const after = steps.findIndex((step) => step.title.includes('forwards it'));
+    expect(steps[after + 1]!.codeLine).toBe(2);
+  });
+
+  it('leaves out hidden actions', () => {
+    const titles = traceSteps(routed(), CODE, LINES, { hide: ['arp-request', 'arp-reply'] }).map((step) => step.title);
+    expect(titles.join()).not.toContain('Who has');
+  });
+
   it('never shows more than 3 panels', () => {
     for (const step of steps) expect(panels(step).length).toBeLessThanOrEqual(3);
   });

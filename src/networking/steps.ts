@@ -14,7 +14,7 @@ const LOST_PROGRESS = 0.25;
 const ICMP_NAME = { 'echo-request': 'Echo Request', 'echo-reply': 'Echo Reply', 'time-exceeded': 'Time Exceeded', unreachable: 'Destination Unreachable' };
 
 function frameLabel({ payload }: Frame): string {
-  if (payload.kind === 'arp') return payload.op === 'request' ? 'ARP who-has' : 'ARP reply';
+  if (payload.kind === 'arp') return payload.op === 'request' ? 'ARP ask' : 'ARP reply';
   const inner = payload.payload;
   if (inner.kind === 'icmp') return ICMP_NAME[inner.type];
   return typeof inner.data === 'string' ? 'UDP' : `DHCP ${inner.data.op}`;
@@ -96,20 +96,25 @@ function tablePanel(event: SimEvent): PanelsView['panels'][number] | undefined {
 export interface TraceOptions {
   /** Replaces the deciding device's table with a panel of the lesson's own. */
   panel?: (event: SimEvent) => PanelsView['panels'][number] | undefined;
+  /** Actions to leave out, such as ARP in a lesson about routing. */
+  hide?: string[];
 }
 
 /** One step per event; a Note's `action` picks the code line. Past MAX_STEPS the rest fold into one summary step. */
 export function traceSteps(result: SimResult, code: string, lines: Record<string, string>, options: TraceOptions = {}): Step[] {
   const log: string[] = [];
   const labels = new Map(result.devices.map((device) => [device.id, device.label]));
-  const steps = result.events.slice(0, MAX_STEPS).map((event): Step => {
+  const events = result.events.filter((event) => !options.hide?.includes(event.action));
+  let codeLine = 1;
+  const steps = events.slice(0, MAX_STEPS).map((event): Step => {
     log.push(event.title);
     const side = options.panel?.(event) ?? tablePanel(event);
     const snippet = lines[event.action];
+    if (snippet) codeLine = lineOf(code, snippet);
     return {
       title: event.title,
       why: event.why,
-      codeLine: snippet ? lineOf(code, snippet) : 1,
+      codeLine,
       variables: { time: formatTime(event.time), device: labels.get(event.device) ?? event.device },
       view: {
         kind: 'panels',
@@ -121,13 +126,13 @@ export function traceSteps(result: SimResult, code: string, lines: Record<string
       },
     };
   });
-  const hidden = result.events.length - steps.length;
+  const hidden = events.length - steps.length;
   if (hidden > 0) {
     steps.push({
       title: `${hidden} more events are not shown`,
       why: result.cut ? 'This run never settled, so the simulator stopped it.' : 'The run went on doing the same work, so the rest is folded here.',
-      codeLine: 1,
-      view: { kind: 'panels', panels: [{ label: 'Network', view: networkView(result, result.events.at(-1)!, log.slice(-LOG_LENGTH)) }] },
+      codeLine,
+      view: { kind: 'panels', panels: [{ label: 'Network', view: networkView(result, events.at(-1)!, log.slice(-LOG_LENGTH)) }] },
     });
   }
   return steps;

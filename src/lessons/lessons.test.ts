@@ -189,6 +189,7 @@ const EXPECTED_IDS = [
   'layers-encapsulation',
   'ethernet-switching',
   'arp',
+  'ip-subnets',
 ];
 
 describe('lesson registry', () => {
