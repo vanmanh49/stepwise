@@ -90,6 +90,7 @@ export interface Host extends Device {
   /** Starts DHCP. A host that will boot has an address of 0. */
   boot(ctx: Ctx): void;
   address(): number;
+  mac: string;
   replies: Reply[];
 }
 
@@ -233,6 +234,7 @@ export function createHost(config: HostConfig): Host {
     label: config.label,
     type: 'host',
     column: config.column,
+    mac,
     replies: [],
     badge: () => formatIp(ip),
     ping(ctx, dst, seq, ttl = DEFAULT_TTL) {

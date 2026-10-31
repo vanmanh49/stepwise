@@ -187,6 +187,8 @@ const EXPECTED_IDS = [
   'ssrf',
   'threat-modeling',
   'layers-encapsulation',
+  'ethernet-switching',
+  'arp',
 ];
 
 describe('lesson registry', () => {

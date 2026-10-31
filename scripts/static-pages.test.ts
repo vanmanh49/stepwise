@@ -39,7 +39,7 @@ describe('sitePages', () => {
     expect(paths).toContain('kubernetes');
     expect(paths).toContain('big-o');
     expect(new Set(paths).size).toBe(paths.length);
-    expect(paths).toHaveLength(179 + 8 + 1);
+    expect(paths).toHaveLength(181 + 8 + 1);
   });
 
   it('names every track in the home page and site descriptions', async () => {
