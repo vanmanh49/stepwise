@@ -51,7 +51,6 @@ export interface QuicFrame {
   stream: number;
   offset: number;
   length: number;
-  fin?: boolean;
   marks?: Mark[];
 }
 

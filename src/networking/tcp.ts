@@ -1,6 +1,6 @@
 import { formatIp } from './address';
 import type { Mark, Tcp } from './packet';
-import { renoDupAck, renoNewAck, renoTimeout, startReno } from './reno';
+import { INITIAL_RTO_MS, MAX_RETRIES, renoDupAck, renoNewAck, renoTimeout, sampleRtt, startReno } from './reno';
 import { formatTime, type Ctx, type Note, type TableSnapshot } from './sim';
 
 export const CLIENT_ISN = 1000;
@@ -8,9 +8,6 @@ export const SERVER_ISN = 5000;
 export const TIME_WAIT_MS = 2000;
 const FIRST_CLIENT_PORT = 49152;
 const DEFAULT_BUFFER = 64000;
-export const INITIAL_RTO_MS = 1000;
-const MIN_RTO_MS = 200;
-export const MAX_RETRIES = 5;
 const READ_TICK_MS = 10;
 /** A paused reader wakes here, so every run ends. */
 const RESUME_AT_MS = 2000;
@@ -301,13 +298,6 @@ export function createTcp(host: TcpHost) {
     conn.peerWindow = segment.window;
     sendSynAck(ctx, conn, synAckNote(conn));
     startTimer(ctx, conn);
-  }
-
-  function sampleRtt(conn: Socket, rtt: number) {
-    conn.rtt = rtt;
-    conn.rttvar = conn.srtt === undefined ? rtt / 2 : 0.75 * conn.rttvar + 0.25 * Math.abs(conn.srtt - rtt);
-    conn.srtt = conn.srtt === undefined ? rtt : 0.875 * conn.srtt + 0.125 * rtt;
-    conn.rto = Math.max(MIN_RTO_MS, Math.ceil(conn.srtt + 4 * conn.rttvar));
   }
 
   function onNewAck(ctx: Ctx, conn: Socket, segment: Tcp) {

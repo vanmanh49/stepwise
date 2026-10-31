@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renoDupAck, renoNewAck, renoTimeout, startReno, type Reno } from './reno';
+import { renoDupAck, renoLoss, renoNewAck, renoTimeout, sampleRtt, startReno, type Reno } from './reno';
 
 const MSS = 1000;
 const fresh = (ssthreshMss?: number): Reno => {
@@ -49,6 +49,24 @@ describe('reno', () => {
     state.cwnd = 8000;
     renoTimeout(state, MSS, 8000);
     expect(state).toMatchObject({ cwnd: 1000, ssthresh: 4000, dupAcks: 0, recovering: false });
+  });
+
+  it('treats a detected loss like a third duplicate', () => {
+    const state = fresh();
+    renoLoss(state, MSS, 10000);
+    expect(state).toMatchObject({ ssthresh: 5000, cwnd: 8000, recovering: true });
+    for (let i = 0; i < 3; i++) expect(renoDupAck(state, MSS, 10000)).toBe(false);
+    expect(state).toMatchObject({ ssthresh: 5000, cwnd: 11000 });
+  });
+
+  it('sets the timer from RTT samples, down to the 200 ms minimum', () => {
+    const state = { rttvar: 0, rtt: 0, rto: 1000 } as Parameters<typeof sampleRtt>[0];
+    sampleRtt(state, 100);
+    expect(state.rto).toBe(300);
+    sampleRtt(state, 100);
+    expect(state.rto).toBe(250);
+    for (let i = 0; i < 20; i++) sampleRtt(state, 10);
+    expect(state.rto).toBe(200);
   });
 
   it('never lets ssthresh fall below 2 MSS', () => {
