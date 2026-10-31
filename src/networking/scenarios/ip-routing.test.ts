@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ipRoutingSteps, LINK_OPTIONS, ROUTE_OPTIONS } from './ip-routing';
+import { threeRouters } from './topology';
 import type { GridView, PanelsView, Step } from '../../types/visualization';
 
 const [UP, DOWN] = LINK_OPTIONS;
@@ -66,5 +67,14 @@ describe('Routing Tables', () => {
 
   it('refuses a bad address', () => {
     expect(run('10.3.0')).toHaveLength(1);
+  });
+});
+
+describe('the backup layout', () => {
+  it('keeps R2 off the direct R1–R3 link', () => {
+    const { devices } = threeRouters({ backup: true });
+    const column = (id: string) => devices.find((device) => device.id === id)!.column;
+    expect(column('r2')).toBe(column('r3'));
+    expect(column('server')).toBeGreaterThan(column('r3'));
   });
 });
