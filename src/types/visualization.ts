@@ -301,6 +301,27 @@ export interface DistributionView {
   target?: number;
 }
 
+/** Packets between devices over time, newest last. */
+export interface LadderView {
+  kind: 'ladder';
+  columns: { id: string; label: string; state?: string }[];
+  rows: { id: string; from: string; to: string; label: string; role: Role; lost?: boolean }[];
+  /** Older rows folded away. */
+  earlier?: number;
+}
+
+/** One or two lines on one axis. */
+export interface ChartView {
+  kind: 'chart';
+  title: string;
+  xLabel: string;
+  yLabel: string;
+  lines: { id: string; label: string; points: number[]; role: Role }[];
+  threshold?: { value: number; label: string };
+  /** Index of the current point. Later points set the scale but are not drawn yet. */
+  now?: number;
+}
+
 /** Several views shown together in one step. Panels do not nest. */
 export interface PanelsView {
   kind: 'panels';
@@ -308,6 +329,8 @@ export interface PanelsView {
 }
 
 export type View =
+  | LadderView
+  | ChartView
   | BTreeView
   | TrieView
   | SessionsView

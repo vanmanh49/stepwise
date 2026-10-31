@@ -88,6 +88,10 @@ export function rolesInView(view: View): Role[] {
       ];
     case 'distribution':
       return view.bars.map((b) => b.role);
+    case 'ladder':
+      return view.rows.map((r) => r.role);
+    case 'chart':
+      return view.lines.map((l) => l.role);
     case 'panels':
       return view.panels.flatMap((p) => rolesInView(p.view));
   }
