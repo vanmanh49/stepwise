@@ -71,7 +71,7 @@ describe('Singleton', () => {
     expect(fact(steps('Pattern', 'no').at(-1)!, 'Logger objects')).toMatchObject({ value: '1', role: 'found' });
     expect(fact(steps('Naive', 'no').at(-1)!, 'Logger objects')).toMatchObject({ value: '3', role: 'discarded' });
     const cost = steps('Naive', 'yes').at(-2)!.view as GridView;
-    expect(cost.rows[1]!.cells.map((c) => c!.value)).toEqual([3, 0]);
+    expect(cost.rows[1]!.cells.map((c) => c!.value)).toEqual(['3 classes', '0 classes']);
   });
 
   it('starts every run from no instance, so runs repeat exactly', () => {

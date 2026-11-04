@@ -126,6 +126,7 @@ function ladderView(drawn: Drawn): LadderView {
   const { rows, order } = drawn;
   return {
     kind: 'ladder',
+    rowNoun: 'calls',
     columns: order.map((id) => ({ id, label: id })),
     rows: rows.slice(-LADDER_ROWS),
     ...(rows.length > LADDER_ROWS ? { earlier: rows.length - LADDER_ROWS } : {}),
@@ -156,12 +157,15 @@ function objectsView<R>(trace: Trace<R>, drawn: Drawn, acting?: string): Service
 
 const panels = (...list: [string, Exclude<View, { kind: 'panels' }>][]): View => ({ kind: 'panels', panels: list.map(([label, view]) => ({ label, view })) });
 
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** Naive vs Pattern, the cheaper side of each row marked. Values carry units, so the grid draws as a table that fits a phone. */
 function costGrid(naive: ChangeCost, pattern: ChangeCost): GridView {
-  const rows: [string, (c: ChangeCost) => number, (c: ChangeCost) => string | number][] = [
-    ['Classes added', (c) => c.classesAdded.length, (c) => c.classesAdded.length],
-    ['Classes edited', (c) => c.classesEdited.length, (c) => c.classesEdited.length],
-    ['Lines +', (c) => c.linesAdded, (c) => c.linesAdded],
-    ['Lines −', (c) => c.linesRemoved, (c) => c.linesRemoved],
+  const rows: [string, (c: ChangeCost) => number, (c: ChangeCost) => string][] = [
+    ['Classes added', (c) => c.classesAdded.length, (c) => count(c.classesAdded.length, 'class', 'classes')],
+    ['Classes edited', (c) => c.classesEdited.length, (c) => count(c.classesEdited.length, 'class', 'classes')],
+    ['Lines added', (c) => c.linesAdded, (c) => count(c.linesAdded, 'line', 'lines')],
+    ['Lines removed', (c) => c.linesRemoved, (c) => count(c.linesRemoved, 'line', 'lines')],
     ['Branches', (c) => c.branchesAfter, (c) => `${c.branchesBefore} → ${c.branchesAfter}`],
   ];
   return {
@@ -169,12 +173,11 @@ function costGrid(naive: ChangeCost, pattern: ChangeCost): GridView {
     colLabels: ['Naive', 'Pattern'],
     rows: rows.map(([label, score, value], r) => {
       const [a, b] = [score(naive), score(pattern)];
-      const role = (mine: number, other: number): Role => (mine === other ? 'default' : mine < other ? 'found' : 'compare');
       return {
         label,
         cells: [
-          { id: `cost-${r}-naive`, value: value(naive), role: role(a, b) },
-          { id: `cost-${r}-pattern`, value: value(pattern), role: role(b, a) },
+          { id: `cost-${r}-naive`, value: value(naive), role: a < b ? 'found' : 'default' },
+          { id: `cost-${r}-pattern`, value: value(pattern), role: b < a ? 'found' : 'default' },
         ],
       };
     }),

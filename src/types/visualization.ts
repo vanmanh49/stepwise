@@ -308,6 +308,8 @@ export interface LadderView {
   rows: { id: string; from: string; to: string; label: string; role: Role; lost?: boolean }[];
   /** Older rows folded away. */
   earlier?: number;
+  /** What one row is, for the folded-rows note; defaults to "packets". */
+  rowNoun?: string;
 }
 
 /** One or two lines on one axis. */

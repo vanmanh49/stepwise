@@ -61,6 +61,6 @@ describe('Factory Method', () => {
     const ladder = (step.view as PanelsView).panels[0]!.view as LadderView;
     expect(ladder.rows.at(-1)).toMatchObject({ label: '↻ createMessage()', role: 'active' });
     const cost = patternSteps(lesson, { design: 'Pattern', change: lesson.change, channel: 'Push' }).at(-2)!.view as GridView;
-    expect(cost.rows[1]!.cells.map((c) => c!.value)).toEqual([3, 0]);
+    expect(cost.rows[1]!.cells.map((c) => c!.value)).toEqual(['3 classes', '0 classes']);
   });
 });

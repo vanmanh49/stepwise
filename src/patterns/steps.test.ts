@@ -51,6 +51,7 @@ describe('patternSteps', () => {
     const ladder = panel(step, 'Sequence') as LadderView;
     expect(ladder.columns.map((c) => c.id)).toEqual(['client', 'Shop#1', 'Sender#1']);
     expect(ladder.rows.at(-1)).toMatchObject({ from: 'Shop#1', to: 'Sender#1', label: 'send("Ann")', role: 'active' });
+    expect(ladder.rowNoun).toBe('calls');
     const objects = panel(step, 'Objects') as ServicesView;
     expect(objects.nodes.map((n) => [n.id, n.type, n.role])).toEqual([
       ['client', 'client', 'default'],
@@ -71,9 +72,10 @@ describe('patternSteps', () => {
     const steps = run('Pattern', 'Add paging', 'Cy');
     const cost = steps.at(-2)!.view as GridView;
     expect(cost.colLabels).toEqual(['Naive', 'Pattern']);
-    expect(cost.rows.map((r) => r.label)).toEqual(['Classes added', 'Classes edited', 'Lines +', 'Lines −', 'Branches']);
-    expect(cost.rows[0]!.cells.map((c) => [c!.value, c!.role])).toEqual([[0, 'found'], [1, 'compare']]);
-    expect(cost.rows[1]!.cells.map((c) => [c!.value, c!.role])).toEqual([[1, 'default'], [1, 'default']]);
+    expect(cost.rows.map((r) => r.label)).toEqual(['Classes added', 'Classes edited', 'Lines added', 'Lines removed', 'Branches']);
+    expect(cost.rows[0]!.cells.map((c) => [c!.value, c!.role])).toEqual([['0 classes', 'found'], ['1 class', 'default']]);
+    expect(cost.rows[1]!.cells.map((c) => [c!.value, c!.role])).toEqual([['1 class', 'default'], ['1 class', 'default']]);
+    expect(cost.rows[2]!.cells.map((c) => c!.value)).toEqual(['1 line', '6 lines']);
     const lines = steps.at(-1)!.view as GridView;
     expect(lines.rows.some((r) => r.label === '+' && r.cells[0]!.value === 'Pager: page(to: string) {')).toBe(true);
   });
@@ -82,6 +84,8 @@ describe('patternSteps', () => {
     const cost = run('Naive', 'Add paging', 'Ann').at(-2)!.view as GridView;
     const branches = cost.rows[4]!.cells.map((c) => [c!.value, c!.role]);
     expect(branches).toEqual([['0 → 1', 'default'], ['0 → 1', 'default']]);
+    // Longer than 6 characters, so the grid draws as a wrapping table and its headers fit a phone.
+    expect(cost.rows.some((r) => r.cells.some((c) => String(c!.value).length > 6))).toBe(true);
     const plus = cost.rows[2]!.cells.map((c) => c!.role);
     expect(plus).toContain('found');
   });
