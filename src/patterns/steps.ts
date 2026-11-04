@@ -22,6 +22,9 @@ export interface Design {
   classes: readonly unknown[];
 }
 
+/** A design from its raw source and its module: every export of a design module is a class. */
+export const design = (source: string, module: object): Design => ({ source, classes: Object.values(module) });
+
 export interface Outcome {
   ok: boolean;
   title: string;
@@ -195,13 +198,13 @@ const summary = (c: ChangeCost) =>
 /** Runs the chosen design on the scenario and turns its trace into steps: calls, the result, then what the change cost. */
 export function patternSteps(lesson: PatternLesson, values: Record<string, string>): Step[] {
   const { scenario } = lesson;
-  const design = readChoice(values, 'design', 'Design', DESIGNS);
-  if (!design.ok) return refusal('Choose a design', design.why, EMPTY);
+  const designChoice = readChoice(values, 'design', 'Design', DESIGNS);
+  if (!designChoice.ok) return refusal('Choose a design', designChoice.why, EMPTY);
   const change = readChoice(values, 'change', 'Change request', [NONE, lesson.change]);
   if (!change.ok) return refusal('Choose a change request', change.why, EMPTY);
   const picked = readChoice(values, scenario.name, scenario.label, scenario.options);
   if (!picked.ok) return refusal(`Choose a value for ${scenario.label}`, picked.why, EMPTY);
-  const pattern = design.value === 'Pattern';
+  const pattern = designChoice.value === 'Pattern';
   const changed = change.value !== NONE;
   if (!changed && scenario.afterChangeOnly?.includes(picked.value)) {
     return refusal(`${picked.value} needs the change first`, `${picked.value} exists only after the change "${lesson.change}". Set Change request to it, then run again.`, EMPTY);
@@ -216,14 +219,15 @@ export function patternSteps(lesson: PatternLesson, values: Record<string, strin
   const code = patternCode(lesson).split('\n');
   const split = code.indexOf(PATTERN_HEADING);
   const [from, to] = pattern ? [split + 1, code.length] : [0, split];
-  const variables = { design: design.value, change: change.value };
+  const variables = { design: designChoice.value, change: change.value };
 
   const steps: Step[] = [];
-  let line: number | undefined;
+  // An unmapped method keeps the line before it; the design's heading comes first.
+  let line = from + 1;
   trace.events.forEach((event, e) => {
     const call = trace.calls[event.call]!;
     if (event.kind === 'return' && call.returned === undefined && call.threw === undefined) return;
-    if (event.kind === 'call') line = methodLine(code, from, to, call.className, call.method);
+    if (event.kind === 'call') line = methodLine(code, from, to, call.className, call.method) ?? line;
     const drawn = sequence(trace, e);
     const isCall = event.kind === 'call';
     steps.push({
@@ -235,7 +239,7 @@ export function patternSteps(lesson: PatternLesson, values: Record<string, strin
       why: isCall
         ? (lesson.notes?.[`${call.className}.${call.method}`] ?? `${call.caller} needs ${call.callee} to ${call.method}.`)
         : `${call.callee} hands the answer back to ${call.caller}.`,
-      ...(isCall && line !== undefined ? { codeLine: line } : {}),
+      codeLine: line,
       variables,
       view: panels(['Sequence', ladderView(drawn)], ['Objects', objectsView(trace, drawn, call.callee)]),
     });
@@ -243,7 +247,7 @@ export function patternSteps(lesson: PatternLesson, values: Record<string, strin
   const cut = steps.length - (MAX_STEPS - TAIL_STEPS);
   if (cut > 0) {
     steps.length = MAX_STEPS - TAIL_STEPS;
-    steps.push({ title: `${cut} more steps skipped`, why: 'The run made more calls than fit, so the middle is left out.', variables, view: steps.at(-1)!.view });
+    steps.push({ title: `${cut} more steps skipped`, why: 'The run made more calls than fit, so the middle is left out.', codeLine: line, variables, view: steps.at(-1)!.view });
   }
 
   const final = sequence(trace, trace.events.length - 1);
@@ -256,6 +260,7 @@ export function patternSteps(lesson: PatternLesson, values: Record<string, strin
   steps.push({
     title: outcome.title,
     why: outcome.why,
+    codeLine: line,
     variables: { ...variables, result: outcome.ok ? 'right' : 'wrong' },
     view: panels(
       ['Sequence', { ...ladderView(final), rows: ladderView(final).rows.map((r) => ({ ...r, role: r.role === 'active' ? 'default' : r.role })) }],
@@ -270,12 +275,14 @@ export function patternSteps(lesson: PatternLesson, values: Record<string, strin
     steps.push({
       title: `What "${lesson.change}" cost`,
       why: `Naive: ${summary(naiveCost)}. Pattern: ${summary(patternCost)}.`,
+      codeLine: line,
       variables,
       view: costGrid(naiveCost, patternCost),
     });
     steps.push({
       title: `The lines the ${pattern ? 'pattern' : 'naive'} design changed`,
       why: `${mine.lines.length} ${mine.lines.length === 1 ? 'line' : 'lines'} changed: + is added, − is removed.`,
+      codeLine: line,
       variables,
       view: linesGrid(mine),
     });

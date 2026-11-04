@@ -95,9 +95,19 @@ describe('patternSteps', () => {
     expect(lineText(patternSend)).toContain('send(');
   });
 
-  it('gives no code line to a method that exists only after the change', () => {
-    const page = run('Pattern', 'Add paging', 'Cy').find((s) => s.title.includes('.page('))!;
-    expect(page.codeLine).toBeUndefined();
+  it('keeps the previous code line for a method that exists only after the change', () => {
+    const steps = run('Pattern', 'Add paging', 'Cy');
+    const at = steps.findIndex((s) => s.title.includes('.page('));
+    expect(steps[at]!.codeLine).toBe(steps[at - 1]!.codeLine);
+  });
+
+  it('gives every step a code line inside the code', () => {
+    const lines = code.split('\n').length;
+    for (const values of patternPresets(fixtureLesson).map((p) => p.values)) {
+      for (const step of patternSteps(fixtureLesson, values)) {
+        expect(step.codeLine! >= 1 && step.codeLine! <= lines, step.title).toBe(true);
+      }
+    }
   });
 
   it('refuses unusable input with one step', () => {
