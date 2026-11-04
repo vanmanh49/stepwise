@@ -51,7 +51,7 @@ export function changeCost(before: string, after: string): ChangeCost {
   const a = linesOf(before);
   const b = linesOf(after);
   // lcs[i][j] = longest common run of a[i..] and b[j..]; sources are short, so O(n·m) is fine.
-  const lcs = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
+  const lcs = Array.from({ length: a.length + 1 }, () => Array.from({ length: b.length + 1 }, () => 0));
   for (let i = a.length - 1; i >= 0; i--) {
     for (let j = b.length - 1; j >= 0; j--) {
       lcs[i]![j] = a[i]!.text === b[j]!.text ? lcs[i + 1]![j + 1]! + 1 : Math.max(lcs[i + 1]![j]!, lcs[i]![j + 1]!);
