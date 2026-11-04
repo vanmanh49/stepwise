@@ -215,6 +215,7 @@ const EXPECTED_IDS = [
   'flyweight',
   'strategy',
   'observer',
+  'command',
 ];
 
 describe('lesson registry', () => {

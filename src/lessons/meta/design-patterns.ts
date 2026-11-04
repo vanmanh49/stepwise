@@ -142,4 +142,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['observer', 'subscribe', 'publish', 'listener', 'events', 'pub/sub', 'event emitter', 'behavioral pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'command',
+    title: 'Command',
+    category: 'design-patterns',
+    difficulty: 'advanced',
+    group: 'Behavioral',
+    description: 'Turn every edit into an object a history keeps, get undo for free, then add a macro that replays what you typed.',
+    keywords: ['command', 'undo', 'redo', 'history', 'macro', 'action', 'queue', 'behavioral pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];
