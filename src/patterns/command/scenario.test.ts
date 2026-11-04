@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { changeCost } from '../diff';
 import { patternSteps } from '../steps';
 import { traceRun } from '../trace';
+import content from '../../lessons/design-patterns/command';
 import * as pattern from './pattern';
 import { commandLesson as lesson } from './scenario';
 
@@ -55,9 +56,10 @@ describe('Command', () => {
     expect(naive.classesAdded).toEqual(['Macro']);
     expect(naive.classesEdited).toEqual(['Toolbar', 'Shortcuts']);
     expect(naive.branchesAfter - naive.branchesBefore).toBe(2);
-    expect([naive.linesAdded, naive.linesRemoved]).toEqual([22, 2]);
+    expect([naive.linesAdded, naive.linesRemoved]).toEqual([16, 2]);
     expect(patterned.classesAdded).toEqual(['MacroCommand']);
     expect(patterned.classesEdited).toEqual([]);
     expect([patterned.linesAdded, patterned.linesRemoved]).toEqual([9, 0]);
+    expect(content.concept.join(' ')).toContain(`${naive.linesAdded} lines added and ${naive.linesRemoved} removed`);
   });
 });

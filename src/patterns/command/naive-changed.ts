@@ -27,10 +27,7 @@ export class Macro {
 }
 
 export class Toolbar {
-  constructor(
-    public editor: Editor,
-    public macro: Macro,
-  ) {}
+  constructor(public editor: Editor, public macro: Macro) {}
 
   type(s: string) {
     this.editor.insert(s);
@@ -39,10 +36,7 @@ export class Toolbar {
 }
 
 export class Shortcuts {
-  constructor(
-    public editor: Editor,
-    public macro: Macro,
-  ) {}
+  constructor(public editor: Editor, public macro: Macro) {}
 
   backspace() {
     this.editor.remove(1);
