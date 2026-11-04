@@ -102,4 +102,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['composite', 'tree', 'part-whole', 'recursion', 'folder', 'dom', 'node', 'structural pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'proxy-pattern',
+    title: 'Proxy',
+    category: 'design-patterns',
+    difficulty: 'intermediate',
+    group: 'Structural',
+    description: 'Put a caching stand-in in front of a slow weather API, count the real calls, then log every request in one place.',
+    keywords: ['proxy', 'stand-in', 'surrogate', 'cache', 'lazy loading', 'access control', 'structural pattern', 'gang of four', 'gof'],
+    prerequisites: ['decorator'],
+  },
 ];
