@@ -72,4 +72,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['decorator', 'wrapper', 'composition', 'layers', 'middleware', 'streams', 'subclass explosion', 'structural pattern', 'gang of four', 'gof'],
     prerequisites: ['adapter'],
   },
+  {
+    id: 'facade-pattern',
+    title: 'Facade',
+    category: 'design-patterns',
+    difficulty: 'intermediate',
+    group: 'Structural',
+    description: 'Put one front door on inventory, payment and shipping, then rename the payment API and count which classes notice.',
+    keywords: ['facade', 'front door', 'simplified interface', 'subsystem', 'coupling', 'service layer', 'structural pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];
