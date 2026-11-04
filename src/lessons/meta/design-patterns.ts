@@ -52,4 +52,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['prototype', 'clone', 'copy', 'shallow copy', 'deep copy', 'object.assign', 'structuredclone', 'creational pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'adapter',
+    title: 'Adapter',
+    category: 'design-patterns',
+    difficulty: 'intermediate',
+    group: 'Structural',
+    description: 'Switch a checkout to a payment provider with a different API, and let an adapter translate dollars into cents.',
+    keywords: ['adapter', 'wrapper', 'translator', 'interface', 'third-party api', 'sdk', 'structural pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];
