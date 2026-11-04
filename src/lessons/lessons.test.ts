@@ -209,6 +209,13 @@ const EXPECTED_IDS = [
   'adapter',
   'decorator',
   'facade-pattern',
+  'bridge',
+  'composite',
+  'proxy-pattern',
+  'flyweight',
+  'strategy',
+  'observer',
+  'command',
 ];
 
 describe('lesson registry', () => {
