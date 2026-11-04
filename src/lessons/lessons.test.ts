@@ -214,6 +214,7 @@ describe('lesson registry', () => {
     expect(lessonsIn('ai').map((l) => l.id)).toEqual(topicsIn('ai').slice(0, lessonsIn('ai').length).map((t) => t.id));
     expect(lessonsIn('security').map((l) => l.id)).toEqual(topicsIn('security').slice(0, lessonsIn('security').length).map((t) => t.id));
     expect(lessonsIn('networking').map((l) => l.id)).toEqual(topicsIn('networking').slice(0, lessonsIn('networking').length).map((t) => t.id));
+    expect(lessonsIn('design-patterns').map((l) => l.id)).toEqual(topicsIn('design-patterns').slice(0, lessonsIn('design-patterns').length).map((t) => t.id));
   });
 
   it('links previous and next lessons within a category', () => {
@@ -245,7 +246,7 @@ describe.each(allLessons.map((l) => [l.id, l] as const))('lesson %s', (_id, less
     expect(lesson.applications.length).toBeGreaterThanOrEqual(3);
     expect(lesson.commonMistakes.length).toBeGreaterThanOrEqual(3);
     expect(lesson.summary.length).toBeGreaterThanOrEqual(3);
-    if (lesson.category !== 'sql' && lesson.category !== 'microservices' && lesson.category !== 'kubernetes' && lesson.category !== 'ai' && lesson.category !== 'security' && lesson.category !== 'networking') {
+    if (lesson.category !== 'sql' && lesson.category !== 'microservices' && lesson.category !== 'kubernetes' && lesson.category !== 'ai' && lesson.category !== 'security' && lesson.category !== 'networking' && lesson.category !== 'design-patterns') {
       expect(lesson.complexity!.rows.length).toBeGreaterThanOrEqual(1);
       expect(lesson.complexity!.curves.length).toBeGreaterThanOrEqual(1);
     }
@@ -482,6 +483,39 @@ describe('curriculum', () => {
       ...Array<string>(7).fill('How LLMs Work'),
       ...Array<string>(8).fill('Building with LLMs'),
       ...Array<string>(8).fill('AI Agents'),
+    ]);
+  });
+
+  it('lists the Design Patterns course in order', () => {
+    expect(topicsIn('design-patterns').map((t) => t.id)).toEqual([
+      'singleton',
+      'factory-method',
+      'abstract-factory',
+      'builder',
+      'prototype',
+      'adapter',
+      'decorator',
+      'facade-pattern',
+      'bridge',
+      'composite',
+      'proxy-pattern',
+      'flyweight',
+      'strategy',
+      'observer',
+      'command',
+      'chain-of-responsibility',
+      'iterator',
+      'mediator',
+      'memento',
+      'state-pattern',
+      'template-method',
+      'visitor',
+      'interpreter',
+    ]);
+    expect(topicsIn('design-patterns').map((t) => t.group)).toEqual([
+      ...Array<string>(5).fill('Creational'),
+      ...Array<string>(7).fill('Structural'),
+      ...Array<string>(11).fill('Behavioral'),
     ]);
   });
 
