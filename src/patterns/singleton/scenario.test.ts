@@ -79,3 +79,14 @@ describe('Singleton', () => {
     expect(steps('Pattern', 'no')[0]!.title).toBe('client calls Logger.getInstance()');
   });
 });
+
+describe('Singleton lesson text', () => {
+  it('says who the diagram shows calling getInstance, and why', async () => {
+    const { default: content } = await import('../../lessons/design-patterns/singleton');
+    const q1 = content.quiz.find((q) => q.type === 'predict-next')!;
+    const ladder = (q1.view as PanelsView).panels[0]!.view as import('../../types/visualization').LadderView;
+    expect(ladder.rows.at(-1)!.from).toBe('client');
+    expect(q1.prompt).not.toMatch(/CartModule calls/);
+    expect(lesson.notes!['Logger.getInstance']).toMatch(/constructors aren't drawn/i);
+  });
+});

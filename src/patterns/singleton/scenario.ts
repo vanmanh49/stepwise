@@ -63,7 +63,7 @@ export const singletonLesson: PatternLesson = {
     return outcome(list as unknown as Module[], choice.pattern);
   },
   notes: {
-    'Logger.getInstance': 'getInstance makes the Logger only on the first call and keeps it in a static field. Every later call returns that same object.',
+    'Logger.getInstance': 'A module\'s logger field asks for the Logger while the module is being made. Constructors aren\'t drawn, so the arrow starts at the client. getInstance makes the Logger only on the first call and keeps it in a static field; every later call returns that same object.',
     'Logger.log': 'The Logger drops debug lines unless its level is debug, and keeps the rest.',
     'Logger.setLevel': 'This changes the level of this one Logger object only.',
     'DebugSwitch.turnOn': 'The switch turns on debug logging while the app runs.',

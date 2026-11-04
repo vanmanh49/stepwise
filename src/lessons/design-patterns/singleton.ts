@@ -50,7 +50,7 @@ const content: LessonContent = {
     {
       id: 'q1',
       type: 'predict-next',
-      prompt: 'BillingModule has already called Logger.getInstance() and got Logger#1. Now CartModule calls it. What comes back?',
+      prompt: 'BillingModule was made first and got Logger#1 from Logger.getInstance(). Now CartModule is being made, and its logger field asks again. What comes back?',
       view: secondAsk.view,
       options: ['Logger#1, the same object', 'A new Logger#2', 'Nothing, the call fails', 'A copy of Logger#1'],
       answer: 0,
