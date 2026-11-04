@@ -20,7 +20,7 @@ export class Logger {
 }
 
 export class BillingModule {
-  logger = Logger.getInstance();
+  private logger = Logger.getInstance();
 
   charge() {
     this.logger.log('info', 'charged the card');
@@ -29,7 +29,7 @@ export class BillingModule {
 }
 
 export class CartModule {
-  logger = Logger.getInstance();
+  private logger = Logger.getInstance();
 
   add() {
     this.logger.log('info', 'added a book');
@@ -38,7 +38,7 @@ export class CartModule {
 }
 
 export class SearchModule {
-  logger = Logger.getInstance();
+  private logger = Logger.getInstance();
 
   find() {
     this.logger.log('info', 'searched for shoes');

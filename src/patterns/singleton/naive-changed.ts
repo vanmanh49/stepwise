@@ -13,7 +13,7 @@ export class Logger {
 }
 
 export class BillingModule {
-  logger = new Logger();
+  private logger = new Logger();
 
   charge() {
     this.logger.log('info', 'charged the card');
@@ -26,7 +26,7 @@ export class BillingModule {
 }
 
 export class CartModule {
-  logger = new Logger();
+  private logger = new Logger();
 
   add() {
     this.logger.log('info', 'added a book');
@@ -39,7 +39,7 @@ export class CartModule {
 }
 
 export class SearchModule {
-  logger = new Logger();
+  private logger = new Logger();
 
   find() {
     this.logger.log('info', 'searched for shoes');

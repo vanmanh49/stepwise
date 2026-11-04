@@ -10,6 +10,7 @@ import patternSource from './pattern.ts?raw';
 
 export const MODULES = ['3 modules', '2 modules'];
 
+/** The scenario reads each module's private logger to check the result; the design code itself never does. */
 type Module = { logger: { lines: string[] } };
 
 function outcome(modules: Module[], shared: boolean): Outcome {
@@ -59,7 +60,7 @@ export const singletonLesson: PatternLesson = {
     billing.charge();
     cart.add();
     search?.find();
-    return outcome(list, choice.pattern);
+    return outcome(list as unknown as Module[], choice.pattern);
   },
   notes: {
     'Logger.getInstance': 'getInstance makes the Logger only on the first call and keeps it in a static field. Every later call returns that same object.',
