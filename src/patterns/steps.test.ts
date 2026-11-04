@@ -99,19 +99,28 @@ describe('patternSteps', () => {
     expect(lineText(patternSend)).toContain('send(');
   });
 
-  it('keeps the previous code line for a method that exists only after the change', () => {
+  it('gives no code line to a method that exists only after the change, nor to its return', () => {
     const steps = run('Pattern', 'Add paging', 'Cy');
-    const at = steps.findIndex((s) => s.title.includes('.page('));
-    expect(steps[at]!.codeLine).toBe(steps[at - 1]!.codeLine);
+    const page = steps.filter((s) => s.title.includes('Pager#1'));
+    expect(page.length).toBeGreaterThan(0);
+    for (const step of page) expect(step.codeLine, step.title).toBeUndefined();
   });
 
-  it('gives every step a code line inside the code', () => {
+  it('puts every code line inside the code, on the method a call step runs', () => {
     const lines = code.split('\n').length;
     for (const values of patternPresets(fixtureLesson).map((p) => p.values)) {
       for (const step of patternSteps(fixtureLesson, values)) {
-        expect(step.codeLine! >= 1 && step.codeLine! <= lines, step.title).toBe(true);
+        if (step.codeLine === undefined) continue;
+        expect(step.codeLine >= 1 && step.codeLine <= lines, step.title).toBe(true);
+        const call = /calls \S+\.(\w+)\(/.exec(step.title);
+        if (call) expect(lineText(step), step.title).toContain(`${call[1]}(`);
       }
     }
+  });
+
+  it('highlights the design\'s heading when no method has run', () => {
+    expect(lineText(run('Naive', 'None', 'Boom').at(-1)!)).toBe('// Naive');
+    expect(lineText(run('Pattern', 'None', 'Boom').at(-1)!)).toBe('// With the pattern');
   });
 
   it('refuses unusable input with one step', () => {

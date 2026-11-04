@@ -226,12 +226,19 @@ export function patternSteps(lesson: PatternLesson, values: Record<string, strin
   const variables = { design: designChoice.value, change: change.value };
 
   const steps: Step[] = [];
-  // An unmapped method keeps the line before it; the design's heading comes first.
-  let line = from + 1;
+  // A call points at its method and its return at the same line; a method the shown code lacks gets none.
+  // Steps about the whole run point at the last method shown, or at the design's heading before any.
+  let last = pattern ? split + 1 : 1;
+  const callLines = new Map<number, number | undefined>();
   trace.events.forEach((event, e) => {
     const call = trace.calls[event.call]!;
     if (event.kind === 'return' && call.returned === undefined && call.threw === undefined) return;
-    if (event.kind === 'call') line = methodLine(code, from, to, call.className, call.method) ?? line;
+    if (event.kind === 'call') {
+      const found = methodLine(code, from, to, call.className, call.method);
+      callLines.set(call.index, found);
+      if (found !== undefined) last = found;
+    }
+    const codeLine = callLines.get(call.index);
     const drawn = sequence(trace, e);
     const isCall = event.kind === 'call';
     steps.push({
@@ -243,7 +250,7 @@ export function patternSteps(lesson: PatternLesson, values: Record<string, strin
       why: isCall
         ? (lesson.notes?.[`${call.className}.${call.method}`] ?? `${call.caller} needs ${call.callee} to ${call.method}.`)
         : `${call.callee} hands the answer back to ${call.caller}.`,
-      codeLine: line,
+      ...(codeLine === undefined ? {} : { codeLine }),
       variables,
       view: panels(['Sequence', ladderView(drawn)], ['Objects', objectsView(trace, drawn, call.callee)]),
     });
@@ -251,7 +258,7 @@ export function patternSteps(lesson: PatternLesson, values: Record<string, strin
   const cut = steps.length - (MAX_STEPS - TAIL_STEPS);
   if (cut > 0) {
     steps.length = MAX_STEPS - TAIL_STEPS;
-    steps.push({ title: `${cut} more steps skipped`, why: 'The run made more calls than fit, so the middle is left out.', codeLine: line, variables, view: steps.at(-1)!.view });
+    steps.push({ title: `${cut} more steps skipped`, why: 'The run made more calls than fit, so the middle is left out.', codeLine: last, variables, view: steps.at(-1)!.view });
   }
 
   const final = sequence(trace, trace.events.length - 1);
@@ -264,7 +271,7 @@ export function patternSteps(lesson: PatternLesson, values: Record<string, strin
   steps.push({
     title: outcome.title,
     why: outcome.why,
-    codeLine: line,
+    codeLine: last,
     variables: { ...variables, result: outcome.ok ? 'right' : 'wrong' },
     view: panels(
       ['Sequence', { ...ladderView(final), rows: ladderView(final).rows.map((r) => ({ ...r, role: r.role === 'active' ? 'default' : r.role })) }],
@@ -279,14 +286,14 @@ export function patternSteps(lesson: PatternLesson, values: Record<string, strin
     steps.push({
       title: `What "${lesson.change}" cost`,
       why: `Naive: ${summary(naiveCost)}. Pattern: ${summary(patternCost)}.`,
-      codeLine: line,
+      codeLine: last,
       variables,
       view: costGrid(naiveCost, patternCost),
     });
     steps.push({
       title: `The lines the ${pattern ? 'pattern' : 'naive'} design changed`,
       why: `${mine.lines.length} ${mine.lines.length === 1 ? 'line' : 'lines'} changed: + is added, − is removed.`,
-      codeLine: line,
+      codeLine: last,
       variables,
       view: linesGrid(mine),
     });
