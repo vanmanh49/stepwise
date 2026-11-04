@@ -132,4 +132,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['strategy', 'policy', 'algorithm', 'interchangeable', 'comparator', 'if chain', 'behavioral pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'observer',
+    title: 'Observer',
+    category: 'design-patterns',
+    difficulty: 'advanced',
+    group: 'Behavioral',
+    description: 'Let displays subscribe to a weather station, catch a phone that keeps getting readings after it left, then add a heat alert.',
+    keywords: ['observer', 'subscribe', 'publish', 'listener', 'events', 'pub/sub', 'event emitter', 'behavioral pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];

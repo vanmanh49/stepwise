@@ -214,6 +214,7 @@ const EXPECTED_IDS = [
   'proxy-pattern',
   'flyweight',
   'strategy',
+  'observer',
 ];
 
 describe('lesson registry', () => {
