@@ -112,4 +112,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['proxy', 'stand-in', 'surrogate', 'cache', 'lazy loading', 'access control', 'structural pattern', 'gang of four', 'gof'],
     prerequisites: ['decorator'],
   },
+  {
+    id: 'flyweight',
+    title: 'Flyweight',
+    category: 'design-patterns',
+    difficulty: 'intermediate',
+    group: 'Structural',
+    description: 'Plant a forest where trees share their species\' texture, and count the arrays each design keeps in memory as it grows.',
+    keywords: ['flyweight', 'sharing', 'memory', 'intrinsic state', 'extrinsic state', 'cache', 'interning', 'structural pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];

@@ -212,6 +212,7 @@ const EXPECTED_IDS = [
   'bridge',
   'composite',
   'proxy-pattern',
+  'flyweight',
 ];
 
 describe('lesson registry', () => {
