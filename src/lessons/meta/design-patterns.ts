@@ -22,4 +22,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['factory method', 'factory', 'creator', 'virtual constructor', 'subclass', 'polymorphism', 'creational pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'abstract-factory',
+    title: 'Abstract Factory',
+    category: 'design-patterns',
+    difficulty: 'beginner',
+    group: 'Creational',
+    description: 'Build whole themes of matching widgets from one factory, catch a screen that mixes dark and light, then add High contrast.',
+    keywords: ['abstract factory', 'factory', 'family of objects', 'theme', 'widget', 'kit', 'creational pattern', 'gang of four', 'gof'],
+    prerequisites: ['factory-method'],
+  },
 ];
