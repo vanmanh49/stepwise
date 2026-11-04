@@ -62,4 +62,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['adapter', 'wrapper', 'translator', 'interface', 'third-party api', 'sdk', 'structural pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'decorator',
+    title: 'Decorator',
+    category: 'design-patterns',
+    difficulty: 'intermediate',
+    group: 'Structural',
+    description: 'Stack logging, compression and encryption around a file one layer at a time, instead of writing a subclass for every mix.',
+    keywords: ['decorator', 'wrapper', 'composition', 'layers', 'middleware', 'streams', 'subclass explosion', 'structural pattern', 'gang of four', 'gof'],
+    prerequisites: ['adapter'],
+  },
 ];

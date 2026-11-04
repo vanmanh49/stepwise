@@ -207,6 +207,7 @@ const EXPECTED_IDS = [
   'builder',
   'prototype',
   'adapter',
+  'decorator',
 ];
 
 describe('lesson registry', () => {
