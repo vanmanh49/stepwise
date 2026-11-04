@@ -1,6 +1,6 @@
 # Stepwise
 
-An interactive platform for learning data structures, algorithms, SQL, microservices, Kubernetes, AI, security and networking by watching them run.
+An interactive platform for learning data structures, algorithms, SQL, microservices, Kubernetes, AI, security, networking and design patterns by watching them run.
 
 Every lesson has a visualization you control: play, pause, step forward and back, change the speed, and run it on your own data. Each step explains what happened and why, and highlights the line of code responsible.
 
@@ -91,6 +91,7 @@ src/
   security/          teaching crypto: SHA-256, HMAC, HKDF, AES-128 with CBC/CTR/GCM, small-number RSA and Diffie-Hellman, a shortened TLS 1.3 handshake, PBKDF2, TOTP and JWT; web/ is a simulated browser, shop, identity provider and attacker site, with a small HTML tokenizer, page language and fake shell, so typed payloads behave and no real code runs
   networking/        a packet simulator: Ethernet, ARP, IPv4, ICMP, UDP, TCP with Reno, QUIC, DHCP, DNS, TLS round trips, HTTP/1.1 to HTTP/3, WebSockets and BGP with real header fields, over hosts, switches, routers, NAT and a DHCP server, with link rates, queues and MTUs
     crypto/  scenarios/
+  patterns/          design patterns: a tracer that runs real TypeScript classes and records their calls, a change-cost line diff, and trace-to-steps; one folder per lesson with naive and patterned designs, before and after a change request
   lessons/           one content file per lesson, meta/ (metadata per category), the registry and the curriculum
   store/             progress and theme state
   utils/             input parsing, seeded random numbers, the event queue
@@ -230,6 +231,17 @@ Networking lessons run `simulate(scenario)` in `src/networking/sim.ts` over simu
 1. Write `src/networking/scenarios/<id>.ts`, exporting `fooCode` (pseudocode) and `fooSteps(values)`. Reuse a network from `topology.ts`, of at most 6 nodes, and turn the run into steps with `traceSteps`, or `roundSteps` for a long transfer. Map each event's `action` to a line of the pseudocode. `hide` drops actions that distract from the lesson, and `panel` replaces the table beside the packet.
 2. Test the lesson's point in `scenarios/<id>.test.ts`.
 3. Add the metadata to `src/lessons/meta/networking.ts` without `complexity`, and the content to `src/lessons/networking/<id>.ts`: a `form` visualization with `codeLabel: 'Pseudocode'`. Add number fields' ranges to `RANGES` in `contract.test.ts`. The last `concept` paragraph must say "on a real machine" and name the tool.
+
+Lessons go live in curriculum order. Add new ids to `EXPECTED_IDS` in `lessons.test.ts`, and raise the count in `scripts/static-pages.test.ts`.
+
+## How to add a Design Patterns lesson
+
+Design Patterns lessons run real TypeScript. Each lesson has a folder `src/patterns/<id>/` with four design modules and a scenario. `traceRun` in `trace.ts` wraps the classes' methods for one run, records every call, and puts the classes back afterwards. `changeCost` in `diff.ts` compares the before and after sources.
+
+1. Write `naive.ts`, `naive-changed.ts`, `pattern.ts` and `pattern-changed.ts`: plain classes, no imports, no tracing code and no comments, under 80 lines each. The code panel shows the naive and pattern sources as they are.
+2. Write `scenario.ts`, exporting a `PatternLesson`: the four designs (`design(source, module)`, with each source imported again with `?raw`), the change request, one scenario `choice` field, `run` (drives the classes and returns an `Outcome`), and `notes` for the step text.
+3. Test the lesson's point in `scenario.test.ts`, and pin every number the lesson text quotes.
+4. Add the metadata to `src/lessons/meta/design-patterns.ts` without `complexity`, and the content to `src/lessons/design-patterns/<id>.ts`, built with `patternFields`, `patternPresets`, `patternSteps` and `patternCode`. The last `concept` paragraph starts with "In real code," and names real code that uses the pattern.
 
 Lessons go live in curriculum order. Add new ids to `EXPECTED_IDS` in `lessons.test.ts`, and raise the count in `scripts/static-pages.test.ts`.
 

@@ -9,6 +9,7 @@ export const CATEGORY_TITLE: Record<Category, string> = {
   ai: 'AI',
   security: 'Security',
   networking: 'Networking',
+  'design-patterns': 'Design Patterns',
 };
 
 /** Every track, in site order. Generated from the record above, so a new track can't be missed. */
@@ -29,6 +30,8 @@ export const CATEGORY_INTRO: Record<Category, string> = {
     'How software keeps secrets and proves who is who, and how attackers break it when it goes wrong. Each lesson runs the real steps on your input, against a simulated system.',
   networking:
     'How a message really crosses the internet, from frames on a wire up to HTTP. Each lesson runs a simulated network on your settings, one packet at a time.',
+  'design-patterns':
+    'Classic ways to shape code so that change stays cheap. Each lesson runs a real design on your change request, naive and patterned, and measures what the change costs.',
 };
 
 const DIFFICULTY_LABEL: Record<Difficulty, string> = {

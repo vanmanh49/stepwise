@@ -26,6 +26,11 @@ describe('ladder', () => {
     earlier: 3,
   };
 
+  it('says what the folded rows are', () => {
+    expect(draw(view).replaceAll('<!-- -->', '')).toContain('3 earlier packets');
+    expect(draw({ ...view, rowNoun: 'calls' }).replaceAll('<!-- -->', '')).toContain('3 earlier calls');
+  });
+
   it('names every packet, its direction and its loss for a screen reader', () => {
     const html = draw(view).replaceAll('<!-- -->', '');
     expect(html).toContain('SYN_SENT');

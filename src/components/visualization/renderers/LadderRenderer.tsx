@@ -7,7 +7,7 @@ const CENTRED_WITHIN = 10;
 
 /** Packets as arrows between device lifelines. A lost packet stops halfway across. */
 export function LadderRenderer({ view }: { view: LadderView }) {
-  const { columns, rows, earlier } = view;
+  const { columns, rows, earlier, rowNoun = 'packets' } = view;
   const at = (id: string) => (columns.findIndex((column) => column.id === id) + 0.5) * (100 / columns.length);
   const name = (id: string) => columns.find((column) => column.id === id)?.label ?? id;
   return (
@@ -20,7 +20,7 @@ export function LadderRenderer({ view }: { view: LadderView }) {
           </div>
         ))}
       </div>
-      {earlier ? <p className="mt-1 text-center text-muted">{earlier} earlier packets</p> : null}
+      {earlier ? <p className="mt-1 text-center text-muted">{earlier} earlier {rowNoun}</p> : null}
       <div className="relative mt-1" style={{ minHeight: ROW_HEIGHT }}>
         {columns.map((column) => (
           <span key={column.id} aria-hidden className="absolute inset-y-0 border-l border-border" style={{ left: `${at(column.id)}%` }} />

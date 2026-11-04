@@ -259,6 +259,35 @@ export const curriculum: Topic[] = [
     ['bgp', 'BGP', 'Web & Internet Scale'],
     ['url-to-page', 'From URL to Page', 'Web & Internet Scale'],
   ]),
+  ...topics('design-patterns', 'beginner', [
+    ['singleton', 'Singleton', 'Creational'],
+    ['factory-method', 'Factory Method', 'Creational'],
+    ['abstract-factory', 'Abstract Factory', 'Creational'],
+    ['builder', 'Builder', 'Creational'],
+    ['prototype', 'Prototype', 'Creational'],
+  ]),
+  ...topics('design-patterns', 'intermediate', [
+    ['adapter', 'Adapter', 'Structural'],
+    ['decorator', 'Decorator', 'Structural'],
+    ['facade-pattern', 'Facade', 'Structural'],
+    ['bridge', 'Bridge', 'Structural'],
+    ['composite', 'Composite', 'Structural'],
+    ['proxy-pattern', 'Proxy', 'Structural'],
+    ['flyweight', 'Flyweight', 'Structural'],
+  ]),
+  ...topics('design-patterns', 'advanced', [
+    ['strategy', 'Strategy', 'Behavioral'],
+    ['observer', 'Observer', 'Behavioral'],
+    ['command', 'Command', 'Behavioral'],
+    ['chain-of-responsibility', 'Chain of Responsibility', 'Behavioral'],
+    ['iterator', 'Iterator', 'Behavioral'],
+    ['mediator', 'Mediator', 'Behavioral'],
+    ['memento', 'Memento', 'Behavioral'],
+    ['state-pattern', 'State', 'Behavioral'],
+    ['template-method', 'Template Method', 'Behavioral'],
+    ['visitor', 'Visitor', 'Behavioral'],
+    ['interpreter', 'Interpreter', 'Behavioral'],
+  ]),
 ];
 
 export const DIFFICULTIES: Difficulty[] = ['beginner', 'intermediate', 'advanced'];

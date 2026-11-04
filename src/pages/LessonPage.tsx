@@ -74,6 +74,10 @@ const CODE_COPY: Record<Category, { title: string; label?: string; intro: string
     label: 'Pseudocode',
     intro: 'The steps the network takes, as short pseudocode. In the visualization above, the highlighted line follows the step that is running.',
   },
+  'design-patterns': {
+    title: 'Code',
+    intro: 'The real TypeScript of both designs, the naive one first. In the visualization above, the highlighted line follows the method that is running.',
+  },
   'data-structures': { title: 'Code', intro: 'The full TypeScript implementation. In the visualization above, the highlighted line follows this code as each step runs.' },
   algorithms: { title: 'Code', intro: 'The full TypeScript implementation. In the visualization above, the highlighted line follows this code as each step runs.' },
 };
