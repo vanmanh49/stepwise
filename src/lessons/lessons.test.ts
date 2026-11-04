@@ -210,6 +210,7 @@ const EXPECTED_IDS = [
   'decorator',
   'facade-pattern',
   'bridge',
+  'composite',
 ];
 
 describe('lesson registry', () => {

@@ -92,4 +92,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['bridge', 'abstraction', 'implementation', 'renderer', 'driver', 'class explosion', 'composition', 'structural pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'composite',
+    title: 'Composite',
+    category: 'design-patterns',
+    difficulty: 'intermediate',
+    group: 'Structural',
+    description: 'Measure a folder tree where files and folders answer the same questions, then add zip archives without touching the rest.',
+    keywords: ['composite', 'tree', 'part-whole', 'recursion', 'folder', 'dom', 'node', 'structural pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];
