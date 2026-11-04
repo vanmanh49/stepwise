@@ -70,7 +70,7 @@ export function show(value: unknown, idOf: (v: unknown) => string | undefined): 
 }
 
 const CAPPED = Symbol('capped');
-type Klass = { prototype: object; name: string };
+type Klass = { prototype: object };
 let running = false;
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -78,28 +78,32 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 /**
  * Runs `drive` with every prototype method, getter and static method of `classes` wrapped to
  * record calls, then puts every property of those classes back as it was, even after a throw.
+ * Classes are named by their keys, because a production build renames the classes themselves.
  */
-export function traceRun<R>(classes: readonly unknown[], drive: (t: TraceApi) => R): Trace<R> {
+export function traceRun<R>(classes: Readonly<Record<string, unknown>>, drive: (t: TraceApi) => R): Trace<R> {
   const trace: Trace<R> = { objects: [], calls: [], events: [], references: [], capped: false };
   if (running) return { ...trace, error: 'A traced run is already going.' };
-  const klasses = [...new Set(classes.filter((c): c is Klass => typeof c === 'function' && 'prototype' in c))];
-  const prototypes = new Set(klasses.map((k) => k.prototype));
+  const klasses = Object.entries(classes).filter((entry): entry is [string, Klass] => typeof entry[1] === 'function' && 'prototype' in entry[1]);
+  const names = new Map<object, string>(klasses.map(([name, k]) => [k.prototype, name]));
   const ids = new WeakMap<object, string>();
   const instances = new Map<string, object>();
   const counters = new Map<string, number>();
   const stack: string[] = [];
 
-  const traced = (value: unknown): value is object => {
-    if (typeof value !== 'object' || value === null) return false;
+  /** The name of the nearest traced class in the object's prototype chain. */
+  const nameOf = (value: unknown): string | undefined => {
+    if (typeof value !== 'object' || value === null) return undefined;
     for (let p = Object.getPrototypeOf(value) as object | null; p; p = Object.getPrototypeOf(p) as object | null) {
-      if (prototypes.has(p)) return true;
+      const name = names.get(p);
+      if (name) return name;
     }
-    return false;
+    return undefined;
   };
+  const traced = (value: unknown): value is object => nameOf(value) !== undefined;
   const sight = (obj: object, origin: Origin): string => {
     const known = ids.get(obj);
     if (known) return known;
-    const className = (obj.constructor as { name?: string } | undefined)?.name ?? 'Object';
+    const className = nameOf(obj) ?? 'Object';
     const n = (counters.get(className) ?? 0) + 1;
     counters.set(className, n);
     const id = `${className}#${n}`;
@@ -147,7 +151,7 @@ export function traceRun<R>(classes: readonly unknown[], drive: (t: TraceApi) =>
     return wrapper;
   };
 
-  const saved = klasses.flatMap((k) =>
+  const saved = klasses.flatMap(([, k]) =>
     [k, k.prototype].map((target) => ({ target, descriptors: Object.getOwnPropertyDescriptors(target) })),
   );
   const patch = (target: object, className: string, isStatic: boolean) => {
@@ -160,9 +164,9 @@ export function traceRun<R>(classes: readonly unknown[], drive: (t: TraceApi) =>
 
   running = true;
   try {
-    for (const k of klasses) {
-      patch(k.prototype, k.name, false);
-      patch(k, k.name, true);
+    for (const [name, k] of klasses) {
+      patch(k.prototype, name, false);
+      patch(k, name, true);
     }
     trace.result = drive({ register: (obj) => sight(obj, { kind: 'harness' }), idOf: (obj) => (typeof obj === 'object' && obj ? ids.get(obj) : undefined) });
   } catch (e) {

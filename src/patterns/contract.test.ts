@@ -77,7 +77,7 @@ describe('design pattern scenarios', () => {
   it.each(scenarios)('%s shows the source of every class it runs', (_path, module) => {
     for (const lesson of Object.values(module).filter((v): v is PatternLesson => typeof v === 'object' && v !== null && 'designs' in v)) {
       for (const { source, classes } of Object.values(lesson.designs)) {
-        for (const c of classes as { name: string }[]) expect(source, c.name).toMatch(new RegExp(`\\bclass ${c.name}\\b`));
+        for (const name of Object.keys(classes)) expect(source, name).toMatch(new RegExp(`\\bclass ${name}\\b`));
       }
     }
   });
@@ -86,11 +86,11 @@ describe('design pattern scenarios', () => {
     const wrapped: string[] = [];
     for (const lesson of Object.values(module).filter((v): v is PatternLesson => typeof v === 'object' && v !== null && 'designs' in v)) {
       for (const { classes } of Object.values(lesson.designs)) {
-        for (const c of classes as { name: string; prototype: object }[]) {
+        for (const [name, c] of Object.entries(classes) as [string, { prototype: object }][]) {
           for (const target of [c, c.prototype]) {
             for (const [key, d] of Object.entries(Object.getOwnPropertyDescriptors(target))) {
               const fn = (d.value ?? d.get) as unknown;
-              if (typeof fn === 'function' && TRACED in fn) wrapped.push(`${c.name}.${key}`);
+              if (typeof fn === 'function' && TRACED in fn) wrapped.push(`${name}.${key}`);
             }
           }
         }

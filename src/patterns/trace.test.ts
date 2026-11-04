@@ -47,7 +47,7 @@ const originalPut = Box.prototype.put;
 const originalMake = Maker.make;
 
 function boxRun() {
-  return traceRun([Box, Item, Maker], (t) => {
+  return traceRun({ Box, Item, Maker }, (t) => {
     const box = new Box();
     t.register(box);
     return box.put(Maker.make());
@@ -92,7 +92,7 @@ describe('traceRun', () => {
 
   it('catches a throw, keeps the calls so far, and restores everything', () => {
     const original = Broken.prototype.fail;
-    const trace = traceRun([Broken], (t) => {
+    const trace = traceRun({ Broken }, (t) => {
       const b = new Broken();
       t.register(b);
       b.fail();
@@ -104,7 +104,7 @@ describe('traceRun', () => {
 
   it('stops a runaway run at MAX_CALLS', () => {
     const original = Looper.prototype.spin;
-    const trace = traceRun([Looper], () => new Looper().spin(500));
+    const trace = traceRun({ Looper }, () => new Looper().spin(500));
     expect(trace.capped).toBe(true);
     expect(trace.calls).toHaveLength(MAX_CALLS);
     expect(trace.error).toBeUndefined();
@@ -112,7 +112,7 @@ describe('traceRun', () => {
   });
 
   it('keeps nested objects of one class apart', () => {
-    const trace = traceRun([Wrap, Item], (t) => {
+    const trace = traceRun({ Wrap, Item }, (t) => {
       const outer = new Wrap(new Wrap(new Item()));
       t.register(outer);
       return outer.read();
@@ -124,6 +124,33 @@ describe('traceRun', () => {
       ['Wrap#2', 'Item#1', 2, '"cup"'],
     ]);
     expect(trace.objects.find((o) => o.id === 'Wrap#2')!.origin).toEqual({ kind: 'seen' });
+  });
+});
+
+describe('traceRun with minified classes', () => {
+  // A production build renames classes (export class Logger becomes s = class {}), but export names survive.
+  const s = class {
+    hello() {
+      return 'hi';
+    }
+  };
+  const t = class extends s {};
+
+  it('names objects and calls by the export name, not the class\'s own name', () => {
+    expect(s.name).not.toBe('Logger');
+    const trace = traceRun({ Logger: s, Child: t }, (api) => {
+      const child = new t();
+      api.register(child);
+      return [new s().hello(), child.hello()];
+    });
+    expect(trace.calls.map((c) => [c.callee, c.className, c.method])).toEqual([
+      ['Logger#1', 'Logger', 'hello'],
+      ['Child#1', 'Logger', 'hello'],
+    ]);
+    expect(trace.objects.map((o) => [o.id, o.className])).toEqual([
+      ['Child#1', 'Child'],
+      ['Logger#1', 'Logger'],
+    ]);
   });
 });
 

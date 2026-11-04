@@ -19,11 +19,12 @@ const TAIL_STEPS = 4;
 
 export interface Design {
   source: string;
-  classes: readonly unknown[];
+  /** Export name → class: the names a production build keeps. */
+  classes: Readonly<Record<string, unknown>>;
 }
 
 /** A design from its raw source and its module: every export of a design module is a class. */
-export const design = (source: string, module: object): Design => ({ source, classes: Object.values(module) });
+export const design = (source: string, module: Readonly<Record<string, unknown>>): Design => ({ source, classes: { ...module } });
 
 export interface Outcome {
   ok: boolean;

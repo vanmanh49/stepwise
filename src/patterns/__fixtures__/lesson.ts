@@ -1,4 +1,4 @@
-import type { PatternLesson } from '../steps';
+import { design, type PatternLesson } from '../steps';
 import * as naive from './naive';
 import * as naiveChanged from './naive-changed';
 import naiveChangedSource from './naive-changed.ts?raw';
@@ -11,10 +11,10 @@ import patternSource from './pattern.ts?raw';
 /** A tiny lesson for testing the step builder: Boom throws and Loop never ends. */
 export const fixtureLesson: PatternLesson = {
   designs: {
-    naive: { source: naiveSource, classes: Object.values(naive) },
-    naiveChanged: { source: naiveChangedSource, classes: Object.values(naiveChanged) },
-    pattern: { source: patternSource, classes: Object.values(pattern) },
-    patternChanged: { source: patternChangedSource, classes: Object.values(patternChanged) },
+    naive: design(naiveSource, naive),
+    naiveChanged: design(naiveChangedSource, naiveChanged),
+    pattern: design(patternSource, pattern),
+    patternChanged: design(patternChangedSource, patternChanged),
   },
   change: 'Add paging',
   scenario: { name: 'to', label: 'Send to', options: ['Ann', 'Bob', 'Cy', 'Boom', 'Loop'], afterChangeOnly: ['Cy'], patternOnly: ['Bob'] },
