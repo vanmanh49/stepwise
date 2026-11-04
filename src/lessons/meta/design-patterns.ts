@@ -42,4 +42,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['builder', 'fluent interface', 'method chaining', 'telescoping constructor', 'optional parameters', 'named arguments', 'creational pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'prototype',
+    title: 'Prototype',
+    category: 'design-patterns',
+    difficulty: 'beginner',
+    group: 'Creational',
+    description: 'Spawn enemies by copying a template, watch a shallow copy share its loot, then add a field the naive copy forgets.',
+    keywords: ['prototype', 'clone', 'copy', 'shallow copy', 'deep copy', 'object.assign', 'structuredclone', 'creational pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];

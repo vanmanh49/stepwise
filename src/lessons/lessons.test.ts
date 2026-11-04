@@ -205,6 +205,7 @@ const EXPECTED_IDS = [
   'factory-method',
   'abstract-factory',
   'builder',
+  'prototype',
 ];
 
 describe('lesson registry', () => {
