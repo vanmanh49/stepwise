@@ -122,4 +122,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['flyweight', 'sharing', 'memory', 'intrinsic state', 'extrinsic state', 'cache', 'interning', 'structural pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'strategy',
+    title: 'Strategy',
+    category: 'design-patterns',
+    difficulty: 'advanced',
+    group: 'Behavioral',
+    description: 'Price a cart with swappable discount rules, switch rules mid-checkout, then add a bulk discount without touching the cart.',
+    keywords: ['strategy', 'policy', 'algorithm', 'interchangeable', 'comparator', 'if chain', 'behavioral pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];
