@@ -32,4 +32,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['abstract factory', 'factory', 'family of objects', 'theme', 'widget', 'kit', 'creational pattern', 'gang of four', 'gof'],
     prerequisites: ['factory-method'],
   },
+  {
+    id: 'builder',
+    title: 'Builder',
+    category: 'design-patterns',
+    difficulty: 'beginner',
+    group: 'Creational',
+    description: 'Replace a long constructor with named steps, add a retries setting, and catch the two numbers a naive call site swapped.',
+    keywords: ['builder', 'fluent interface', 'method chaining', 'telescoping constructor', 'optional parameters', 'named arguments', 'creational pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];

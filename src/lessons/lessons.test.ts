@@ -204,6 +204,7 @@ const EXPECTED_IDS = [
   'singleton',
   'factory-method',
   'abstract-factory',
+  'builder',
 ];
 
 describe('lesson registry', () => {
