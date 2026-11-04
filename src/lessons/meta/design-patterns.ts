@@ -12,4 +12,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['singleton', 'getinstance', 'global state', 'shared instance', 'logger', 'static', 'creational pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'factory-method',
+    title: 'Factory Method',
+    category: 'design-patterns',
+    difficulty: 'beginner',
+    group: 'Creational',
+    description: 'Let subclasses decide which message to make, then add Push and count how many flows each design had to edit.',
+    keywords: ['factory method', 'factory', 'creator', 'virtual constructor', 'subclass', 'polymorphism', 'creational pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];

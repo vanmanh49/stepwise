@@ -202,6 +202,7 @@ const EXPECTED_IDS = [
   'queues-bufferbloat',
   'mtu-mss',  'dns',  'http-1-1',  'http-2',  'quic-http-3',  'websockets',  'cdn-anycast',  'bgp',  'url-to-page',
   'singleton',
+  'factory-method',
 ];
 
 describe('lesson registry', () => {
