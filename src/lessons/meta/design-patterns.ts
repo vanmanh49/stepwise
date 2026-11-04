@@ -82,4 +82,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['facade', 'front door', 'simplified interface', 'subsystem', 'coupling', 'service layer', 'structural pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'bridge',
+    title: 'Bridge',
+    category: 'design-patterns',
+    difficulty: 'intermediate',
+    group: 'Structural',
+    description: 'Split shapes from the renderers that draw them, then add SVG and count how many classes each design needs.',
+    keywords: ['bridge', 'abstraction', 'implementation', 'renderer', 'driver', 'class explosion', 'composition', 'structural pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];
