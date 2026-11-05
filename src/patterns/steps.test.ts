@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GridView, LadderView, PanelsView, ServicesView, Step } from '../types/visualization';
 import { fixtureLesson } from './__fixtures__/lesson';
-import { MAX_STEPS, patternCode, patternFields, patternPresets, patternSteps } from './steps';
+import { design as designOf, MAX_STEPS, type PatternLesson, patternCode, patternFields, patternPresets, patternSteps } from './steps';
 
 const run = (design: string, change: string, to: string) => patternSteps(fixtureLesson, { design, change, to });
 const panel = (step: Step, label: string) => (step.view as PanelsView).panels.find((p) => p.label === label)?.view;
@@ -116,6 +116,33 @@ describe('patternSteps', () => {
         if (call) expect(lineText(step), step.title).toContain(`${call[1]}(`);
       }
     }
+  });
+
+  it('points at a method\'s definition even when a call to it comes first in the class', () => {
+    class Helped {
+      go() {
+        return this.helper();
+      }
+
+      helper() {
+        return 1;
+      }
+    }
+    const source = 'export class Helped {\n  go() {\n    return this.helper();\n  }\n\n  helper() {\n    return 1;\n  }\n}\n';
+    const helped = designOf(source, { Helped });
+    const lesson: PatternLesson = {
+      designs: { naive: helped, naiveChanged: helped, pattern: helped, patternChanged: helped },
+      change: 'Nothing',
+      scenario: { name: 'to', label: 'To', options: ['Ann'] },
+      run: (_choice, _to, t) => {
+        const h = new Helped();
+        t.register(h);
+        return { ok: true, title: `Got ${h.go()}`, why: '', facts: [] };
+      },
+    };
+    const lines = patternCode(lesson).split('\n');
+    const step = patternSteps(lesson, { design: 'Naive', change: 'None', to: 'Ann' }).find((s) => s.title === 'Helped#1 calls Helped#1.helper()')!;
+    expect(lines[step.codeLine! - 1]).toBe('  helper() {');
   });
 
   it('highlights the design\'s heading when no method has run', () => {
