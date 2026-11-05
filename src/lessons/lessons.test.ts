@@ -216,6 +216,14 @@ const EXPECTED_IDS = [
   'strategy',
   'observer',
   'command',
+  'chain-of-responsibility',
+  'iterator',
+  'mediator',
+  'memento',
+  'state-pattern',
+  'template-method',
+  'visitor',
+  'interpreter',
 ];
 
 describe('lesson registry', () => {
