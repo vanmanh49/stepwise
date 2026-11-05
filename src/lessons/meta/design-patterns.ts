@@ -192,4 +192,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['memento', 'snapshot', 'save', 'restore', 'checkpoint', 'undo', 'encapsulation', 'save game', 'behavioral pattern', 'gang of four', 'gof'],
     prerequisites: ['command'],
   },
+  {
+    id: 'state-pattern',
+    title: 'State',
+    category: 'design-patterns',
+    difficulty: 'advanced',
+    group: 'Behavioral',
+    description: 'Move a document from Draft to Published through state objects, refuse an action a draft cannot take, then add a legal review.',
+    keywords: ['state', 'state pattern', 'state machine', 'transition', 'status', 'workflow', 'finite state', 'behavioral pattern', 'gang of four', 'gof'],
+    prerequisites: ['strategy'],
+  },
 ];

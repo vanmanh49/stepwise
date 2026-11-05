@@ -220,6 +220,7 @@ const EXPECTED_IDS = [
   'iterator',
   'mediator',
   'memento',
+  'state-pattern',
 ];
 
 describe('lesson registry', () => {
