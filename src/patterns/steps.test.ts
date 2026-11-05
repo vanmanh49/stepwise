@@ -145,6 +145,29 @@ describe('patternSteps', () => {
     expect(lines[step.codeLine! - 1]).toBe('  helper() {');
   });
 
+  it('points at a generic method\'s definition', () => {
+    class Boxed {
+      wrap<T>(value: T) {
+        return [value];
+      }
+    }
+    const source = 'export class Boxed {\n  wrap<T>(value: T) {\n    return [value];\n  }\n}\n';
+    const boxed = designOf(source, { Boxed });
+    const lesson: PatternLesson = {
+      designs: { naive: boxed, naiveChanged: boxed, pattern: boxed, patternChanged: boxed },
+      change: 'Nothing',
+      scenario: { name: 'to', label: 'To', options: ['Ann'] },
+      run: (_choice, _to, t) => {
+        const b = new Boxed();
+        t.register(b);
+        return { ok: true, title: `Got ${b.wrap(1).length}`, why: '', facts: [] };
+      },
+    };
+    const lines = patternCode(lesson).split('\n');
+    const step = patternSteps(lesson, { design: 'Naive', change: 'None', to: 'Ann' }).find((s) => s.title === 'client calls Boxed#1.wrap(1)')!;
+    expect(lines[step.codeLine! - 1]).toBe('  wrap<T>(value: T) {');
+  });
+
   it('highlights the design\'s heading when no method has run', () => {
     expect(lineText(run('Naive', 'None', 'Boom').at(-1)!)).toBe('// Naive');
     expect(lineText(run('Pattern', 'None', 'Boom').at(-1)!)).toBe('// With the pattern');

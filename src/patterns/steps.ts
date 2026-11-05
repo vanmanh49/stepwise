@@ -85,7 +85,7 @@ function methodLine(lines: string[], from: number, to: number, className: string
   const start = lines.findIndex((l, i) => i >= from && i < to && head.test(l));
   if (start < 0) return undefined;
   // The method's own definition, even when a call to it comes earlier in the class.
-  const definition = new RegExp(`^\\s*(?:(?:private|protected|public|static|async|override|get|set)\\s+)*${method}\\(`);
+  const definition = new RegExp(`^\\s*(?:(?:private|protected|public|static|async|override|get|set)\\s+)*${method}(?:<[^>]*>)?\\(`);
   let first: number | undefined;
   for (let i = start + 1; i < to && lines[i] !== '}'; i++) {
     if (definition.test(lines[i]!)) return i + 1;
