@@ -221,6 +221,7 @@ const EXPECTED_IDS = [
   'mediator',
   'memento',
   'state-pattern',
+  'template-method',
 ];
 
 describe('lesson registry', () => {

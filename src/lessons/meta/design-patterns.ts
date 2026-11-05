@@ -202,4 +202,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['state', 'state pattern', 'state machine', 'transition', 'status', 'workflow', 'finite state', 'behavioral pattern', 'gang of four', 'gof'],
     prerequisites: ['strategy'],
   },
+  {
+    id: 'template-method',
+    title: 'Template Method',
+    category: 'design-patterns',
+    difficulty: 'advanced',
+    group: 'Behavioral',
+    description: 'Export users as CSV, JSON and Markdown from one fixed set of steps, then skip users with no email in one place.',
+    keywords: ['template method', 'hook', 'abstract class', 'inheritance', 'skeleton', 'steps', 'export', 'behavioral pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];
