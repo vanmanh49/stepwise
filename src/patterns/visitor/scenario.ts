@@ -89,7 +89,13 @@ export const visitorLesson: PatternLesson = {
     'Rect.accept': 'The client hands the visitor to the shape. The shape doesn\'t know which operation this is.',
     'Triangle.accept': 'The client hands the visitor to the shape. The shape doesn\'t know which operation this is.',
     'AreaVisitor.visitCircle': 'The shape calls the visitor\'s method for circles, so the visitor knows exactly what it got.',
+    'AreaVisitor.visitRect': 'The shape calls the visitor\'s method for rectangles, so the visitor knows exactly what it got.',
+    'AreaVisitor.visitTriangle': 'The shape calls the visitor\'s method for triangles, so the visitor knows exactly what it got.',
     'SvgVisitor.visitCircle': 'The shape calls the visitor\'s method for circles, so the visitor knows exactly what it got.',
+    'SvgVisitor.visitRect': 'The shape calls the visitor\'s method for rectangles, so the visitor knows exactly what it got.',
+    'SvgVisitor.visitTriangle': 'The shape calls the visitor\'s method for triangles, so the visitor knows exactly what it got.',
     'JsonVisitor.visitCircle': 'The new export is one new visitor. The circle class did not change.',
+    'JsonVisitor.visitRect': 'The new export is one new visitor. The rectangle class did not change.',
+    'JsonVisitor.visitTriangle': 'The new export is one new visitor. The triangle class did not change.',
   },
 };

@@ -81,7 +81,7 @@ export const mementoLesson: PatternLesson = {
   notes: {
     'SaveSlot.save': 'The save slot reaches into the hero and copies each field it knows about.',
     'SaveSlot.load': 'The save slot writes each saved field back into the hero.',
-    'Hero.save': 'The hero makes a snapshot of itself, a HeroMemento, that nobody else can read.',
+    'Hero.save': 'The hero makes a snapshot of itself, a HeroMemento, that nobody else looks inside.',
     'Hero.restore': 'The hero reads its own snapshot back and copies it, so it never shares data with the save.',
     'SaveSlots.keep': 'The save slots keep the memento without looking inside it.',
     'SaveSlots.latest': 'The game asks for the most recent save.',

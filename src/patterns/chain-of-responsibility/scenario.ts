@@ -48,7 +48,7 @@ export const chainOfResponsibilityLesson: PatternLesson = {
   },
   notes: {
     'ExpenseDesk.approve': 'The expense arrives at the desk, which has to find someone allowed to approve it.',
-    'Approver.setNext': 'The chain is wired once, when the desk is built: each approver is linked to the one after it. That one line is the whole order of the chain.',
+    'Approver.setNext': 'The chain is wired once, when the desk is built: each approver is linked to the one after it. That one line is the whole order of the chain. This runs inside new ExpenseDesk(); constructors are not traced, so the sequence shows the client.',
     'Approver.handle': 'This approver checks the amount against its own limit. If it is too high, it passes the expense to the next approver.',
   },
 };

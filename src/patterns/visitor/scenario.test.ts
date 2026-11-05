@@ -49,4 +49,10 @@ describe('Visitor', () => {
     expect(patterned.classesEdited).toEqual([]);
     expect([patterned.linesAdded, patterned.linesRemoved]).toEqual([11, 0]);
   });
+
+  it('explains every call step, not just the circle ones', () => {
+    const steps = patternSteps(lesson, { design: 'Pattern', change: 'Add a JSON export', drawing: '3 shapes' });
+    const generic = steps.filter((s) => s.title.includes(' calls ') && / needs \S+ to \w+\.$/.test(s.why));
+    expect(generic.map((s) => s.title)).toEqual([]);
+  });
 });
