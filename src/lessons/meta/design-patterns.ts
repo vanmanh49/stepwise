@@ -222,4 +222,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['visitor', 'double dispatch', 'accept', 'operation', 'ast', 'compiler pass', 'babel', 'behavioral pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'interpreter',
+    title: 'Interpreter',
+    category: 'design-patterns',
+    difficulty: 'advanced',
+    group: 'Behavioral',
+    description: 'Evaluate and print expressions as a tree of objects that interpret themselves, then add a max(a, b) function.',
+    keywords: ['interpreter', 'grammar', 'expression', 'syntax tree', 'ast', 'evaluate', 'dsl', 'formula', 'behavioral pattern', 'gang of four', 'gof'],
+    prerequisites: ['composite'],
+  },
 ];

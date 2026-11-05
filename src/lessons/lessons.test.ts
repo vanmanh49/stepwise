@@ -223,6 +223,7 @@ const EXPECTED_IDS = [
   'state-pattern',
   'template-method',
   'visitor',
+  'interpreter',
 ];
 
 describe('lesson registry', () => {
