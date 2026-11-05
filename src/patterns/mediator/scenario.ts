@@ -33,13 +33,12 @@ export const mediatorLesson: PatternLesson = {
     afterChangeOnly: [NO_VAT],
     help: 'What the person fills in. A company account needs a company name, and after the change a VAT number too.',
   },
-  run(choice, account, t) {
+  run(choice, account) {
     const form: Form = choice.pattern
       ? new (choice.changed ? patternChanged : pattern).SignupDialog()
       : new (choice.changed ? naiveChanged : naive).SignupForm();
-    t.register(form);
+    // Nothing is registered, so the Objects panel places widgets by who calls whom and their links stay visible.
     const widgets = [form.name, form.company, ...(form.vat ? [form.vat] : []), form.account, form.submit];
-    for (const w of widgets) t.register(w);
     const company = account !== ACCOUNTS[0];
     if (company) form.account.toggle();
     form.name.type('Lan');
