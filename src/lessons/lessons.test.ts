@@ -217,6 +217,7 @@ const EXPECTED_IDS = [
   'observer',
   'command',
   'chain-of-responsibility',
+  'iterator',
 ];
 
 describe('lesson registry', () => {

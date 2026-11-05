@@ -162,4 +162,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['chain of responsibility', 'handler', 'pass along', 'middleware', 'approval', 'event bubbling', 'next', 'behavioral pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'iterator',
+    title: 'Iterator',
+    category: 'design-patterns',
+    difficulty: 'advanced',
+    group: 'Behavioral',
+    description: 'Walk a playlist with a cursor that hides how songs are stored, stop a search early, then store the songs in pages.',
+    keywords: ['iterator', 'cursor', 'traversal', 'hasnext', 'for of', 'symbol.iterator', 'collection', 'pagination', 'behavioral pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];
