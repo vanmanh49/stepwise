@@ -172,4 +172,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['iterator', 'cursor', 'traversal', 'hasnext', 'for of', 'symbol.iterator', 'collection', 'pagination', 'behavioral pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'mediator',
+    title: 'Mediator',
+    category: 'design-patterns',
+    difficulty: 'advanced',
+    group: 'Behavioral',
+    description: 'Let form widgets report to one dialog instead of each other, count the links between them, then add a VAT number field.',
+    keywords: ['mediator', 'hub', 'coordinator', 'form', 'widgets', 'decoupling', 'many to many', 'chat room', 'behavioral pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];
