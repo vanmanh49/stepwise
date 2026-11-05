@@ -152,4 +152,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['command', 'undo', 'redo', 'history', 'macro', 'action', 'queue', 'behavioral pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'chain-of-responsibility',
+    title: 'Chain of Responsibility',
+    category: 'design-patterns',
+    difficulty: 'advanced',
+    group: 'Behavioral',
+    description: 'Pass expenses along approvers with rising limits until one may take it, then add a CFO level and see what the chain costs.',
+    keywords: ['chain of responsibility', 'handler', 'pass along', 'middleware', 'approval', 'event bubbling', 'next', 'behavioral pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];
