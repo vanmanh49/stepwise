@@ -212,4 +212,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['template method', 'hook', 'abstract class', 'inheritance', 'skeleton', 'steps', 'export', 'behavioral pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'visitor',
+    title: 'Visitor',
+    category: 'design-patterns',
+    difficulty: 'advanced',
+    group: 'Behavioral',
+    description: 'Measure and draw shapes with visitors, watch the double dispatch, then add a JSON export without touching a shape.',
+    keywords: ['visitor', 'double dispatch', 'accept', 'operation', 'ast', 'compiler pass', 'babel', 'behavioral pattern', 'gang of four', 'gof'],
+    prerequisites: [],
+  },
 ];

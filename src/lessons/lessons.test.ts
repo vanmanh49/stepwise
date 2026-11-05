@@ -222,6 +222,7 @@ const EXPECTED_IDS = [
   'memento',
   'state-pattern',
   'template-method',
+  'visitor',
 ];
 
 describe('lesson registry', () => {
