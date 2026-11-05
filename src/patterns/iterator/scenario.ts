@@ -8,7 +8,7 @@ import * as patternChanged from './pattern-changed';
 import patternChangedSource from './pattern-changed.ts?raw';
 import patternSource from './pattern.ts?raw';
 
-export const PLAYLISTS = ['Empty', '4 songs', '7 songs'];
+export const PLAYLISTS = ['4 songs', '7 songs', 'Empty'];
 const SIZES: Record<string, number> = { Empty: 0, '4 songs': 4, '7 songs': 7 };
 const SONGS: [string, number][] = [
   ['Red', 200],

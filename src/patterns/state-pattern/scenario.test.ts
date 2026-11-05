@@ -58,6 +58,14 @@ describe('State', () => {
     expect([naiveCost.linesAdded, naiveCost.linesRemoved]).toEqual([3, 0]);
     expect(patterned.classesAdded).toEqual(['LegalReview']);
     expect(patterned.classesEdited).toEqual(['InReview']);
-    expect([patterned.linesAdded, patterned.linesRemoved]).toEqual([9, 0]);
+    expect([patterned.linesAdded, patterned.linesRemoved]).toEqual([10, 1]);
+  });
+
+  it('shows the one line InReview really changes', () => {
+    const patterned = changeCost(lesson.designs.pattern.source, lesson.designs.patternChanged.source);
+    expect(patterned.lines.filter((l) => l.className === 'InReview').map((l) => `${l.sign} ${l.text}`)).toEqual([
+      '- return doc.moveTo(new Published());',
+      '+ return doc.moveTo(new LegalReview());',
+    ]);
   });
 });

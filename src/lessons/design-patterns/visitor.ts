@@ -66,10 +66,10 @@ const content: LessonContent = {
     {
       id: 'q3',
       type: 'code',
-      prompt: 'Which line is the first half of the double dispatch?',
+      prompt: 'Which line is the shape\'s half of the double dispatch?',
       options: ['return v.visitCircle(this);', 'return Math.round(Math.PI * c.r * c.r);', 'return r.w * r.h;', 'return `<circle r="${c.r}"/>`;'],
       answer: 0,
-      explanation: 'The circle calls the visitor\'s method for circles. The other lines are inside visitors, doing one operation\'s work.',
+      explanation: 'Inside accept, the circle calls the visitor\'s method for circles: the second call, which picks the code for this shape. The other lines are inside visitors, doing one operation\'s work.'
     },
     {
       id: 'q4',

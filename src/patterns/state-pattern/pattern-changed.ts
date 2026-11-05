@@ -34,6 +34,10 @@ export class InReview extends State {
   }
 }
 
+export class Published extends State {
+  name = 'Published';
+}
+
 export class LegalReview extends State {
   name = 'Legal review';
 
@@ -44,10 +48,6 @@ export class LegalReview extends State {
   reject(doc: Doc) {
     return doc.moveTo(new Draft());
   }
-}
-
-export class Published extends State {
-  name = 'Published';
 }
 
 export class Doc {

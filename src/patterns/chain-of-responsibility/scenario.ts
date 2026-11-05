@@ -8,7 +8,7 @@ import * as patternChanged from './pattern-changed';
 import patternChangedSource from './pattern-changed.ts?raw';
 import patternSource from './pattern.ts?raw';
 
-export const AMOUNTS = ['500', '3,000', '30,000', '150,000'];
+export const AMOUNTS = ['30,000', '500', '3,000', '150,000'];
 
 export const chainOfResponsibilityLesson: PatternLesson = {
   designs: {

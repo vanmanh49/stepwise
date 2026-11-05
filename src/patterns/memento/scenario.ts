@@ -8,7 +8,7 @@ import * as patternChanged from './pattern-changed';
 import patternChangedSource from './pattern-changed.ts?raw';
 import patternSource from './pattern.ts?raw';
 
-export const THEN = ['Win the fight', 'Lose and load the save', 'Lose twice, loading the same save each time'];
+export const THEN = ['Lose and load the save', 'Lose twice, loading the same save each time', 'Win the fight'];
 
 export const mementoLesson: PatternLesson = {
   designs: {
@@ -40,7 +40,7 @@ export const mementoLesson: PatternLesson = {
       load = () => slot.load(hero as naiveChanged.Hero);
     }
     const saved = hero.status();
-    if (then === THEN[0]) {
+    if (then === 'Win the fight') {
       hero.fight(true);
       return {
         ok: true,
@@ -62,7 +62,7 @@ export const mementoLesson: PatternLesson = {
       ['After loading', loaded],
     ];
     let again = loaded;
-    if (then === THEN[2]) {
+    if (then === 'Lose twice, loading the same save each time') {
       hero.fight(false);
       load();
       again = hero.status();

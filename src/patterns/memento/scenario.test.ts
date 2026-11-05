@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { changeCost } from '../diff';
+import { patternPresets } from '../steps';
 import { traceRun } from '../trace';
 import * as patternChanged from './pattern-changed';
 import { mementoLesson as lesson } from './scenario';
@@ -70,5 +71,9 @@ describe('Memento', () => {
     expect(patterned.classesAdded).toEqual([]);
     expect(patterned.classesEdited).toEqual(['Hero']);
     expect([patterned.linesAdded, patterned.linesRemoved]).toEqual([3, 1]);
+  });
+
+  it('opens on an option that shows the pattern at work', () => {
+    for (const preset of patternPresets(lesson)) expect(preset.values['outcome'], preset.label).toBe('Lose and load the save');
   });
 });

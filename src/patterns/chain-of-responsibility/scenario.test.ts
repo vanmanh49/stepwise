@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { changeCost } from '../diff';
-import { patternSteps } from '../steps';
+import { patternPresets, patternSteps } from '../steps';
 import { traceRun } from '../trace';
 import * as naiveChanged from './naive-changed';
 import * as patternChanged from './pattern-changed';
@@ -53,5 +53,9 @@ describe('Chain of Responsibility', () => {
     expect(patterned.classesAdded).toEqual(['Cfo']);
     expect(patterned.classesEdited).toEqual(['ExpenseDesk']);
     expect([patterned.linesAdded, patterned.linesRemoved]).toEqual([5, 1]);
+  });
+
+  it('opens on an option that shows the pattern at work', () => {
+    for (const preset of patternPresets(lesson)) expect(preset.values['amount'], preset.label).toBe('30,000');
   });
 });

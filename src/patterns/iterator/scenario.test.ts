@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { changeCost } from '../diff';
-import { MAX_STEPS, patternSteps } from '../steps';
+import { MAX_STEPS, patternPresets, patternSteps } from '../steps';
 import { traceRun } from '../trace';
 import * as patternChanged from './pattern-changed';
 import { iteratorLesson as lesson } from './scenario';
@@ -66,5 +66,9 @@ describe('Iterator', () => {
     expect(patterned.classesAdded).toEqual([]);
     expect(patterned.classesEdited).toEqual(['Playlist', 'PlaylistIterator']);
     expect([patterned.linesAdded, patterned.linesRemoved]).toEqual([10, 4]);
+  });
+
+  it('opens on an option that shows the pattern at work', () => {
+    for (const preset of patternPresets(lesson)) expect(preset.values['playlist'], preset.label).toBe('4 songs');
   });
 });
