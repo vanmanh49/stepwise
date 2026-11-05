@@ -219,6 +219,7 @@ const EXPECTED_IDS = [
   'chain-of-responsibility',
   'iterator',
   'mediator',
+  'memento',
 ];
 
 describe('lesson registry', () => {

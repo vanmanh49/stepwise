@@ -182,4 +182,14 @@ export const designPatternsMeta: LessonMeta[] = [
     keywords: ['mediator', 'hub', 'coordinator', 'form', 'widgets', 'decoupling', 'many to many', 'chat room', 'behavioral pattern', 'gang of four', 'gof'],
     prerequisites: [],
   },
+  {
+    id: 'memento',
+    title: 'Memento',
+    category: 'design-patterns',
+    difficulty: 'advanced',
+    group: 'Behavioral',
+    description: 'Save a game hero before a boss fight, load it after losing, then add an inventory and see who has to learn about it.',
+    keywords: ['memento', 'snapshot', 'save', 'restore', 'checkpoint', 'undo', 'encapsulation', 'save game', 'behavioral pattern', 'gang of four', 'gof'],
+    prerequisites: ['command'],
+  },
 ];
