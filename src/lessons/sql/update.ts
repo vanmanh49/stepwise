@@ -10,7 +10,7 @@ const content: LessonContent = {
   concept: [
     'If INSERT writes a new line on a sign-up sheet, UPDATE crosses out a value on lines that are already there and writes a new one. UPDATE customers SET city = \'Hanoi\' WHERE id = 4 changes the city of customer 4 only.',
     'WHERE works exactly as in a SELECT: each row is tested, and only rows where the condition is true are changed. That is why it pays to run the matching SELECT first: the rows it returns are the rows UPDATE will change.',
-    'The new value can be any expression, and it may use the row’s current values: SET price = price * 1.1 raises each price by 10%. All the expressions in one SET read the row as it was before the update, so SET a = b, b = a swaps two columns.',
+    'The new value can be any expression, and it may use the row’s current values: SET price = price * 1.1 raises each price by 10%. All the expressions in one SET read the row as it was before the update, so SET a = b, b = a swaps two columns. That is standard SQL, and SQLite and PostgreSQL follow it; MySQL is the exception, assigning left to right, so there both columns end up as b.',
     'Constraints are checked for every changed row. If one change breaks a rule, the whole UPDATE is undone, so a table is never left half-updated.',
   ],
   howItWorks: [
@@ -74,7 +74,7 @@ const content: LessonContent = {
   commonMistakes: [
     'Forgetting WHERE, which changes every row in the table.',
     'Writing WHERE city = NULL, which matches nothing; use IS NULL.',
-    'Expecting SET a = b, b = a to copy b into both; both read the old row, so it swaps them.',
+    'Expecting SET a = b, b = a to copy b into both; both read the old row, so it swaps them (except in MySQL, which assigns left to right).',
     'Not running the matching SELECT first to see which rows will change.',
   ],
   quiz: [

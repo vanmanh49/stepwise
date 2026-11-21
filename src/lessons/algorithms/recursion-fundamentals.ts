@@ -8,7 +8,7 @@ const content: LessonContent = {
     'Picture a queue of people where you want to know your position. You ask the person in front, who asks the person in front of them, and so on until the first person says "I am number 1". Each answer then comes back down the line, each person adding one. That is recursion: hand a smaller question onward, wait, then build your answer from the reply.',
     'Every recursive function needs two parts. The base case answers the smallest version directly, like factorial(1) = 1, and stops the chain. The recursive case reduces the problem, like factorial(n) = n × factorial(n − 1), and must always move toward the base case, or the calls never end.',
     'While a call waits for the calls it made, it sits on the call stack. Each frame remembers its own n and where to resume. That is why deep recursion uses memory, and why forgetting the base case ends in a stack overflow.',
-    'Naive Fibonacci makes two calls each time, so the calls form a tree. fib(5) computes fib(2) three times and fib(1) five times. The number of calls roughly doubles with each step up in n, which is the problem the Fibonacci DP lesson fixes.',
+    'Naive Fibonacci makes two calls each time, so the calls form a tree. fib(5) computes fib(2) three times and fib(1) five times. The number of calls grows about 1.6 times with each step up in n, so fib(30) already makes 2.7 million calls. That is the problem the Fibonacci DP lesson fixes.',
   ],
   howItWorks: [
     'Check the base case first. If the input is small enough, return the answer directly.',
@@ -71,9 +71,9 @@ const content: LessonContent = {
       id: 'q3',
       type: 'complexity',
       prompt: 'Roughly how does the number of calls of naive fib(n) grow?',
-      options: ['Exponentially, about doubling each time n grows by 1', 'Linearly, one extra call each time n grows by 1', 'Logarithmically, because the problem halves on each call', 'It stays constant'],
+      options: ['Exponentially, about 1.6 times more each time n grows by 1', 'Linearly, one extra call each time n grows by 1', 'Logarithmically, because the problem halves on each call', 'It stays constant'],
       answer: 0,
-      explanation: 'Each call makes two more, so the call tree has about 2ⁿ nodes.',
+      explanation: 'Each call makes two more, but one of them is a step smaller, so the tree grows about 1.6 times per step: exponential, and never more than 2ⁿ.',
     },
     {
       id: 'q4',
@@ -88,7 +88,7 @@ const content: LessonContent = {
   summary: [
     'A recursive function calls itself on a smaller input until it reaches a base case.',
     'Waiting calls sit on the call stack, which costs memory.',
-    'Factorial makes a chain of n calls; naive Fibonacci makes a tree of about 2ⁿ calls.',
+    'Factorial makes a chain of n calls; naive Fibonacci makes a tree that grows exponentially, at most 2ⁿ calls.',
     'Repeated work in the tree is what memoization and dynamic programming remove.',
   ],
 };

@@ -49,7 +49,7 @@ const content: LessonContent = {
   applications: [
     'Bank ledgers, where the balance is the sum of transactions',
     'Event stores such as EventStoreDB, or Kafka topics kept forever',
-    'Git, which stores commits and builds any version from them',
+    'Order histories rebuilt from every item added, removed and paid for',
   ],
   commonMistakes: [
     'Changing or deleting old events instead of appending a correction.',

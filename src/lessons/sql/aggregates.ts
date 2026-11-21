@@ -10,7 +10,7 @@ const content: LessonContent = {
   concept: [
     'COUNT counts, SUM adds, AVG averages, and MIN and MAX find the smallest and largest value. Each one reads a whole column of rows and produces a single value.',
     'COUNT(*) counts rows. COUNT(city) counts only rows where city is not NULL, and COUNT(DISTINCT city) counts different cities.',
-    'Every aggregate except COUNT ignores NULLs. With no rows at all, COUNT gives 0 and the others give NULL.',
+    'Every aggregate except COUNT(*) ignores NULLs. With no rows at all, COUNT gives 0 and the others give NULL.',
   ],
   howItWorks: [
     'FROM and WHERE decide which rows take part.',

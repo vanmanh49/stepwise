@@ -14,7 +14,7 @@ const content: LessonContent = {
   howItWorks: [
     'Put the start in the open set with g = 0.',
     'Take the open node with the lowest f = g + h. If it is the goal, follow the parent links back: that is the path.',
-    'Otherwise close it: its g is final.',
+    'Otherwise close it: its g is final, because straight-line distance is also consistent (it never drops by more than the edge just taken).',
     'For each neighbour, compute g through this node. If it beats the neighbour’s current g, update g and the parent and add the neighbour to the open set.',
     'If the open set runs empty, the goal cannot be reached.',
   ],

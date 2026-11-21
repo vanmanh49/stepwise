@@ -13,7 +13,7 @@ const content: LessonContent = {
     'With the pattern, Enemy has a clone method. It uses Object.assign to copy every field onto a new Enemy, whatever those fields are, and the spawner just calls template.clone(). Copying lives next to the fields it copies.',
     'Adding a shield shows the difference. Both designs edit only Enemy, adding 1 line. The naive copy still loses its shield, because the spawner never heard about it. Nothing failed to compile, and the diff looked just as small. The clone copies the shield without being edited at all.',
     'Watch the Copy setting too. A shallow copy copies the loot reference, not the list, so the copy and the template share one array. When the copy picks up a gem, the template has it too. A deep copy makes a new list, so each enemy owns its own.',
-    'In real code, JavaScript\'s structuredClone() makes deep copies, every JavaScript object inherits from a prototype object, and Java has Object.clone() for the same job.',
+    'In real code, JavaScript\'s structuredClone() makes deep copies of plain data, though a class instance comes back as a plain object without its methods. Every JavaScript object inherits from a prototype object, and Java has Object.clone() for the same job.',
   ],
   howItWorks: [
     'Give the class a clone method.',
@@ -84,7 +84,7 @@ const content: LessonContent = {
     'A prototype copies itself, so callers don\'t need to know its fields.',
     'Copying by field name misses new fields, without any warning.',
     'Shallow copies share nested lists; deep copies make their own.',
-    'In JavaScript, structuredClone makes deep copies.',
+    'In JavaScript, structuredClone makes deep copies of plain data, not of class instances.',
   ],
 };
 

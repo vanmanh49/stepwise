@@ -7,7 +7,7 @@ const content: LessonContent = {
   concept: [
     'Under the surface a string is an array of characters, so everything you know about arrays applies: positions start at 0, access by index is direct, and searching means scanning.',
     'The important difference is immutability. In JavaScript, Python, Java and many other languages, you cannot overwrite one character of a string. Operations such as adding text, replacing a letter or reversing all build a brand-new string and leave the original untouched.',
-    'That makes strings safe to share between parts of a program, but it hides a cost. Joining two strings copies every character of both. Doing it repeatedly in a loop copies the growing result again and again.',
+    'That makes strings safe to share between parts of a program, but it hides a cost. Joining two strings copies every character of both. Doing it repeatedly in a loop copies the growing result again and again. JavaScript engines and Python often avoid that copy behind the scenes, but Java, C# and many others do not, so do not rely on it.',
     'Many string problems are solved with two pointers, one at each end moving inward. Reversing and checking for a palindrome are the classic examples, and both are in the visualization.',
   ],
   howItWorks: [
@@ -21,7 +21,7 @@ const content: LessonContent = {
   code: stringStructure.code,
   prosCons: {
     pros: ['Instant access to any character', 'Immutable strings are safe to share and to use as keys', 'Rich built-in operations in every language'],
-    cons: ['Every modification copies the string', 'Repeated concatenation in a loop is quietly O(n²)', 'A "character" is not always one slot: emoji and accented letters can take several'],
+    cons: ['Every modification copies the string', 'Repeated concatenation in a loop can quietly become O(n²)', 'A "character" is not always one slot: emoji and accented letters can take several'],
     useWhen: ['You are storing or reading text', 'The text rarely changes after it is created'],
     avoidWhen: ['You are building text piece by piece in a loop (use an array and join, or a string builder)', 'You need to edit characters in place many times (use a character array)'],
   },
@@ -33,7 +33,7 @@ const content: LessonContent = {
   ],
   commonMistakes: [
     'Trying to change one character in place (text[0] = "X") and being surprised that nothing happens.',
-    'Building a long string with += inside a loop, which copies the whole string on every pass.',
+    'Building a long string with += inside a loop, which in many languages copies the whole string on every pass.',
     'Off-by-one errors: the last character is at index length − 1.',
     'Assuming one visible character is always one index. Emoji and some accented letters take two or more.',
     'Comparing strings without thinking about upper and lower case or surrounding spaces.',
@@ -59,16 +59,16 @@ const content: LessonContent = {
     {
       id: 'q3',
       type: 'code',
-      prompt: 'What does this print?',
+      prompt: 'In a plain script (not strict mode), what does this print?',
       code: `let s = 'cat';\ns[0] = 'b';\nconsole.log(s);`,
       options: ['cat', 'bat', 'b', 'An empty string'],
       answer: 0,
-      explanation: 'JavaScript strings are immutable. The assignment is ignored (or throws in strict mode), so s is still "cat".',
+      explanation: 'JavaScript strings are immutable, so the assignment changes nothing and s is still "cat". In strict mode, which every module and class uses, it throws a TypeError instead, and TypeScript refuses it before it runs.',
     },
     {
       id: 'q4',
       type: 'multiple-choice',
-      prompt: 'Why is building a long string with += inside a loop slow?',
+      prompt: 'In a language that copies strings on every join, such as Java, why is building a long string with += inside a loop slow?',
       options: [
         'Each += copies the whole string built so far',
         'The loop runs more times than expected',

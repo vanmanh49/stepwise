@@ -12,8 +12,8 @@ const content: LessonContent = {
     'ACKs are cumulative. ACK 4001 means "I have everything before byte 4001, and that is the next byte I need". One ACK can therefore cover for an earlier ACK that was lost.',
     'The window is how many bytes may be unacknowledged at once. With a window of 1, the sender waits a whole round trip per segment. With a window of 4 it keeps sending while the ACKs come back, which is far quicker.',
     'A segment that arrives after a gap is held, and the receiver repeats its last ACK. Those duplicate ACKs tell the sender that later data is getting through. The third duplicate means the missing segment is almost certainly lost, so it is sent again at once. That is fast retransmit.',
-    'If nothing comes back, only the timer can help. Losing the last segment makes no later data, so no duplicate ACKs. The retransmission timeout starts at 1 s and doubles each time it fires. Once real round trips are measured, it falls toward its 200 ms minimum. A retransmitted segment is never measured, because its ACK could belong to either copy.',
-    'After 5 retries with no progress, TCP gives up and resets the connection.',
+    'If nothing comes back, only the timer can help. Losing the last segment makes no later data, so no duplicate ACKs. The retransmission timeout starts at 1 s and doubles each time it fires. Once real round trips are measured, it falls toward its minimum: 200 ms here and in Linux, though RFC 6298 suggests 1 s. A retransmitted segment is never measured, because its ACK could belong to either copy.',
+    'If retries stop making progress, TCP gives up and resets the connection. Here that happens after 5 retries; Linux tries 15 times by default, which takes about 15 minutes.',
     'This lesson fixes the window so congestion control can\'t hide the story, and the segments are 1000 bytes on purpose. Delayed ACKs and SACK are left out. Real ACKs often cover two segments, and SACK says exactly which ranges arrived. To see this on a real machine, capture a transfer in Wireshark and look for "TCP Dup ACK" and "TCP Retransmission".',
   ],
   howItWorks: [
@@ -95,7 +95,7 @@ const content: LessonContent = {
     'Sequence numbers count bytes, and an ACK names the next byte needed.',
     'ACKs are cumulative, so a later ACK covers a lost one.',
     'Three duplicate ACKs retransmit a segment before the timer.',
-    'The timer starts at 1 s, doubles on each timeout, and gives up after 5 retries.',
+    'The timer starts at 1 s and doubles on each timeout; here TCP gives up after 5 retries, and Linux after 15.',
   ],
 };
 

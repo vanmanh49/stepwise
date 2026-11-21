@@ -129,7 +129,7 @@ export const stringStructure: TextDef = {
             },
             {
               title: `Append "${arg}"`,
-              why: `In total ${result.length} characters were copied to add ${arg.length}. Doing this inside a loop costs O(n²), which is why languages offer string builders.`,
+              why: `In total ${result.length} characters were copied to add ${arg.length}. Where every join copies, doing this inside a loop costs O(n²), which is why languages offer string builders.`,
               codeLine: 11,
               variables: { result: `"${result}"`, copied: result.length },
               view: arrayView(

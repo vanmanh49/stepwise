@@ -11,7 +11,7 @@ const content: LessonContent = {
     'DELETE FROM order_items WHERE order_id = 3 tests every row of order_items and removes the ones where the condition is true. The table itself stays, with its columns and rules; only rows disappear.',
     'Just like UPDATE, DELETE without WHERE affects the whole table: DELETE FROM order_items empties it. Running the matching SELECT first shows exactly which rows will go.',
     'WHERE can use subqueries, which lets you delete rows based on another table: DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE status = \'cancelled\') removes the items of cancelled orders.',
-    'Foreign keys protect relationships. orders.customer_id refers to customers.id, so deleting a customer who still has orders would leave those orders pointing at nobody. The database refuses, and you must delete or change the orders first.',
+    'Foreign keys protect relationships. orders.customer_id refers to customers.id, so deleting a customer who still has orders would leave those orders pointing at nobody. The database refuses, and you must delete or change the orders first. Most databases always check this; real SQLite only does after PRAGMA foreign_keys = ON, which this course has on.',
   ],
   howItWorks: [
     'DELETE FROM names the table.',

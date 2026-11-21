@@ -3,7 +3,7 @@ import type { Step } from '../../types/visualization';
 import type { Action, Ingress, IngressPath, Scenario } from '../model';
 import { deployment, scenarioSteps, service } from './shared';
 
-export const ingressCode = `// Ingress controller (ingress-nginx), for each HTTP request
+export const ingressCode = `// Ingress controller, for each HTTP request
 const rules = rulesFor(request.host)          // rules naming this host, else host-less ones
 const match = rules
   .filter((r) => r.pathType === 'Exact' ? r.path === path : prefixOf(r.path, path)) // whole path elements

@@ -12,7 +12,7 @@ const content: LessonContent = {
   concept: [
     'The input to the block is the token\'s embedding plus a position vector.',
     'Attention lets the token gather information from earlier tokens. Its output is added to the input (a residual connection) rather than replacing it.',
-    'Layer norm rescales the vector so its numbers have mean 0 and spread 1. Then the MLP (8 → 16 → 8 numbers with a ReLU) works on this token alone, and its output is added back too.',
+    'Layer norm rescales the vector so its numbers have mean 0 and spread 1. Then the MLP (8 → 16 → 8 numbers with a ReLU) works on this token alone, and its output is added back too. This tiny model normalises after each add, as the original 2017 Transformer did; GPT-2 and later models normalise before attention and before the MLP instead, which trains more steadily in deep stacks.',
     'At the end, every word is scored by the dot product of its embedding with the final vector. This model reuses the input embedding table for that (tied embeddings). Real models stack the block many times: GPT-2 small has 12, the largest models over 100.',
   ],
   howItWorks: [
@@ -86,7 +86,7 @@ const content: LessonContent = {
     },
   ],
   summary: [
-    'A block is attention and an MLP, each followed by a residual add and a layer norm.',
+    'A block is attention and an MLP, each with a residual add and a layer norm (here after the add; GPT-2 and later put it before).',
     'Attention mixes information across tokens; the MLP works on each token alone.',
     'Residual connections add changes instead of replacing the vector.',
     'The final vector is scored against every word\'s embedding to predict the next word.',

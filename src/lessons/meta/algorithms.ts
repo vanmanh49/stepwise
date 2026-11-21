@@ -359,7 +359,7 @@ export const algorithmsMeta: LessonMeta[] = [
         },
       ],
       space: 'O(n)',
-      note: 'Factorial makes one call per value of n. Naive Fibonacci makes two calls per call, so the tree roughly doubles with each step of n. Both use O(n) stack space, since at most n frames wait at once.',
+      note: 'Factorial makes one call per value of n. Naive Fibonacci makes two calls per call, so the tree grows about 1.6 times with each step of n, which O(2ⁿ) bounds from above. Both use O(n) stack space, since at most n frames wait at once.',
       curves: ['n', '2n'],
     },
   },

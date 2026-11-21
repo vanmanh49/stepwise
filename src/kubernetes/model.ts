@@ -412,7 +412,7 @@ export interface Scenario {
   /** The Cluster Autoscaler's node pool. */
   pool?: { cpu: number; memory: number; labels?: Labels; min: number; max: number };
   schedulerStrategy?: 'LeastAllocated' | 'MostAllocated';
-  /** An Ingress controller (ingress-nginx) is installed. */
+  /** An Ingress controller is installed. */
   ingressController?: boolean;
 }
 
