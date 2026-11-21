@@ -23,10 +23,13 @@ const idle = (structure: StructureDef<unknown>, state: unknown): Step[] => [
 
 function OperationForm({
   op,
+  errorId,
   onRun,
   onError,
 }: {
   op: StructureOp<unknown>;
+  /** The shared error message's id while it is about this operation. */
+  errorId?: string;
   onRun(args: number[], words: string[]): void;
   onError(message: string): void;
 }) {
@@ -42,7 +45,7 @@ function OperationForm({
   return (
     <form onSubmit={submit} className="flex items-end gap-1.5 rounded-xl border border-border bg-surface-2/50 p-1.5">
       {op.args.map((arg, i) => (
-        <Field key={arg.name} label={arg.label} compact>
+        <Field key={arg.name} label={arg.label} compact describedBy={errorId} invalid={errorId !== undefined}>
           <TextField
             value={fields[i] ?? ''}
             onChange={(next) => setFields(fields.map((f, k) => (k === i ? next : f)))}
@@ -71,7 +74,7 @@ export function StructureInput({
   // Contents persist between operations so learners can build on their own changes.
   const [state, setState] = useState(structure.initial);
   const [steps, setSteps] = useState(() => idle(structure, structure.initial));
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<{ op: string; message: string }>();
   const [ran, setRan] = useState(false);
   const errorId = `${useId()}-error`;
 
@@ -101,13 +104,19 @@ export function StructureInput({
           <span className="eyebrow">Operations</span>
           <div className="flex flex-wrap items-end gap-2">
             {structure.ops.map((op) => (
-              <OperationForm key={op.id} op={op} onRun={(args, words) => run(op, args, words)} onError={setError} />
+              <OperationForm
+                key={op.id}
+                op={op}
+                errorId={error?.op === op.id ? errorId : undefined}
+                onRun={(args, words) => run(op, args, words)}
+                onError={(message) => setError({ op: op.id, message })}
+              />
             ))}
             <Button icon={RotateCcw} className="mb-1.5" onClick={reset}>
               Reset
             </Button>
           </div>
-          <FormMessage id={errorId} error={error} />
+          <FormMessage id={errorId} error={error?.message} />
         </div>
       }
     />

@@ -9,8 +9,9 @@ export function AppShell() {
   const { pathname } = useLocation();
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- the point is to run on every navigation
+    // An address with #section is scrolled there by the page that has it (LessonPage).
+    if (!window.location.hash) window.scrollTo(0, 0);
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- the point is to run on every navigation, not on every #section click
   }, [pathname]);
 
   useEffect(() => {
