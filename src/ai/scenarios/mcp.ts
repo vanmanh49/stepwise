@@ -12,8 +12,8 @@ export const mcpCode = `// no handshake: every request carries its protocol vers
 send({ method: 'server/discover' })   // optional probe: versions and server info
 tools = send({ method: 'tools/list' }).tools   // names, descriptions, input schemas
 result = send({ method: 'tools/call', params: { name, arguments } })
-if (result.error) report(result.error.code)   // -32601 no such method, -32602 bad params
-else if (result.isError) model.read(result.content)   // the tool failed; the model can retry
+if (result.error) report(result.error.code)   // -32601 no such method, -32602 no such tool
+else if (result.isError) model.read(result.content)   // bad arguments or a failed tool; the model can retry
 agent.run(task, tools)   // the agent loop, calling tools over MCP`;
 
 export const SERVER_NAMES: ServerName[] = ['office', 'weather'];
@@ -42,13 +42,16 @@ function summary(req: RpcRequest, res: RpcResponse): string {
   return `${req.method}${name}: ${res.result.isError ? `isError (${text})` : text}`;
 }
 
-function explain(req: RpcRequest, res: RpcResponse): string {
+function explain(req: RpcRequest, res: RpcResponse, call?: string): string {
   if (req.method === 'server/discover') return `In this revision a client can probe the server first. There is no initialize handshake: every request names its protocol version in _meta. Older revisions opened every session with an initialize request. ${STAND_IN}`;
   if (req.method === 'tools/list') return 'The client learns each tool\'s name, description and input schema at run time, so any MCP client can use any MCP server without custom code.';
   if ('error' in res) {
     return res.error.code === -32601
       ? '-32601 means the method does not exist: a protocol error from JSON-RPC itself.'
-      : '-32602 means the parameters are wrong: an unknown tool, or arguments that fail the tool\'s input schema. The server rejects the request before running anything.';
+      : '-32602 means the request\'s parameters are wrong: here, it names a tool this server doesn\'t have. The server rejects the request before running anything.';
+  }
+  if (res.result.isError && call === 'bad-args') {
+    return 'The arguments fail the tool\'s input schema, so the tool never ran. Since the 2025-11-25 revision, MCP reports that as a normal result marked isError rather than a protocol error, so the model sees what it got wrong and can call again with fixed arguments.';
   }
   return res.result.isError
     ? 'The tool ran and failed. MCP returns that as a normal result marked isError, so the model can read it and try again, unlike a protocol error.'
@@ -64,13 +67,13 @@ export function mcpSteps(values: Record<string, string>): Step[] {
 
   const name = server.value as ServerName;
   const messages: { speaker: string; content: string }[] = [];
-  const exchange = (id: number, method: string, params: Record<string, unknown> | undefined, codeLine: number): Step => {
+  const exchange = (id: number, method: string, params: Record<string, unknown> | undefined, codeLine: number, which?: string): Step => {
     const req = request(id, method, params);
     const { response } = rpc(name, INITIAL_OFFICE, req);
     messages.push({ speaker: '→ request', content: JSON.stringify(req) }, { speaker: '← response', content: JSON.stringify(response) });
     return {
       title: summary(req, response),
-      why: explain(req, response),
+      why: explain(req, response, which),
       codeLine,
       view: messageGrid([...messages], 'rpc', (i) => (i >= messages.length - 2 ? 'active' : 'default')),
     };
@@ -88,8 +91,8 @@ export function mcpSteps(values: Record<string, string>): Step[] {
   const chosen = CALL_REQUESTS[call.value];
   if (chosen) {
     const [method, params] = chosen;
-    const codeLine = method !== 'tools/call' || call.value === 'unknown-tool' || call.value === 'bad-args' ? line('if (result.error)') : call.value === 'tool-error' ? line('else if (result.isError)') : line("result = send({ method: 'tools/call'");
-    steps.push(exchange(3, method, params, codeLine));
+    const codeLine = method !== 'tools/call' || call.value === 'unknown-tool' ? line('if (result.error)') : call.value === 'tool-error' || call.value === 'bad-args' ? line('else if (result.isError)') : line("result = send({ method: 'tools/call'");
+    steps.push(exchange(3, method, params, codeLine, call.value));
   }
   const run = runAgent(taskById('weather-compare')!, INITIAL_OFFICE, { maxSteps: 12, transport: 'mcp', server: name });
   const intro: Step = { title: '', why: '', codeLine: 1, view: EMPTY };

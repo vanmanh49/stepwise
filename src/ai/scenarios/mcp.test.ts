@@ -14,7 +14,7 @@ describe('MCP lesson', () => {
     ['call', 'tools/call get_weather: 18°C and cloudy'],
     ['unknown-method', 'tools/run: error -32601 (Method not found: tools/run)'],
     ['unknown-tool', 'tools/call fly: error -32602 (Unknown tool: fly)'],
-    ['bad-args', 'tools/call add: error -32602 (Invalid arguments for tool add: b must be a number)'],
+    ['bad-args', 'tools/call add: isError (Invalid arguments for tool add: b must be a number)'],
     ['tool-error', 'tools/call get_weather: isError (No weather for Mars)'],
   ])('shows the result of %s', (call, title) => {
     expect(titles(call)).toContain(title);

@@ -55,9 +55,10 @@ export function rpc(server: ServerName, office: Office, req: RpcRequest): { offi
   const args = (req.params?.arguments ?? {}) as Record<string, unknown>;
   const tool = tools.find((t) => t.name === name);
   if (!tool) return error(INVALID_PARAMS, `Unknown tool: ${name}`);
+  // Bad arguments and failures inside the tool come back as a result, not a protocol error, so the
+  // model can read them and correct itself (SEP-1303, in the spec since 2025-11-25).
   const problem = checkArgs(tool, args);
-  if (problem) return error(INVALID_PARAMS, `Invalid arguments for tool ${name}: ${problem}`);
-  // Failures inside the tool come back as a result, so the model can read them and correct itself.
+  if (problem) return reply({ content: [{ type: 'text', text: `Invalid arguments for tool ${name}: ${problem}` }], isError: true });
   const out = runOfficeTool(office, { name, args });
   const text = out.result.ok ? out.result.text : out.result.error;
   return { office: out.office, response: { jsonrpc: '2.0', id: req.id, result: { content: [{ type: 'text', text }], isError: !out.result.ok } } };
