@@ -110,6 +110,22 @@ export function curveForNotation(notation: string): Complexity | undefined {
   return id === undefined ? undefined : getComplexity(id);
 }
 
+/** Notations whose nearest curve grows far slower, so the table counts them on their own. */
+const OWN_COUNT: Record<string, (n: number) => number> = {
+  'O(V³)': (n) => n ** 3,
+  'O(n!)': (n) => Array.from({ length: n }, (_, i) => i + 1).reduce((a, b) => a * b, 1),
+};
+
+/** Needs a second size (E) that n alone doesn't give, and its curve would understate it. */
+const UNCOUNTABLE = new Set(['O(V × E²)']);
+
+/** Roughly how many operations a notation means at size n, or undefined when n alone can't say. */
+export function opsAt(notation: string, n: number): number | undefined {
+  const own = OWN_COUNT[notation];
+  if (own) return own(n);
+  return UNCOUNTABLE.has(notation) ? undefined : curveForNotation(notation)?.fn(n);
+}
+
 export function formatOps(value: number): string {
   if (!Number.isFinite(value)) return '∞';
   if (value >= 1e9) return value.toExponential(1);

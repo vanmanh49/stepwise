@@ -174,4 +174,6 @@ export const corpus: CorpusQuery[] = [
   shop('SELECT (SELECT name FROM customers WHERE id = o.customer_id) FROM orders o'),
   shop('SELECT name FROM products p WHERE price > (SELECT AVG(price) FROM products WHERE category = p.category)'),
   school('SELECT name FROM students s WHERE year = (SELECT MAX(year) FROM students)'),
+  // a string that spans two lines
+  shop("SELECT id, 'line one\nline two' AS note FROM products WHERE id = 1"),
 ];

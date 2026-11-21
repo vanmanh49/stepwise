@@ -15,9 +15,9 @@ export function SchemaPanel({ dataset }: { dataset: Dataset }) {
               {table.name} <span className="font-sans font-normal text-muted">· {table.rows.length} rows</span>
             </summary>
             <p className="mt-2 font-mono text-xs leading-relaxed text-muted">
-              {table.columns
-                .map((c, i) => {
-                  const note = columnNotes(table)[i];
+              {columnNotes(table)
+                .map((note, i) => {
+                  const c = table.columns[i]!;
                   return `${c.name} ${c.type}${note ? ` (${note})` : ''}`;
                 })
                 .join(', ')}

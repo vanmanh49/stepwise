@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { BigOChart } from '../components/bigo/BigOChart';
-import { COMPLEXITIES, curveForNotation, formatOps } from '../components/bigo/complexities';
+import { COMPLEXITIES, formatOps, opsAt } from '../components/bigo/complexities';
 import { lessonPath, lessonsIn } from '../lessons/registry';
 
 export default function BigO() {
@@ -77,7 +77,7 @@ export default function BigO() {
             <tbody>
               {lessonsIn('algorithms').map((lesson) => {
                 const row = lesson.complexity!.rows[0]!;
-                const curve = curveForNotation(row.average);
+                const ops = opsAt(row.average, size);
                 return (
                   <tr key={lesson.id} className="border-b border-border last:border-0">
                     <th scope="row" className="px-4 py-3 font-medium">
@@ -88,7 +88,7 @@ export default function BigO() {
                     <td className="px-4 py-3 font-mono">{row.average}</td>
                     <td className="px-4 py-3 font-mono text-muted">{row.worst}</td>
                     <td className="px-4 py-3 text-right font-mono font-semibold tabular-nums">
-                      {curve ? `≈ ${formatOps(curve.fn(size))}` : '—'}
+                      {ops === undefined ? '—' : `≈ ${formatOps(ops)}`}
                     </td>
                   </tr>
                 );
