@@ -3,7 +3,7 @@ import type { LessonContent } from '../../types/lesson';
 
 const content: LessonContent = {
   overview:
-    'Dynamic programming (DP) solves a problem by combining answers to smaller subproblems and storing each answer so it is computed only once. Fibonacci is the classic first example: naive recursion makes about 2ⁿ calls, while memoization (top-down) or a table (bottom-up) needs only n steps.',
+    'Dynamic programming (DP) solves a problem by combining answers to smaller subproblems and storing each answer so it is computed only once. Fibonacci is the classic first example: naive recursion makes exponentially many calls (2.7 million for fib(30)), while memoization (top-down) or a table (bottom-up) needs only n steps.',
   concept: [
     'Suppose someone asks you for 1 + 1 + 1 + 1 + 1. You count: five. Then they add another + 1 and ask again. You do not recount from scratch; you remember five and say six. Dynamic programming is exactly that: remember answers you already worked out.',
     'Naive fib(n) calls fib(n − 1) and fib(n − 2), which call the same smaller values again and again. These repeated pieces are called overlapping subproblems. A problem with overlapping subproblems, whose answer is built from answers to smaller versions, is a candidate for DP.',
@@ -93,7 +93,7 @@ const content: LessonContent = {
   summary: [
     'Dynamic programming stores the answer to each subproblem so it is computed once.',
     'Memoization is top-down recursion with a cache; tabulation fills a table bottom-up.',
-    'Fibonacci drops from about 2ⁿ calls to n steps.',
+    'Fibonacci drops from exponentially many calls to n steps.',
     'DP applies when subproblems overlap and the answer builds on smaller answers.',
   ],
 };

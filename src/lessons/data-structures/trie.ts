@@ -18,7 +18,7 @@ const content: LessonContent = {
   visualization: { kind: 'structure', structure: trieStructure },
   code: trieStructure.code,
   prosCons: {
-    pros: ['Lookups cost one step per letter, independent of how many words are stored', 'Prefix queries and autocomplete come for free', 'Words come out in alphabetical order when the trie is walked'],
+    pros: ['Lookups cost one step per letter, independent of how many words are stored', 'Prefix queries and autocomplete come for free', 'Words come out in alphabetical order when each node\'s children are visited in letter order'],
     cons: ['Uses more memory than a hash table: one node per letter, each with a map of children', 'Only works for keys made of a sequence of symbols, such as strings', 'Slower than a hash table for plain exact-match lookups in practice'],
     useWhen: ['You need autocomplete or "starts with" queries', 'You check many words against a dictionary, such as a spell checker or word game', 'You match the longest prefix, as routers do with IP addresses'],
     avoidWhen: ['You only need exact lookups (a hash table is simpler and smaller)', 'Keys are numbers or have no useful shared prefixes'],

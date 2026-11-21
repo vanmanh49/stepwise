@@ -103,7 +103,7 @@ export function recursionSteps(values: Record<string, string>): Step[] {
     why:
       fn === 'factorial'
         ? `${calls} call${calls === 1 ? '' : 's'}, one per value of n: the work grows in a straight line with n.`
-        : `It took ${calls} calls. The same small values were computed over and over, and the number of calls roughly doubles each time n grows by one.`,
+        : `It took ${calls} calls. The same small values were computed over and over, and the number of calls grows about 1.6 times each time n grows by one.`,
     codeLine: lines.recurse,
     variables: { result, calls },
     view: tree.view(),

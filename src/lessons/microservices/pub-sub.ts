@@ -12,7 +12,7 @@ const content: LessonContent = {
     'When an order is placed, several parts of a shop care: email sends a receipt, stock reserves the items, analytics counts the sale. If orders called each of them, it would have to know them all, wait for them all, and fail when any one is down. With publish/subscribe, orders announces one event, OrderPlaced, and every interested service gets its own copy. This lesson publishes orders to three subscribers, takes email down, and compares a topic with a plain queue.',
   concept: [
     'An event says that something happened, such as "order #3 was placed". The publisher does not say who should react, or how.',
-    'Each subscriber has its own queue on the topic, and every event is copied into every queue. Subscribers work at their own pace and never block each other.',
+    'Each subscriber has its own queue on the topic, and every event is copied into every queue. Subscribers work at their own pace and never block each other. Kafka gets the same effect differently: it keeps one log per topic, and each subscriber group remembers how far it has read.',
     'Adding a subscriber needs no change to the publisher. orders publishes the same event whether one service listens or ten.',
     'A plain queue is different: each message goes to one consumer. Use a queue to share work, and a topic to tell everyone.',
   ],

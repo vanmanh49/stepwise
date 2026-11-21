@@ -105,7 +105,7 @@ const content: LessonContent = {
       prompt: "WHERE category = 'books' returns no rows, but 'Books' works. Why?",
       options: ['Comparing text with = is case-sensitive', 'WHERE cannot compare text', 'The table has no category column'],
       answer: 0,
-      explanation: "In SQLite and most databases, = compares text exactly, so 'books' and 'Books' are different values.",
+      explanation: "In SQLite and PostgreSQL, = compares text exactly, so 'books' and 'Books' are different values. MySQL and SQL Server ignore case by default, so check your database.",
     },
   ],
   summary: [

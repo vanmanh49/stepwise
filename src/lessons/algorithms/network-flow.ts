@@ -22,7 +22,7 @@ const content: LessonContent = {
   code: networkFlowCode,
   prosCons: {
     pros: ['Always finds the maximum flow', 'Running time does not depend on the capacity values', 'Also yields a minimum cut'],
-    cons: ['Slower than modern algorithms such as Dinic’s on large graphs', 'Needs integer or rational capacities to be sure it stops', 'The residual graph idea takes time to grasp'],
+    cons: ['Slower than modern algorithms such as Dinic’s on large graphs', 'Every round runs a full BFS, even when it only pushes one unit', 'The residual graph idea takes time to grasp'],
     useWhen: ['Networks of moderate size', 'Matching problems such as assigning workers to jobs', 'You need the minimum cut too'],
     avoidWhen: ['Very large networks where Dinic’s or push-relabel algorithms are much faster'],
   },

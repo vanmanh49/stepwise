@@ -27,7 +27,7 @@ const content: LessonContent = {
   },
   applications: [
     'Sorted maps and sets: Java TreeMap, C++ std::map and std::set',
-    'The Linux kernel\'s scheduler and memory-area tracking',
+    'The Linux kernel\'s CPU scheduler, which keeps runnable tasks in a red-black tree',
     'Event queues and timers that need the earliest item and fast inserts',
   ],
   commonMistakes: [

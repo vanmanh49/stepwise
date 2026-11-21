@@ -6,7 +6,7 @@ const content: LessonContent = {
     'A binary tree is a set of nodes where each node points to at most two others, called its left and right children. It starts from a single root and branches downward. Trees are how programs represent anything hierarchical, and they are the foundation for search trees and heaps.',
   concept: [
     'A linked list node points to one next node, so a list is a straight line. Give each node two pointers instead of one and the line becomes a branching shape: a tree.',
-    'A few words describe every tree. The root is the top node. A leaf is a node with no children. The depth of a node is how many steps it is below the root, and the height of the tree is the number of levels it has.',
+    'A few words describe every tree. The root is the top node. A leaf is a node with no children. The depth of a node is how many steps it is below the root, and the height of the tree is the number of levels it has. Some books count edges instead, so for them a single node has height 0, not 1.',
     'The shape matters because of how fast it grows. Each level can hold twice as many nodes as the one above it, so a tree with only 20 levels has room for over a million nodes. Algorithms that walk from the root to a leaf therefore touch very few nodes.',
     'A plain binary tree has no rule about which values go where. Add the rule "smaller on the left, larger on the right" and you get a binary search tree. Add "every parent is larger than its children" and you get a heap.',
   ],

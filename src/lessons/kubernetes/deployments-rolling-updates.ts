@@ -57,7 +57,7 @@ const content: LessonContent = {
     'Tools such as Argo Rollouts build canary and blue-green releases on the same idea',
   ],
   commonMistakes: [
-    'Setting maxSurge and maxUnavailable both to 0: the rollout can never make progress.',
+    'Setting maxSurge and maxUnavailable both to 0: such a rollout could never make progress, so the API server refuses the Deployment.',
     'Using maxUnavailable 0 on a full cluster: the extra pod has nowhere to go, so the rollout waits.',
     'Watching only the Deployment\'s status and missing that new pods are stuck in ImagePullBackOff.',
     'Expecting a rollback to restore data: it only changes which pod template runs.',

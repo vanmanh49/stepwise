@@ -13,7 +13,7 @@ const content: LessonContent = {
     'Pods come and go and change address, so clients need one stable address to call. A Service gives them that, and kube-proxy on every node forwards each connection to one of the Service\'s pods. This lesson sends 10 requests to a Service, then makes a pod unready and breaks the selector.',
   concept: [
     'A Service has a stable virtual address (its ClusterIP) and a selector. It never lists pods by name.',
-    'The Endpoints controller keeps a list of the pods that match the selector and are ready. A pod that is Running but not ready is left out.',
+    'The Endpoints controller keeps a list of the pods that match the selector and are ready. A pod that is Running but not ready is left out. Kubernetes now stores this list as EndpointSlices, a few smaller objects per Service, but the idea is the same.',
     'kube-proxy runs on every node. For each new connection to the ClusterIP it picks one endpoint (at random, as in its iptables mode) and forwards the connection there.',
     'Changes take a moment to reach the list: a pod that just became unready can still get traffic until the Endpoints controller\'s next pass. And a selector that matches nothing leaves the list empty, so every connection is refused.',
   ],
@@ -48,12 +48,12 @@ const content: LessonContent = {
   },
   applications: [
     'Pods call each other by Service name (web.default.svc), which DNS turns into the ClusterIP',
-    'kubectl get endpoints web shows which pods currently receive traffic',
+    'kubectl get endpointslices -l kubernetes.io/service-name=web shows which pods currently receive traffic',
     'LoadBalancer and NodePort Services expose the same endpoints outside the cluster',
   ],
   commonMistakes: [
     'A selector that doesn\'t match the pod template\'s labels, so the Service has no endpoints.',
-    'Debugging a "connection refused" without checking kubectl get endpoints first.',
+    'Debugging a "connection refused" without checking the Service\'s endpoints first.',
     'Expecting a pod to stop getting traffic the instant it becomes unready.',
   ],
   quiz: [

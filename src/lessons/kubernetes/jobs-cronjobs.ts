@@ -14,7 +14,7 @@ const content: LessonContent = {
     'Not everything runs forever. Reports, migrations and backups do their work and stop. A Job runs pods until enough of them succeed, retrying failures. A CronJob creates a Job on a schedule, like cron. This lesson runs a batch, makes it fail in different ways, then schedules it every minute.',
   concept: [
     'A Job wants completions successful pods, with at most parallelism running at once. Pods use restartPolicy Never or OnFailure; Always is refused, because a Job\'s pods must be able to finish.',
-    'A failed pod is retried after a back-off (10 s, 20 s, 40 s, … up to 10 minutes). With OnFailure the same pod restarts in place; with Never a new pod replaces it. Either way each failure counts.',
+    'A failed pod is retried after a back-off (10 s, 20 s, 40 s, … up to 6 minutes). With OnFailure the same pod restarts in place; with Never a new pod replaces it. Either way each failure counts.',
     'More failures than backoffLimit (6 by default; 2 here) fail the Job with BackoffLimitExceeded. Running longer than activeDeadlineSeconds fails it with DeadlineExceeded, whatever the back-off limit.',
     'A CronJob checks its schedule every 10 s and creates a Job when a run is due. "*/1 * * * *" means every minute; the first run is the first scheduled minute after the CronJob was made.',
     'concurrencyPolicy decides what happens if the last run is still going: Allow runs them side by side, Forbid skips the new run, Replace deletes the old one. Old Jobs are cleaned up beyond the history limits (3 successful, 1 failed by default).',

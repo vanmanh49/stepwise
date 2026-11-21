@@ -375,7 +375,7 @@ export function simulate(scenario: Scenario): SimResult {
       return record({ kind: 'request-fail', ...by, rules, text: `No Ingress rule matches ${label}: 404 Not Found`, reason: '404 Not Found' });
     }
     const why = match.rule === 'default' ? 'the default backend' : `${match.rule.pathType} ${match.rule.path}`;
-    deliver({ ...request, service: match.service }, match.service, { by: 'ingress', subjects: [id, match.service] }, `ingress-nginx sends ${label} to ${match.service} (${why}), then`, { rules });
+    deliver({ ...request, service: match.service }, match.service, { by: 'ingress', subjects: [id, match.service] }, `The ingress controller sends ${label} to ${match.service} (${why}), then`, { rules });
   };
 
   const fault = (f: Extract<Item, { kind: 'fault' }>['fault']) => {

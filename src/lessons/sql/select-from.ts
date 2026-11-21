@@ -67,7 +67,7 @@ const content: LessonContent = {
     'Checking what a table contains before writing a bigger query',
   ],
   commonMistakes: [
-    'Forgetting the comma between columns: SELECT name price reads as a syntax error, or in some databases as an alias.',
+    'Forgetting the comma between columns: most databases read SELECT name price as the name column renamed to price, with no error at all.',
     'Using SELECT * in application code, then breaking when someone adds a column.',
     'Expecting rows in a particular order without ORDER BY.',
     'Writing the clauses in the wrong order: FROM must come after the column list.',

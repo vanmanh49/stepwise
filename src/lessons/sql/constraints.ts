@@ -12,7 +12,7 @@ const content: LessonContent = {
     'Imagine a club register. Every member needs a student number, no two members may share an email, members must be at least 16, and the student number must belong to a real student. Constraints write exactly these rules into the table.',
     'NOT NULL means a column must always have a value. UNIQUE means no two rows may have the same value in it (NULLs do not count as equal, so several NULLs are allowed). PRIMARY KEY marks the column, or group of columns, that identifies each row: it is unique, and in SQLite an INTEGER PRIMARY KEY also numbers itself. One SQLite quirk: any other PRIMARY KEY still allows NULL, unlike most databases, so add NOT NULL to it when every row needs a key.',
     'CHECK (condition) refuses a row when the condition is false, such as CHECK (age >= 16). A NULL age makes the condition unknown, and unknown passes, so pair CHECK with NOT NULL when the value is required.',
-    'REFERENCES other(column), a foreign key, says a value must exist in another table: student_id REFERENCES students(id) refuses a member whose student does not exist, and refuses deleting a student who still has members. When any rule fails, the whole statement is undone.',
+    'REFERENCES other(column), a foreign key, says a value must exist in another table: student_id REFERENCES students(id) refuses a member whose student does not exist, and refuses deleting a student who still has members. When any rule fails, the whole statement is undone. Real SQLite checks foreign keys only after PRAGMA foreign_keys = ON, which this course has on; most other databases always do.',
   ],
   howItWorks: [
     'Constraints are declared in CREATE TABLE, on a column or for the whole table.',

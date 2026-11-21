@@ -31,11 +31,16 @@ describe('MCP-style tool server', () => {
     });
   });
 
+  it('reports bad arguments as a result the model can read, without running the tool', () => {
+    expect(call('tools/call', { name: 'add', arguments: { a: 17, b: 'twenty' } })).toEqual({
+      jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: 'Invalid arguments for tool add: b must be a number' }], isError: true },
+    });
+  });
+
   it('uses JSON-RPC errors for protocol problems', () => {
     const code = (r: object) => (r as { error: { code: number; message: string } }).error;
     expect(code(call('tools/run'))).toEqual({ code: -32601, message: 'Method not found: tools/run' });
     expect(code(call('tools/call', { name: 'fly', arguments: {} }))).toEqual({ code: -32602, message: 'Unknown tool: fly' });
-    expect(code(call('tools/call', { name: 'add', arguments: { a: 17, b: 'twenty' } }))).toEqual({ code: -32602, message: 'Invalid arguments for tool add: b must be a number' });
     expect(code(call('tools/call', { name: 'send_email', arguments: { to: 'sam@office.test', body: 'hi' } }, 'weather'))).toEqual({ code: -32602, message: 'Unknown tool: send_email' });
     const bare = rpc('office', INITIAL_OFFICE, { jsonrpc: '2.0', id: 2, method: 'tools/list' }).response;
     expect(code(bare)).toEqual({ code: -32602, message: 'Missing protocol version' });

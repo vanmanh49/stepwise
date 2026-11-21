@@ -12,11 +12,11 @@ const content: LessonContent = {
   overview:
     'A Service gives pods one address inside the cluster. To reach many Services from outside through one entry point, by host name and URL path, Kubernetes has Ingress: rules such as "shop.example.com/api goes to the api Service", carried out by an ingress controller. This lesson sends five requests through those rules.',
   concept: [
-    'An Ingress is a list of rules: a host, and paths under it, each pointing to a Service. It does nothing alone: an ingress controller (ingress-nginx, Traefik, a cloud load balancer) must be running to read the rules and serve traffic.',
+    'An Ingress is a list of rules: a host, and paths under it, each pointing to a Service. It does nothing alone: an ingress controller (Traefik, HAProxy or a cloud load balancer) must be running to read the rules and serve traffic.',
     'Rules naming the request\'s host are used; rules without a host match any host. Among the matching paths the longest wins, and at equal length Exact beats Prefix.',
     'Prefix matches whole path elements: /api matches /api and /api/cart, but not /apiary. Exact matches only that path.',
     'No match goes to the default backend if there is one, else 404. A matched Service with no ready pods gives 503. The controller sends requests straight to pod IPs from the Service\'s endpoints.',
-    'The Ingress API is frozen: it still works, but new features go into its successor, the Gateway API (Gateway and HTTPRoute objects).',
+    'The Ingress API is frozen: it still works, but new features go into its successor, the Gateway API (Gateway and HTTPRoute objects). ingress-nginx, long the most common controller, was retired in March 2026, one more reason new setups start with the Gateway API.',
   ],
   howItWorks: [
     'Deployments web and api, each with a Service. Ingress shop sends shop.example.com/ to web and /api to api.',
@@ -50,7 +50,7 @@ const content: LessonContent = {
     avoidWhen: ['Non-HTTP traffic: use a LoadBalancer Service', 'New setups that need advanced routing: consider the Gateway API'],
   },
   applications: [
-    'ingress-nginx serving shop.example.com with paths to several Services',
+    'Traefik serving shop.example.com with paths to several Services',
     'TLS termination with a certificate from a Secret (cert-manager)',
     'kubectl describe ingress shop shows each rule and its backends',
   ],

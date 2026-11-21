@@ -14,7 +14,7 @@ const content: LessonContent = {
     'Keep-alive leaves the connection open, so the next request goes straight away. That was HTTP/1.1\'s big gain over HTTP/1.0.',
     'A connection still carries only one response at a time. If the first answer is slow, everything behind it waits, however ready it is. This is head-of-line blocking at the application level.',
     'So browsers open up to 6 connections per host and share the files between them. One slow response then blocks only its own connection. The price is more handshakes, and more connections each finding their own speed.',
-    'The numbers are round on purpose: 8000-byte files, 1000-byte segments, and a first file that takes 100 ms longer to produce. The run has no TLS, which the next lessons add. Bodies are byte counts, and pipelining is left out because browsers never used it. To see this on a real machine, run curl -v against a site and read the headers.',
+    'The numbers are round on purpose: 8000-byte files, 1000-byte segments, and a first file that takes 100 ms longer to produce. The run has no TLS, which the next lessons add. Bodies are byte counts, and pipelining is left out because browsers turned it off: too many servers and proxies got it wrong. To see this on a real machine, run curl -v against a site and read the headers.',
   ],
   howItWorks: [
     'The browser opens a TCP connection and sends GET with its headers.',

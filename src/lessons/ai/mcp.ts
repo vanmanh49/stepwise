@@ -12,8 +12,8 @@ const content: LessonContent = {
   concept: [
     'A tool server answers JSON-RPC requests: tools/list returns each tool\'s input schema, and tools/call runs one.',
     'The 2026-07-28 revision is stateless: there is no initialize handshake, and every request carries its protocol version in _meta. A client may probe with server/discover. Older revisions opened each session with initialize.',
-    'Protocol errors use JSON-RPC codes: -32601 for an unknown method, -32602 for an unknown tool or arguments that fail the schema.',
-    'A tool that runs and fails returns a normal result marked isError, so the model can read it and try again. Real MCP runs over stdio or HTTP; here a function call stands in.',
+    'Protocol errors use JSON-RPC codes: -32601 for an unknown method, -32602 for an unknown tool or a malformed request.',
+    'Arguments that fail the input schema, and a tool that runs and fails, both return a normal result marked isError, so the model can read it and try again. Real MCP runs over stdio or HTTP; here a function call stands in.',
   ],
   howItWorks: [
     'Optionally probe the server with server/discover.',
@@ -62,9 +62,9 @@ const content: LessonContent = {
       type: 'predict-next',
       prompt: 'The client now calls add with { "a": 17, "b": "twenty" }. What does the server reply?',
       view: listed.view,
-      options: ['A JSON-RPC error -32602: the arguments fail the schema', 'A result with 37', 'A result marked isError', 'Error -32601: method not found'],
+      options: ['A result marked isError: b must be a number', 'A result with 37', 'A JSON-RPC error -32602: invalid params', 'Error -32601: method not found'],
       answer: 0,
-      explanation: 'b must be a number, so the request\'s parameters are invalid. The server rejects it before running the tool.',
+      explanation: 'b must be a number, so the tool doesn\'t run. The server answers with a result marked isError, which the model can read, and not a protocol error, which only the client would see.',
     },
     {
       id: 'q2',
@@ -95,7 +95,7 @@ const content: LessonContent = {
   summary: [
     'MCP lets any client list and call any server\'s tools over JSON-RPC.',
     'Tools carry input schemas; the current revision needs no handshake.',
-    '-32601 is an unknown method, -32602 bad params; tool failures are isError results.',
+    '-32601 is an unknown method and -32602 an unknown tool; bad arguments and tool failures are isError results.',
     'An agent can only use the tools a server offers.',
   ],
 };
