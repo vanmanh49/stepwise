@@ -8,12 +8,14 @@
     <title>Stepwise — Learn How Software Works, Step by Step</title>
     <script>
       // Apply the saved theme before first paint to avoid a flash.
+      // Anything but a saved 'light' or 'dark' follows the system, as in src/store/theme.ts.
+      var t = null;
       try {
-        var t = localStorage.getItem('dsa-theme');
-        if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.add('dark');
-        }
+        t = localStorage.getItem('dsa-theme');
       } catch (e) {}
+      if (t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
     </script>
   </head>
   <body>
