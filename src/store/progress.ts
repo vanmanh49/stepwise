@@ -145,7 +145,8 @@ function persistedStore() {
         },
         removeItem: (name) => localStorage.removeItem(name),
       })),
-      merge: (persisted, current) => ({ ...current, ...sanitizeProgress(persisted) }),
+      // Stored data without a currentLesson (as after a reset) has none, so don't keep this tab's.
+      merge: (persisted, current) => ({ ...current, currentLesson: undefined, ...sanitizeProgress(persisted) }),
     }),
   );
   // Each save writes the whole state, so a tab must reload what another tab saved before its own next save erases it.

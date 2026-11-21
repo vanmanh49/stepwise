@@ -229,6 +229,13 @@ function LessonBody({ lesson }: { lesson: Lesson }) {
     visit(lesson.id);
   }, [lesson, visit]);
 
+  // A link to a section (…/bubble-sort/#practice) arrives before the content does, so the browser
+  // can't scroll to it on load. Do it once the sections exist.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView();
+  }, []);
+
   // Fetch the next lesson in the background so "Next lesson" opens without waiting.
   useEffect(() => {
     if (next) loadLesson(next.id).catch(() => {});

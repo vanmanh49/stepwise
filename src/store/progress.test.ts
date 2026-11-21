@@ -210,6 +210,30 @@ describe('another tab', () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it('forgets its last lesson when another tab resets progress', async () => {
+    vi.resetModules();
+    const saved = new Map<string, string>();
+    const localStorage = {
+      getItem: (key: string) => saved.get(key) ?? null,
+      setItem: (key: string, value: string) => saved.set(key, value),
+      removeItem: (key: string) => saved.delete(key),
+    };
+    const window = Object.assign(new EventTarget(), { localStorage });
+    vi.stubGlobal('localStorage', localStorage);
+    vi.stubGlobal('window', window);
+    try {
+      const { useProgress: fresh } = await import('./progress');
+      fresh.getState().visit('array');
+      // A reset saves no currentLesson at all: JSON drops undefined.
+      saved.set('dsa-progress', JSON.stringify({ state: { ...emptyProgress, currentLesson: undefined }, version: 1 }));
+      window.dispatchEvent(Object.assign(new Event('storage'), { key: 'dsa-progress' }));
+      await vi.waitFor(() => expect(fresh.getState().activeDays).toEqual([]));
+      expect(fresh.getState().currentLesson).toBeUndefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe('countDone', () => {
