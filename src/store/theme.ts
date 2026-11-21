@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type ThemeMode = 'light' | 'dark' | 'system';
+type ThemeMode = 'light' | 'dark' | 'system';
 
 export const NEXT_THEME: Record<ThemeMode, ThemeMode> = { light: 'dark', dark: 'system', system: 'light' };
 
