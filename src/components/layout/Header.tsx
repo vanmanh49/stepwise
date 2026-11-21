@@ -1,7 +1,7 @@
-import { Moon, Search, Sun } from 'lucide-react';
+import { Monitor, Moon, Search, Sun } from 'lucide-react';
 import { Link, NavLink } from 'react-router';
 import { CATEGORIES, CATEGORY_TITLE } from '../../lessons/labels';
-import { useTheme } from '../../store/theme';
+import { NEXT_THEME, useTheme } from '../../store/theme';
 import { Button, IconButton } from '../ui/Button';
 
 const links = [
@@ -10,8 +10,11 @@ const links = [
   { to: '/dashboard', label: 'Progress' },
 ];
 
+const THEME_ICON = { light: Sun, dark: Moon, system: Monitor };
+const THEME_NAME = { light: 'light', dark: 'dark', system: 'same as your device' };
+
 export function Header({ onSearch }: { onSearch(): void }) {
-  const { theme, toggle } = useTheme();
+  const { mode, cycle } = useTheme();
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-bg/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-[1400px] items-center gap-2 px-4 sm:px-6">
@@ -45,7 +48,12 @@ export function Header({ onSearch }: { onSearch(): void }) {
               Ctrl K
             </kbd>
           </Button>
-          <IconButton icon={theme === 'dark' ? Sun : Moon} label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggle} />
+          <IconButton
+            icon={THEME_ICON[mode]}
+            label={`Theme: ${THEME_NAME[mode]}. Click for ${THEME_NAME[NEXT_THEME[mode]]}`}
+            onClick={cycle}
+            tooltip
+          />
         </div>
       </div>
       <nav aria-label="Sections" className="flex gap-1 overflow-x-auto border-t border-border px-3 [scrollbar-width:none] xl:hidden">
