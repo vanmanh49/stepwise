@@ -66,7 +66,7 @@ export function tokenize(sql: string): Token[] {
       let value = '';
       pos++;
       for (;;) {
-        if (pos >= sql.length || sql[pos] === '\n') {
+        if (pos >= sql.length) {
           fail(ch === "'" ? 'This string is missing its closing quote.' : 'This name is missing its closing quote.', start);
         }
         if (sql[pos] === ch) {
@@ -82,6 +82,13 @@ export function tokenize(sql: string): Token[] {
         pos++;
       }
       push(ch === "'" ? 'string' : 'identifier', start, pos, value);
+      // SQLite allows line breaks inside quotes; count them only now, so the token keeps its own line.
+      for (let i = start; i < pos; i++) {
+        if (sql[i] === '\n') {
+          line++;
+          lineStart = i + 1;
+        }
+      }
       continue;
     }
     const number = NUMBER.exec(rest);

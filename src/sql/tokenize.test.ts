@@ -55,6 +55,12 @@ describe('tokenize', () => {
     expect(second).toMatchObject({ start: 3, end: 5 });
   });
 
+  it('keeps line breaks inside a string, as SQLite does, and counts the lines after it', () => {
+    const tokens = tokenize("SELECT 'one\ntwo',\n  x");
+    expect(tokens[1]).toMatchObject({ kind: 'string', value: 'one\ntwo', line: 1, column: 8 });
+    expect(tokens[3]).toMatchObject({ value: 'x', line: 3, column: 3 });
+  });
+
   it('rejects an unterminated string at its opening quote', () => {
     const error = failure("SELECT\n  'abc");
     expect(error.message).toBe('This string is missing its closing quote.');
